@@ -23,9 +23,21 @@ func TestInMemoryUserRepo_Create(t *testing.T) {
 				}
 			}
 
-			_, err := repo.Create(tt.email, "username", "hash")
+			user, err := repo.Create(tt.email, "username", "hash")
 			if err != tt.wantErr {
 				t.Errorf("Create(%q) error = %v, want %v", tt.email, err, tt.wantErr)
+				return
+			}
+			if err == nil {
+				if user.Role != "user" {
+					t.Errorf("Create(%q) role = %q, want %q", tt.email, user.Role, "user")
+				}
+				if user.CreatedAt.IsZero() || !user.CreatedAt.Equal(user.UpdatedAt) {
+					t.Errorf("Create(%q) timestamps должны быть заданы одинаково", tt.email)
+				}
+				if user.BirthDate != nil {
+					t.Errorf("Create(%q) birth date должен быть пустым", tt.email)
+				}
 			}
 		})
 	}
