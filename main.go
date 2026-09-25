@@ -1,13 +1,35 @@
 package main
 
 import (
+	"context"
+	"errors"
+	"flag"
+	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"kinopoisk-auth/auth"
+	"kinopoisk-auth/config"
 )
 
 func main() {
+	configPath := flag.String("config", "configs/config.yaml", "путь к файлу конфигурации")
+	flag.Parse()
+
+	if err := run(*configPath); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func run(configPath string) error {
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		return fmt.Errorf("конфигурация: %w", err)
+	}
+
 	// main.go только "собирает" модули вместе — сам не содержит
 	// бизнес-логики.
 	repo := auth.NewInMemoryUserRepo()
@@ -23,8 +45,40 @@ func main() {
 
 	withCORSHandler := withCORS(mux)
 
-	log.Println("сервер запущен на :8080")
-	log.Fatal(http.ListenAndServe(":8080", withCORSHandler))
+	server := &http.Server{
+		Addr:         cfg.Server.Addr(),
+		Handler:      withCORSHandler,
+		ReadTimeout:  cfg.Server.ReadTimeout,
+		WriteTimeout: cfg.Server.WriteTimeout,
+		IdleTimeout:  cfg.Server.IdleTimeout,
+	}
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	serverErr := make(chan error, 1)
+	go func() {
+		log.Printf("сервер запущен на %s", server.Addr)
+		serverErr <- server.ListenAndServe()
+	}()
+
+	select {
+	case err := <-serverErr:
+		if !errors.Is(err, http.ErrServerClosed) {
+			return fmt.Errorf("сервер: %w", err)
+		}
+		return nil
+	case <-ctx.Done():
+	}
+
+	log.Println("остановка сервера")
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.Server.ShutdownTimeout)
+	defer cancel()
+
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		return fmt.Errorf("остановка сервера: %w", err)
+	}
+	return nil
 }
 
 func withCORS(next http.Handler) http.Handler {
