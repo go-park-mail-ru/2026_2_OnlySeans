@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"kinopoisk-auth/auth"
+	"kinopoisk-auth/films"
 )
 
 func main() {
@@ -17,9 +18,15 @@ func main() {
 	useCase := auth.NewUseCase(repo, nil)
 	handler := auth.NewHandler(useCase)
 
+	filmsRepo, err := films.NewSeededRepo()
+	if err != nil {
+		log.Fatalf("фильмы: %v", err)
+	}
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/register", handler.Register)
 	mux.HandleFunc("/api/login", handler.Login)
+	films.NewHandler(films.NewUseCase(filmsRepo)).RegisterRoutes(mux)
 
 	withCORSHandler := withCORS(mux)
 
