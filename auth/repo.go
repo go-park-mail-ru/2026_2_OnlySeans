@@ -3,6 +3,7 @@ package auth
 import (
 	"errors"
 	"sync"
+	"time"
 )
 
 var (
@@ -18,7 +19,7 @@ type UserRepository interface {
 type InMemoryUserRepo struct {
 	mu     sync.Mutex
 	users  map[string]*User // ключ — email
-	nextID int
+	nextID int64
 }
 
 func NewInMemoryUserRepo() *InMemoryUserRepo {
@@ -36,11 +37,15 @@ func (r *InMemoryUserRepo) Create(email, username, passwordHash string) (*User, 
 		return nil, ErrUserExists
 	}
 
+	now := time.Now().UTC()
 	user := &User{
 		ID:           r.nextID,
 		Email:        email,
 		Username:     username,
 		PasswordHash: passwordHash,
+		Role:         "user",
+		CreatedAt:    now,
+		UpdatedAt:    now,
 	}
 	r.users[email] = user
 	r.nextID++

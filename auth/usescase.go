@@ -60,7 +60,7 @@ func ValidatePassword(password string) error {
 }
 
 type SessionIssuer interface {
-	IssueSession(userID int) (string, error)
+	IssueSession(userID int64) (string, error)
 }
 
 type AuthResult struct {
