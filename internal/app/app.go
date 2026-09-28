@@ -1,37 +1,26 @@
-package main
+package app
 
 import (
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
-	"kinopoisk-auth/auth"
-	"kinopoisk-auth/config"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/auth"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/config"
 )
 
-func main() {
-	configPath := flag.String("config", "configs/config.yaml", "путь к файлу конфигурации")
-	flag.Parse()
-
-	if err := run(*configPath); err != nil {
-		log.Fatal(err)
-	}
-}
-
-func run(configPath string) error {
+func Run(configPath string) error {
 	cfg, err := config.Load(configPath)
 	if err != nil {
-		return fmt.Errorf("конфигурация: %w", err)
+		return fmt.Errorf("load config: %w", err)
 	}
 
-	// main.go только "собирает" модули вместе — сам не содержит
-	// бизнес-логики.
 	repo := auth.NewInMemoryUserRepo()
 	// Session = nil — модуль сессий/токенов (куки) делает другой
 	// человек в команде. Когда он реализует auth.SessionIssuer,
@@ -43,40 +32,42 @@ func run(configPath string) error {
 	mux.HandleFunc("/api/register", handler.Register)
 	mux.HandleFunc("/api/login", handler.Login)
 
-	withCORSHandler := withCORS(mux)
-
 	server := &http.Server{
 		Addr:         cfg.Server.Addr(),
-		Handler:      withCORSHandler,
+		Handler:      withCORS(mux),
 		ReadTimeout:  cfg.Server.ReadTimeout,
 		WriteTimeout: cfg.Server.WriteTimeout,
 		IdleTimeout:  cfg.Server.IdleTimeout,
 	}
 
+	return serve(server, cfg.Server.ShutdownTimeout)
+}
+
+func serve(server *http.Server, shutdownTimeout time.Duration) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	serverErr := make(chan error, 1)
 	go func() {
-		log.Printf("сервер запущен на %s", server.Addr)
+		log.Printf("server started on %s", server.Addr)
 		serverErr <- server.ListenAndServe()
 	}()
 
 	select {
 	case err := <-serverErr:
 		if !errors.Is(err, http.ErrServerClosed) {
-			return fmt.Errorf("сервер: %w", err)
+			return fmt.Errorf("server: %w", err)
 		}
 		return nil
 	case <-ctx.Done():
 	}
 
-	log.Println("остановка сервера")
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.Server.ShutdownTimeout)
+	log.Println("shutting down server")
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()
 
 	if err := server.Shutdown(shutdownCtx); err != nil {
-		return fmt.Errorf("остановка сервера: %w", err)
+		return fmt.Errorf("shutdown server: %w", err)
 	}
 	return nil
 }
