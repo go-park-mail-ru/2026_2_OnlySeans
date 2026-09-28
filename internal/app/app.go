@@ -11,8 +11,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/gorilla/mux"
+
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/auth"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/config"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/films"
 )
 
 func Run(configPath string) error {
@@ -28,13 +31,19 @@ func Run(configPath string) error {
 	useCase := auth.NewUseCase(repo, nil)
 	handler := auth.NewHandler(useCase)
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/api/register", handler.Register)
-	mux.HandleFunc("/api/login", handler.Login)
+	filmsService, err := films.NewSeededService()
+	if err != nil {
+		return fmt.Errorf("seed films: %w", err)
+	}
+
+	router := mux.NewRouter()
+	router.HandleFunc("/api/register", handler.Register)
+	router.HandleFunc("/api/login", handler.Login)
+	films.NewHandler(filmsService).RegisterRoutes(router)
 
 	server := &http.Server{
 		Addr:         cfg.Server.Addr(),
-		Handler:      withCORS(mux),
+		Handler:      withCORS(router),
 		ReadTimeout:  cfg.Server.ReadTimeout,
 		WriteTimeout: cfg.Server.WriteTimeout,
 		IdleTimeout:  cfg.Server.IdleTimeout,
