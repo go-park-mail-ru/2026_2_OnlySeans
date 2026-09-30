@@ -43,7 +43,7 @@ func TestHandler_Register(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := NewHandler(NewUseCase(NewInMemoryUserRepo(), nil))
+			h := newTestHandler(t)
 
 			status, body := doRequest(t, h.Register, registerRequest{
 				Email: tt.email, Username: tt.username, Password: tt.password,
@@ -55,8 +55,17 @@ func TestHandler_Register(t *testing.T) {
 	}
 }
 
+func newTestHandler(t *testing.T) *Handler {
+	t.Helper()
+	h, err := NewHandler(newTestUseCase(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return h
+}
+
 func TestHandler_Register_DuplicateEmail(t *testing.T) {
-	h := NewHandler(NewUseCase(NewInMemoryUserRepo(), nil))
+	h := newTestHandler(t)
 	req := registerRequest{Email: "dup@example.com", Username: "first", Password: "Password1"}
 
 	status, _ := doRequest(t, h.Register, req)
@@ -71,7 +80,7 @@ func TestHandler_Register_DuplicateEmail(t *testing.T) {
 }
 
 func TestHandler_Login(t *testing.T) {
-	h := NewHandler(NewUseCase(NewInMemoryUserRepo(), nil))
+	h := newTestHandler(t)
 	status, _ := doRequest(t, h.Register, registerRequest{Email: "login@example.com", Username: "loginuser", Password: "Password1"})
 	if status != http.StatusCreated {
 		t.Fatalf("не удалось подготовить пользователя: статус %d", status)
@@ -95,5 +104,64 @@ func TestHandler_Login(t *testing.T) {
 				t.Errorf("статус = %d, ожидали %d (тело: %v)", status, tt.wantStatus, body)
 			}
 		})
+	}
+}
+
+func TestNewHandler_NilUseCase(t *testing.T) {
+	h, err := NewHandler(nil)
+	if h != nil || err != ErrNilUseCase {
+		t.Errorf("got (%v, %v), want (nil, %v)", h, err, ErrNilUseCase)
+	}
+}
+
+func TestHandler_SessionFlow(t *testing.T) {
+	h := newTestHandler(t)
+
+	raw, err := json.Marshal(registerRequest{Email: "flow@example.com", Username: "flowuser", Password: "Password1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec := httptest.NewRecorder()
+	h.Register(rec, httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(raw)))
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("регистрация: статус = %d", rec.Code)
+	}
+
+	cookies := rec.Result().Cookies()
+	if len(cookies) != 1 || cookies[0].Name != sessionCookieName || cookies[0].Value == "" {
+		t.Fatalf("ожидали одну куку %q, получили %v", sessionCookieName, cookies)
+	}
+	cookie := cookies[0]
+	if !cookie.HttpOnly {
+		t.Error("кука должна быть HttpOnly")
+	}
+
+	callMe := func(c *http.Cookie) int {
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		if c != nil {
+			req.AddCookie(c)
+		}
+		rec := httptest.NewRecorder()
+		h.RequireAuth(h.Me)(rec, req)
+		return rec.Code
+	}
+
+	if got := callMe(nil); got != http.StatusUnauthorized {
+		t.Errorf("/me без куки: статус = %d, ожидали %d", got, http.StatusUnauthorized)
+	}
+	if got := callMe(cookie); got != http.StatusOK {
+		t.Errorf("/me с кукой: статус = %d, ожидали %d", got, http.StatusOK)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/", nil)
+	req.AddCookie(cookie)
+	rec = httptest.NewRecorder()
+	h.Logout(rec, req)
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("logout: статус = %d, ожидали %d", rec.Code, http.StatusNoContent)
+	}
+
+	if got := callMe(cookie); got != http.StatusUnauthorized {
+		t.Errorf("/me после logout: статус = %d, ожидали %d", got, http.StatusUnauthorized)
 	}
 }

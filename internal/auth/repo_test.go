@@ -1,8 +1,12 @@
 package auth
 
-import "testing"
+import (
+	"context"
+	"testing"
+)
 
 func TestInMemoryUserRepo_Create(t *testing.T) {
+	ctx := context.Background()
 	tests := []struct {
 		name         string
 		existingUser string
@@ -18,12 +22,12 @@ func TestInMemoryUserRepo_Create(t *testing.T) {
 			repo := NewInMemoryUserRepo()
 
 			if tt.existingUser != "" {
-				if _, err := repo.Create(tt.existingUser, "existing", "hash"); err != nil {
+				if _, err := repo.Create(ctx, tt.existingUser, "existing", "hash"); err != nil {
 					t.Fatalf("не удалось подготовить существующего пользователя: %v", err)
 				}
 			}
 
-			_, err := repo.Create(tt.email, "username", "hash")
+			_, err := repo.Create(ctx, tt.email, "username", "hash")
 			if err != tt.wantErr {
 				t.Errorf("Create(%q) error = %v, want %v", tt.email, err, tt.wantErr)
 			}
@@ -31,9 +35,11 @@ func TestInMemoryUserRepo_Create(t *testing.T) {
 	}
 }
 
-func TestInMemoryUserRepo_FindByEmail(t *testing.T) {
+func TestInMemoryUserRepo_GetByEmail(t *testing.T) {
 	repo := NewInMemoryUserRepo()
-	created, err := repo.Create("find@example.com", "finduser", "hash123")
+	ctx := context.Background()
+
+	createdID, err := repo.Create(ctx, "find@example.com", "finduser", "hash123")
 	if err != nil {
 		t.Fatalf("не удалось создать пользователя для теста: %v", err)
 	}
@@ -49,12 +55,12 @@ func TestInMemoryUserRepo_FindByEmail(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			user, err := repo.FindByEmail(tt.email)
+			user, err := repo.GetByEmail(ctx, tt.email)
 			if err != tt.wantErr {
-				t.Fatalf("FindByEmail(%q) error = %v, want %v", tt.email, err, tt.wantErr)
+				t.Fatalf("GetEmail(%q) error = %v, want %v", tt.email, err, tt.wantErr)
 			}
-			if err == nil && user.ID != created.ID {
-				t.Errorf("FindByEmail вернул пользователя с ID %d, ожидали %d", user.ID, created.ID)
+			if err == nil && user.ID != createdID {
+				t.Errorf("GetEmail вернул пользователя с ID %d, ожидали %d", user.ID, createdID)
 			}
 		})
 	}

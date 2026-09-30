@@ -11,12 +11,13 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/gorilla/mux"
-
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/auth"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/config"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/films"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/router"
 )
+
+const sessionTTL = 24 * time.Hour
 
 func Run(configPath string) error {
 	cfg, err := config.Load(configPath)
@@ -25,25 +26,27 @@ func Run(configPath string) error {
 	}
 
 	repo := auth.NewInMemoryUserRepo()
-	// Session = nil — модуль сессий/токенов (куки) делает другой
-	// человек в команде. Когда он реализует auth.SessionIssuer,
-	// достаточно будет передать реализацию сюда вторым аргументом.
-	useCase := auth.NewUseCase(repo, nil)
-	handler := auth.NewHandler(useCase)
+	sessions := auth.NewInMemorySessionStore(sessionTTL)
+
+	useCase, err := auth.NewUseCase(repo, sessions)
+	if err != nil {
+		return fmt.Errorf("create usecase: %w", err)
+	}
+	handler, err := auth.NewHandler(useCase)
+	if err != nil {
+		return fmt.Errorf("create handler: %w", err)
+	}
 
 	filmsService, err := films.NewSeededService()
 	if err != nil {
 		return fmt.Errorf("seed films: %w", err)
 	}
 
-	router := mux.NewRouter()
-	router.HandleFunc("/api/register", handler.Register)
-	router.HandleFunc("/api/login", handler.Login)
-	films.NewHandler(filmsService).RegisterRoutes(router)
+	httpHandler := router.NewRouter(handler, films.NewHandler(filmsService), cfg.Server.AllowedOrigin)
 
 	server := &http.Server{
 		Addr:         cfg.Server.Addr(),
-		Handler:      withCORS(router),
+		Handler:      httpHandler,
 		ReadTimeout:  cfg.Server.ReadTimeout,
 		WriteTimeout: cfg.Server.WriteTimeout,
 		IdleTimeout:  cfg.Server.IdleTimeout,
@@ -67,6 +70,7 @@ func serve(server *http.Server, shutdownTimeout time.Duration) error {
 		if !errors.Is(err, http.ErrServerClosed) {
 			return fmt.Errorf("server: %w", err)
 		}
+
 		return nil
 	case <-ctx.Done():
 	}
@@ -78,18 +82,6 @@ func serve(server *http.Server, shutdownTimeout time.Duration) error {
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		return fmt.Errorf("shutdown server: %w", err)
 	}
-	return nil
-}
 
-func withCORS(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusOK)
-			return
-		}
-		next.ServeHTTP(w, r)
-	})
+	return nil
 }

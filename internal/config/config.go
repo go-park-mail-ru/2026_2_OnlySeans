@@ -31,6 +31,7 @@ const (
 	defaultWriteTimeout    = 10 * time.Second
 	defaultIdleTimeout     = 60 * time.Second
 	defaultShutdownTimeout = 10 * time.Second
+	defaultAllowedOrigin   = "http://127.0.0.1:5500"
 )
 
 type Config struct {
@@ -40,6 +41,7 @@ type Config struct {
 type Server struct {
 	Host            string        `yaml:"host"`
 	Port            int           `yaml:"port"`
+	AllowedOrigin   string        `yaml:"allowed_origin"`
 	ReadTimeout     time.Duration `yaml:"read_timeout"`
 	WriteTimeout    time.Duration `yaml:"write_timeout"`
 	IdleTimeout     time.Duration `yaml:"idle_timeout"`
@@ -55,6 +57,7 @@ func Default() *Config {
 		Server: Server{
 			Host:            defaultHost,
 			Port:            defaultPort,
+			AllowedOrigin:   defaultAllowedOrigin,
 			ReadTimeout:     defaultReadTimeout,
 			WriteTimeout:    defaultWriteTimeout,
 			IdleTimeout:     defaultIdleTimeout,
@@ -109,6 +112,11 @@ func (c *Config) Validate() error {
 	if strings.TrimSpace(c.Server.Host) == "" {
 		errs = append(errs, errors.New("server.host is required"))
 	}
+
+	if strings.TrimSpace(c.Server.AllowedOrigin) == "" {
+		errs = append(errs, errors.New("server.allowed_origin is required"))
+	}
+
 	if c.Server.Port < MinPort || c.Server.Port > MaxPort {
 		errs = append(errs, fmt.Errorf("server.port must be between %d and %d, got %d", MinPort, MaxPort, c.Server.Port))
 	}

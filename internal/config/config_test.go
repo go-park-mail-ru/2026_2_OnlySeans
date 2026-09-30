@@ -37,6 +37,7 @@ server:
 			want: Server{
 				Host:            "localhost",
 				Port:            9000,
+				AllowedOrigin:   defaults.AllowedOrigin,
 				ReadTimeout:     time.Second,
 				WriteTimeout:    2 * time.Second,
 				IdleTimeout:     3 * time.Second,
@@ -54,6 +55,7 @@ server:
 			want: Server{
 				Host:            defaults.Host,
 				Port:            9000,
+				AllowedOrigin:   defaults.AllowedOrigin,
 				ReadTimeout:     defaults.ReadTimeout,
 				WriteTimeout:    defaults.WriteTimeout,
 				IdleTimeout:     defaults.IdleTimeout,
@@ -70,6 +72,7 @@ server:
 			want: Server{
 				Host:            "127.0.0.1",
 				Port:            8081,
+				AllowedOrigin:   defaults.AllowedOrigin,
 				ReadTimeout:     defaults.ReadTimeout,
 				WriteTimeout:    defaults.WriteTimeout,
 				IdleTimeout:     defaults.IdleTimeout,
@@ -132,6 +135,10 @@ func TestParse_Errors(t *testing.T) {
 		{
 			name: "env port out of range",
 			env:  map[string]string{EnvServerPort: "0"},
+		},
+		{
+			name: "empty allowed origin",
+			raw:  "server:\n  allowed_origin: \"\"\n",
 		},
 	}
 

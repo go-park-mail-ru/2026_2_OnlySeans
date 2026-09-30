@@ -1,59 +1,74 @@
 package auth
 
 import (
-	"errors"
+	"context"
 	"sync"
 )
 
-var (
-	ErrUserExists   = errors.New("пользователь с таким email уже существует")
-	ErrUserNotFound = errors.New("пользователь не найден")
-)
-
 type UserRepository interface {
-	Create(email, username, passwordHash string) (*User, error)
-	FindByEmail(email string) (*User, error)
+	Create(ctx context.Context, email, username, passwordHash string) (UserID, error)
+	GetByEmail(ctx context.Context, email string) (*User, error)
+	GetUser(ctx context.Context, id UserID) (*User, error)
 }
 
 type InMemoryUserRepo struct {
-	mu     sync.Mutex
-	users  map[string]*User // ключ — email
-	nextID int
+	mu      sync.Mutex
+	byEmail map[string]*User
+	byID    map[int]*User
+	nextID  int
 }
 
 func NewInMemoryUserRepo() *InMemoryUserRepo {
 	return &InMemoryUserRepo{
-		users:  make(map[string]*User),
-		nextID: 1,
+		byEmail: make(map[string]*User),
+		byID:    make(map[int]*User),
+		nextID:  1,
 	}
 }
 
-func (r *InMemoryUserRepo) Create(email, username, passwordHash string) (*User, error) {
+func (r *InMemoryUserRepo) Create(ctx context.Context, email, username, passwordHash string) (UserID, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if _, exists := r.users[email]; exists {
-		return nil, ErrUserExists
+	if _, exists := r.byEmail[email]; exists {
+		return 0, ErrUserExists
 	}
 
+	id := UserID(r.nextID)
 	user := &User{
-		ID:           r.nextID,
+		ID:           id,
 		Email:        email,
 		Username:     username,
 		PasswordHash: passwordHash,
 	}
-	r.users[email] = user
+
+	r.byEmail[email] = user
+	r.byID[int(id)] = user
 	r.nextID++
-	return user, nil
+
+	return id, nil
 }
 
-func (r *InMemoryUserRepo) FindByEmail(email string) (*User, error) {
+func (r *InMemoryUserRepo) GetByEmail(ctx context.Context, email string) (*User, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	user, exists := r.users[email]
+	user, exists := r.byEmail[email]
 	if !exists {
 		return nil, ErrUserNotFound
 	}
+
+	return user, nil
+}
+
+func (r *InMemoryUserRepo) GetUser(ctx context.Context, id UserID) (*User, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	user, exists := r.byID[int(id)]
+	if !exists {
+		return nil, ErrUserNotFound
+	}
+
 	return user, nil
 }

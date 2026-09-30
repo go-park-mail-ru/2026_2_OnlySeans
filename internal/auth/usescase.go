@@ -1,61 +1,78 @@
 package auth
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"regexp"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"golang.org/x/crypto/bcrypt"
 )
 
-var (
-	ErrInvalidCredentials = errors.New("неверный email или пароль")
-	ErrInternal           = errors.New("внутренняя ошибка сервера")
+const (
+	minUsernameLen = 2
+	maxUsernameLen = 32
+	minPasswordLen = 8
 )
 
 var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
 
 func ValidateEmail(email string) error {
 	email = strings.TrimSpace(email)
+
 	if email == "" {
-		return errors.New("email обязателен")
+		return fmt.Errorf("%w: email is required", ErrInvalidEmail)
 	}
+
 	if !emailRegex.MatchString(email) {
-		return errors.New("некорректный формат email")
+		return fmt.Errorf("%w: invalid format", ErrInvalidEmail)
 	}
+
 	return nil
 }
 
 func ValidateUsername(username string) error {
 	username = strings.TrimSpace(username)
-	if len(username) < 3 {
-		return errors.New("имя пользователя должно быть не короче 3 символов")
+	lenUserName := utf8.RuneCountInString(username)
+
+	if lenUserName < minUsernameLen {
+		return fmt.Errorf("%w: no shorter than %d characters", ErrInvalidUsername, minUsernameLen)
 	}
-	if len(username) > 32 {
-		return errors.New("имя пользователя слишком длинное (максимум 32 символа)")
+
+	if lenUserName > maxUsernameLen {
+		return fmt.Errorf("%w: name is too, longmaximum %d characters", ErrInvalidUsername, maxUsernameLen)
 	}
+
 	return nil
 }
 
 func ValidatePassword(password string) error {
-	if len(password) < 8 {
-		return errors.New("пароль должен быть не короче 8 символов")
+	if len(password) < minPasswordLen {
+		return fmt.Errorf("%w: no shorter than %d characters", ErrInvalidPassword, minPasswordLen)
 	}
+
 	var hasUpper, hasDigit bool
+
 	for _, r := range password {
 		switch {
-		case r >= 'A' && r <= 'Z':
+		case unicode.IsUpper(r):
 			hasUpper = true
-		case r >= '0' && r <= '9':
+		case unicode.IsDigit(r):
 			hasDigit = true
 		}
 	}
+
 	if !hasUpper {
-		return errors.New("пароль должен содержать хотя бы одну заглавную букву")
+		return fmt.Errorf("%w: at least one capital letter is required", ErrInvalidPassword)
 	}
+
 	if !hasDigit {
-		return errors.New("пароль должен содержать хотя бы одну цифру")
+		return fmt.Errorf("%w: at least one number is needed", ErrInvalidPassword)
 	}
+
 	return nil
 }
 
@@ -64,26 +81,36 @@ type SessionIssuer interface {
 }
 
 type AuthResult struct {
-	User  *User
-	Token string // пусто, пока Session == nil
+	User    *User
+	Session *Session
 }
 
 type UseCase struct {
-	Repo    UserRepository
-	Session SessionIssuer
+	Repo     UserRepository
+	Sessions SessionStore
 }
 
-func NewUseCase(repo UserRepository, session SessionIssuer) *UseCase {
-	return &UseCase{Repo: repo, Session: session}
+func NewUseCase(repo UserRepository, sessions SessionStore) (*UseCase, error) {
+	if repo == nil {
+		return nil, ErrNilRepo
+	}
+
+	if sessions == nil {
+		return nil, ErrNilSessionStore
+	}
+
+	return &UseCase{Repo: repo, Sessions: sessions}, nil
 }
 
-func (uc *UseCase) Register(email, username, password string) (*AuthResult, error) {
+func (uc *UseCase) Register(ctx context.Context, email, username, password string) (*AuthResult, error) {
 	if err := ValidateEmail(email); err != nil {
 		return nil, err
 	}
+
 	if err := ValidateUsername(username); err != nil {
 		return nil, err
 	}
+
 	if err := ValidatePassword(password); err != nil {
 		return nil, err
 	}
@@ -93,23 +120,33 @@ func (uc *UseCase) Register(email, username, password string) (*AuthResult, erro
 		return nil, ErrInternal
 	}
 
-	user, err := uc.Repo.Create(email, username, string(hash))
+	userID, err := uc.Repo.Create(ctx, email, username, string(hash))
 	if err != nil {
-		return nil, err // тут будет ErrUserExists из repo.go
+		if errors.Is(err, ErrUserExists) {
+			return nil, ErrUserExists
+		}
+
+		return nil, ErrInternal
+	}
+
+	user, err := uc.Repo.GetUser(ctx, userID)
+	if err != nil {
+		return nil, ErrInternal
 	}
 
 	return uc.buildResult(user)
 }
 
-func (uc *UseCase) Login(email, password string) (*AuthResult, error) {
+func (uc *UseCase) Login(ctx context.Context, email, password string) (*AuthResult, error) {
 	if err := ValidateEmail(email); err != nil {
 		return nil, err
 	}
+
 	if password == "" {
-		return nil, errors.New("пароль обязателен")
+		return nil, fmt.Errorf("%w: password required", ErrInvalidPassword)
 	}
 
-	user, err := uc.Repo.FindByEmail(email)
+	user, err := uc.Repo.GetByEmail(ctx, email)
 	if err != nil {
 		return nil, ErrInvalidCredentials
 	}
@@ -122,11 +159,40 @@ func (uc *UseCase) Login(email, password string) (*AuthResult, error) {
 }
 
 func (uc *UseCase) buildResult(user *User) (*AuthResult, error) {
-	result := &AuthResult{User: user}
-	if uc.Session != nil {
-		if token, err := uc.Session.IssueSession(user.ID); err == nil {
-			result.Token = token
-		}
+	session, err := uc.Sessions.Create(user.ID)
+	if err != nil {
+		return nil, ErrInternal
 	}
-	return result, nil
+
+	return &AuthResult{User: user, Session: session}, nil
+}
+
+func (uc *UseCase) Logout(sessionID string) error {
+	if err := uc.Sessions.Delete(sessionID); err != nil {
+		return ErrInternal
+	}
+
+	return nil
+}
+
+func (uc *UseCase) Authenticate(ctx context.Context, sessionID string) (*User, error) {
+	session, err := uc.Sessions.Get(sessionID)
+	if err != nil {
+		if errors.Is(err, ErrSessionNotFound) {
+			return nil, ErrUnauthorized
+		}
+
+		return nil, ErrInternal
+	}
+
+	user, err := uc.Repo.GetUser(context.Background(), session.UserID)
+	if err != nil {
+		if errors.Is(err, ErrUserNotFound) {
+			_ = uc.Sessions.Delete(sessionID)
+			return nil, ErrUnauthorized
+		}
+
+		return nil, ErrInternal
+	}
+	return user, nil
 }

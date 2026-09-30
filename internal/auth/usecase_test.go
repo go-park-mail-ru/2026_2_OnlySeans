@@ -1,6 +1,10 @@
 package auth
 
-import "testing"
+import (
+	"context"
+	"testing"
+	"time"
+)
 
 func TestValidateEmail(t *testing.T) {
 	tests := []struct {
@@ -31,8 +35,8 @@ func TestValidateUsername(t *testing.T) {
 		wantErr  bool
 	}{
 		{"валидное имя", "svetlana", false},
-		{"минимальная длина", "abc", false},
-		{"слишком короткое", "ab", true},
+		{"минимальная длина", "ab", false},
+		{"слишком короткое", "a", true},
 		{"пустая строка", "", true},
 		{"слишком длинное (33 символа)", "abcdefghijklmnopqrstuvwxyz1234567", true},
 	}
@@ -80,8 +84,8 @@ func TestUseCase_Register(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			uc := NewUseCase(NewInMemoryUserRepo(), nil)
-			_, err := uc.Register(tt.email, tt.username, tt.password)
+			uc := newTestUseCase(t)
+			_, err := uc.Register(context.Background(), tt.email, tt.username, tt.password)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Register(%q, %q, %q) error = %v, wantErr %v", tt.email, tt.username, tt.password, err, tt.wantErr)
@@ -91,21 +95,24 @@ func TestUseCase_Register(t *testing.T) {
 }
 
 func TestUseCase_Register_DuplicateEmail(t *testing.T) {
-	uc := NewUseCase(NewInMemoryUserRepo(), nil)
+	uc := newTestUseCase(t)
+	ctx := context.Background()
 
-	if _, err := uc.Register("dup@example.com", "first", "Password1"); err != nil {
+	if _, err := uc.Register(ctx, "dup@example.com", "first", "Password1"); err != nil {
 		t.Fatalf("первая регистрация не должна была упасть: %v", err)
 	}
 
-	_, err := uc.Register("dup@example.com", "second", "Password1")
+	_, err := uc.Register(ctx, "dup@example.com", "second", "Password1")
 	if err != ErrUserExists {
 		t.Errorf("error = %v, want %v", err, ErrUserExists)
 	}
 }
 
 func TestUseCase_Login(t *testing.T) {
-	uc := NewUseCase(NewInMemoryUserRepo(), nil)
-	if _, err := uc.Register("login@example.com", "loginuser", "Password1"); err != nil {
+	uc := newTestUseCase(t)
+	ctx := context.Background()
+
+	if _, err := uc.Register(ctx, "login@example.com", "loginuser", "Password1"); err != nil {
 		t.Fatalf("не удалось подготовить пользователя: %v", err)
 	}
 
@@ -122,10 +129,35 @@ func TestUseCase_Login(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := uc.Login(tt.email, tt.password)
+			_, err := uc.Login(ctx, tt.email, tt.password)
 			if err != tt.wantErr {
 				t.Errorf("error = %v, want %v", err, tt.wantErr)
 			}
 		})
+	}
+}
+
+func newTestUseCase(t *testing.T) *UseCase {
+	t.Helper()
+
+	uc, err := NewUseCase(NewInMemoryUserRepo(), NewInMemorySessionStore(time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return uc
+}
+
+func TestNewUseCase_NilRepo(t *testing.T) {
+	uc, err := NewUseCase(nil, NewInMemorySessionStore(time.Hour))
+	if uc != nil || err != ErrNilRepo {
+		t.Errorf("got (%v, %v), want (nil, %v)", uc, err, ErrNilRepo)
+	}
+}
+
+func TestNewUseCase_NilSessionStore(t *testing.T) {
+	uc, err := NewUseCase(NewInMemoryUserRepo(), nil)
+	if uc != nil || err != ErrNilSessionStore {
+		t.Errorf("got (%v, %v), want (nil, %v)", uc, err, ErrNilSessionStore)
 	}
 }
