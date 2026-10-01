@@ -1,0 +1,1060 @@
+openapi: 3.0.3
+info:
+  title: API OnlySeans
+  version: 1.1.0
+  description: |-
+    API OnlySeans: регистрация, вход и подборки фильмов.
+servers:
+  - url: http://localhost:8080
+    description: 
+tags:
+  - name: Авторизация
+  - name: Регистрация
+  - name: Подборки
+security: []
+x-cors:
+  allowed-origin: http://127.0.0.1:5500
+  allow-credentials: true
+  allow-methods:
+    - GET
+    - POST
+    - OPTIONS
+  allow-headers:
+    - Content-Type
+  description: |-
+    Origin должен совпадать с server.allowed_origin. Тогда сервер добавляет
+    Allow-Origin, Allow-Credentials и Vary: Origin.
+    OPTIONS возвращает 204 до роутера, даже для неизвестного пути или другого Origin.
+    Запросы с другим Origin доходят до обработчика, но без разрешающих CORS-заголовков.
+x-rate-limits:
+  implementation-status: not-implemented
+  description: |-
+    Лимитов запросов пока нет. Сервер не возвращает 429 и Retry-After.
+    Предложенные значения — в API-guide.md.
+paths:
+  /api/register:
+    post:
+      tags:
+        - Регистрация
+      operationId: registerUser
+      summary: Регистрация
+      description: |-
+        Создаёт пользователя и сессию. Подтверждать почту не нужно. В ответе — user.
+        Сначала проверяются email, username и password, затем уникальность email.
+        Неизвестные JSON-поля игнорируются. Content-Type не проверяется.
+      x-implementation-status: implemented
+      security: []
+      responses:
+        '201':
+          description: Пользователь зарегистрирован.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+          headers:
+            Set-Cookie:
+              description: |-
+                Cookie session_id: Path=/; Expires; HttpOnly; SameSite=Lax.
+                Secure=false. Domain и Max-Age при выдаче не задаются.
+              schema:
+                type: string
+              example: session_id=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa; Path=/;
+                Expires=Fri, 02 Oct 2026 09:00:00 GMT; HttpOnly; SameSite=Lax
+        '400':
+          $ref: '#/components/responses/BadBody'
+        '409':
+          $ref: '#/components/responses/EmailConflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '405':
+          $ref: '#/components/responses/AuthMethodNotAllowed'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Registration'
+  /api/login:
+    post:
+      tags:
+        - Авторизация
+      operationId: loginUser
+      summary: Вход
+      description: |-
+        Проверяет email, непустой пароль и bcrypt-хеш. Создаёт новую сессию.
+        Для неизвестной почты и неверного пароля ответ одинаковый: 401.
+        Неизвестные поля игнорируются.
+      x-implementation-status: implemented
+      security: []
+      responses:
+        '200':
+          description: Вход выполнен.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+          headers:
+            Set-Cookie:
+              description: |-
+                Cookie session_id: Path=/; Expires; HttpOnly; SameSite=Lax.
+                Secure=false. Domain и Max-Age при выдаче не задаются.
+              schema:
+                type: string
+              example: session_id=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa; Path=/;
+                Expires=Fri, 02 Oct 2026 09:00:00 GMT; HttpOnly; SameSite=Lax
+        '400':
+          $ref: '#/components/responses/BadBody'
+        '401':
+          $ref: '#/components/responses/InvalidCredentials'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '405':
+          $ref: '#/components/responses/AuthMethodNotAllowed'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Credentials'
+  /api/logout:
+    post:
+      tags:
+        - Авторизация
+      operationId: logoutUser
+      summary: Выход
+      description: |-
+        Удаляет сессию из cookie session_id и очищает cookie. Тело запроса не читается.
+        Без cookie или с неизвестной сессией тоже возвращает 204. Остальные сессии остаются.
+      x-implementation-status: implemented
+      security: []
+      responses:
+        '204':
+          description: Выход выполнен. Без тела.
+          headers:
+            Set-Cookie:
+              description: |-
+                Удаляет cookie session_id: Path=/; Max-Age=0; HttpOnly; SameSite=Lax.
+                Secure задаётся через CookieSecure, сейчас false.
+              schema:
+                type: string
+              example: session_id=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '405':
+          $ref: '#/components/responses/AuthMethodNotAllowed'
+  /api/me:
+    get:
+      tags:
+        - Авторизация
+      operationId: getCurrentUser
+      summary: Текущий пользователь
+      description: |-
+        Возвращает user по cookie session_id. Срок сессии не продлевается.
+        Сессия проверяется раньше HTTP-метода: без неё даже другой метод получает 401.
+      x-implementation-status: implemented
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Текущий пользователь.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '405':
+          $ref: '#/components/responses/AuthMethodNotAllowed'
+  /api/collections:
+    get:
+      tags:
+        - Подборки
+      operationId: listCollections
+      summary: Список подборок
+      description: |-
+        Возвращает все подборки вместе с фильмами. Вход не нужен.
+        Подборки идут в порядке добавления, фильмы — в порядке внутри подборки.
+        Пагинации и проверки публикации нет. Query-параметры не читаются.
+        Поиска и выбора сортировки нет.
+      x-implementation-status: implemented
+      security: []
+      responses:
+        '200':
+          description: Список подборок с фильмами.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollectionsResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '405':
+          $ref: '#/components/responses/CollectionMethodNotAllowed'
+  /api/collections/{slug}:
+    get:
+      tags:
+        - Подборки
+      operationId: getCollectionBySlug
+      summary: Подборка по slug
+      description: |-
+        Возвращает подборку со всеми фильмами. Вход не нужен. Пагинации нет.
+        В пути передаётся slug, а не числовой id.
+        Неверный формат slug — 400, неизвестный slug с верным форматом — 404.
+      x-implementation-status: implemented
+      security: []
+      responses:
+        '200':
+          description: Подборка с фильмами.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollectionResponse'
+        '400':
+          $ref: '#/components/responses/InvalidSlug'
+        '404':
+          $ref: '#/components/responses/CollectionNotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '405':
+          $ref: '#/components/responses/CollectionMethodNotAllowed'
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          description: Slug подборки.
+          schema:
+            type: string
+            pattern: ^[a-z0-9-]{3,128}$
+            minLength: 3
+            maxLength: 128
+          example: family
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: session_id
+      description: |-
+        ID серверной сессии: 64 случайных hex-символа. Сессия действует 24 часа.
+        Браузер отправляет cookie с credentials: include. HttpOnly закрывает доступ из
+        JavaScript.
+  schemas:
+    Registration:
+      type: object
+      properties:
+        email:
+          type: string
+          description: Email проверяется по ASCII-шаблону после удаления пробелов по краям. Сохраняется
+            исходная строка.
+        username:
+          type: string
+          description: От 2 до 32 Unicode-символов после удаления пробелов по краям. Сохраняется исходная
+            строка.
+          x-trimmed-min-length: 2
+          x-trimmed-max-length: 32
+        password:
+          type: string
+          writeOnly: true
+          description: |-
+            Минимум 8 байт UTF-8, одна заглавная буква и одна цифра по Unicode-классам.
+            Пароль не меняется. Если он прошёл валидацию, но длиннее 72 байт, bcrypt вернёт
+            ошибку и сервер ответит 500.
+          x-min-utf8-bytes: 8
+          x-bcrypt-max-utf8-bytes: 72
+      required:
+        - email
+        - username
+        - password
+      example:
+        email: viewer@example.com
+        username: Кинозритель
+        password: Password1
+    Credentials:
+      type: object
+      properties:
+        email:
+          type: string
+          description: Проверяется как при регистрации. Пользователь ищется по исходной строке email.
+        password:
+          type: string
+          minLength: 1
+          writeOnly: true
+          description: Непустой пароль. Сложность при входе не проверяется.
+      required:
+        - email
+        - password
+      example:
+        email: viewer@example.com
+        password: Password1
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+        username:
+          type: string
+      required:
+        - id
+        - email
+        - username
+      example:
+        id: 1
+        email: viewer@example.com
+        username: Кинозритель
+    AuthResponse:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+      required:
+        - user
+      example:
+        user:
+          id: 1
+          email: viewer@example.com
+          username: Кинозритель
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+      example:
+        error: invalid email or password
+    Genre:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        slug:
+          type: string
+      required:
+        - id
+        - name
+        - slug
+    Film:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        title:
+          type: string
+        original_title:
+          type: string
+        film_type:
+          type: string
+          enum:
+            - movie
+            - series
+        release_year:
+          type: integer
+          format: int32
+        duration_min:
+          type: integer
+          format: int32
+        age_limit:
+          type: integer
+          format: int32
+        description:
+          type: string
+        poster_url:
+          type: string
+        trailer_url:
+          type: string
+        genres:
+          type: array
+          items:
+            $ref: '#/components/schemas/Genre'
+      required:
+        - id
+        - title
+        - film_type
+        - release_year
+        - age_limit
+        - genres
+      example:
+        id: 1
+        title: Побег из Шоушенка
+        original_title: The Shawshank Redemption
+        film_type: movie
+        release_year: 1994
+        duration_min: 142
+        age_limit: 16
+        description: Банкир Энди Дюфрейн получает пожизненный срок за убийство, которого не совершал.
+        genres:
+          - id: 1
+            name: драма
+            slug: drama
+      description: |-
+        Фильм в подборке. Поля с nil не попадают в JSON; null не возвращается.
+        poster_url и trailer_url — поля фильма. Отдельных методов для видео нет.
+    Collection:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        title:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+        cover_url:
+          type: string
+        films:
+          type: array
+          items:
+            $ref: '#/components/schemas/Film'
+      required:
+        - id
+        - title
+        - slug
+        - films
+      example:
+        id: 1
+        title: Лучшие фильмы всех времён
+        slug: best-of-all-time
+        description: Фильмы, которые стоит посмотреть хотя бы раз.
+        films:
+          - id: 1
+            title: Побег из Шоушенка
+            original_title: The Shawshank Redemption
+            film_type: movie
+            release_year: 1994
+            duration_min: 142
+            age_limit: 16
+            description: Банкир Энди Дюфрейн получает пожизненный срок за убийство, которого не совершал.
+            genres:
+              - id: 1
+                name: драма
+                slug: drama
+      description: |-
+        Подборка со всеми фильмами. Поля description и cover_url с nil не попадают в JSON.
+        Массив films в примере сокращён.
+    CollectionsResponse:
+      type: object
+      properties:
+        collections:
+          type: array
+          items:
+            $ref: '#/components/schemas/Collection'
+      required:
+        - collections
+      example:
+        collections:
+          - id: 1
+            title: Лучшие фильмы всех времён
+            slug: best-of-all-time
+            description: Фильмы, которые стоит посмотреть хотя бы раз.
+            films:
+              - id: 1
+                title: Побег из Шоушенка
+                original_title: The Shawshank Redemption
+                film_type: movie
+                release_year: 1994
+                duration_min: 142
+                age_limit: 16
+                description: Банкир Энди Дюфрейн получает пожизненный срок за убийство, которого не совершал.
+                genres:
+                  - id: 1
+                    name: драма
+                    slug: drama
+    CollectionResponse:
+      type: object
+      properties:
+        collection:
+          $ref: '#/components/schemas/Collection'
+      required:
+        - collection
+      example:
+        collection:
+          id: 1
+          title: Лучшие фильмы всех времён
+          slug: best-of-all-time
+          description: Фильмы, которые стоит посмотреть хотя бы раз.
+          films:
+            - id: 1
+              title: Побег из Шоушенка
+              original_title: The Shawshank Redemption
+              film_type: movie
+              release_year: 1994
+              duration_min: 142
+              age_limit: 16
+              description: Банкир Энди Дюфрейн получает пожизненный срок за убийство, которого не совершал.
+              genres:
+                - id: 1
+                  name: драма
+                  slug: drama
+    ProjectError:
+      type: object
+      properties:
+        code:
+          type: string
+          example: VALIDATION_ERROR
+        message:
+          type: string
+          example: Проверьте поля запроса.
+        requestId:
+          type: string
+          example: request-example
+          description: ID запроса для диагностики.
+        details:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+            required:
+              - field
+              - message
+      required:
+        - code
+        - message
+        - requestId
+      example:
+        code: VALIDATION_ERROR
+        message: Проверьте поля запроса.
+        requestId: request-example
+        details:
+          - field: email
+            message: Некорректный адрес электронной почты.
+    ProjectGenre:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: a1111111-1111-4111-8111-111111111111
+        name:
+          type: string
+          example: Фантастика
+      required:
+        - id
+        - name
+    ProjectMoviePage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProjectMovieSummary'
+        page:
+          type: integer
+          minimum: 1
+          example: 1
+        pageSize:
+          type: integer
+          minimum: 1
+          maximum: 100
+          example: 20
+        total:
+          type: integer
+          minimum: 0
+      required:
+        - items
+        - page
+        - pageSize
+        - total
+    ProjectMovieSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: a1111111-1111-4111-8111-111111111111
+        title:
+          type: string
+          example: Звёздный путь домой
+        posterUrl:
+          type: string
+          format: uri
+          example: https://media.example.com/posters/movie.jpg
+        releaseYear:
+          type: integer
+          minimum: 1888
+          example: 2025
+        genres:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProjectGenre'
+      required:
+        - id
+        - title
+        - posterUrl
+        - releaseYear
+        - genres
+    ProjectPasswordResetAccepted:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Если аккаунт с такой почтой существует, мы отправим письмо для восстановления пароля.
+      example:
+        message: Если аккаунт с такой почтой существует, мы отправим письмо для восстановления пароля.
+      required:
+        - message
+    ProjectPasswordResetConfirm:
+      type: object
+      properties:
+        token:
+          type: string
+          minLength: 1
+          maxLength: 2048
+          writeOnly: true
+          description: Одноразовый токен из ссылки в письме. Формат не задан.
+        newPassword:
+          type: string
+          minLength: 12
+          maxLength: 128
+          writeOnly: true
+          description: 'Планируется: 12–128 символов. Регистр и пробелы сохраняются.'
+      additionalProperties: false
+      example:
+        token: example-password-reset-token
+        newPassword: New-example-password-2026
+      required:
+        - token
+        - newPassword
+    ProjectPasswordResetRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+          example: viewer@example.com
+          minLength: 3
+      additionalProperties: false
+      example:
+        email: viewer@example.com
+      required:
+        - email
+    ProjectRefreshRequest:
+      type: object
+      properties:
+        refreshToken:
+          type: string
+          minLength: 1
+          writeOnly: true
+          maxLength: 2048
+      additionalProperties: false
+      required:
+        - refreshToken
+      example:
+        refreshToken: example-refresh-token
+    ProjectSession:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/ProjectUser'
+        accessToken:
+          type: string
+          example: example-access-token
+          description: Формат не задан.
+        refreshToken:
+          type: string
+          example: example-refresh-token
+          description: Формат не задан.
+        tokenType:
+          type: string
+          enum:
+            - Bearer
+        expiresIn:
+          type: integer
+          minimum: 1
+          example: 900
+        refreshExpiresIn:
+          type: integer
+          minimum: 1
+          example: 2592000
+          description: |-
+            Планируется: новый refresh-токен действует 30 дней. Срок указан в секундах.
+            При замене токена срок отсчитывается заново.
+      required:
+        - user
+        - accessToken
+        - refreshToken
+        - tokenType
+        - expiresIn
+        - refreshExpiresIn
+      example:
+        user:
+          id: b2222222-2222-4222-8222-222222222222
+          email: viewer@example.com
+          displayName: Кинозритель
+          createdAt: '2026-10-01T12:00:00Z'
+        accessToken: example-access-token
+        refreshToken: example-refresh-token
+        tokenType: Bearer
+        expiresIn: 900
+        refreshExpiresIn: 2592000
+    ProjectUser:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: a1111111-1111-4111-8111-111111111111
+        email:
+          type: string
+          format: email
+          maxLength: 254
+          example: viewer@example.com
+          minLength: 3
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 80
+          example: Кинозритель
+          pattern: .*\S.*
+          description: 'Планируется: 1–80 символов после удаления пробелов по краям. Не только пробелы.'
+        createdAt:
+          type: string
+          format: date-time
+          example: '2026-10-01T12:00:00Z'
+      required:
+        - id
+        - email
+        - displayName
+        - createdAt
+      example:
+        id: b2222222-2222-4222-8222-222222222222
+        email: viewer@example.com
+        displayName: Кинозритель
+        createdAt: '2026-10-01T12:00:00Z'
+  responses:
+    BadBody:
+      description: Неверный формат запроса или значения полей.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: invalid request body
+    Unauthorized:
+      description: Сессия не найдена или истекла.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: unauthorized
+    InvalidCredentials:
+      description: Неверная почта или пароль.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: invalid email or password
+    EmailConflict:
+      description: Эта строка email уже зарегистрирована.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: user with this email already exists
+    InternalError:
+      description: Ошибка сервера.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: internal server error
+    AuthMethodNotAllowed:
+      description: Метод не поддерживается. /api/me сначала проверяет сессию.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: method not supported
+    CollectionNotFound:
+      description: Подборка не найдена.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: collection not found
+    InvalidSlug:
+      description: Неверный формат slug.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: invalid collection slug
+    CollectionMethodNotAllowed:
+      description: 'Метод не поддерживается: gorilla/mux возвращает 405 с пустым телом.'
+    ProjectError400:
+      description: |-
+        Неверное тело запроса или параметры. Для ошибок полей — code=VALIDATION_ERROR
+        и список полей в details.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProjectError'
+          example:
+            code: VALIDATION_ERROR
+            message: Проверьте поля запроса.
+            requestId: request-example
+            details:
+              - field: email
+                message: Некорректный адрес электронной почты.
+    ProjectError404:
+      description: Объект не найден или недоступен этому пользователю.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProjectError'
+          example:
+            code: NOT_FOUND
+            message: Подборка не найдена.
+            requestId: request-example
+    ProjectError429:
+      description: Слишком много запросов. Повторить через время из Retry-After.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProjectError'
+          example:
+            code: RATE_LIMIT_EXCEEDED
+            message: Слишком много запросов.
+            requestId: request-example
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+            minimum: 1
+          description: Сколько секунд ждать перед повторным запросом.
+    ProjectError503:
+      description: Сервис временно недоступен.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProjectError'
+          example:
+            code: SERVICE_UNAVAILABLE
+            message: Сервис временно недоступен.
+            requestId: request-example
+  parameters:
+    ProjectcollectionId:
+      name: collectionId
+      in: path
+      required: true
+      description: ID подборки.
+      schema:
+        type: string
+        format: uuid
+        example: a1111111-1111-4111-8111-111111111111
+    Projectpage:
+      name: page
+      in: query
+      required: false
+      description: Номер страницы, начиная с 1.
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    ProjectpageSize:
+      name: pageSize
+      in: query
+      required: false
+      description: Количество элементов на странице.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+x-project:
+  implementation-status: not-implemented
+  description: |-
+    Запланированные методы. В сервере их пока нет.
+    Фильмы уже возвращаются в подборке; отдельная выдача с пагинацией ещё не реализована.
+    Access на 15 минут, refresh на 30 дней и Bearer — прежний план. Сейчас используются
+    cookie-сессии, поэтому способ обновления сессии ещё нужно согласовать.
+  paths:
+    /auth/refresh:
+      post:
+        tags:
+          - Авторизация
+        operationId: refreshSession
+        summary: Обновление сессии
+        description: |-
+          Планируется, пока не реализовано.
+          В теле — refreshToken. Access-токен не нужен.
+          Неизвестный, истёкший или отозванный токен — 401 INVALID_REFRESH_TOKEN.
+          В ответе — новая пара access/refresh той же сессии. Старый refresh-токен погашается
+          атомарно.
+          Повторное использование заменённого токена отзывает сессию и возвращает 401.
+          После этого нужен обычный вход.
+          Access действует 15 минут, новый refresh — 30 дней. Обновлять последовательно,
+          без параллельных запросов с одним refresh-токеном.
+        security: []
+        responses:
+          '200':
+            description: Новая пара токенов.
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/ProjectSession'
+          '400':
+            $ref: '#/components/responses/ProjectError400'
+          '401':
+            description: Недействительный refresh-токен.
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/ProjectError'
+                example:
+                  code: INVALID_REFRESH_TOKEN
+                  message: Токен обновления недействителен.
+                  requestId: request-example
+          '429':
+            $ref: '#/components/responses/ProjectError429'
+          '503':
+            $ref: '#/components/responses/ProjectError503'
+        requestBody:
+          required: true
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectRefreshRequest'
+        x-implementation-status: not-implemented
+    /auth/password-reset/request:
+      post:
+        tags:
+          - Авторизация
+        operationId: requestPasswordReset
+        summary: Письмо для сброса пароля
+        description: |-
+          Планируется, пока не реализовано.
+          В теле — email: 3–254 символа, формат и нормализация как при регистрации в проекте.
+          Ответ всегда 202 с одинаковым message; время ответа не зависит от наличия аккаунта.
+          Письмо отправляется асинхронно только для существующего аккаунта.
+          Ссылка ведёт на заранее заданный доверенный адрес фронтенда.
+          Токен случайный, криптографически стойкий, одноразовый, действует 15 минут.
+          На сервере хранится его хеш. Новый запрос отзывает предыдущие токены восстановления.
+          Токен и ссылка не возвращаются в API и не записываются в журнал.
+          Лимиты: 5 запросов за час на IP и 3 за час на нормализованную почту,
+          включая несуществующую. Превышение — 429 с Retry-After.
+          Неверный email — 400 VALIDATION_ERROR.
+        security: []
+        responses:
+          '202':
+            description: Запрос принят.
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/ProjectPasswordResetAccepted'
+          '400':
+            $ref: '#/components/responses/ProjectError400'
+          '429':
+            $ref: '#/components/responses/ProjectError429'
+          '503':
+            $ref: '#/components/responses/ProjectError503'
+        requestBody:
+          required: true
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectPasswordResetRequest'
+        x-implementation-status: not-implemented
+    /auth/password-reset/confirm:
+      post:
+        tags:
+          - Авторизация
+        operationId: confirmPasswordReset
+        summary: Сброс пароля
+        description: |-
+          Планируется, пока не реализовано.
+          В теле — token и newPassword. Новый пароль: 12–128 символов, без нормализации.
+          Неверные поля — 400 VALIDATION_ERROR. Неизвестный, истёкший или использованный токен —
+          одинаковый 400 RESET_TOKEN_INVALID.
+          Проверка, погашение токена и смена хеша пароля выполняются атомарно.
+          Параллельный повтор не может сменить пароль ещё раз.
+          Все токены восстановления и access/refresh-сессии пользователя отзываются.
+          Успех — 204. После смены пароля нужно войти с новым паролем; автоматического входа нет.
+          Лимит: 10 попыток за 15 минут на IP. Превышение — 429 с Retry-After.
+        security: []
+        responses:
+          '204':
+            description: Пароль изменён. Без тела.
+          '400':
+            description: Неверные поля или недействительный токен сброса пароля.
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/ProjectError'
+                examples:
+                  validationError:
+                    summary: Ошибка в полях
+                    value:
+                      code: VALIDATION_ERROR
+                      message: Проверьте поля запроса.
+                      requestId: request-example
+                      details:
+                        - field: email
+                          message: Некорректный адрес электронной почты.
+                  invalidResetToken:
+                    summary: Токен не найден, истёк или уже использован
+                    value:
+                      code: RESET_TOKEN_INVALID
+                      message: Ссылка восстановления недействительна.
+                      requestId: request-example
+          '429':
+            $ref: '#/components/responses/ProjectError429'
+          '503':
+            $ref: '#/components/responses/ProjectError503'
+        requestBody:
+          required: true
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectPasswordResetConfirm'
+        x-implementation-status: not-implemented
+    /collections/{collectionId}/movies:
+      get:
+        tags:
+          - Подборки
+        operationId: getCollectionMovies
+        summary: Фильмы подборки
+        description: |-
+          Планируется, пока не реализовано.
+          Возвращает опубликованные фильмы в порядке movieIds подборки.
+        security: []
+        responses:
+          '200':
+            description: Фильмы подборки.
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/ProjectMoviePage'
+          '400':
+            $ref: '#/components/responses/ProjectError400'
+          '404':
+            $ref: '#/components/responses/ProjectError404'
+          '429':
+            $ref: '#/components/responses/ProjectError429'
+          '503':
+            $ref: '#/components/responses/ProjectError503'
+        parameters:
+          - $ref: '#/components/parameters/ProjectcollectionId'
+          - $ref: '#/components/parameters/Projectpage'
+          - $ref: '#/components/parameters/ProjectpageSize'
+        x-implementation-status: not-implemented
