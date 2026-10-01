@@ -43,7 +43,7 @@ func ValidateUsername(username string) error {
 	}
 
 	if lenUserName > maxUsernameLen {
-		return fmt.Errorf("%w: name is too, longmaximum %d characters", ErrInvalidUsername, maxUsernameLen)
+		return fmt.Errorf("%w: name is too long, maximum %d characters", ErrInvalidUsername, maxUsernameLen)
 	}
 
 	return nil
@@ -74,10 +74,6 @@ func ValidatePassword(password string) error {
 	}
 
 	return nil
-}
-
-type SessionIssuer interface {
-	IssueSession(userID int) (string, error)
 }
 
 type AuthResult struct {
@@ -175,24 +171,16 @@ func (uc *UseCase) Logout(sessionID string) error {
 	return nil
 }
 
-func (uc *UseCase) Authenticate(ctx context.Context, sessionID string) (*User, error) {
+// Authenticate проверяет сессию и возвращает ID её владельца.
+func (uc *UseCase) Authenticate(ctx context.Context, sessionID string) (UserID, error) {
 	session, err := uc.Sessions.Get(sessionID)
 	if err != nil {
 		if errors.Is(err, ErrSessionNotFound) {
-			return nil, ErrUnauthorized
+			return 0, ErrUnauthorized
 		}
 
-		return nil, ErrInternal
+		return 0, ErrInternal
 	}
 
-	user, err := uc.Repo.GetUser(context.Background(), session.UserID)
-	if err != nil {
-		if errors.Is(err, ErrUserNotFound) {
-			_ = uc.Sessions.Delete(sessionID)
-			return nil, ErrUnauthorized
-		}
-
-		return nil, ErrInternal
-	}
-	return user, nil
+	return session.UserID, nil
 }

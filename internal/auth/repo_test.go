@@ -23,7 +23,7 @@ func TestInMemoryUserRepo_Create(t *testing.T) {
 
 			if tt.existingUser != "" {
 				if _, err := repo.Create(ctx, tt.existingUser, "existing", "hash"); err != nil {
-					t.Fatalf("не удалось подготовить существующего пользователя: %v", err)
+					t.Fatalf("failed to set up existing user: %v", err)
 				}
 			}
 
@@ -41,7 +41,7 @@ func TestInMemoryUserRepo_GetByEmail(t *testing.T) {
 
 	createdID, err := repo.Create(ctx, "find@example.com", "finduser", "hash123")
 	if err != nil {
-		t.Fatalf("не удалось создать пользователя для теста: %v", err)
+		t.Fatalf("failed to create user for test: %v", err)
 	}
 
 	tests := []struct {
@@ -60,7 +60,7 @@ func TestInMemoryUserRepo_GetByEmail(t *testing.T) {
 				t.Fatalf("GetEmail(%q) error = %v, want %v", tt.email, err, tt.wantErr)
 			}
 			if err == nil && user.ID != createdID {
-				t.Errorf("GetEmail вернул пользователя с ID %d, ожидали %d", user.ID, createdID)
+				t.Errorf("GetByEmail returned user with ID %d, want %d", user.ID, createdID)
 			}
 		})
 	}
