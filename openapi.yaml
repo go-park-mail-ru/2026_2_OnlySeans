@@ -6,7 +6,6 @@ info:
     API OnlySeans: регистрация, вход и подборки фильмов.
 servers:
   - url: http://localhost:8080
-    description: 
 tags:
   - name: Авторизация
   - name: Регистрация
