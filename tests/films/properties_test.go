@@ -3,9 +3,11 @@ package films_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/url"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -124,21 +126,30 @@ func TestHandler_FilmJSONContract(t *testing.T) {
 	}
 }
 
-func FuzzHandler_GetCollection(f *testing.F) {
-	for _, slug := range []string{
+func FuzzHandler_PathID(f *testing.F) {
+	for _, id := range []string{
+		"1",
+		"4",
+		"12",
+		"0",
+		"-1",
+		"+1",
+		"01",
+		" 1",
+		"1.0",
+		"1e0",
+		"0x1",
 		"family",
-		"best-of-all-time",
-		"BAD_SLUG",
-		"ab",
 		"",
 		"../../etc/passwd",
-		"family/extra",
-		"семья",
-		"family%00",
-		"' OR 1=1 --",
-		strings.Repeat("a", 129),
+		"1/extra",
+		"один",
+		"1%00",
+		"1 OR 1=1",
+		"9223372036854775808",
+		strings.Repeat("9", 200),
 	} {
-		f.Add(slug)
+		f.Add(id)
 	}
 
 	service, err := films.NewSeededService()
@@ -147,16 +158,51 @@ func FuzzHandler_GetCollection(f *testing.F) {
 	}
 	router := newTestRouter(service)
 
-	f.Fuzz(func(t *testing.T, slug string) {
-		rec := serve(router, http.MethodGet, "/api/collections/"+url.PathEscape(slug))
+	f.Fuzz(func(t *testing.T, id string) {
+		parsed, parseErr := strconv.ParseInt(id, 10, 64)
+		valid := parseErr == nil && parsed > 0
 
-		if rec.Code >= http.StatusInternalServerError {
-			t.Fatalf("slug %q: status = %d (body: %s)", slug, rec.Code, rec.Body)
-		}
-		if rec.Code == http.StatusOK && !slugPattern.MatchString(slug) {
-			t.Fatalf("slug %q does not match the mask but was accepted", slug)
+		for prefix, maxID := range map[string]int64{"/api/films/": seedFilmCount, "/api/collections/": int64(len(seedCollectionFilms))} {
+			rec := serve(router, http.MethodGet, prefix+url.PathEscape(id))
+
+			if rec.Code >= http.StatusInternalServerError {
+				t.Fatalf("%s%q: status = %d (body: %s)", prefix, id, rec.Code, rec.Body)
+			}
+			if rec.Code == http.StatusOK && !(valid && parsed <= maxID) {
+				t.Fatalf("%s%q was accepted", prefix, id)
+			}
 		}
 	})
+}
+
+func TestHandler_CollectionPagesCoverAllFilmsOnce(t *testing.T) {
+	router := newSeededRouter(t)
+
+	for i, seed := range seedCollectionFilms {
+		for limit := 1; limit <= len(seed.filmIDs)+1; limit++ {
+			var got []entities.FilmID
+			for offset := 0; ; offset += limit {
+				target := fmt.Sprintf("/api/collections/%d?limit=%d&offset=%d", i+1, limit, offset)
+				rec := serve(router, http.MethodGet, target)
+				if rec.Code != http.StatusOK {
+					t.Fatalf("%s: status = %d", target, rec.Code)
+				}
+
+				page := decode[collectionPage](t, rec)
+				if page.Total != len(seed.filmIDs) || page.Limit != limit || page.Offset != offset {
+					t.Fatalf("%s: total %d, limit %d, offset %d", target, page.Total, page.Limit, page.Offset)
+				}
+				if len(page.Collection.Films) == 0 {
+					break
+				}
+				got = append(got, filmIDs(page.Collection.Films)...)
+			}
+
+			if !slices.Equal(got, seed.filmIDs) {
+				t.Errorf("collection %q, limit %d: pages gave %v, want %v", seed.slug, limit, got, seed.filmIDs)
+			}
+		}
+	}
 }
 
 func FuzzHandler_ListFilmsParams(f *testing.F) {

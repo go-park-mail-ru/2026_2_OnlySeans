@@ -3,6 +3,8 @@ package films_test
 import (
 	"context"
 	"errors"
+	"fmt"
+	"math"
 	"regexp"
 	"slices"
 	"testing"
@@ -222,43 +224,167 @@ func TestInMemoryService_ListCollectionFilms(t *testing.T) {
 		t.Fatalf("AddCollection: %v", err)
 	}
 
-	collectionFilms, err := service.ListCollectionFilms(ctx, 7)
-	if err != nil {
-		t.Fatalf("ListCollectionFilms: %v", err)
-	}
-	if got, want := filmIDs(collectionFilms), []entities.FilmID{3, 1, 2}; !slices.Equal(got, want) {
-		t.Errorf("ids = %v, want %v", got, want)
+	tests := []struct {
+		name    string
+		limit   int
+		offset  int
+		wantIDs []entities.FilmID
+	}{
+		{
+			name:    "whole collection keeps its order",
+			limit:   10,
+			offset:  0,
+			wantIDs: []entities.FilmID{3, 1, 2},
+		},
+		{
+			name:    "first page",
+			limit:   2,
+			offset:  0,
+			wantIDs: []entities.FilmID{3, 1},
+		},
+		{
+			name:    "tail shorter than limit",
+			limit:   2,
+			offset:  2,
+			wantIDs: []entities.FilmID{2},
+		},
+		{
+			name:    "offset out of range",
+			limit:   2,
+			offset:  10,
+			wantIDs: []entities.FilmID{},
+		},
 	}
 
-	if _, err := service.ListCollectionFilms(ctx, 99); !errors.Is(err, films.ErrCollectionNotFound) {
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			collectionFilms, total, err := service.ListCollectionFilms(ctx, 7, tt.limit, tt.offset)
+			if err != nil {
+				t.Fatalf("ListCollectionFilms: %v", err)
+			}
+			if total != 3 {
+				t.Errorf("total = %d, want 3", total)
+			}
+			if got := filmIDs(collectionFilms); !slices.Equal(got, tt.wantIDs) {
+				t.Errorf("ids = %v, want %v", got, tt.wantIDs)
+			}
+		})
+	}
+
+	if _, _, err := service.ListCollectionFilms(ctx, 99, 10, 0); !errors.Is(err, films.ErrCollectionNotFound) {
 		t.Errorf("error = %v, want %v", err, films.ErrCollectionNotFound)
 	}
 }
 
-func TestInMemoryService_GetCollectionBySlug(t *testing.T) {
+func TestInMemoryService_GetCollectionByID(t *testing.T) {
 	service := newTestService(t, 1)
 	ctx := context.Background()
 	found := entities.Collection{
-		ID:   1,
+		ID:   5,
 		Slug: "found",
 	}
 	if err := service.AddCollection(found, 1); err != nil {
 		t.Fatalf("AddCollection: %v", err)
 	}
 
-	collection, err := service.GetCollectionBySlug(ctx, "found")
-	if err != nil || collection.ID != 1 {
-		t.Errorf("GetCollectionBySlug(found) = %+v, %v", collection, err)
+	collection, err := service.GetCollectionByID(ctx, 5)
+	if err != nil || collection.Slug != "found" {
+		t.Errorf("GetCollectionByID(5) = %+v, %v", collection, err)
 	}
-	if _, err := service.GetCollectionBySlug(ctx, "missing"); !errors.Is(err, films.ErrCollectionNotFound) {
+	if _, err := service.GetCollectionByID(ctx, 6); !errors.Is(err, films.ErrCollectionNotFound) {
 		t.Errorf("error = %v, want %v", err, films.ErrCollectionNotFound)
 	}
 }
 
+func TestInMemoryService_GetFilmByID(t *testing.T) {
+	service := newTestService(t, 3)
+	ctx := context.Background()
+
+	film, err := service.GetFilmByID(ctx, 2)
+	if err != nil || film.ID != 2 {
+		t.Fatalf("GetFilmByID(2) = %+v, %v", film, err)
+	}
+
+	film.Genres[0].Name = "changed"
+	again, _ := service.GetFilmByID(ctx, 2)
+	if again.Genres[0].Name != genreDrama.Name {
+		t.Errorf("mutating result changed stored film: %+v", again)
+	}
+
+	if _, err := service.GetFilmByID(ctx, 4); !errors.Is(err, films.ErrFilmNotFound) {
+		t.Errorf("error = %v, want %v", err, films.ErrFilmNotFound)
+	}
+}
+
+func TestInMemoryService_ListCollections(t *testing.T) {
+	service := newTestService(t, 1)
+	ctx := context.Background()
+	for id := entities.CollectionID(1); id <= 5; id++ {
+		collection := entities.Collection{
+			ID:   id,
+			Slug: fmt.Sprintf("collection-%d", id),
+		}
+		if err := service.AddCollection(collection); err != nil {
+			t.Fatalf("AddCollection: %v", err)
+		}
+	}
+
+	tests := []struct {
+		name    string
+		limit   int
+		offset  int
+		wantIDs []entities.CollectionID
+	}{
+		{
+			name:    "first page",
+			limit:   2,
+			offset:  0,
+			wantIDs: []entities.CollectionID{1, 2},
+		},
+		{
+			name:    "tail shorter than limit",
+			limit:   2,
+			offset:  4,
+			wantIDs: []entities.CollectionID{5},
+		},
+		{
+			name:    "offset out of range",
+			limit:   2,
+			offset:  10,
+			wantIDs: []entities.CollectionID{},
+		},
+		{
+			name:    "huge limit does not overflow",
+			limit:   math.MaxInt,
+			offset:  3,
+			wantIDs: []entities.CollectionID{4, 5},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			collections, total, err := service.ListCollections(ctx, tt.limit, tt.offset)
+			if err != nil {
+				t.Fatalf("ListCollections: %v", err)
+			}
+			if total != 5 {
+				t.Errorf("total = %d, want 5", total)
+			}
+			got := make([]entities.CollectionID, 0, len(collections))
+			for _, collection := range collections {
+				got = append(got, collection.ID)
+			}
+			if !slices.Equal(got, tt.wantIDs) {
+				t.Errorf("ids = %v, want %v", got, tt.wantIDs)
+			}
+		})
+	}
+}
+
 func TestInMemoryService_ListCollections_Empty(t *testing.T) {
-	collections, err := films.NewInMemoryService().ListCollections(context.Background())
-	if err != nil || collections == nil || len(collections) != 0 {
-		t.Errorf("ListCollections() = %v, %v; want empty non-nil slice", collections, err)
+	collections, total, err := films.NewInMemoryService().ListCollections(context.Background(), 10, 0)
+	if err != nil || collections == nil || len(collections) != 0 || total != 0 {
+		t.Errorf("ListCollections() = %v, %d, %v; want empty non-nil slice", collections, total, err)
 	}
 }
 
@@ -297,7 +423,7 @@ func TestSeedMatchesDatabaseConstraints(t *testing.T) {
 		}
 	}
 
-	seedCollections, err := service.ListCollections(ctx)
+	seedCollections, _, err := service.ListCollections(ctx, 1000, 0)
 	if err != nil {
 		t.Fatalf("ListCollections: %v", err)
 	}
@@ -312,7 +438,7 @@ func TestSeedMatchesDatabaseConstraints(t *testing.T) {
 		if titleLen := utf8.RuneCountInString(collection.Title); titleLen < 3 || titleLen > 255 {
 			t.Errorf("collection %d: title length %d", collection.ID, titleLen)
 		}
-		collectionFilms, err := service.ListCollectionFilms(ctx, collection.ID)
+		collectionFilms, _, err := service.ListCollectionFilms(ctx, collection.ID, 1000, 0)
 		if err != nil {
 			t.Errorf("collection %d: ListCollectionFilms: %v", collection.ID, err)
 		}

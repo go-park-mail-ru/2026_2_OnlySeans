@@ -93,7 +93,7 @@ func TestRouter_UserJourney(t *testing.T) {
 	assert.Equal(t, 2, films[0].ID)
 	assert.Equal(t, 3, films[1].ID)
 
-	status, _ = client.do(http.MethodGet, "/api/collections/family", "")
+	status, _ = client.do(http.MethodGet, "/api/collections/2?limit=2", "")
 	assert.Equal(t, http.StatusOK, status)
 
 	status, _ = client.do(http.MethodPost, "/api/logout", "")
@@ -104,7 +104,7 @@ func TestRouter_UserJourney(t *testing.T) {
 func TestRouter_UnknownRoutes(t *testing.T) {
 	client := newTestClient(t)
 
-	for _, path := range []string{"/", "/api", "/api/unknown", "/api/films/1", "/films", "/api/collections/family/films"} {
+	for _, path := range []string{"/", "/api", "/api/unknown", "/api/films/1/extra", "/films", "/api/collections/2/films"} {
 		status, _ := client.do(http.MethodGet, path, "")
 		assert.Equal(t, http.StatusNotFound, status, path)
 	}
@@ -113,7 +113,7 @@ func TestRouter_UnknownRoutes(t *testing.T) {
 func TestRouter_PreflightOnEveryRoute(t *testing.T) {
 	handler := newTestRouter(t)
 
-	for _, path := range []string{"/api/register", "/api/login", "/api/logout", "/api/films", "/api/collections", "/api/collections/family"} {
+	for _, path := range []string{"/api/register", "/api/login", "/api/logout", "/api/films", "/api/films/1", "/api/collections", "/api/collections/2"} {
 		req := httptest.NewRequest(http.MethodOptions, path, nil)
 		req.Header.Set("Origin", testOrigin)
 		req.Header.Set("Access-Control-Request-Method", http.MethodPost)
