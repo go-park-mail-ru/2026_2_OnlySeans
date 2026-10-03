@@ -1,19 +1,29 @@
-package films
+package films_test
 
 import (
 	"context"
 	"errors"
+	"regexp"
 	"slices"
 	"testing"
 	"unicode/utf8"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/entities"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/films"
 )
 
-func newTestService(t *testing.T, filmCount int) *InMemoryService {
+var genreDrama = entities.Genre{
+	ID:   1,
+	Name: "драма",
+	Slug: "drama",
+}
+
+var slugPattern = regexp.MustCompile(`^[a-z0-9-]{3,128}$`)
+
+func newTestService(t *testing.T, filmCount int) *films.InMemoryService {
 	t.Helper()
 
-	service := NewInMemoryService()
+	service := films.NewInMemoryService()
 	for id := entities.FilmID(filmCount); id >= 1; id-- {
 		film := entities.Film{
 			ID:          id,
@@ -40,8 +50,8 @@ func filmIDs(films []entities.Film) []entities.FilmID {
 func TestInMemoryService_AddFilm_Duplicate(t *testing.T) {
 	service := newTestService(t, 1)
 
-	if err := service.AddFilm(entities.Film{ID: 1}); !errors.Is(err, ErrFilmExists) {
-		t.Errorf("error = %v, want %v", err, ErrFilmExists)
+	if err := service.AddFilm(entities.Film{ID: 1}); !errors.Is(err, films.ErrFilmExists) {
+		t.Errorf("error = %v, want %v", err, films.ErrFilmExists)
 	}
 }
 
@@ -74,7 +84,7 @@ func TestInMemoryService_AddCollection(t *testing.T) {
 				Slug: "existing",
 			},
 			filmIDs: []entities.FilmID{1},
-			wantErr: ErrCollectionExists,
+			wantErr: films.ErrCollectionExists,
 		},
 		{
 			name: "duplicate id",
@@ -83,7 +93,7 @@ func TestInMemoryService_AddCollection(t *testing.T) {
 				Slug: "other",
 			},
 			filmIDs: []entities.FilmID{1},
-			wantErr: ErrCollectionExists,
+			wantErr: films.ErrCollectionExists,
 		},
 		{
 			name: "unknown film",
@@ -92,7 +102,7 @@ func TestInMemoryService_AddCollection(t *testing.T) {
 				Slug: "other",
 			},
 			filmIDs: []entities.FilmID{1, 42},
-			wantErr: ErrFilmNotFound,
+			wantErr: films.ErrFilmNotFound,
 		},
 		{
 			name: "film added twice",
@@ -101,7 +111,7 @@ func TestInMemoryService_AddCollection(t *testing.T) {
 				Slug: "other",
 			},
 			filmIDs: []entities.FilmID{1, 2, 1},
-			wantErr: ErrDuplicateCollectionFilm,
+			wantErr: films.ErrDuplicateCollectionFilm,
 		},
 	}
 
@@ -212,16 +222,16 @@ func TestInMemoryService_ListCollectionFilms(t *testing.T) {
 		t.Fatalf("AddCollection: %v", err)
 	}
 
-	films, err := service.ListCollectionFilms(ctx, 7)
+	collectionFilms, err := service.ListCollectionFilms(ctx, 7)
 	if err != nil {
 		t.Fatalf("ListCollectionFilms: %v", err)
 	}
-	if got, want := filmIDs(films), []entities.FilmID{3, 1, 2}; !slices.Equal(got, want) {
+	if got, want := filmIDs(collectionFilms), []entities.FilmID{3, 1, 2}; !slices.Equal(got, want) {
 		t.Errorf("ids = %v, want %v", got, want)
 	}
 
-	if _, err := service.ListCollectionFilms(ctx, 99); !errors.Is(err, ErrCollectionNotFound) {
-		t.Errorf("error = %v, want %v", err, ErrCollectionNotFound)
+	if _, err := service.ListCollectionFilms(ctx, 99); !errors.Is(err, films.ErrCollectionNotFound) {
+		t.Errorf("error = %v, want %v", err, films.ErrCollectionNotFound)
 	}
 }
 
@@ -240,13 +250,13 @@ func TestInMemoryService_GetCollectionBySlug(t *testing.T) {
 	if err != nil || collection.ID != 1 {
 		t.Errorf("GetCollectionBySlug(found) = %+v, %v", collection, err)
 	}
-	if _, err := service.GetCollectionBySlug(ctx, "missing"); !errors.Is(err, ErrCollectionNotFound) {
-		t.Errorf("error = %v, want %v", err, ErrCollectionNotFound)
+	if _, err := service.GetCollectionBySlug(ctx, "missing"); !errors.Is(err, films.ErrCollectionNotFound) {
+		t.Errorf("error = %v, want %v", err, films.ErrCollectionNotFound)
 	}
 }
 
 func TestInMemoryService_ListCollections_Empty(t *testing.T) {
-	collections, err := NewInMemoryService().ListCollections(context.Background())
+	collections, err := films.NewInMemoryService().ListCollections(context.Background())
 	if err != nil || collections == nil || len(collections) != 0 {
 		t.Errorf("ListCollections() = %v, %v; want empty non-nil slice", collections, err)
 	}
@@ -254,6 +264,20 @@ func TestInMemoryService_ListCollections_Empty(t *testing.T) {
 
 func TestSeedMatchesDatabaseConstraints(t *testing.T) {
 	ageLimits := []int16{0, 6, 12, 16, 18}
+	ctx := context.Background()
+
+	service, err := films.NewSeededService()
+	if err != nil {
+		t.Fatalf("NewSeededService: %v", err)
+	}
+
+	seedFilms, total, err := service.ListFilms(ctx, 1000, 0)
+	if err != nil {
+		t.Fatalf("ListFilms: %v", err)
+	}
+	if total == 0 || len(seedFilms) != total {
+		t.Fatalf("got %d of %d seed films", len(seedFilms), total)
+	}
 
 	for _, film := range seedFilms {
 		titleLen := utf8.RuneCountInString(film.Title)
@@ -273,19 +297,27 @@ func TestSeedMatchesDatabaseConstraints(t *testing.T) {
 		}
 	}
 
-	for _, seed := range seedCollections {
-		if !slugPattern.MatchString(seed.collection.Slug) {
-			t.Errorf("collection %d: slug %q", seed.collection.ID, seed.collection.Slug)
-		}
-		if titleLen := utf8.RuneCountInString(seed.collection.Title); titleLen < 3 || titleLen > 255 {
-			t.Errorf("collection %d: title length %d", seed.collection.ID, titleLen)
-		}
-		if len(seed.filmIDs) == 0 {
-			t.Errorf("collection %d is empty", seed.collection.ID)
-		}
+	seedCollections, err := service.ListCollections(ctx)
+	if err != nil {
+		t.Fatalf("ListCollections: %v", err)
+	}
+	if len(seedCollections) == 0 {
+		t.Fatal("no seed collections")
 	}
 
-	if _, err := NewSeededService(); err != nil {
-		t.Errorf("NewSeededService: %v", err)
+	for _, collection := range seedCollections {
+		if !slugPattern.MatchString(collection.Slug) {
+			t.Errorf("collection %d: slug %q", collection.ID, collection.Slug)
+		}
+		if titleLen := utf8.RuneCountInString(collection.Title); titleLen < 3 || titleLen > 255 {
+			t.Errorf("collection %d: title length %d", collection.ID, titleLen)
+		}
+		collectionFilms, err := service.ListCollectionFilms(ctx, collection.ID)
+		if err != nil {
+			t.Errorf("collection %d: ListCollectionFilms: %v", collection.ID, err)
+		}
+		if len(collectionFilms) == 0 {
+			t.Errorf("collection %d is empty", collection.ID)
+		}
 	}
 }

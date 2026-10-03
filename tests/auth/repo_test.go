@@ -1,8 +1,10 @@
-package auth
+package auth_test
 
 import (
 	"context"
 	"testing"
+
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/auth"
 )
 
 func TestInMemoryUserRepo_Create(t *testing.T) {
@@ -14,12 +16,12 @@ func TestInMemoryUserRepo_Create(t *testing.T) {
 		wantErr      error
 	}{
 		{"новый пользователь создаётся без ошибок", "", "new@example.com", nil},
-		{"повторный email возвращает ErrUserExists", "dup@example.com", "dup@example.com", ErrUserExists},
+		{"повторный email возвращает ErrUserExists", "dup@example.com", "dup@example.com", auth.ErrUserExists},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			repo := NewInMemoryUserRepo()
+			repo := auth.NewInMemoryUserRepo()
 
 			if tt.existingUser != "" {
 				if _, err := repo.Create(ctx, tt.existingUser, "existing", "hash"); err != nil {
@@ -36,7 +38,7 @@ func TestInMemoryUserRepo_Create(t *testing.T) {
 }
 
 func TestInMemoryUserRepo_GetByEmail(t *testing.T) {
-	repo := NewInMemoryUserRepo()
+	repo := auth.NewInMemoryUserRepo()
 	ctx := context.Background()
 
 	createdID, err := repo.Create(ctx, "find@example.com", "finduser", "hash123")
@@ -50,7 +52,7 @@ func TestInMemoryUserRepo_GetByEmail(t *testing.T) {
 		wantErr error
 	}{
 		{"существующий пользователь находится", "find@example.com", nil},
-		{"несуществующий email возвращает ErrUserNotFound", "ghost@example.com", ErrUserNotFound},
+		{"несуществующий email возвращает ErrUserNotFound", "ghost@example.com", auth.ErrUserNotFound},
 	}
 
 	for _, tt := range tests {

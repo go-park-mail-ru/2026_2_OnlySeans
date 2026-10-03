@@ -1,4 +1,4 @@
-package films
+package films_test
 
 import (
 	"context"
@@ -15,9 +15,44 @@ import (
 	"github.com/gorilla/mux"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/entities"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/films"
 )
 
 var errStorage = errors.New("storage is down")
+
+const (
+	seedFilmCount        = 12
+	internalErrorMessage = "internal server error"
+)
+
+var seedCollectionFilms = []struct {
+	slug    string
+	filmIDs []entities.FilmID
+}{
+	{"best-of-all-time", []entities.FilmID{1, 2, 3, 4, 5, 7}},
+	{"family", []entities.FilmID{7, 8, 3, 9}},
+	{"mind-benders", []entities.FilmID{5, 6, 4, 10}},
+	{"weekend-series", []entities.FilmID{11, 12}},
+}
+
+type filmsPage struct {
+	Films  []entities.Film `json:"films"`
+	Total  int             `json:"total"`
+	Limit  int             `json:"limit"`
+	Offset int             `json:"offset"`
+}
+
+type collectionsResponse struct {
+	Collections []entities.CollectionWithFilms `json:"collections"`
+}
+
+type collectionResponse struct {
+	Collection entities.CollectionWithFilms `json:"collection"`
+}
+
+type errorResponse struct {
+	Error string `json:"error"`
+}
 
 type brokenService struct {
 	failCollectionFilms bool
@@ -53,16 +88,16 @@ func (b brokenService) ListCollectionFilms(context.Context, entities.CollectionI
 	return nil, errStorage
 }
 
-func newTestRouter(service Service) *mux.Router {
+func newTestRouter(service films.Service) *mux.Router {
 	router := mux.NewRouter()
-	NewHandler(service).RegisterRoutes(router)
+	films.NewHandler(service).RegisterRoutes(router)
 	return router
 }
 
 func newSeededRouter(t *testing.T) *mux.Router {
 	t.Helper()
 
-	service, err := NewSeededService()
+	service, err := films.NewSeededService()
 	if err != nil {
 		t.Fatalf("NewSeededService: %v", err)
 	}
@@ -131,31 +166,31 @@ func TestHandler_ListFilms(t *testing.T) {
 			name:       "limit is not a number",
 			target:     "/api/films?limit=abc",
 			wantStatus: http.StatusBadRequest,
-			wantError:  ErrInvalidLimit,
+			wantError:  films.ErrInvalidLimit,
 		},
 		{
 			name:       "limit is zero",
 			target:     "/api/films?limit=0",
 			wantStatus: http.StatusBadRequest,
-			wantError:  ErrInvalidLimit,
+			wantError:  films.ErrInvalidLimit,
 		},
 		{
 			name:       "limit above max",
 			target:     "/api/films?limit=101",
 			wantStatus: http.StatusBadRequest,
-			wantError:  ErrInvalidLimit,
+			wantError:  films.ErrInvalidLimit,
 		},
 		{
 			name:       "offset is not a number",
 			target:     "/api/films?offset=abc",
 			wantStatus: http.StatusBadRequest,
-			wantError:  ErrInvalidOffset,
+			wantError:  films.ErrInvalidOffset,
 		},
 		{
 			name:       "negative offset",
 			target:     "/api/films?offset=-1",
 			wantStatus: http.StatusBadRequest,
-			wantError:  ErrInvalidOffset,
+			wantError:  films.ErrInvalidOffset,
 		},
 	}
 
@@ -183,8 +218,8 @@ func TestHandler_ListFilms(t *testing.T) {
 			if got := filmIDs(page.Films); !slices.Equal(got, tt.wantIDs) {
 				t.Errorf("ids = %v, want %v", got, tt.wantIDs)
 			}
-			if page.Total != len(seedFilms) {
-				t.Errorf("total = %d, want %d", page.Total, len(seedFilms))
+			if page.Total != seedFilmCount {
+				t.Errorf("total = %d, want %d", page.Total, seedFilmCount)
 			}
 		})
 	}
@@ -197,11 +232,14 @@ func TestHandler_ListCollections(t *testing.T) {
 	}
 
 	body := decode[collectionsResponse](t, rec)
-	if len(body.Collections) != len(seedCollections) {
-		t.Fatalf("got %d collections, want %d", len(body.Collections), len(seedCollections))
+	if len(body.Collections) != len(seedCollectionFilms) {
+		t.Fatalf("got %d collections, want %d", len(body.Collections), len(seedCollectionFilms))
 	}
 	for i, collection := range body.Collections {
-		if got, want := filmIDs(collection.Films), seedCollections[i].filmIDs; !slices.Equal(got, want) {
+		if collection.Slug != seedCollectionFilms[i].slug {
+			t.Errorf("collection %d: slug = %q, want %q", i, collection.Slug, seedCollectionFilms[i].slug)
+		}
+		if got, want := filmIDs(collection.Films), seedCollectionFilms[i].filmIDs; !slices.Equal(got, want) {
 			t.Errorf("films of %q = %v, want %v", collection.Slug, got, want)
 		}
 	}
@@ -225,13 +263,13 @@ func TestHandler_GetCollection(t *testing.T) {
 			name:       "unknown collection",
 			target:     "/api/collections/unknown",
 			wantStatus: http.StatusNotFound,
-			wantError:  ErrCollectionNotFound,
+			wantError:  films.ErrCollectionNotFound,
 		},
 		{
 			name:       "invalid slug",
 			target:     "/api/collections/BAD_SLUG",
 			wantStatus: http.StatusBadRequest,
-			wantError:  ErrInvalidSlug,
+			wantError:  films.ErrInvalidSlug,
 		},
 	}
 
