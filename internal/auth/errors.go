@@ -3,7 +3,6 @@ package auth
 import "errors"
 
 var (
-	ErrNilUseCase         = errors.New("usecase cannot be nil")
 	ErrNilRepo            = errors.New("repository cannot be nil")
 	ErrInvalidEmail       = errors.New("invalid email")
 	ErrInvalidUsername    = errors.New("invalid username")

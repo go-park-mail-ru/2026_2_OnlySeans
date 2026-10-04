@@ -1,10 +1,12 @@
-package config
+package config_test
 
 import (
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/config"
 )
 
 func env(values map[string]string) func(string) (string, bool) {
@@ -15,13 +17,13 @@ func env(values map[string]string) func(string) (string, bool) {
 }
 
 func TestParse(t *testing.T) {
-	defaults := Default().Server
+	defaults := config.Default().Server
 
 	tests := []struct {
 		name string
 		raw  string
 		env  map[string]string
-		want Server
+		want config.Server
 	}{
 		{
 			name: "all fields from file",
@@ -34,7 +36,7 @@ server:
   idle_timeout: 3s
   shutdown_timeout: 4s
 `,
-			want: Server{
+			want: config.Server{
 				Host:            "localhost",
 				Port:            9000,
 				AllowedOrigin:   defaults.AllowedOrigin,
@@ -52,7 +54,7 @@ server:
 		{
 			name: "missing fields fall back to defaults",
 			raw:  "server:\n  port: 9000\n",
-			want: Server{
+			want: config.Server{
 				Host:            defaults.Host,
 				Port:            9000,
 				AllowedOrigin:   defaults.AllowedOrigin,
@@ -66,10 +68,10 @@ server:
 			name: "environment overrides file",
 			raw:  "server:\n  host: localhost\n  port: 9000\n",
 			env: map[string]string{
-				EnvServerHost: "127.0.0.1",
-				EnvServerPort: "8081",
+				config.EnvServerHost: "127.0.0.1",
+				config.EnvServerPort: "8081",
 			},
-			want: Server{
+			want: config.Server{
 				Host:            "127.0.0.1",
 				Port:            8081,
 				AllowedOrigin:   defaults.AllowedOrigin,
@@ -83,7 +85,7 @@ server:
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cfg, err := Parse([]byte(tt.raw), env(tt.env))
+			cfg, err := config.Parse([]byte(tt.raw), env(tt.env))
 			if err != nil {
 				t.Fatalf("Parse: %v", err)
 			}
@@ -130,11 +132,11 @@ func TestParse_Errors(t *testing.T) {
 		},
 		{
 			name: "env port is not a number",
-			env:  map[string]string{EnvServerPort: "abc"},
+			env:  map[string]string{config.EnvServerPort: "abc"},
 		},
 		{
 			name: "env port out of range",
-			env:  map[string]string{EnvServerPort: "0"},
+			env:  map[string]string{config.EnvServerPort: "0"},
 		},
 		{
 			name: "empty allowed origin",
@@ -144,7 +146,7 @@ func TestParse_Errors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if _, err := Parse([]byte(tt.raw), env(tt.env)); err == nil {
+			if _, err := config.Parse([]byte(tt.raw), env(tt.env)); err == nil {
 				t.Error("expected error, got nil")
 			}
 		})
@@ -175,7 +177,7 @@ func TestServer_Addr(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		server := Server{
+		server := config.Server{
 			Host: tt.host,
 			Port: tt.port,
 		}
@@ -190,9 +192,9 @@ func TestLoad(t *testing.T) {
 	if err := os.WriteFile(path, []byte("server:\n  port: 9000\n"), 0o600); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
-	t.Setenv(EnvServerPort, "9001")
+	t.Setenv(config.EnvServerPort, "9001")
 
-	cfg, err := Load(path)
+	cfg, err := config.Load(path)
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
@@ -202,13 +204,13 @@ func TestLoad(t *testing.T) {
 }
 
 func TestLoad_MissingFile(t *testing.T) {
-	if _, err := Load(filepath.Join(t.TempDir(), "missing.yaml")); err == nil {
+	if _, err := config.Load(filepath.Join(t.TempDir(), "missing.yaml")); err == nil {
 		t.Error("expected error for missing file")
 	}
 }
 
 func TestRepositoryConfigIsValid(t *testing.T) {
-	if _, err := Load(filepath.Join("..", "..", "configs", "config.yaml")); err != nil {
+	if _, err := config.Load(filepath.Join("..", "..", "configs", "config.yaml")); err != nil {
 		t.Errorf("configs/config.yaml is invalid: %v", err)
 	}
 }

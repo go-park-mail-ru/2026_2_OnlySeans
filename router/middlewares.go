@@ -9,13 +9,10 @@ import (
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/auth"
 )
 
-// Authenticator проверяет сессию и возвращает ID её владельца.
-// Его реализует *auth.UseCase.
 type Authenticator interface {
 	Authenticate(ctx context.Context, sessionID string) (auth.UserID, error)
 }
 
-// withCORS разрешает запросы с куками только с указанного origin.
 func withCORS(next http.Handler, allowedOrigin string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Origin") == allowedOrigin {

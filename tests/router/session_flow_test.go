@@ -1,4 +1,4 @@
-package router
+package router_test
 
 import (
 	"net/http"
@@ -10,13 +10,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/auth"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/router"
 )
 
 func TestRequireAuth_SessionFlow(t *testing.T) {
-	uc, err := auth.NewUseCase(auth.NewInMemoryUserRepo(), auth.NewInMemorySessionStore(time.Hour))
-	require.NoError(t, err)
-
-	h, err := auth.NewHandler(uc)
+	h, err := auth.NewHandler(auth.NewInMemoryUserRepo(), auth.NewInMemorySessionStore(time.Hour))
 	require.NoError(t, err)
 
 	body := `{"email":"flow@example.com","username":"flowuser","password":"Password1"}`
@@ -31,7 +29,7 @@ func TestRequireAuth_SessionFlow(t *testing.T) {
 	require.NotEmpty(t, cookie.Value)
 	require.True(t, cookie.HttpOnly, "кука должна быть HttpOnly")
 
-	protected := RequireAuth(uc, func(w http.ResponseWriter, r *http.Request) {
+	protected := router.RequireAuth(h, func(w http.ResponseWriter, r *http.Request) {
 		if _, ok := auth.UserIDFromContext(r.Context()); !ok {
 			w.WriteHeader(http.StatusInternalServerError) // мидлварь не положила ID
 			return

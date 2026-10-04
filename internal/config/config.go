@@ -31,7 +31,7 @@ const (
 	defaultWriteTimeout    = 10 * time.Second
 	defaultIdleTimeout     = 60 * time.Second
 	defaultShutdownTimeout = 10 * time.Second
-	defaultAllowedOrigin   = "http://127.0.0.1:5500"
+	defaultAllowedOrigin   = "http://localhost:3000"
 )
 
 type Config struct {

@@ -28,11 +28,7 @@ func Run(configPath string) error {
 	repo := auth.NewInMemoryUserRepo()
 	sessions := auth.NewInMemorySessionStore(sessionTTL)
 
-	useCase, err := auth.NewUseCase(repo, sessions)
-	if err != nil {
-		return fmt.Errorf("create usecase: %w", err)
-	}
-	handler, err := auth.NewHandler(useCase)
+	handler, err := auth.NewHandler(repo, sessions)
 	if err != nil {
 		return fmt.Errorf("create handler: %w", err)
 	}

@@ -9,6 +9,7 @@ import (
 )
 
 type UserID int64
+type AccountID int64
 type RoleID int64
 type PermissionID int64
 type FileID int64
