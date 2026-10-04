@@ -28,11 +28,11 @@ func newTestService(t *testing.T, filmCount int) *films.InMemoryService {
 	service := films.NewInMemoryService()
 	for id := entities.FilmID(filmCount); id >= 1; id-- {
 		film := entities.Film{
-			ID:          id,
-			Title:       "film",
-			FilmType:    entities.FilmTypeMovie,
-			ReleaseYear: 2000,
-			Genres:      []entities.Genre{genreDrama},
+			ID:             id,
+			Title:          "film",
+			FilmType:       entities.FilmTypeMovie,
+			ProductionYear: 2000,
+			Genres:         []entities.Genre{genreDrama},
 		}
 		if err := service.AddFilm(film); err != nil {
 			t.Fatalf("AddFilm(%d): %v", id, err)
@@ -412,8 +412,8 @@ func TestSeedMatchesDatabaseConstraints(t *testing.T) {
 			t.Errorf("film %d: title length %d", film.ID, titleLen)
 		case film.FilmType != entities.FilmTypeMovie && film.FilmType != entities.FilmTypeSeries:
 			t.Errorf("film %d: film_type %q", film.ID, film.FilmType)
-		case film.ReleaseYear < 1888 || film.ReleaseYear > 2200:
-			t.Errorf("film %d: release_year %d", film.ID, film.ReleaseYear)
+		case film.ProductionYear < 1888 || film.ProductionYear > 2200:
+			t.Errorf("film %d: production_year %d", film.ID, film.ProductionYear)
 		case !slices.Contains(ageLimits, film.AgeLimit):
 			t.Errorf("film %d: age_limit %d", film.ID, film.AgeLimit)
 		case film.DurationMin != nil && (*film.DurationMin < 1 || *film.DurationMin > 6000):

@@ -108,7 +108,7 @@ func TestHandler_FilmJSONContract(t *testing.T) {
 		t.Fatalf("got %d films, want %d", len(body.Films), seedFilmCount)
 	}
 
-	required := []string{"id", "title", "film_type", "release_year", "age_limit", "genres"}
+	required := []string{"id", "title", "film_type", "production_year", "age_limit", "genres"}
 	for i, film := range body.Films {
 		for _, key := range required {
 			if _, ok := film[key]; !ok {

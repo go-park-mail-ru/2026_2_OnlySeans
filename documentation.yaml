@@ -353,7 +353,7 @@ components:
           enum:
             - movie
             - series
-        release_year:
+        production_year:
           type: integer
           format: int32
         duration_min:
@@ -376,7 +376,7 @@ components:
         - id
         - title
         - film_type
-        - release_year
+        - production_year
         - age_limit
         - genres
       example:
@@ -384,7 +384,7 @@ components:
         title: Побег из Шоушенка
         original_title: The Shawshank Redemption
         film_type: movie
-        release_year: 1994
+        production_year: 1994
         duration_min: 142
         age_limit: 16
         description: Банкир Энди Дюфрейн получает пожизненный срок за убийство, которого не совершал.
@@ -428,7 +428,7 @@ components:
             title: Побег из Шоушенка
             original_title: The Shawshank Redemption
             film_type: movie
-            release_year: 1994
+            production_year: 1994
             duration_min: 142
             age_limit: 16
             description: Банкир Энди Дюфрейн получает пожизненный срок за убийство, которого не совершал.
@@ -459,7 +459,7 @@ components:
                 title: Побег из Шоушенка
                 original_title: The Shawshank Redemption
                 film_type: movie
-                release_year: 1994
+                production_year: 1994
                 duration_min: 142
                 age_limit: 16
                 description: Банкир Энди Дюфрейн получает пожизненный срок за убийство, которого не совершал.
@@ -485,7 +485,7 @@ components:
               title: Побег из Шоушенка
               original_title: The Shawshank Redemption
               film_type: movie
-              release_year: 1994
+              production_year: 1994
               duration_min: 142
               age_limit: 16
               description: Банкир Энди Дюфрейн получает пожизненный срок за убийство, которого не совершал.
