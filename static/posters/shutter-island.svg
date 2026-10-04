@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 900">
+  <defs><linearGradient id="bg" x2="0" y2="1"><stop stop-color="#87949a"/><stop offset=".45" stop-color="#34434c"/><stop offset="1" stop-color="#10171e"/></linearGradient></defs>
+  <path fill="url(#bg)" d="M0 0h360v900H0z"/>
+  <path fill="#d7d2c4" opacity=".22" d="M0 120q60-38 120 0t120 0 120 0v65q-60-32-120 0t-120 0-120 0z"/>
+  <path fill="#17242a" d="M0 284q68-30 133 0l47-58 47 58q66-30 133 0v616H0z"/>
+  <path fill="#b5c2c2" d="M164 221h32v104h-32z"/>
+  <path fill="#131c22" d="M150 311h60v70h-60z"/>
+  <path d="M0 387q80-22 180 4t180-4M25 570h310m-280 28h250" fill="none" stroke="#9eb4ba" stroke-width="3" opacity=".7"/>
+  <text x="24" y="532" fill="#f0eee8" font-family="sans-serif" font-size="30" font-weight="700" letter-spacing="2">ОСТРОВ</text>
+  <text x="24" y="569" fill="#f0eee8" font-family="sans-serif" font-size="32" font-weight="700" letter-spacing="1">ПРОКЛЯТЫХ</text>
+  <text x="26" y="608" fill="#bcc9c7" font-family="sans-serif" font-size="11" letter-spacing="3">ЧТО ЕСЛИ ПРАВДА — ЭТО ТЫ?</text>
+</svg>

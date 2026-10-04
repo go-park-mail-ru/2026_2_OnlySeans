@@ -63,6 +63,7 @@ var seedFilms = []entities.Film{
 		DurationMin:   ptr[int16](142),
 		AgeLimit:      16,
 		Description:   ptr("Банкир Энди Дюфрейн получает пожизненный срок за убийство, которого не совершал."),
+		PosterURL:     ptr("/static/posters/shawshank-redemption.svg"),
 		Genres:        []entities.Genre{genreDrama},
 	},
 	{
@@ -74,6 +75,7 @@ var seedFilms = []entities.Film{
 		DurationMin:   ptr[int16](189),
 		AgeLimit:      16,
 		Description:   ptr("Надзиратель блока смертников знакомится с заключённым, обладающим необычным даром."),
+		PosterURL:     ptr("/static/posters/green-mile.svg"),
 		Genres:        []entities.Genre{genreDrama, genreCrime},
 	},
 	{
@@ -85,6 +87,7 @@ var seedFilms = []entities.Film{
 		DurationMin:   ptr[int16](142),
 		AgeLimit:      12,
 		Description:   ptr("История простодушного человека, который оказывается в центре главных событий эпохи."),
+		PosterURL:     ptr("/static/posters/forrest-gump.svg"),
 		Genres:        []entities.Genre{genreDrama, genreComedy},
 	},
 	{
@@ -96,6 +99,7 @@ var seedFilms = []entities.Film{
 		DurationMin:   ptr[int16](169),
 		AgeLimit:      16,
 		Description:   ptr("Группа исследователей отправляется через червоточину в поисках нового дома для человечества."),
+		PosterURL:     ptr("/static/posters/interstellar.svg"),
 		Genres:        []entities.Genre{genreSciFi, genreDrama, genreAdventure},
 	},
 	{
@@ -107,6 +111,7 @@ var seedFilms = []entities.Film{
 		DurationMin:   ptr[int16](148),
 		AgeLimit:      12,
 		Description:   ptr("Вор, крадущий идеи из снов, получает задание не украсть идею, а внедрить её."),
+		PosterURL:     ptr("/static/posters/inception.svg"),
 		Genres:        []entities.Genre{genreSciFi, genreThriller},
 	},
 	{
@@ -118,6 +123,7 @@ var seedFilms = []entities.Film{
 		DurationMin:   ptr[int16](138),
 		AgeLimit:      18,
 		Description:   ptr("Два пристава расследуют исчезновение пациентки из психиатрической клиники на острове."),
+		PosterURL:     ptr("/static/posters/shutter-island.svg"),
 		Genres:        []entities.Genre{genreThriller, genreDrama},
 	},
 	{
@@ -129,6 +135,7 @@ var seedFilms = []entities.Film{
 		DurationMin:   ptr[int16](88),
 		AgeLimit:      0,
 		Description:   ptr("Львёнок Симба должен вернуть себе трон, который отнял его коварный дядя."),
+		PosterURL:     ptr("/static/posters/lion-king.svg"),
 		Genres:        []entities.Genre{genreAnimation, genreFamily, genreDrama},
 	},
 	{
@@ -140,6 +147,7 @@ var seedFilms = []entities.Film{
 		DurationMin:   ptr[int16](103),
 		AgeLimit:      0,
 		Description:   ptr("Восьмилетнего Кевина случайно забывают дома, и ему приходится защищать дом от грабителей."),
+		PosterURL:     ptr("/static/posters/home-alone.svg"),
 		Genres:        []entities.Genre{genreComedy, genreFamily},
 	},
 	{
@@ -150,6 +158,7 @@ var seedFilms = []entities.Film{
 		DurationMin: ptr[int16](88),
 		AgeLimit:    6,
 		Description: ptr("Машина времени изобретателя Шурика меняет местами управдома и царя Ивана Грозного."),
+		PosterURL:   ptr("/static/posters/ivan-vasilievich.svg"),
 		Genres:      []entities.Genre{genreComedy, genreSciFi},
 	},
 	{
@@ -161,6 +170,7 @@ var seedFilms = []entities.Film{
 		DurationMin:   ptr[int16](113),
 		AgeLimit:      18,
 		Description:   ptr("Наркобарон решает продать свой бизнес, и вокруг сделки начинается большая игра."),
+		PosterURL:     ptr("/static/posters/the-gentlemen.svg"),
 		Genres:        []entities.Genre{genreCrime, genreComedy},
 	},
 	{
@@ -172,6 +182,7 @@ var seedFilms = []entities.Film{
 		DurationMin:   ptr[int16](88),
 		AgeLimit:      12,
 		Description:   ptr("Современная версия историй о Шерлоке Холмсе и докторе Ватсоне."),
+		PosterURL:     ptr("/static/posters/sherlock.svg"),
 		Genres:        []entities.Genre{genreCrime, genreDrama, genreThriller},
 	},
 	{
@@ -183,6 +194,7 @@ var seedFilms = []entities.Film{
 		DurationMin:   ptr[int16](47),
 		AgeLimit:      18,
 		Description:   ptr("Школьный учитель химии узнаёт о смертельной болезни и начинает варить метамфетамин."),
+		PosterURL:     ptr("/static/posters/breaking-bad.svg"),
 		Genres:        []entities.Genre{genreCrime, genreDrama, genreThriller},
 	},
 }
