@@ -113,7 +113,7 @@ func TestRouter_UnknownRoutes(t *testing.T) {
 func TestRouter_PreflightOnEveryRoute(t *testing.T) {
 	handler := newTestRouter(t)
 
-	for _, path := range []string{"/api/register", "/api/login", "/api/logout", "/api/films", "/api/films/1", "/api/collections", "/api/collections/2"} {
+	for _, path := range []string{"/api/register", "/api/login", "/api/logout", "/api/films", "/api/films/1", "/api/collections", "/api/collections/2", "/api/authorised"} {
 		req := httptest.NewRequest(http.MethodOptions, path, nil)
 		req.Header.Set("Origin", testOrigin)
 		req.Header.Set("Access-Control-Request-Method", http.MethodPost)
@@ -128,4 +128,24 @@ func TestRouter_PreflightOnEveryRoute(t *testing.T) {
 		assert.Contains(t, rec.Header().Get("Access-Control-Allow-Headers"), "Content-Type", path)
 		assert.Equal(t, "Origin", rec.Header().Get("Vary"), path)
 	}
+}
+
+func TestRouter_Authorised(t *testing.T) {
+	client := newTestClient(t)
+
+	status, _ := client.do(http.MethodGet, "/api/authorised", "")
+	assert.Equal(t, http.StatusUnauthorized, status)
+
+	status, _ = client.do(http.MethodPost, "/api/register", `{"email":"anna@example.com","username":"anna","password":"Password1"}`)
+	require.Equal(t, http.StatusCreated, status)
+
+	status, body := client.do(http.MethodGet, "/api/authorised", "")
+	require.Equal(t, http.StatusOK, status)
+	assert.JSONEq(t, `{"id":1,"email":"anna@example.com","username":"anna"}`, string(body["user"]))
+
+	status, _ = client.do(http.MethodPost, "/api/logout", "")
+	require.Equal(t, http.StatusNoContent, status)
+
+	status, _ = client.do(http.MethodGet, "/api/authorised", "")
+	assert.Equal(t, http.StatusUnauthorized, status)
 }

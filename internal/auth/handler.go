@@ -104,7 +104,7 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.startSession(w, user, http.StatusCreated)
+	h.startSession(w, r, user, http.StatusCreated)
 }
 
 // Login handles POST /api/login.
@@ -141,7 +141,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.startSession(w, user, http.StatusOK)
+	h.startSession(w, r, user, http.StatusOK)
 }
 
 // Logout handles POST /api/logout.
@@ -152,7 +152,7 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if cookie, err := r.Cookie(SessionCookieName); err == nil {
-		if err := h.Sessions.Delete(cookie.Value); err != nil {
+		if err := h.Sessions.Delete(r.Context(), cookie.Value); err != nil {
 			writeError(w, http.StatusInternalServerError, ErrInternal.Error())
 			return
 		}
@@ -162,8 +162,8 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (h *Handler) Authenticate(_ context.Context, sessionID string) (UserID, error) {
-	session, err := h.Sessions.Get(sessionID)
+func (h *Handler) Authenticate(ctx context.Context, sessionID string) (UserID, error) {
+	session, err := h.Sessions.Get(ctx, sessionID)
 	if err != nil {
 		if errors.Is(err, ErrSessionNotFound) {
 			return 0, ErrUnauthorized
@@ -175,8 +175,8 @@ func (h *Handler) Authenticate(_ context.Context, sessionID string) (UserID, err
 	return session.UserID, nil
 }
 
-func (h *Handler) startSession(w http.ResponseWriter, user *User, status int) {
-	session, err := h.Sessions.Create(user.ID)
+func (h *Handler) startSession(w http.ResponseWriter, r *http.Request, user *User, status int) {
+	session, err := h.Sessions.Create(r.Context(), user.ID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, ErrInternal.Error())
 		return
@@ -208,4 +208,20 @@ func (h *Handler) clearSessionCookie(w http.ResponseWriter) {
 		Secure:   h.CookieSecure,
 		SameSite: http.SameSiteLaxMode,
 	})
+}
+
+func (h *Handler) Authorised(w http.ResponseWriter, r *http.Request) {
+	id, ok := UserIDFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, ErrUnauthorized.Error())
+		return
+	}
+
+	user, err := h.Users.GetUser(r.Context(), id)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, ErrInternal.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, authResponse{User: *user})
 }

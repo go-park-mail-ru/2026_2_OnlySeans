@@ -104,7 +104,13 @@ func (b brokenService) ListCollectionFilms(context.Context, entities.CollectionI
 
 func newTestRouter(service films.Service) *mux.Router {
 	router := mux.NewRouter()
-	films.NewHandler(service).RegisterRoutes(router)
+	h := films.NewHandler(service)
+
+	router.HandleFunc("/api/films", h.ListFilms).Methods(http.MethodGet)
+	router.HandleFunc("/api/films/{id}", h.GetFilm).Methods(http.MethodGet)
+	router.HandleFunc("/api/collections", h.ListCollections).Methods(http.MethodGet)
+	router.HandleFunc("/api/collections/{id}", h.GetCollection).Methods(http.MethodGet)
+
 	return router
 }
 
@@ -132,6 +138,15 @@ func decode[T any](t *testing.T, rec *httptest.ResponseRecorder) T {
 		t.Fatalf("invalid JSON %q: %v", rec.Body.String(), err)
 	}
 	return body
+}
+
+func assertErrorBody(t *testing.T, rec *httptest.ResponseRecorder, want error) {
+	t.Helper()
+
+	got := decode[errorResponse](t, rec).Error
+	if !strings.HasPrefix(got, want.Error()) {
+		t.Errorf("error = %q, want prefix %q", got, want.Error())
+	}
 }
 
 func silenceLog(t *testing.T) {
@@ -219,9 +234,7 @@ func TestHandler_ListFilms(t *testing.T) {
 			}
 
 			if tt.wantError != nil {
-				if got := decode[errorResponse](t, rec).Error; got != tt.wantError.Error() {
-					t.Errorf("error = %q, want %q", got, tt.wantError.Error())
-				}
+				assertErrorBody(t, rec, tt.wantError)
 				return
 			}
 
@@ -295,9 +308,7 @@ func TestHandler_GetFilm(t *testing.T) {
 			}
 
 			if tt.wantError != nil {
-				if got := decode[errorResponse](t, rec).Error; got != tt.wantError.Error() {
-					t.Errorf("error = %q, want %q", got, tt.wantError.Error())
-				}
+				assertErrorBody(t, rec, tt.wantError)
 				return
 			}
 
@@ -369,9 +380,7 @@ func TestHandler_ListCollections(t *testing.T) {
 			}
 
 			if tt.wantError != nil {
-				if got := decode[errorResponse](t, rec).Error; got != tt.wantError.Error() {
-					t.Errorf("error = %q, want %q", got, tt.wantError.Error())
-				}
+				assertErrorBody(t, rec, tt.wantError)
 				return
 			}
 
@@ -472,9 +481,7 @@ func TestHandler_GetCollection(t *testing.T) {
 			}
 
 			if tt.wantError != nil {
-				if got := decode[errorResponse](t, rec).Error; got != tt.wantError.Error() {
-					t.Errorf("error = %q, want %q", got, tt.wantError.Error())
-				}
+				assertErrorBody(t, rec, tt.wantError)
 				return
 			}
 
@@ -557,5 +564,14 @@ func TestHandler_InternalErrorIsHidden(t *testing.T) {
 				t.Errorf("error = %q, internal details must not leak to client", got)
 			}
 		})
+	}
+}
+
+func TestHandler_InvalidLimitMentionsBounds(t *testing.T) {
+	rec := serve(newSeededRouter(t), http.MethodGet, "/api/films?limit=0")
+
+	got := decode[errorResponse](t, rec).Error
+	if !strings.Contains(got, "1 to 100") {
+		t.Errorf("error = %q, want bounds in message", got)
 	}
 }

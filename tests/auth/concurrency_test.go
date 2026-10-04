@@ -76,11 +76,12 @@ func TestInMemoryUserRepo_ConcurrentCreate_UniqueIDs(t *testing.T) {
 
 func TestInMemorySessionStore_ConcurrentCreate(t *testing.T) {
 	store := auth.NewInMemorySessionStore(time.Hour)
+	ctx := t.Context()
 	sessions := make([]*auth.Session, workers)
 	errs := make([]error, workers)
 
 	runConcurrently(func(i int) {
-		sessions[i], errs[i] = store.Create(auth.UserID(i))
+		sessions[i], errs[i] = store.Create(ctx, auth.UserID(i))
 	})
 
 	seen := make(map[string]struct{}, workers)
@@ -88,7 +89,7 @@ func TestInMemorySessionStore_ConcurrentCreate(t *testing.T) {
 		require.NoError(t, errs[i])
 		seen[session.ID] = struct{}{}
 
-		got, err := store.Get(session.ID)
+		got, err := store.Get(ctx, session.ID)
 		require.NoError(t, err)
 		assert.Equal(t, auth.UserID(i), got.UserID)
 	}

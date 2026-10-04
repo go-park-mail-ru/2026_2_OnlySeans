@@ -42,25 +42,25 @@ type flakyStore struct {
 	deleteErr error
 }
 
-func (s flakyStore) Create(userID auth.UserID) (*auth.Session, error) {
+func (s flakyStore) Create(ctx context.Context, userID auth.UserID) (*auth.Session, error) {
 	if s.createErr != nil {
 		return nil, s.createErr
 	}
-	return s.InMemorySessionStore.Create(userID)
+	return s.InMemorySessionStore.Create(ctx, userID)
 }
 
-func (s flakyStore) Get(sessionID string) (*auth.Session, error) {
+func (s flakyStore) Get(ctx context.Context, sessionID string) (*auth.Session, error) {
 	if s.getErr != nil {
 		return nil, s.getErr
 	}
-	return s.InMemorySessionStore.Get(sessionID)
+	return s.InMemorySessionStore.Get(ctx, sessionID)
 }
 
-func (s flakyStore) Delete(sessionID string) error {
+func (s flakyStore) Delete(ctx context.Context, sessionID string) error {
 	if s.deleteErr != nil {
 		return s.deleteErr
 	}
-	return s.InMemorySessionStore.Delete(sessionID)
+	return s.InMemorySessionStore.Delete(ctx, sessionID)
 }
 
 func newFlakyHandler(t *testing.T, repo flakyRepo, store flakyStore) *auth.Handler {
@@ -126,7 +126,7 @@ func TestHandler_Authenticate(t *testing.T) {
 
 			sid := "sid"
 			if tt.getErr == nil {
-				session, err := h.Sessions.Create(7)
+				session, err := h.Sessions.Create(context.Background(), 7)
 				require.NoError(t, err)
 				sid = session.ID
 			}
