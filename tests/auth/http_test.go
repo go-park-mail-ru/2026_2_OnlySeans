@@ -99,7 +99,7 @@ func TestHandler_ResponseHidesPassword(t *testing.T) {
 		})
 	}
 
-	user, err := h.UseCase.Repo.GetByEmail(context.Background(), "anna@example.com")
+	user, err := h.Users.GetByEmail(context.Background(), "anna@example.com")
 	require.NoError(t, err)
 	assert.NotEqual(t, "Password1", user.PasswordHash)
 	assert.NoError(t, bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte("Password1")))
@@ -130,7 +130,7 @@ func TestHandler_Logout(t *testing.T) {
 	ctx := context.Background()
 
 	cookie := sessionCookie(t, rawRequest(h.Register, http.MethodPost, validRegisterBody))
-	_, err := h.UseCase.Authenticate(ctx, cookie.Value)
+	_, err := h.Authenticate(ctx, cookie.Value)
 	require.NoError(t, err)
 
 	rec := rawRequest(h.Logout, http.MethodPost, "", cookie)
@@ -140,36 +140,47 @@ func TestHandler_Logout(t *testing.T) {
 	assert.Empty(t, cleared.Value)
 	assert.Negative(t, cleared.MaxAge)
 
-	_, err = h.UseCase.Authenticate(ctx, cookie.Value)
+	_, err = h.Authenticate(ctx, cookie.Value)
 	assert.ErrorIs(t, err, auth.ErrUnauthorized)
 
 	assert.Equal(t, http.StatusNoContent, rawRequest(h.Logout, http.MethodPost, "", cookie).Code)
 	assert.Equal(t, http.StatusNoContent, rawRequest(h.Logout, http.MethodPost, "").Code)
 }
 
-func TestUseCase_SessionsAreIndependent(t *testing.T) {
-	uc := newTestUseCase(t)
+func TestHandler_SessionsAreIndependent(t *testing.T) {
+	h := newTestHandler(t)
 	ctx := context.Background()
 
-	registered, err := uc.Register(ctx, "anna@example.com", "anna", "Password1")
-	require.NoError(t, err)
-	phone, err := uc.Login(ctx, "anna@example.com", "Password1")
-	require.NoError(t, err)
-	laptop, err := uc.Login(ctx, "anna@example.com", "Password1")
-	require.NoError(t, err)
+	registered := sessionCookie(t, rawRequest(h.Register, http.MethodPost, validRegisterBody))
+	phone := sessionCookie(t, rawRequest(h.Login, http.MethodPost, validRegisterBody))
+	laptop := sessionCookie(t, rawRequest(h.Login, http.MethodPost, validRegisterBody))
 
-	assert.NotEqual(t, registered.Session.ID, phone.Session.ID)
-	assert.NotEqual(t, phone.Session.ID, laptop.Session.ID)
-	assert.NotEqual(t, registered.Session.ID, laptop.Session.ID)
+	assert.NotEqual(t, registered.Value, phone.Value)
+	assert.NotEqual(t, phone.Value, laptop.Value)
+	assert.NotEqual(t, registered.Value, laptop.Value)
 
-	require.NoError(t, uc.Logout(phone.Session.ID))
+	rec := rawRequest(h.Logout, http.MethodPost, "", phone)
+	require.Equal(t, http.StatusNoContent, rec.Code)
 
-	_, err = uc.Authenticate(ctx, phone.Session.ID)
-	assert.ErrorIs(t, err, auth.ErrUnauthorized)
+	tests := []struct {
+		name    string
+		session *http.Cookie
+		wantErr error
+	}{
+		{"вышедшая сессия", phone, auth.ErrUnauthorized},
+		{"сессия регистрации жива", registered, nil},
+		{"сессия ноутбука жива", laptop, nil},
+	}
 
-	for _, id := range []string{registered.Session.ID, laptop.Session.ID} {
-		userID, err := uc.Authenticate(ctx, id)
-		require.NoError(t, err)
-		assert.Equal(t, registered.User.ID, userID)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			userID, err := h.Authenticate(ctx, tt.session.Value)
+			if tt.wantErr != nil {
+				assert.ErrorIs(t, err, tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, auth.UserID(1), userID)
+		})
 	}
 }

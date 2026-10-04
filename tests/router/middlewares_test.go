@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -16,14 +17,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const testOrigin = "http://127.0.0.1:5500"
+const testOrigin = "http://localhost:3000"
 
 func newTestRouter(t *testing.T) http.Handler {
 	t.Helper()
 
-	uc, err := auth.NewUseCase(auth.NewInMemoryUserRepo(), auth.NewInMemorySessionStore(time.Hour))
-	require.NoError(t, err)
-	authHandler, err := auth.NewHandler(uc)
+	authHandler, err := auth.NewHandler(auth.NewInMemoryUserRepo(), auth.NewInMemorySessionStore(time.Hour))
 	require.NoError(t, err)
 	filmsService, err := films.NewSeededService()
 	require.NoError(t, err)
@@ -141,6 +140,44 @@ func TestRequireAuth(t *testing.T) {
 			var body map[string]string
 			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
 			assert.Equal(t, tt.wantError, body["error"])
+		})
+	}
+}
+
+func TestRouter_LogoutRequiresAuth(t *testing.T) {
+	handler := newTestRouter(t)
+
+	register := httptest.NewRecorder()
+	handler.ServeHTTP(register, httptest.NewRequest(http.MethodPost, "/api/register",
+		strings.NewReader(`{"email":"out@example.com","username":"outuser","password":"Password1"}`)))
+	require.Equal(t, http.StatusCreated, register.Code)
+
+	cookies := register.Result().Cookies()
+	require.Len(t, cookies, 1)
+	valid := cookies[0]
+
+	tests := []struct {
+		name       string
+		cookie     *http.Cookie
+		wantStatus int
+	}{
+		{"без куки", nil, http.StatusUnauthorized},
+		{"неизвестная сессия", &http.Cookie{Name: auth.SessionCookieName, Value: "unknown"}, http.StatusUnauthorized},
+		{"валидная сессия", valid, http.StatusNoContent},
+		{"повторный выход той же сессией", valid, http.StatusUnauthorized},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, "/api/logout", nil)
+			if tt.cookie != nil {
+				req.AddCookie(tt.cookie)
+			}
+			rec := httptest.NewRecorder()
+
+			handler.ServeHTTP(rec, req)
+
+			assert.Equal(t, tt.wantStatus, rec.Code)
 		})
 	}
 }

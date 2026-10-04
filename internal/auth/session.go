@@ -25,7 +25,7 @@ type InMemorySessionStore struct {
 	mu       sync.Mutex
 	sessions map[string]*Session
 	ttl      time.Duration
-	now      func() time.Time // подменяется в тестах
+	now      func() time.Time
 }
 
 func NewInMemorySessionStore(ttl time.Duration) *InMemorySessionStore {
@@ -36,7 +36,6 @@ func NewInMemorySessionStore(ttl time.Duration) *InMemorySessionStore {
 	}
 }
 
-// generateSessionID возвращает криптостойкий случайный ID (64 hex-символа).
 func generateSessionID() (string, error) {
 	b := make([]byte, sessionIDBytes)
 	if _, err := rand.Read(b); err != nil {
@@ -83,7 +82,6 @@ func (s *InMemorySessionStore) Get(sessionID string) (*Session, error) {
 	return session, nil
 }
 
-// Delete идемпотентен: удаление несуществующей сессии не ошибка.
 func (s *InMemorySessionStore) Delete(sessionID string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()

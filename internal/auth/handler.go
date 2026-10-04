@@ -1,24 +1,32 @@
 package auth
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 const SessionCookieName = "session_id"
 
 type Handler struct {
-	UseCase      *UseCase
+	Users        UserRepository
+	Sessions     SessionStore
 	CookieSecure bool
 }
 
-func NewHandler(uc *UseCase) (*Handler, error) {
-	if uc == nil {
-		return nil, ErrNilUseCase
+func NewHandler(users UserRepository, sessions SessionStore) (*Handler, error) {
+	if users == nil {
+		return nil, ErrNilRepo
 	}
 
-	return &Handler{UseCase: uc}, nil
+	if sessions == nil {
+		return nil, ErrNilSessionStore
+	}
+
+	return &Handler{Users: users, Sessions: sessions}, nil
 }
 
 type registerRequest struct {
@@ -50,22 +58,6 @@ func writeError(w http.ResponseWriter, status int, msg string) {
 	writeJSON(w, status, errorResponse{Error: msg})
 }
 
-// statusForError maps a usecase error to an HTTP status code.
-func statusForError(err error) int {
-	switch {
-	case errors.Is(err, ErrUserExists):
-		return http.StatusConflict
-	case errors.Is(err, ErrInvalidCredentials):
-		return http.StatusUnauthorized
-	case errors.Is(err, ErrInternal):
-		return http.StatusInternalServerError
-	case errors.Is(err, ErrUnauthorized):
-		return http.StatusUnauthorized
-	default:
-		return http.StatusBadRequest
-	}
-}
-
 // Register handles POST /api/register.
 func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -79,14 +71,40 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := h.UseCase.Register(r.Context(), req.Email, req.Username, req.Password)
+	for _, err := range []error{
+		ValidateEmail(req.Email),
+		ValidateUsername(req.Username),
+		ValidatePassword(req.Password),
+	} {
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		writeError(w, statusForError(err), err.Error())
+		writeError(w, http.StatusInternalServerError, ErrInternal.Error())
 		return
 	}
 
-	h.setSessionCookie(w, result.Session)
-	writeJSON(w, http.StatusCreated, authResponse{User: *result.User})
+	id, err := h.Users.Create(r.Context(), req.Email, req.Username, string(hash))
+	if err != nil {
+		if errors.Is(err, ErrUserExists) {
+			writeError(w, http.StatusConflict, ErrUserExists.Error())
+			return
+		}
+		writeError(w, http.StatusInternalServerError, ErrInternal.Error())
+		return
+	}
+
+	user, err := h.Users.GetUser(r.Context(), id)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, ErrInternal.Error())
+		return
+	}
+
+	h.startSession(w, user, http.StatusCreated)
 }
 
 // Login handles POST /api/login.
@@ -102,14 +120,28 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := h.UseCase.Login(r.Context(), req.Email, req.Password)
-	if err != nil {
-		writeError(w, statusForError(err), err.Error())
+	if err := ValidateEmail(req.Email); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	h.setSessionCookie(w, result.Session)
-	writeJSON(w, http.StatusOK, authResponse{User: *result.User})
+	if req.Password == "" {
+		writeError(w, http.StatusBadRequest, ErrInvalidPassword.Error()+": password required")
+		return
+	}
+
+	user, err := h.Users.GetByEmail(r.Context(), req.Email)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, ErrInvalidCredentials.Error())
+		return
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
+		writeError(w, http.StatusUnauthorized, ErrInvalidCredentials.Error())
+		return
+	}
+
+	h.startSession(w, user, http.StatusOK)
 }
 
 // Logout handles POST /api/logout.
@@ -120,14 +152,38 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if cookie, err := r.Cookie(SessionCookieName); err == nil {
-		if err := h.UseCase.Logout(cookie.Value); err != nil {
-			writeError(w, statusForError(err), err.Error())
+		if err := h.Sessions.Delete(cookie.Value); err != nil {
+			writeError(w, http.StatusInternalServerError, ErrInternal.Error())
 			return
 		}
 	}
 
 	h.clearSessionCookie(w)
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) Authenticate(_ context.Context, sessionID string) (UserID, error) {
+	session, err := h.Sessions.Get(sessionID)
+	if err != nil {
+		if errors.Is(err, ErrSessionNotFound) {
+			return 0, ErrUnauthorized
+		}
+
+		return 0, ErrInternal
+	}
+
+	return session.UserID, nil
+}
+
+func (h *Handler) startSession(w http.ResponseWriter, user *User, status int) {
+	session, err := h.Sessions.Create(user.ID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, ErrInternal.Error())
+		return
+	}
+
+	h.setSessionCookie(w, session)
+	writeJSON(w, status, authResponse{User: *user})
 }
 
 func (h *Handler) setSessionCookie(w http.ResponseWriter, s *Session) {

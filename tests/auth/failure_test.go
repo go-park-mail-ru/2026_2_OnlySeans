@@ -63,18 +63,18 @@ func (s flakyStore) Delete(sessionID string) error {
 	return s.InMemorySessionStore.Delete(sessionID)
 }
 
-func newFlakyUseCase(t *testing.T, repo flakyRepo, store flakyStore) *auth.UseCase {
+func newFlakyHandler(t *testing.T, repo flakyRepo, store flakyStore) *auth.Handler {
 	t.Helper()
 
 	repo.InMemoryUserRepo = auth.NewInMemoryUserRepo()
 	store.InMemorySessionStore = auth.NewInMemorySessionStore(time.Hour)
 
-	uc, err := auth.NewUseCase(repo, store)
+	h, err := auth.NewHandler(repo, store)
 	require.NoError(t, err)
-	return uc
+	return h
 }
 
-func TestUseCase_Register_StorageFailures(t *testing.T) {
+func TestHandler_Register_StorageFailures(t *testing.T) {
 	tests := []struct {
 		name  string
 		repo  flakyRepo
@@ -87,74 +87,59 @@ func TestUseCase_Register_StorageFailures(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			uc := newFlakyUseCase(t, tt.repo, tt.store)
+			h := newFlakyHandler(t, tt.repo, tt.store)
 
-			result, err := uc.Register(context.Background(), "anna@example.com", "anna", "Password1")
-			assert.Nil(t, result)
-			assert.Equal(t, auth.ErrInternal, err)
-		})
-	}
-}
-
-func TestUseCase_Authenticate_StorageFailure(t *testing.T) {
-	uc := newFlakyUseCase(t, flakyRepo{}, flakyStore{getErr: errBoom})
-
-	userID, err := uc.Authenticate(context.Background(), "sid")
-	assert.Zero(t, userID)
-	assert.Equal(t, auth.ErrInternal, err)
-}
-
-func TestUseCase_Logout_StorageFailure(t *testing.T) {
-	uc := newFlakyUseCase(t, flakyRepo{}, flakyStore{deleteErr: errBoom})
-
-	assert.Equal(t, auth.ErrInternal, uc.Logout("sid"))
-}
-
-func TestUseCase_Login_EmptyPassword(t *testing.T) {
-	uc := newTestUseCase(t)
-	ctx := context.Background()
-
-	_, err := uc.Register(ctx, "anna@example.com", "anna", "Password1")
-	require.NoError(t, err)
-
-	_, err = uc.Login(ctx, "anna@example.com", "")
-	assert.ErrorIs(t, err, auth.ErrInvalidPassword)
-}
-
-func TestHandler_InternalErrorIsHidden(t *testing.T) {
-	tests := []struct {
-		name    string
-		repo    flakyRepo
-		store   flakyStore
-		request func(h *auth.Handler) (http.HandlerFunc, string, []*http.Cookie)
-	}{
-		{
-			name: "register",
-			repo: flakyRepo{createErr: errBoom},
-			request: func(h *auth.Handler) (http.HandlerFunc, string, []*http.Cookie) {
-				return h.Register, validRegisterBody, nil
-			},
-		},
-		{
-			name:  "logout",
-			store: flakyStore{deleteErr: errBoom},
-			request: func(h *auth.Handler) (http.HandlerFunc, string, []*http.Cookie) {
-				return h.Logout, "", []*http.Cookie{{Name: auth.SessionCookieName, Value: "sid"}}
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			h, err := auth.NewHandler(newFlakyUseCase(t, tt.repo, tt.store))
-			require.NoError(t, err)
-
-			handlerFunc, body, cookies := tt.request(h)
-			rec := rawRequest(handlerFunc, http.MethodPost, body, cookies...)
+			rec := rawRequest(h.Register, http.MethodPost, validRegisterBody)
 
 			assert.Equal(t, http.StatusInternalServerError, rec.Code)
 			assert.JSONEq(t, `{"error":"internal server error"}`, rec.Body.String())
 			assert.Empty(t, rec.Result().Cookies())
+		})
+	}
+}
+
+func TestHandler_Logout_StorageFailure(t *testing.T) {
+	h := newFlakyHandler(t, flakyRepo{}, flakyStore{deleteErr: errBoom})
+	cookie := &http.Cookie{Name: auth.SessionCookieName, Value: "sid"}
+
+	rec := rawRequest(h.Logout, http.MethodPost, "", cookie)
+
+	assert.Equal(t, http.StatusInternalServerError, rec.Code)
+	assert.JSONEq(t, `{"error":"internal server error"}`, rec.Body.String())
+	assert.Empty(t, rec.Result().Cookies())
+}
+
+func TestHandler_Authenticate(t *testing.T) {
+	tests := []struct {
+		name    string
+		getErr  error
+		wantErr error
+	}{
+		{"сессия найдена", nil, nil},
+		{"сессия не найдена", auth.ErrSessionNotFound, auth.ErrUnauthorized},
+		{"сбой хранилища скрыт", errBoom, auth.ErrInternal},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := newFlakyHandler(t, flakyRepo{}, flakyStore{getErr: tt.getErr})
+
+			sid := "sid"
+			if tt.getErr == nil {
+				session, err := h.Sessions.Create(7)
+				require.NoError(t, err)
+				sid = session.ID
+			}
+
+			userID, err := h.Authenticate(context.Background(), sid)
+
+			if tt.wantErr != nil {
+				assert.Zero(t, userID)
+				assert.Equal(t, tt.wantErr, err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, auth.UserID(7), userID)
 		})
 	}
 }

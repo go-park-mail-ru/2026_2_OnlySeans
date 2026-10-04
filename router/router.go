@@ -14,7 +14,7 @@ func NewRouter(authHandler *auth.Handler, filmsHandler *films.Handler, allowedOr
 
 	r.HandleFunc("/api/register", authHandler.Register)
 	r.HandleFunc("/api/login", authHandler.Login)
-	r.HandleFunc("/api/logout", authHandler.Logout)
+	r.HandleFunc("/api/logout", RequireAuth(authHandler, authHandler.Logout))
 
 	filmsHandler.RegisterRoutes(r)
 
