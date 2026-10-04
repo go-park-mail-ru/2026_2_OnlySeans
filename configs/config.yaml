@@ -5,4 +5,4 @@ server:
   write_timeout: 10s
   idle_timeout: 60s
   shutdown_timeout: 10s
-  allowed_origin: "http://127.0.0.1:5500"
+  allowed_origin: "http://127.0.0.1:8000"
