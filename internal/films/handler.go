@@ -16,6 +16,7 @@ import (
 
 const (
 	defaultLimit  = 20
+	minLimit      = 1
 	maxLimit      = 100
 	defaultOffset = 0
 )
@@ -26,17 +27,10 @@ const (
 	idVar       = "id"
 )
 
-const (
-	filmsPath       = "/api/films"
-	filmPath        = "/api/films/{" + idVar + "}"
-	collectionsPath = "/api/collections"
-	collectionPath  = "/api/collections/{" + idVar + "}"
-)
-
 const internalErrorMessage = "internal server error"
 
 var (
-	ErrInvalidLimit        = fmt.Errorf("limit must be an integer from 1 to %d", maxLimit)
+	ErrInvalidLimit        = errors.New("invalid limit")
 	ErrInvalidOffset       = errors.New("offset must be a non-negative integer")
 	ErrInvalidFilmID       = errors.New("film id must be a positive integer")
 	ErrInvalidCollectionID = errors.New("collection id must be a positive integer")
@@ -78,21 +72,6 @@ type Handler struct {
 
 func NewHandler(service Service) *Handler {
 	return &Handler{service: service}
-}
-
-func (h *Handler) RegisterRoutes(router *mux.Router) {
-	router.
-		HandleFunc(filmsPath, h.ListFilms).
-		Methods(http.MethodGet)
-	router.
-		HandleFunc(filmPath, h.GetFilm).
-		Methods(http.MethodGet)
-	router.
-		HandleFunc(collectionsPath, h.ListCollections).
-		Methods(http.MethodGet)
-	router.
-		HandleFunc(collectionPath, h.GetCollection).
-		Methods(http.MethodGet)
 }
 
 type filmsPage struct {
@@ -238,8 +217,8 @@ func (h *Handler) collectionWithFilms(ctx context.Context, collection entities.C
 
 func pagination(r *http.Request) (limit, offset int, err error) {
 	limit, ok := queryInt(r, limitParam, defaultLimit)
-	if !ok || limit < 1 || limit > maxLimit {
-		return 0, 0, ErrInvalidLimit
+	if !ok || limit < minLimit || limit > maxLimit {
+		return 0, 0, fmt.Errorf("%w: must be an integer from %d to %d", ErrInvalidLimit, minLimit, maxLimit)
 	}
 	offset, ok = queryInt(r, offsetParam, defaultOffset)
 	if !ok || offset < 0 {
@@ -273,7 +252,11 @@ func writeJSON(w http.ResponseWriter, status int, body any) {
 func writeError(w http.ResponseWriter, err error) {
 	for _, known := range clientErrors {
 		if errors.Is(err, known.err) {
-			writeJSON(w, known.status, errorResponse{Error: known.err.Error()})
+			msg := known.err.Error()
+			if known.status == http.StatusBadRequest {
+				msg = err.Error()
+			}
+			writeJSON(w, known.status, errorResponse{Error: msg})
 			return
 		}
 	}

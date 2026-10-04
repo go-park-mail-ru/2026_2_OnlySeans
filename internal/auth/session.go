@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"sync"
@@ -16,9 +17,9 @@ type Session struct {
 }
 
 type SessionStore interface {
-	Create(userID UserID) (*Session, error)
-	Get(sessionID string) (*Session, error)
-	Delete(sessionID string) error
+	Create(ctx context.Context, userID UserID) (*Session, error)
+	Get(ctx context.Context, sessionID string) (*Session, error)
+	Delete(ctx context.Context, sessionID string) error
 }
 
 type InMemorySessionStore struct {
@@ -45,7 +46,7 @@ func generateSessionID() (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
-func (s *InMemorySessionStore) Create(userID UserID) (*Session, error) {
+func (s *InMemorySessionStore) Create(_ context.Context, userID UserID) (*Session, error) {
 	id, err := generateSessionID()
 	if err != nil {
 		return nil, err
@@ -65,7 +66,7 @@ func (s *InMemorySessionStore) Create(userID UserID) (*Session, error) {
 	return session, nil
 }
 
-func (s *InMemorySessionStore) Get(sessionID string) (*Session, error) {
+func (s *InMemorySessionStore) Get(_ context.Context, sessionID string) (*Session, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -82,7 +83,7 @@ func (s *InMemorySessionStore) Get(sessionID string) (*Session, error) {
 	return session, nil
 }
 
-func (s *InMemorySessionStore) Delete(sessionID string) error {
+func (s *InMemorySessionStore) Delete(_ context.Context, sessionID string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
