@@ -7,10 +7,15 @@ import (
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/auth"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/films"
+	staticassets "github.com/go-park-mail-ru/2026_2_OnlySeans/static"
 )
 
 func NewRouter(authHandler *auth.Handler, filmsHandler *films.Handler, allowedOrigin string) http.Handler {
 	r := mux.NewRouter()
+
+	r.PathPrefix("/static/").Handler(
+		http.StripPrefix("/static", http.FileServer(http.FS(staticassets.Files))),
+	)
 
 	r.HandleFunc("/api/register", authHandler.Register).Methods(http.MethodPost)
 	r.HandleFunc("/api/login", authHandler.Login).Methods(http.MethodPost)

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 900">
+  <defs><linearGradient id="bg" x2="1" y2="1"><stop stop-color="#1d263d"/><stop offset=".55" stop-color="#654b56"/><stop offset="1" stop-color="#e2a66e"/></linearGradient></defs>
+  <path fill="url(#bg)" d="M0 0h360v900H0z"/>
+  <path d="M0 145h360M0 215h360M0 285h360" stroke="#f5d2a0" stroke-width="1" opacity=".35"/>
+  <path d="M65 0v350m75-350v350m75-350v350m75-350v350" stroke="#f5d2a0" stroke-width="1" opacity=".25"/>
+  <path d="M0 110 360 290M0 290 360 110" stroke="#f5d2a0" stroke-width="2" opacity=".45"/>
+  <circle cx="180" cy="207" r="52" fill="#18243a" stroke="#f5d2a0" stroke-width="2"/>
+  <circle cx="180" cy="207" r="9" fill="#f5d2a0"/>
+  <path fill="#101728" d="M0 360h360v540H0z"/>
+  <path d="M32 580h296m-270 24h244" stroke="#e9b887" stroke-width="2" opacity=".45"/>
+  <text x="30" y="544" fill="#fff0d5" font-family="sans-serif" font-size="42" font-weight="700" letter-spacing="8">НАЧАЛО</text>
+  <text x="32" y="586" fill="#e9b887" font-family="sans-serif" font-size="12" letter-spacing="4">ИДЕЯ МЕНЯЕТ ВСЁ</text>
+</svg>

@@ -2,6 +2,7 @@ package router_test
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
@@ -86,12 +87,14 @@ func TestRouter_UserJourney(t *testing.T) {
 	status, body = client.do(http.MethodGet, "/api/films?limit=2&offset=1", "")
 	require.Equal(t, http.StatusOK, status)
 	var films []struct {
-		ID int `json:"id"`
+		ID        int    `json:"id"`
+		PosterURL string `json:"poster_url"`
 	}
 	require.NoError(t, json.Unmarshal(body["films"], &films))
 	require.Len(t, films, 2)
 	assert.Equal(t, 2, films[0].ID)
 	assert.Equal(t, 3, films[1].ID)
+	assert.Equal(t, "/static/posters/green-mile.svg", films[0].PosterURL)
 
 	status, _ = client.do(http.MethodGet, "/api/collections/2?limit=2", "")
 	assert.Equal(t, http.StatusOK, status)
@@ -108,6 +111,20 @@ func TestRouter_UnknownRoutes(t *testing.T) {
 		status, _ := client.do(http.MethodGet, path, "")
 		assert.Equal(t, http.StatusNotFound, status, path)
 	}
+}
+
+func TestRouter_ServesStaticPosters(t *testing.T) {
+	client := newTestClient(t)
+
+	resp, err := client.http.Get(client.baseURL.String() + "/static/posters/shawshank-redemption.svg")
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Equal(t, "image/svg+xml", resp.Header.Get("Content-Type"))
+	assert.Contains(t, string(body), "<svg")
 }
 
 func TestRouter_PreflightOnEveryRoute(t *testing.T) {
