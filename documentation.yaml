@@ -716,7 +716,7 @@ components:
           schema:
             $ref: '#/components/schemas/Error'
           example:
-            error: user with this email already exists
+              error: user with this email already exists
     InternalError:
       description: Ошибка сервера. Подробности клиенту не отдаются, они пишутся в журнал сервера.
       content:

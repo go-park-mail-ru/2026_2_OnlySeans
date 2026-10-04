@@ -58,6 +58,8 @@ func TestHandler_Register(t *testing.T) {
 		{"короткое имя", "user3@example.com", "a", "Password1", http.StatusBadRequest},
 		{"слабый пароль", "user2@example.com", "someuser", "weak", http.StatusBadRequest},
 		{"пароль без цифры", "user4@example.com", "someuser", "Password", http.StatusBadRequest},
+		{"слишком длинный пароль", "user5@example.com", "someuser", "Password1Password1Password1Pass12", http.StatusBadRequest},
+		{"пароль со смайликом", "user6@example.com", "someuser", "Pass😊word1", http.StatusBadRequest},
 	}
 
 	for _, tt := range tests {
@@ -115,6 +117,8 @@ func TestHandler_Login(t *testing.T) {
 		{"несуществующий email", "ghost@example.com", "Password1", http.StatusUnauthorized},
 		{"некорректный email", "not-an-email", "Password1", http.StatusBadRequest},
 		{"пустой пароль", "login@example.com", "", http.StatusBadRequest},
+		{"длинный пароль не отклоняется валидацией логина", "login@example.com", "Password1Password1Password1Pass12", http.StatusUnauthorized},
+		{"пробел в пароле не отклоняется валидацией логина", "login@example.com", "Pass word1", http.StatusUnauthorized},
 	}
 
 	for _, tt := range tests {
