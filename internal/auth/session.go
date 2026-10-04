@@ -52,7 +52,11 @@ func (s *InMemorySessionStore) Create(userID UserID) (*Session, error) {
 		return nil, err
 	}
 
-	session := &Session{ID: id, UserID: userID, ExpiresAt: s.now().Add(s.ttl)}
+	session := &Session{
+		ID:        id,
+		UserID:    userID,
+		ExpiresAt: s.now().Add(s.ttl),
+	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
