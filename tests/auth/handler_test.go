@@ -1,4 +1,4 @@
-package auth
+package auth_test
 
 import (
 	"bytes"
@@ -8,7 +8,20 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/auth"
 )
+
+type registerRequest struct {
+	Email    string `json:"email"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+type loginRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
 
 func doRequest(t *testing.T, handlerFunc http.HandlerFunc, body any) (int, map[string]any) {
 	t.Helper()
@@ -56,9 +69,9 @@ func TestHandler_Register(t *testing.T) {
 	}
 }
 
-func newTestHandler(t *testing.T) *Handler {
+func newTestHandler(t *testing.T) *auth.Handler {
 	t.Helper()
-	h, err := NewHandler(newTestUseCase(t))
+	h, err := auth.NewHandler(newTestUseCase(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -109,8 +122,8 @@ func TestHandler_Login(t *testing.T) {
 }
 
 func TestNewHandler_NilUseCase(t *testing.T) {
-	h, err := NewHandler(nil)
-	if h != nil || err != ErrNilUseCase {
-		t.Errorf("got (%v, %v), want (nil, %v)", h, err, ErrNilUseCase)
+	h, err := auth.NewHandler(nil)
+	if h != nil || err != auth.ErrNilUseCase {
+		t.Errorf("got (%v, %v), want (nil, %v)", h, err, auth.ErrNilUseCase)
 	}
 }

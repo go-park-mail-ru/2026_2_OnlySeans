@@ -1,9 +1,11 @@
-package auth
+package auth_test
 
 import (
 	"context"
 	"testing"
 	"time"
+
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/auth"
 )
 
 func TestValidateEmail(t *testing.T) {
@@ -21,7 +23,7 @@ func TestValidateEmail(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := ValidateEmail(tt.email); (err != nil) != tt.wantErr {
+			if err := auth.ValidateEmail(tt.email); (err != nil) != tt.wantErr {
 				t.Errorf("ValidateEmail(%q) error = %v, wantErr %v", tt.email, err, tt.wantErr)
 			}
 		})
@@ -42,7 +44,7 @@ func TestValidateUsername(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := ValidateUsername(tt.username); (err != nil) != tt.wantErr {
+			if err := auth.ValidateUsername(tt.username); (err != nil) != tt.wantErr {
 				t.Errorf("ValidateUsername(%q) error = %v, wantErr %v", tt.username, err, tt.wantErr)
 			}
 		})
@@ -62,7 +64,7 @@ func TestValidatePassword(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := ValidatePassword(tt.password); (err != nil) != tt.wantErr {
+			if err := auth.ValidatePassword(tt.password); (err != nil) != tt.wantErr {
 				t.Errorf("ValidatePassword(%q) error = %v, wantErr %v", tt.password, err, tt.wantErr)
 			}
 		})
@@ -103,8 +105,8 @@ func TestUseCase_Register_DuplicateEmail(t *testing.T) {
 	}
 
 	_, err := uc.Register(ctx, "dup@example.com", "second", "Password1")
-	if err != ErrUserExists {
-		t.Errorf("error = %v, want %v", err, ErrUserExists)
+	if err != auth.ErrUserExists {
+		t.Errorf("error = %v, want %v", err, auth.ErrUserExists)
 	}
 }
 
@@ -123,8 +125,8 @@ func TestUseCase_Login(t *testing.T) {
 		wantErr  error
 	}{
 		{"верные данные", "login@example.com", "Password1", nil},
-		{"неверный пароль", "login@example.com", "WrongPass1", ErrInvalidCredentials},
-		{"несуществующий email", "ghost@example.com", "Password1", ErrInvalidCredentials},
+		{"неверный пароль", "login@example.com", "WrongPass1", auth.ErrInvalidCredentials},
+		{"несуществующий email", "ghost@example.com", "Password1", auth.ErrInvalidCredentials},
 	}
 
 	for _, tt := range tests {
@@ -137,10 +139,10 @@ func TestUseCase_Login(t *testing.T) {
 	}
 }
 
-func newTestUseCase(t *testing.T) *UseCase {
+func newTestUseCase(t *testing.T) *auth.UseCase {
 	t.Helper()
 
-	uc, err := NewUseCase(NewInMemoryUserRepo(), NewInMemorySessionStore(time.Hour))
+	uc, err := auth.NewUseCase(auth.NewInMemoryUserRepo(), auth.NewInMemorySessionStore(time.Hour))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -149,15 +151,15 @@ func newTestUseCase(t *testing.T) *UseCase {
 }
 
 func TestNewUseCase_NilRepo(t *testing.T) {
-	uc, err := NewUseCase(nil, NewInMemorySessionStore(time.Hour))
-	if uc != nil || err != ErrNilRepo {
-		t.Errorf("got (%v, %v), want (nil, %v)", uc, err, ErrNilRepo)
+	uc, err := auth.NewUseCase(nil, auth.NewInMemorySessionStore(time.Hour))
+	if uc != nil || err != auth.ErrNilRepo {
+		t.Errorf("got (%v, %v), want (nil, %v)", uc, err, auth.ErrNilRepo)
 	}
 }
 
 func TestNewUseCase_NilSessionStore(t *testing.T) {
-	uc, err := NewUseCase(NewInMemoryUserRepo(), nil)
-	if uc != nil || err != ErrNilSessionStore {
-		t.Errorf("got (%v, %v), want (nil, %v)", uc, err, ErrNilSessionStore)
+	uc, err := auth.NewUseCase(auth.NewInMemoryUserRepo(), nil)
+	if uc != nil || err != auth.ErrNilSessionStore {
+		t.Errorf("got (%v, %v), want (nil, %v)", uc, err, auth.ErrNilSessionStore)
 	}
 }

@@ -7,6 +7,9 @@ lint:
 test:
 	go test ./...
 
+cover:
+	bash scripts/coverage.sh
+
 # Сборка приложения
 build:
 	go build -o server ./cmd/main.go

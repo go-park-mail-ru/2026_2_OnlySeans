@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"regexp"
 	"strconv"
 
 	"github.com/gorilla/mux"
@@ -24,24 +23,24 @@ const (
 const (
 	limitParam  = "limit"
 	offsetParam = "offset"
-	slugVar     = "slug"
+	idVar       = "id"
 )
 
 const (
 	filmsPath       = "/api/films"
+	filmPath        = "/api/films/{" + idVar + "}"
 	collectionsPath = "/api/collections"
-	collectionPath  = "/api/collections/{" + slugVar + "}"
+	collectionPath  = "/api/collections/{" + idVar + "}"
 )
 
 const internalErrorMessage = "internal server error"
 
 var (
-	ErrInvalidLimit  = fmt.Errorf("limit must be an integer from 1 to %d", maxLimit)
-	ErrInvalidOffset = errors.New("offset must be a non-negative integer")
-	ErrInvalidSlug   = errors.New("invalid collection slug")
+	ErrInvalidLimit        = fmt.Errorf("limit must be an integer from 1 to %d", maxLimit)
+	ErrInvalidOffset       = errors.New("offset must be a non-negative integer")
+	ErrInvalidFilmID       = errors.New("film id must be a positive integer")
+	ErrInvalidCollectionID = errors.New("collection id must be a positive integer")
 )
-
-var slugPattern = regexp.MustCompile(`^[a-z0-9-]{3,128}$`)
 
 var clientErrors = []struct {
 	err    error
@@ -56,8 +55,16 @@ var clientErrors = []struct {
 		status: http.StatusBadRequest,
 	},
 	{
-		err:    ErrInvalidSlug,
+		err:    ErrInvalidFilmID,
 		status: http.StatusBadRequest,
+	},
+	{
+		err:    ErrInvalidCollectionID,
+		status: http.StatusBadRequest,
+	},
+	{
+		err:    ErrFilmNotFound,
+		status: http.StatusNotFound,
 	},
 	{
 		err:    ErrCollectionNotFound,
@@ -78,6 +85,9 @@ func (h *Handler) RegisterRoutes(router *mux.Router) {
 		HandleFunc(filmsPath, h.ListFilms).
 		Methods(http.MethodGet)
 	router.
+		HandleFunc(filmPath, h.GetFilm).
+		Methods(http.MethodGet)
+	router.
 		HandleFunc(collectionsPath, h.ListCollections).
 		Methods(http.MethodGet)
 	router.
@@ -92,12 +102,22 @@ type filmsPage struct {
 	Offset int             `json:"offset"`
 }
 
-type collectionsResponse struct {
-	Collections []entities.CollectionWithFilms `json:"collections"`
+type filmResponse struct {
+	Film entities.Film `json:"film"`
 }
 
-type collectionResponse struct {
+type collectionsPage struct {
+	Collections []entities.CollectionWithFilms `json:"collections"`
+	Total       int                            `json:"total"`
+	Limit       int                            `json:"limit"`
+	Offset      int                            `json:"offset"`
+}
+
+type collectionPage struct {
 	Collection entities.CollectionWithFilms `json:"collection"`
+	Total      int                          `json:"total"`
+	Limit      int                          `json:"limit"`
+	Offset     int                          `json:"offset"`
 }
 
 type errorResponse struct {
@@ -105,14 +125,9 @@ type errorResponse struct {
 }
 
 func (h *Handler) ListFilms(w http.ResponseWriter, r *http.Request) {
-	limit, ok := queryInt(r, limitParam, defaultLimit)
-	if !ok || limit < 1 || limit > maxLimit {
-		writeError(w, ErrInvalidLimit)
-		return
-	}
-	offset, ok := queryInt(r, offsetParam, defaultOffset)
-	if !ok || offset < 0 {
-		writeError(w, ErrInvalidOffset)
+	limit, offset, err := pagination(r)
+	if err != nil {
+		writeError(w, err)
 		return
 	}
 
@@ -130,8 +145,30 @@ func (h *Handler) ListFilms(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (h *Handler) GetFilm(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(r)
+	if !ok {
+		writeError(w, ErrInvalidFilmID)
+		return
+	}
+
+	film, err := h.service.GetFilmByID(r.Context(), entities.FilmID(id))
+	if err != nil {
+		writeError(w, fmt.Errorf("get film %d: %w", id, err))
+		return
+	}
+
+	writeJSON(w, http.StatusOK, filmResponse{Film: film})
+}
+
 func (h *Handler) ListCollections(w http.ResponseWriter, r *http.Request) {
-	collections, err := h.service.ListCollections(r.Context())
+	limit, offset, err := pagination(r)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+
+	collections, total, err := h.service.ListCollections(r.Context(), limit, offset)
 	if err != nil {
 		writeError(w, fmt.Errorf("list collections: %w", err))
 		return
@@ -139,7 +176,7 @@ func (h *Handler) ListCollections(w http.ResponseWriter, r *http.Request) {
 
 	result := make([]entities.CollectionWithFilms, 0, len(collections))
 	for _, collection := range collections {
-		withFilms, err := h.collectionWithFilms(r.Context(), collection)
+		withFilms, _, err := h.collectionWithFilms(r.Context(), collection, maxLimit, defaultOffset)
 		if err != nil {
 			writeError(w, err)
 			return
@@ -147,41 +184,73 @@ func (h *Handler) ListCollections(w http.ResponseWriter, r *http.Request) {
 		result = append(result, withFilms)
 	}
 
-	writeJSON(w, http.StatusOK, collectionsResponse{Collections: result})
+	writeJSON(w, http.StatusOK, collectionsPage{
+		Collections: result,
+		Total:       total,
+		Limit:       limit,
+		Offset:      offset,
+	})
 }
 
 func (h *Handler) GetCollection(w http.ResponseWriter, r *http.Request) {
-	slug := mux.Vars(r)[slugVar]
-	if !slugPattern.MatchString(slug) {
-		writeError(w, ErrInvalidSlug)
+	id, ok := pathID(r)
+	if !ok {
+		writeError(w, ErrInvalidCollectionID)
 		return
 	}
-
-	collection, err := h.service.GetCollectionBySlug(r.Context(), slug)
-	if err != nil {
-		writeError(w, fmt.Errorf("get collection %q: %w", slug, err))
-		return
-	}
-
-	withFilms, err := h.collectionWithFilms(r.Context(), collection)
+	limit, offset, err := pagination(r)
 	if err != nil {
 		writeError(w, err)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, collectionResponse{Collection: withFilms})
+	collection, err := h.service.GetCollectionByID(r.Context(), entities.CollectionID(id))
+	if err != nil {
+		writeError(w, fmt.Errorf("get collection %d: %w", id, err))
+		return
+	}
+
+	withFilms, total, err := h.collectionWithFilms(r.Context(), collection, limit, offset)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, collectionPage{
+		Collection: withFilms,
+		Total:      total,
+		Limit:      limit,
+		Offset:     offset,
+	})
 }
 
-func (h *Handler) collectionWithFilms(ctx context.Context, collection entities.Collection) (entities.CollectionWithFilms, error) {
-	films, err := h.service.ListCollectionFilms(ctx, collection.ID)
+func (h *Handler) collectionWithFilms(ctx context.Context, collection entities.Collection, limit, offset int) (entities.CollectionWithFilms, int, error) {
+	films, total, err := h.service.ListCollectionFilms(ctx, collection.ID, limit, offset)
 	if err != nil {
-		return entities.CollectionWithFilms{}, fmt.Errorf("list films of collection %q: %w", collection.Slug, err)
+		return entities.CollectionWithFilms{}, 0, fmt.Errorf("list films of collection %d: %w", collection.ID, err)
 	}
 
 	return entities.CollectionWithFilms{
 		Collection: collection,
 		Films:      films,
-	}, nil
+	}, total, nil
+}
+
+func pagination(r *http.Request) (limit, offset int, err error) {
+	limit, ok := queryInt(r, limitParam, defaultLimit)
+	if !ok || limit < 1 || limit > maxLimit {
+		return 0, 0, ErrInvalidLimit
+	}
+	offset, ok = queryInt(r, offsetParam, defaultOffset)
+	if !ok || offset < 0 {
+		return 0, 0, ErrInvalidOffset
+	}
+	return limit, offset, nil
+}
+
+func pathID(r *http.Request) (int64, bool) {
+	id, err := strconv.ParseInt(mux.Vars(r)[idVar], 10, 64)
+	return id, err == nil && id > 0
 }
 
 func queryInt(r *http.Request, key string, fallback int) (int, bool) {

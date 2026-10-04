@@ -20,9 +20,10 @@ var (
 
 type Service interface {
 	ListFilms(ctx context.Context, limit, offset int) ([]entities.Film, int, error)
-	ListCollections(ctx context.Context) ([]entities.Collection, error)
-	GetCollectionBySlug(ctx context.Context, slug string) (entities.Collection, error)
-	ListCollectionFilms(ctx context.Context, collectionID entities.CollectionID) ([]entities.Film, error)
+	GetFilmByID(ctx context.Context, id entities.FilmID) (entities.Film, error)
+	ListCollections(ctx context.Context, limit, offset int) ([]entities.Collection, int, error)
+	GetCollectionByID(ctx context.Context, id entities.CollectionID) (entities.Collection, error)
+	ListCollectionFilms(ctx context.Context, collectionID entities.CollectionID, limit, offset int) ([]entities.Film, int, error)
 }
 
 type InMemoryService struct {
@@ -84,50 +85,68 @@ func (s *InMemoryService) ListFilms(_ context.Context, limit, offset int) ([]ent
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	total := len(s.filmIDs)
-	start := min(max(offset, 0), total)
-	end := min(start+max(limit, 0), total)
-
-	result := make([]entities.Film, 0, end-start)
-	for _, id := range s.filmIDs[start:end] {
-		result = append(result, cloneFilm(s.films[id]))
-	}
-	return result, total, nil
+	return s.filmsPage(s.filmIDs, limit, offset), len(s.filmIDs), nil
 }
 
-func (s *InMemoryService) ListCollections(_ context.Context) ([]entities.Collection, error) {
+func (s *InMemoryService) GetFilmByID(_ context.Context, id entities.FilmID) (entities.Film, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	return append(make([]entities.Collection, 0, len(s.collections)), s.collections...), nil
+	film, ok := s.films[id]
+	if !ok {
+		return entities.Film{}, ErrFilmNotFound
+	}
+	return cloneFilm(film), nil
 }
 
-func (s *InMemoryService) GetCollectionBySlug(_ context.Context, slug string) (entities.Collection, error) {
+func (s *InMemoryService) ListCollections(_ context.Context, limit, offset int) ([]entities.Collection, int, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	total := len(s.collections)
+	start, end := pageBounds(total, limit, offset)
+
+	return append(make([]entities.Collection, 0, end-start), s.collections[start:end]...), total, nil
+}
+
+func (s *InMemoryService) GetCollectionByID(_ context.Context, id entities.CollectionID) (entities.Collection, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	for _, collection := range s.collections {
-		if collection.Slug == slug {
+		if collection.ID == id {
 			return collection, nil
 		}
 	}
 	return entities.Collection{}, ErrCollectionNotFound
 }
 
-func (s *InMemoryService) ListCollectionFilms(_ context.Context, collectionID entities.CollectionID) ([]entities.Film, error) {
+func (s *InMemoryService) ListCollectionFilms(_ context.Context, collectionID entities.CollectionID, limit, offset int) ([]entities.Film, int, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	ids, ok := s.collectionFilms[collectionID]
 	if !ok {
-		return nil, ErrCollectionNotFound
+		return nil, 0, ErrCollectionNotFound
 	}
 
-	result := make([]entities.Film, 0, len(ids))
-	for _, id := range ids {
+	return s.filmsPage(ids, limit, offset), len(ids), nil
+}
+
+func (s *InMemoryService) filmsPage(ids []entities.FilmID, limit, offset int) []entities.Film {
+	start, end := pageBounds(len(ids), limit, offset)
+
+	result := make([]entities.Film, 0, end-start)
+	for _, id := range ids[start:end] {
 		result = append(result, cloneFilm(s.films[id]))
 	}
-	return result, nil
+	return result
+}
+
+func pageBounds(total, limit, offset int) (start, end int) {
+	start = min(max(offset, 0), total)
+	end = start + min(max(limit, 0), total-start)
+	return start, end
 }
 
 func cloneFilm(film entities.Film) entities.Film {
