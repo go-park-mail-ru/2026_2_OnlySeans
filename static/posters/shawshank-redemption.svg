@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 900">
+  <defs>
+    <linearGradient id="bg" x2="0" y2="1"><stop stop-color="#172a3a"/><stop offset="1" stop-color="#080e16"/></linearGradient>
+    <linearGradient id="light" x2="0" y2="1"><stop stop-color="#f7d58b" stop-opacity=".95"/><stop offset="1" stop-color="#f7d58b" stop-opacity="0"/></linearGradient>
+  </defs>
+  <path fill="url(#bg)" d="M0 0h360v900H0z"/>
+  <path fill="#263c4b" d="M0 328h360v572H0z"/>
+  <path fill="#111c27" d="M35 260h290v640H35z"/>
+  <path fill="#334d58" d="M50 277h260v18H50zm0 48h260v18H50zm0 48h260v18H50zm0 48h260v18H50zm0 48h260v18H50z"/>
+  <path fill="url(#light)" d="M155 45h50v258l-25 44-25-44z"/>
+  <circle cx="180" cy="322" r="16" fill="#f7d58b"/>
+  <path fill="none" stroke="#d9b978" stroke-width="2" opacity=".45" d="M38 500h284M52 528h256M68 556h224"/>
+  <text x="28" y="535" fill="#f5eedf" font-family="sans-serif" font-size="29" font-weight="700" letter-spacing="2">ПОБЕГ ИЗ</text>
+  <text x="28" y="573" fill="#f5eedf" font-family="sans-serif" font-size="35" font-weight="700" letter-spacing="1">ШОУШЕНКА</text>
+  <text x="30" y="614" fill="#d9b978" font-family="sans-serif" font-size="12" letter-spacing="4">НАДЕЖДА СВОБОДНА</text>
+</svg>

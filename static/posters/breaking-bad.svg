@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 900">
+  <defs><linearGradient id="bg" x2="0" y2="1"><stop stop-color="#c5a25c"/><stop offset=".35" stop-color="#587c45"/><stop offset="1" stop-color="#1c302b"/></linearGradient></defs>
+  <path fill="url(#bg)" d="M0 0h360v900H0z"/>
+  <circle cx="272" cy="140" r="77" fill="#ebd192" opacity=".55"/>
+  <path fill="#23372f" d="M0 306q90-60 180 0t180 0v594H0z"/>
+  <path d="M36 336h288m-252 24h216m-180 24h144" stroke="#d8c17f" stroke-width="3" opacity=".5"/>
+  <g fill="#edf0d8" font-family="sans-serif" font-weight="700" text-anchor="middle">
+    <rect x="59" y="184" width="86" height="75" rx="5" fill="#2b553e"/><text x="102" y="236" font-size="44">Br</text>
+    <rect x="158" y="184" width="86" height="75" rx="5" fill="#2b553e"/><text x="201" y="236" font-size="44">Ba</text>
+  </g>
+  <path d="M28 578h304" stroke="#d5cf9b" stroke-width="2" opacity=".5"/>
+  <text x="24" y="541" fill="#f3efd9" font-family="sans-serif" font-size="28" font-weight="700" letter-spacing="2">ВО ВСЕ ТЯЖКИЕ</text>
+  <text x="26" y="585" fill="#d5cf9b" font-family="sans-serif" font-size="12" letter-spacing="4">ОДНО РЕШЕНИЕ МЕНЯЕТ ВСЁ</text>
+</svg>

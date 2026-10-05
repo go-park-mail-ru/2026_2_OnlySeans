@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 900">
+  <defs><linearGradient id="bg" x2="0" y2="1"><stop stop-color="#aabfc1"/><stop offset=".55" stop-color="#4f7379"/><stop offset="1" stop-color="#1d3038"/></linearGradient></defs>
+  <path fill="url(#bg)" d="M0 0h360v900H0z"/>
+  <path d="M0 95h360M0 150h360M0 205h360M0 260h360" stroke="#d8e3dd" stroke-width="1" opacity=".28"/>
+  <path fill="#21353c" d="M54 284V131h93v153m66 0V96h93v188"/>
+  <path fill="#1a2b32" d="M0 312h360v588H0z"/>
+  <circle cx="180" cy="227" r="49" fill="#d3d5c5" opacity=".92"/>
+  <path fill="#284147" d="M105 352q75-101 150 0v108H105z"/>
+  <path d="M138 175q42-45 84 0m-82 25q40-22 80 0" fill="none" stroke="#344e52" stroke-width="7"/>
+  <path d="M30 590h300m25-12-25 12 25 12M55 620h250" fill="none" stroke="#a9c8c2" stroke-width="2" opacity=".55"/>
+  <text x="30" y="539" fill="#f0eee2" font-family="sans-serif" font-size="48" font-weight="700" letter-spacing="9">ШЕРЛОК</text>
+  <text x="32" y="580" fill="#a9c8c2" font-family="sans-serif" font-size="12" letter-spacing="4">ЛОНДОН. ДЕЛО ОТКРЫТО.</text>
+</svg>

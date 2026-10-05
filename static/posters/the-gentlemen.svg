@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 900">
+  <defs><linearGradient id="bg" x2="1" y2="1"><stop stop-color="#29473f"/><stop offset=".55" stop-color="#172621"/><stop offset="1" stop-color="#0d1211"/></linearGradient></defs>
+  <path fill="url(#bg)" d="M0 0h360v900H0z"/>
+  <path fill="#b99b64" d="M180 74 83 132v112l97 56 97-56V132z" opacity=".88"/>
+  <path fill="#20332c" d="m180 97-76 45v91l76 44 76-44v-91z"/>
+  <path d="M145 133h70l-13 69h-44z" fill="#d7c9a2"/>
+  <path d="M180 202v56m-20-42 20 14 20-14" fill="none" stroke="#d7c9a2" stroke-width="5"/>
+  <path stroke="#b99b64" stroke-width="2" d="M34 345h292"/>
+  <path d="M34 578h292" stroke="#b99b64" stroke-width="2" opacity=".5"/>
+  <text x="28" y="542" fill="#f0e8d3" font-family="sans-serif" font-size="38" font-weight="700" letter-spacing="5" textLength="304" lengthAdjust="spacingAndGlyphs">ДЖЕНТЛЬМЕНЫ</text>
+  <text x="30" y="586" fill="#c4ac76" font-family="sans-serif" font-size="12" letter-spacing="4">СТИЛЬ — ЭТО ПРАВИЛА</text>
+</svg>
