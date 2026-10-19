@@ -14,6 +14,7 @@ import (
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/auth"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/config"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/films"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/reviews"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/router"
 )
 
@@ -38,7 +39,17 @@ func Run(configPath string) error {
 		return fmt.Errorf("seed films: %w", err)
 	}
 
-	httpHandler := router.NewRouter(handler, films.NewHandler(filmsService), cfg.Server.AllowedOrigin)
+	reviewsRepo := reviews.NewInMemoryReviewRepo()
+	reviewsUsecase, err := reviews.NewUsecase(reviewsRepo, filmsService)
+	if err != nil {
+		return fmt.Errorf("create reviews usecase: %w", err)
+	}
+	reviewsHandler, err := reviews.NewHandler(reviewsUsecase)
+	if err != nil {
+		return fmt.Errorf("create reviews handler: %w", err)
+	}
+
+	httpHandler := router.NewRouter(handler, films.NewHandler(filmsService), reviewsHandler, cfg.Server.AllowedOrigin)
 
 	server := &http.Server{
 		Addr:         cfg.Server.Addr(),

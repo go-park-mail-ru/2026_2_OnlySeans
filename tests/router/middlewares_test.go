@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/auth"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/films"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/reviews"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/router"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -26,8 +27,13 @@ func newTestRouter(t *testing.T) http.Handler {
 	require.NoError(t, err)
 	filmsService, err := films.NewSeededService()
 	require.NoError(t, err)
+	reviewsRepo := reviews.NewInMemoryReviewRepo()
+	reviewsUsecase, err := reviews.NewUsecase(reviewsRepo, filmsService)
+	require.NoError(t, err)
+	reviewsHandler, err := reviews.NewHandler(reviewsUsecase)
+	require.NoError(t, err)
 
-	return router.NewRouter(authHandler, films.NewHandler(filmsService), testOrigin)
+	return router.NewRouter(authHandler, films.NewHandler(filmsService), reviewsHandler, testOrigin)
 }
 
 func TestWithCORS(t *testing.T) {
