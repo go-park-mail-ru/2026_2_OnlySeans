@@ -9,6 +9,7 @@ import (
 )
 
 const (
+	maxEmailLen     = 254
 	minUsernameLen  = 2
 	maxUsernameLen  = 32
 	minPasswordLen  = 8
@@ -23,6 +24,10 @@ func ValidateEmail(email string) error {
 
 	if email == "" {
 		return fmt.Errorf("%w: email is required", ErrInvalidEmail)
+	}
+
+	if len(email) > maxEmailLen {
+		return fmt.Errorf("%w: no longer than %d characters", ErrInvalidEmail, maxEmailLen)
 	}
 
 	if !emailRegex.MatchString(email) {

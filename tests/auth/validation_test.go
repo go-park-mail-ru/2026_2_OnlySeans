@@ -26,6 +26,8 @@ func TestValidateEmail(t *testing.T) {
 		{"без @", "userexample.com", auth.ErrInvalidEmail},
 		{"без домена", "user@", auth.ErrInvalidEmail},
 		{"без точки в домене", "user@examplecom", auth.ErrInvalidEmail},
+		{"254 символа — предел колонки в базе", strings.Repeat("a", 242) + "@example.com", nil},
+		{"255 символов", strings.Repeat("a", 243) + "@example.com", auth.ErrInvalidEmail},
 	}
 
 	for _, tt := range tests {
