@@ -184,3 +184,20 @@ func TestHandler_SessionsAreIndependent(t *testing.T) {
 		})
 	}
 }
+
+func TestHandler_RegisterTrimsEmailAndUsername(t *testing.T) {
+	h := newTestHandler(t)
+
+	rec := rawRequest(h.Register, http.MethodPost, `{"email":"  anna@example.com ","username":" Анна К ","password":"Password1"}`)
+	require.Equal(t, http.StatusCreated, rec.Code, rec.Body.String())
+	assert.JSONEq(t, `{"user":{"id":1,"email":"anna@example.com","username":"Анна К"}}`, rec.Body.String())
+
+	rec = rawRequest(h.Login, http.MethodPost, `{"email":"anna@example.com","password":"Password1"}`)
+	assert.Equal(t, http.StatusOK, rec.Code, "вход без пробелов находит пользователя")
+
+	rec = rawRequest(h.Login, http.MethodPost, `{"email":" anna@example.com ","password":"Password1"}`)
+	assert.Equal(t, http.StatusOK, rec.Code, "пробелы при входе тоже обрезаются")
+
+	rec = rawRequest(h.Register, http.MethodPost, `{"email":"anna@example.com","username":"other","password":"Password1"}`)
+	assert.Equal(t, http.StatusConflict, rec.Code, "тот же email без пробелов — это тот же пользователь")
+}

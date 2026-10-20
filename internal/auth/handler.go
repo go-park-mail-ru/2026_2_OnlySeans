@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -70,6 +71,8 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
+	req.Email = strings.TrimSpace(req.Email)
+	req.Username = strings.TrimSpace(req.Username)
 
 	for _, err := range []error{
 		ValidateEmail(req.Email),
@@ -119,6 +122,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
+	req.Email = strings.TrimSpace(req.Email)
 
 	if err := ValidateEmail(req.Email); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
