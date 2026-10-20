@@ -78,7 +78,7 @@ func TestHandler_InvalidBody(t *testing.T) {
 }
 
 func TestHandler_ResponseHidesPassword(t *testing.T) {
-	h := newTestHandler(t)
+	h, users, _ := newTestAuth(t)
 
 	for _, step := range []struct {
 		name        string
@@ -99,7 +99,7 @@ func TestHandler_ResponseHidesPassword(t *testing.T) {
 		})
 	}
 
-	user, err := h.Users.GetByEmail(context.Background(), "anna@example.com")
+	user, err := users.GetByEmail(context.Background(), "anna@example.com")
 	require.NoError(t, err)
 	assert.NotEqual(t, "Password1", user.PasswordHash)
 	assert.NoError(t, bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte("Password1")))

@@ -1,17 +1,17 @@
 package auth
 
-import "errors"
+import "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/auth/domain"
 
 var (
-	ErrNilRepo            = errors.New("repository cannot be nil")
-	ErrInvalidEmail       = errors.New("invalid email")
-	ErrInvalidUsername    = errors.New("invalid username")
-	ErrInvalidPassword    = errors.New("invalid password")
-	ErrInvalidCredentials = errors.New("invalid email or password")
-	ErrInternal           = errors.New("internal server error")
-	ErrUserExists         = errors.New("user with this email already exists")
-	ErrUserNotFound       = errors.New("user not found")
-	ErrNilSessionStore    = errors.New("session store cannot be nil")
-	ErrSessionNotFound    = errors.New("session not found or expired")
-	ErrUnauthorized       = errors.New("unauthorized")
+	ErrNilRepo            = domain.ErrNilRepo
+	ErrInvalidEmail       = domain.ErrInvalidEmail
+	ErrInvalidUsername    = domain.ErrInvalidUsername
+	ErrInvalidPassword    = domain.ErrInvalidPassword
+	ErrInvalidCredentials = domain.ErrInvalidCredentials
+	ErrInternal           = domain.ErrInternal
+	ErrUserExists         = domain.ErrUserExists
+	ErrUserNotFound       = domain.ErrUserNotFound
+	ErrNilSessionStore    = domain.ErrNilSessionStore
+	ErrSessionNotFound    = domain.ErrSessionNotFound
+	ErrUnauthorized       = domain.ErrUnauthorized
 )

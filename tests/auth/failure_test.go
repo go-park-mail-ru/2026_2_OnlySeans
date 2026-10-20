@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/auth"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/auth/usecase"
 )
 
 var errBoom = errors.New("boom: connection refused 10.0.0.5:5432")
@@ -63,15 +64,33 @@ func (s flakyStore) Delete(ctx context.Context, sessionID string) error {
 	return s.InMemorySessionStore.Delete(ctx, sessionID)
 }
 
-func newFlakyHandler(t *testing.T, repo flakyRepo, store flakyStore) *auth.Handler {
+func newFlakyHandler(t *testing.T, repo flakyRepo, store flakyStore) (*auth.Handler, flakyStore) {
 	t.Helper()
 
 	repo.InMemoryUserRepo = auth.NewInMemoryUserRepo()
 	store.InMemorySessionStore = auth.NewInMemorySessionStore(time.Hour)
 
-	h, err := auth.NewHandler(repo, store)
+	passwordService := auth.BcryptPasswordService{}
+	register, err := usecase.NewRegisterUserUseCase(repo, store, passwordService)
 	require.NoError(t, err)
-	return h
+	login, err := usecase.NewLoginUserUseCase(repo, store, passwordService)
+	require.NoError(t, err)
+	logout, err := usecase.NewLogoutUserUseCase(store)
+	require.NoError(t, err)
+	authenticate, err := usecase.NewAuthenticateUserUseCase(store)
+	require.NoError(t, err)
+	getUser, err := usecase.NewGetUserUseCase(repo)
+	require.NoError(t, err)
+
+	h, err := auth.NewHandler(auth.HandlerUseCases{
+		Register:     register,
+		Login:        login,
+		Logout:       logout,
+		Authenticate: authenticate,
+		GetUser:      getUser,
+	})
+	require.NoError(t, err)
+	return h, store
 }
 
 func TestHandler_Register_StorageFailures(t *testing.T) {
@@ -87,7 +106,7 @@ func TestHandler_Register_StorageFailures(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := newFlakyHandler(t, tt.repo, tt.store)
+			h, _ := newFlakyHandler(t, tt.repo, tt.store)
 
 			rec := rawRequest(h.Register, http.MethodPost, validRegisterBody)
 
@@ -99,7 +118,7 @@ func TestHandler_Register_StorageFailures(t *testing.T) {
 }
 
 func TestHandler_Logout_StorageFailure(t *testing.T) {
-	h := newFlakyHandler(t, flakyRepo{}, flakyStore{deleteErr: errBoom})
+	h, _ := newFlakyHandler(t, flakyRepo{}, flakyStore{deleteErr: errBoom})
 	cookie := &http.Cookie{Name: auth.SessionCookieName, Value: "sid"}
 
 	rec := rawRequest(h.Logout, http.MethodPost, "", cookie)
@@ -122,11 +141,11 @@ func TestHandler_Authenticate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := newFlakyHandler(t, flakyRepo{}, flakyStore{getErr: tt.getErr})
+			h, store := newFlakyHandler(t, flakyRepo{}, flakyStore{getErr: tt.getErr})
 
 			sid := "sid"
 			if tt.getErr == nil {
-				session, err := h.Sessions.Create(context.Background(), 7)
+				session, err := store.InMemorySessionStore.Create(context.Background(), 7)
 				require.NoError(t, err)
 				sid = session.ID
 			}

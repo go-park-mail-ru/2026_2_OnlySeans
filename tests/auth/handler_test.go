@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/auth"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/auth/usecase"
 )
 
 type registerRequest struct {
@@ -79,9 +80,37 @@ func TestHandler_Register(t *testing.T) {
 func newTestHandler(t *testing.T) *auth.Handler {
 	t.Helper()
 
-	h, err := auth.NewHandler(auth.NewInMemoryUserRepo(), auth.NewInMemorySessionStore(time.Hour))
-	require.NoError(t, err)
+	h, _, _ := newTestAuth(t)
 	return h
+}
+
+func newTestAuth(t *testing.T) (*auth.Handler, *auth.InMemoryUserRepo, *auth.InMemorySessionStore) {
+	t.Helper()
+
+	users := auth.NewInMemoryUserRepo()
+	sessions := auth.NewInMemorySessionStore(time.Hour)
+	passwordService := auth.BcryptPasswordService{}
+
+	register, err := usecase.NewRegisterUserUseCase(users, sessions, passwordService)
+	require.NoError(t, err)
+	login, err := usecase.NewLoginUserUseCase(users, sessions, passwordService)
+	require.NoError(t, err)
+	logout, err := usecase.NewLogoutUserUseCase(sessions)
+	require.NoError(t, err)
+	authenticate, err := usecase.NewAuthenticateUserUseCase(sessions)
+	require.NoError(t, err)
+	getUser, err := usecase.NewGetUserUseCase(users)
+	require.NoError(t, err)
+
+	h, err := auth.NewHandler(auth.HandlerUseCases{
+		Register:     register,
+		Login:        login,
+		Logout:       logout,
+		Authenticate: authenticate,
+		GetUser:      getUser,
+	})
+	require.NoError(t, err)
+	return h, users, sessions
 }
 
 func TestHandler_Register_DuplicateEmail(t *testing.T) {
@@ -132,21 +161,7 @@ func TestHandler_Login(t *testing.T) {
 }
 
 func TestNewHandler_NilDependencies(t *testing.T) {
-	tests := []struct {
-		name     string
-		users    auth.UserRepository
-		sessions auth.SessionStore
-		wantErr  error
-	}{
-		{"nil репозиторий", nil, auth.NewInMemorySessionStore(time.Hour), auth.ErrNilRepo},
-		{"nil хранилище сессий", auth.NewInMemoryUserRepo(), nil, auth.ErrNilSessionStore},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			h, err := auth.NewHandler(tt.users, tt.sessions)
-			assert.Nil(t, h)
-			assert.ErrorIs(t, err, tt.wantErr)
-		})
-	}
+	h, err := auth.NewHandler(auth.HandlerUseCases{})
+	assert.Nil(t, h)
+	assert.EqualError(t, err, "register use case is nil")
 }

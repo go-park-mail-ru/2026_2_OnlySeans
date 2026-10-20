@@ -156,7 +156,7 @@ func FuzzHandler_PathID(f *testing.F) {
 	if err != nil {
 		f.Fatalf("NewSeededService: %v", err)
 	}
-	router := newTestRouter(service)
+	router := newTestRouter(f, service)
 
 	f.Fuzz(func(t *testing.T, id string) {
 		parsed, parseErr := strconv.ParseInt(id, 10, 64)
@@ -195,7 +195,7 @@ func TestHandler_CollectionPagesCoverAllFilmsOnce(t *testing.T) {
 				if len(page.Collection.Films) == 0 {
 					break
 				}
-				got = append(got, filmIDs(page.Collection.Films)...)
+				got = append(got, responseFilmIDs(page.Collection.Films)...)
 			}
 
 			if !slices.Equal(got, seed.filmIDs) {
@@ -225,7 +225,7 @@ func FuzzHandler_ListFilmsParams(f *testing.F) {
 	if err != nil {
 		f.Fatalf("NewSeededService: %v", err)
 	}
-	router := newTestRouter(service)
+	router := newTestRouter(f, service)
 
 	f.Fuzz(func(t *testing.T, limit, offset string) {
 		query := url.Values{"limit": {limit}, "offset": {offset}}

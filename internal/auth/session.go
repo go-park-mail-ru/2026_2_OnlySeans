@@ -6,21 +6,13 @@ import (
 	"encoding/hex"
 	"sync"
 	"time"
+
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/auth/domain"
 )
 
 const sessionIDBytes = 32
 
-type Session struct {
-	ID        string
-	UserID    UserID
-	ExpiresAt time.Time
-}
-
-type SessionStore interface {
-	Create(ctx context.Context, userID UserID) (*Session, error)
-	Get(ctx context.Context, sessionID string) (*Session, error)
-	Delete(ctx context.Context, sessionID string) error
-}
+type Session = domain.Session
 
 type InMemorySessionStore struct {
 	mu       sync.Mutex
@@ -46,7 +38,7 @@ func generateSessionID() (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
-func (s *InMemorySessionStore) Create(_ context.Context, userID UserID) (*Session, error) {
+func (s *InMemorySessionStore) Create(_ context.Context, userID domain.UserID) (*Session, error) {
 	id, err := generateSessionID()
 	if err != nil {
 		return nil, err
@@ -72,12 +64,12 @@ func (s *InMemorySessionStore) Get(_ context.Context, sessionID string) (*Sessio
 
 	session, ok := s.sessions[sessionID]
 	if !ok {
-		return nil, ErrSessionNotFound
+		return nil, domain.ErrSessionNotFound
 	}
 
 	if !s.now().Before(session.ExpiresAt) {
 		delete(s.sessions, sessionID)
-		return nil, ErrSessionNotFound
+		return nil, domain.ErrSessionNotFound
 	}
 
 	return session, nil

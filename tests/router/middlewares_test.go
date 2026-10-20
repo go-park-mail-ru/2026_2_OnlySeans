@@ -11,7 +11,9 @@ import (
 	"time"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/auth"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/auth/usecase"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/films"
+	filmsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/films/usecase"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/router"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -22,12 +24,55 @@ const testOrigin = "http://localhost:3000"
 func newTestRouter(t *testing.T) http.Handler {
 	t.Helper()
 
-	authHandler, err := auth.NewHandler(auth.NewInMemoryUserRepo(), auth.NewInMemorySessionStore(time.Hour))
-	require.NoError(t, err)
+	authHandler := newTestAuthHandler(t)
 	filmsService, err := films.NewSeededService()
 	require.NoError(t, err)
+	listFilms, err := filmsusecase.NewListFilmsUseCase(filmsService)
+	require.NoError(t, err)
+	getFilm, err := filmsusecase.NewGetFilmUseCase(filmsService)
+	require.NoError(t, err)
+	listCollections, err := filmsusecase.NewListCollectionsUseCase(filmsService)
+	require.NoError(t, err)
+	getCollection, err := filmsusecase.NewGetCollectionUseCase(filmsService)
+	require.NoError(t, err)
+	filmsHandler, err := films.NewHandler(films.HandlerUseCases{
+		ListFilms:       listFilms,
+		GetFilm:         getFilm,
+		ListCollections: listCollections,
+		GetCollection:   getCollection,
+	})
+	require.NoError(t, err)
 
-	return router.NewRouter(authHandler, films.NewHandler(filmsService), testOrigin)
+	return router.NewRouter(authHandler, filmsHandler, testOrigin)
+}
+
+func newTestAuthHandler(t *testing.T) *auth.Handler {
+	t.Helper()
+
+	users := auth.NewInMemoryUserRepo()
+	sessions := auth.NewInMemorySessionStore(time.Hour)
+	passwordService := auth.BcryptPasswordService{}
+
+	register, err := usecase.NewRegisterUserUseCase(users, sessions, passwordService)
+	require.NoError(t, err)
+	login, err := usecase.NewLoginUserUseCase(users, sessions, passwordService)
+	require.NoError(t, err)
+	logout, err := usecase.NewLogoutUserUseCase(sessions)
+	require.NoError(t, err)
+	authenticate, err := usecase.NewAuthenticateUserUseCase(sessions)
+	require.NoError(t, err)
+	getUser, err := usecase.NewGetUserUseCase(users)
+	require.NoError(t, err)
+
+	handler, err := auth.NewHandler(auth.HandlerUseCases{
+		Register:     register,
+		Login:        login,
+		Logout:       logout,
+		Authenticate: authenticate,
+		GetUser:      getUser,
+	})
+	require.NoError(t, err)
+	return handler
 }
 
 func TestWithCORS(t *testing.T) {

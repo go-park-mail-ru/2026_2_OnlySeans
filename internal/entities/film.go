@@ -12,21 +12,21 @@ const (
 )
 
 type Genre struct {
-	ID   GenreID `json:"id" db:"id"`
-	Name string  `json:"name" db:"name"`
-	Slug string  `json:"slug" db:"slug"`
+	ID   GenreID `db:"id"`
+	Name string  `db:"name"`
+	Slug string  `db:"slug"`
 }
 
 type Film struct {
-	ID            FilmID   `json:"id" db:"id"`
-	Title         string   `json:"title" db:"title"`
-	OriginalTitle *string  `json:"original_title,omitempty" db:"original_title"`
-	FilmType      FilmType `json:"film_type" db:"film_type"`
-	ReleaseYear   int16    `json:"release_year" db:"release_year"`
-	DurationMin   *int16   `json:"duration_min,omitempty" db:"duration_min"`
-	AgeLimit      int16    `json:"age_limit" db:"age_limit"`
-	Description   *string  `json:"description,omitempty" db:"description"`
-	PosterURL     *string  `json:"poster_url,omitempty" db:"poster_url"`
-	TrailerURL    *string  `json:"trailer_url,omitempty" db:"trailer_url"`
-	Genres        []Genre  `json:"genres"`
+	ID            FilmID   `db:"id"`
+	Title         string   `db:"title"`
+	OriginalTitle *string  `db:"original_title"`
+	FilmType      FilmType `db:"film_type"`
+	ReleaseYear   int16    `db:"release_year"`
+	DurationMin   *int16   `db:"duration_min"`
+	AgeLimit      int16    `db:"age_limit"`
+	Description   *string  `db:"description"`
+	PosterURL     *string  `db:"poster_url"`
+	TrailerURL    *string  `db:"trailer_url"`
+	Genres        []Genre
 }

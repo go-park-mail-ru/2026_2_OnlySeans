@@ -12,6 +12,7 @@ import (
 	"github.com/gorilla/mux"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/entities"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/films/usecase"
 )
 
 const (
@@ -66,37 +67,80 @@ var clientErrors = []struct {
 	},
 }
 
-type Handler struct {
-	service Service
+type ListFilms interface {
+	Run(ctx context.Context, input usecase.ListInput) (usecase.ListFilmsOutput, error)
 }
 
-func NewHandler(service Service) *Handler {
-	return &Handler{service: service}
+type ListCollections interface {
+	Run(ctx context.Context, input usecase.ListInput) (usecase.ListCollectionsOutput, error)
+}
+
+type GetFilm interface {
+	Run(ctx context.Context, id entities.FilmID) (entities.Film, error)
+}
+
+type GetCollection interface {
+	Run(ctx context.Context, id entities.CollectionID, input usecase.ListInput) (usecase.GetCollectionOutput, error)
+}
+
+type HandlerUseCases struct {
+	ListFilms       ListFilms
+	GetFilm         GetFilm
+	ListCollections ListCollections
+	GetCollection   GetCollection
+}
+
+type Handler struct {
+	listFilms       ListFilms
+	getFilm         GetFilm
+	listCollections ListCollections
+	getCollection   GetCollection
+}
+
+func NewHandler(cases HandlerUseCases) (*Handler, error) {
+	if cases.ListFilms == nil {
+		return nil, errors.New("list films use case is nil")
+	}
+	if cases.GetFilm == nil {
+		return nil, errors.New("get film use case is nil")
+	}
+	if cases.ListCollections == nil {
+		return nil, errors.New("list collections use case is nil")
+	}
+	if cases.GetCollection == nil {
+		return nil, errors.New("get collection use case is nil")
+	}
+	return &Handler{
+		listFilms:       cases.ListFilms,
+		getFilm:         cases.GetFilm,
+		listCollections: cases.ListCollections,
+		getCollection:   cases.GetCollection,
+	}, nil
 }
 
 type filmsPage struct {
-	Films  []entities.Film `json:"films"`
-	Total  int             `json:"total"`
-	Limit  int             `json:"limit"`
-	Offset int             `json:"offset"`
+	Films  []filmResponseDTO `json:"films"`
+	Total  int               `json:"total"`
+	Limit  int               `json:"limit"`
+	Offset int               `json:"offset"`
 }
 
 type filmResponse struct {
-	Film entities.Film `json:"film"`
+	Film filmResponseDTO `json:"film"`
 }
 
 type collectionsPage struct {
-	Collections []entities.CollectionWithFilms `json:"collections"`
-	Total       int                            `json:"total"`
-	Limit       int                            `json:"limit"`
-	Offset      int                            `json:"offset"`
+	Collections []collectionResponseDTO `json:"collections"`
+	Total       int                     `json:"total"`
+	Limit       int                     `json:"limit"`
+	Offset      int                     `json:"offset"`
 }
 
 type collectionPage struct {
-	Collection entities.CollectionWithFilms `json:"collection"`
-	Total      int                          `json:"total"`
-	Limit      int                          `json:"limit"`
-	Offset     int                          `json:"offset"`
+	Collection collectionWithFilmsResponseDTO `json:"collection"`
+	Total      int                            `json:"total"`
+	Limit      int                            `json:"limit"`
+	Offset     int                            `json:"offset"`
 }
 
 type errorResponse struct {
@@ -110,15 +154,20 @@ func (h *Handler) ListFilms(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	films, total, err := h.service.ListFilms(r.Context(), limit, offset)
+	input := usecase.ListInput{
+		Limit:  limit,
+		Offset: offset,
+	}
+
+	result, err := h.listFilms.Run(r.Context(), input)
 	if err != nil {
-		writeError(w, fmt.Errorf("list films: %w", err))
+		writeError(w, err)
 		return
 	}
 
 	writeJSON(w, http.StatusOK, filmsPage{
-		Films:  films,
-		Total:  total,
+		Films:  toFilmResponseDTOs(result.Films),
+		Total:  result.Total,
 		Limit:  limit,
 		Offset: offset,
 	})
@@ -131,13 +180,13 @@ func (h *Handler) GetFilm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	film, err := h.service.GetFilmByID(r.Context(), entities.FilmID(id))
+	film, err := h.getFilm.Run(r.Context(), entities.FilmID(id))
 	if err != nil {
 		writeError(w, fmt.Errorf("get film %d: %w", id, err))
 		return
 	}
 
-	writeJSON(w, http.StatusOK, filmResponse{Film: film})
+	writeJSON(w, http.StatusOK, filmResponse{Film: toFilmResponseDTO(film)})
 }
 
 func (h *Handler) ListCollections(w http.ResponseWriter, r *http.Request) {
@@ -147,25 +196,20 @@ func (h *Handler) ListCollections(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	collections, total, err := h.service.ListCollections(r.Context(), limit, offset)
+	input := usecase.ListInput{
+		Limit:  limit,
+		Offset: offset,
+	}
+
+	result, err := h.listCollections.Run(r.Context(), input)
 	if err != nil {
 		writeError(w, fmt.Errorf("list collections: %w", err))
 		return
 	}
 
-	result := make([]entities.CollectionWithFilms, 0, len(collections))
-	for _, collection := range collections {
-		withFilms, _, err := h.collectionWithFilms(r.Context(), collection, maxLimit, defaultOffset)
-		if err != nil {
-			writeError(w, err)
-			return
-		}
-		result = append(result, withFilms)
-	}
-
 	writeJSON(w, http.StatusOK, collectionsPage{
-		Collections: result,
-		Total:       total,
+		Collections: toCollectionResponseDTOs(result.Collections),
+		Total:       result.Total,
 		Limit:       limit,
 		Offset:      offset,
 	})
@@ -183,36 +227,21 @@ func (h *Handler) GetCollection(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	collection, err := h.service.GetCollectionByID(r.Context(), entities.CollectionID(id))
-	if err != nil {
-		writeError(w, fmt.Errorf("get collection %d: %w", id, err))
-		return
-	}
-
-	withFilms, total, err := h.collectionWithFilms(r.Context(), collection, limit, offset)
+	result, err := h.getCollection.Run(r.Context(), entities.CollectionID(id), usecase.ListInput{
+		Limit:  limit,
+		Offset: offset,
+	})
 	if err != nil {
 		writeError(w, err)
 		return
 	}
 
 	writeJSON(w, http.StatusOK, collectionPage{
-		Collection: withFilms,
-		Total:      total,
+		Collection: toCollectionWithFilmsResponseDTO(result.Collection, result.Films),
+		Total:      result.Total,
 		Limit:      limit,
 		Offset:     offset,
 	})
-}
-
-func (h *Handler) collectionWithFilms(ctx context.Context, collection entities.Collection, limit, offset int) (entities.CollectionWithFilms, int, error) {
-	films, total, err := h.service.ListCollectionFilms(ctx, collection.ID, limit, offset)
-	if err != nil {
-		return entities.CollectionWithFilms{}, 0, fmt.Errorf("list films of collection %d: %w", collection.ID, err)
-	}
-
-	return entities.CollectionWithFilms{
-		Collection: collection,
-		Films:      films,
-	}, total, nil
 }
 
 func pagination(r *http.Request) (limit, offset int, err error) {

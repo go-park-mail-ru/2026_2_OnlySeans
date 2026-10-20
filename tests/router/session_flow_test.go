@@ -5,7 +5,6 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -14,8 +13,7 @@ import (
 )
 
 func TestRequireAuth_SessionFlow(t *testing.T) {
-	h, err := auth.NewHandler(auth.NewInMemoryUserRepo(), auth.NewInMemorySessionStore(time.Hour))
-	require.NoError(t, err)
+	h := newTestAuthHandler(t)
 
 	body := `{"email":"flow@example.com","username":"flowuser","password":"Password1"}`
 	rec := httptest.NewRecorder()
