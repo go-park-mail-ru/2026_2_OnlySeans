@@ -2,7 +2,8 @@
 
 Документ показывает, как схема «Кинопоиска» пришла от исходного ненормализованного
 представления к НФБК. Шаги 1–4 разобраны на каталоге фильмов, шаг 5 проводит тем
-же путём остальные области продукта, так что через разбор проходят все 31 отношение. На каждом шаге приводится состав отношений, функциональные
+же путём остальные области продукта, шаг 6 — историчность и аналитику событий,
+так что через разбор проходят все 42 отношения. На каждом шаге приводится состав отношений, функциональные
 зависимости и то, какая аномалия устранена. DDL здесь нет — он в `../migrations`,
 итоговая схема описана в [relations.md](relations.md).
 
@@ -537,8 +538,8 @@ FILM_RATING_HISTORY:
 REVIEW:
 {review_id} -> account_id, film_id, title, content, contains_spoilers,
                deleted_at, deleted_by
-{account_id, film_id} -> review_id, title, content, contains_spoilers,
-                         deleted_at, deleted_by
+{account_id, film_id, deleted_at} -> review_id, title, content,
+                                     contains_spoilers, deleted_by
 ```
 
 `FILM_RATING_HISTORY` — журнал только на запись: он и обеспечивает требование
@@ -683,8 +684,185 @@ ACCOUNT_BAN:
 | `collection`, `collection_film` | 5.4 |
 | `notification`, `film_discussion`, `discussion_message` | 5.5 |
 | `moderation_task`, `account_ban` | 5.6 |
+| `film_revision`, `review_revision`, `account_role_history`, `film_rating_daily` | 6.1 |
+| `visitor`, `traffic_source`, `page`, `event_type`, `visit`, `analytic_event`, `search_query` | 6.2 |
 
-Всего 31 отношение. Каждое из них описано в [relations.md](relations.md).
+Всего 42 отношения. Каждое из них описано в [relations.md](relations.md).
+
+---
+
+## Шаг 6. Историчность и аналитика
+
+Две области добавлены после ревью: расширенная историчность данных и хранение
+событий с фронта для рекламной аналитики. Обе проходят тот же путь нормализации.
+
+### 6.1. Историчность
+
+Ненормализованно история правок выглядит как поля «предыдущее значение» прямо в
+карточке или как текстовый журнал изменений в одном поле.
+
+```
+FILM_WITH_LOG(__film_id__, title, description, previous_title,
+              previous_description, change_log, rating_history_text)
+```
+
+| Нарушение | Разбор |
+|---|---|
+| 1НФ | `change_log` и `rating_history_text` — списки изменений в одном поле |
+| 2НФ | поля `previous_*` хранят ровно одну прошлую версию, а их нужно сколько угодно |
+| 3НФ | автор правки зависит от самой правки, а не от фильма |
+
+Итог — отдельные журналы, строки которых не изменяются:
+
+```
+FILM_REVISION(__revision_id__, film_id, changed_by, title, original_title,
+              film_type, production_year, duration_min, age_limit, description,
+              created_at)
+REVIEW_REVISION(__revision_id__, review_id, title, content, contains_spoilers,
+                created_at)
+ACCOUNT_ROLE_HISTORY(__history_id__, account_id, old_role_id, new_role_id,
+                     changed_by, created_at)
+FILM_RATING_DAILY(__film_id__, __stat_date__, rating_count, rating_sum,
+                  average_score)
+```
+
+```
+FILM_REVISION:
+{revision_id} -> film_id, changed_by, title, original_title, film_type,
+                 production_year, duration_min, age_limit, description, created_at
+
+REVIEW_REVISION:
+{revision_id} -> review_id, title, content, contains_spoilers, created_at
+
+ACCOUNT_ROLE_HISTORY:
+{history_id} -> account_id, old_role_id, new_role_id, changed_by, created_at
+
+FILM_RATING_DAILY:
+{film_id, stat_date} -> rating_count, rating_sum, average_score
+```
+
+`FILM_RATING_DAILY` — единственное место, где рядом лежат сумма, количество и
+среднее. Это не нарушение 3НФ по отношению к текущим данным: среднее за
+прошедший день нельзя пересчитать по `FILM_RATING`, потому что оценки с тех пор
+менялись. Внутри же строки `average_score` выводится из двух соседних
+атрибутов, поэтому значение зафиксировано как снимок и после вставки не
+изменяется.
+
+### 6.2. Аналитика событий
+
+Ненормализованно событие с фронта приходит одним объектом, где вперемешку лежат
+посетитель, источник перехода, страница и свойства самого события.
+
+```
+EVENT_RAW(__event_id__, visitor_cookie, user_id, utm_source, utm_medium,
+          utm_campaign, user_agent, ip, page_path, event_name, object_type,
+          object_id, element, properties, occurred_at)
+```
+
+| Нарушение | Разбор |
+|---|---|
+| 1НФ | `properties` — произвольный набор свойств в одном поле |
+| 2НФ | `user_agent`, `ip` и utm-метки зависят от визита, а не от конкретного события |
+| 3НФ | `utm_medium` и `utm_campaign` зависят от источника перехода; название страницы — от пути |
+| Целостность | пара `object_type` и `object_id` не позволяет объявить внешний ключ |
+
+Итог:
+
+```
+VISITOR(__visitor_id__, public_id, first_seen_at)
+TRAFFIC_SOURCE(__source_id__, utm_source, utm_medium, utm_campaign)
+PAGE(__page_id__, path, title)
+EVENT_TYPE(__event_type_id__, code, title)
+VISIT(__visit_id__, visitor_id, account_id, traffic_source_id, started_at,
+      finished_at, user_agent, ip_address)
+ANALYTIC_EVENT(__event_id__, visit_id, event_type_id, page_id, film_id,
+               person_id, collection_id, element_code, occurred_at)
+SEARCH_QUERY(__query_id__, visit_id, query_text, result_count)
+```
+
+```
+VISITOR:
+{visitor_id} -> public_id, first_seen_at
+{public_id} -> visitor_id, first_seen_at
+
+TRAFFIC_SOURCE:
+{source_id} -> utm_source, utm_medium, utm_campaign
+{utm_source, utm_medium, utm_campaign} -> source_id
+
+PAGE:
+{page_id} -> path, title
+{path} -> page_id, title
+
+EVENT_TYPE:
+{event_type_id} -> code, title
+{code} -> event_type_id, title
+
+VISIT:
+{visit_id} -> visitor_id, account_id, traffic_source_id, started_at,
+              finished_at, user_agent, ip_address
+
+ANALYTIC_EVENT:
+{event_id} -> visit_id, event_type_id, page_id, film_id, person_id,
+              collection_id, element_code, occurred_at
+
+SEARCH_QUERY:
+{query_id} -> visit_id, query_text, result_count
+```
+
+Вместо универсальной пары «тип объекта и его идентификатор» заведены
+типизированные ссылки на фильм, персону и подборку, а ограничение разрешает
+заполнить максимум одну: так у событий остаются настоящие внешние ключи.
+Текст поискового запроса вынесен в `SEARCH_QUERY`, потому что это атрибут
+только событий поиска: в общей таблице он был бы пустым почти всегда.
+
+```mermaid
+erDiagram
+    VISITOR ||--o{ VISIT : ""
+    TRAFFIC_SOURCE ||--o{ VISIT : ""
+    VISIT ||--o{ ANALYTIC_EVENT : ""
+    VISIT ||--o{ SEARCH_QUERY : ""
+    EVENT_TYPE ||--o{ ANALYTIC_EVENT : ""
+    PAGE ||--o{ ANALYTIC_EVENT : ""
+
+    VISITOR {
+        attr visitor_id PK
+        attr public_id UK
+        attr first_seen_at
+    }
+    TRAFFIC_SOURCE {
+        attr source_id PK
+        attr utm_source
+        attr utm_medium
+        attr utm_campaign
+    }
+    VISIT {
+        attr visit_id PK
+        attr visitor_id FK
+        attr account_id FK
+        attr traffic_source_id FK
+        attr started_at
+        attr finished_at
+        attr user_agent
+        attr ip_address
+    }
+    ANALYTIC_EVENT {
+        attr event_id PK
+        attr visit_id FK
+        attr event_type_id FK
+        attr page_id FK
+        attr film_id FK
+        attr person_id FK
+        attr collection_id FK
+        attr element_code
+        attr occurred_at
+    }
+    SEARCH_QUERY {
+        attr query_id PK
+        attr visit_id FK
+        attr query_text
+        attr result_count
+    }
+```
 
 ---
 
@@ -713,6 +891,7 @@ ACCOUNT_BAN:
 | 3. Третья нормальная форма | 12 | транзитивные зависимости, справочники |
 | 4. НФБК | 13 | детерминанты приведены к потенциальным ключам |
 | 5. Остальные области продукта | 31 | профиль и права, сезоны и серии, оценки и рецензии, папки и подборки, чат, модерация |
+| 6. Историчность и аналитика | 42 | журналы версий и событийная аналитика |
 
 Итоговый состав всех 31 отношения с описаниями и полным списком функциональных
 зависимостей — в [relations.md](relations.md), типы и ограничения — в

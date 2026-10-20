@@ -14,7 +14,7 @@
 
 ## 1. Общая карта
 
-Все 31 отношение схемы. Связующие таблицы (`film_genre`, `film_person`,
+Все 42 отношения схемы. Связующие таблицы (`film_genre`, `film_person`,
 `collection_film` и другие) в нотации Чена показаны именно как связи-ромбы, а не
 как сущности: в реляционной схеме они превращаются в таблицы, но на ER-уровне
 это связи.
@@ -55,6 +55,119 @@
 
 `moderation_task` — самостоятельная сущность: проверку проходит и рецензия, и
 сообщение чата, решение принимает либо модель, либо модератор.
+
+---
+
+## 6. Историчность и аналитика событий
+
+```mermaid
+erDiagram
+    film ||--o{ film_revision : "версии карточки"
+    account ||--o{ film_revision : "правил"
+    review ||--o{ review_revision : "версии текста"
+    account ||--o{ account_role_history : "смена роли"
+    role ||--o{ account_role_history : "прежняя и новая"
+    film ||--o{ film_rating_daily : "снимок рейтинга"
+    visitor ||--o{ visit : ""
+    traffic_source ||--o{ visit : ""
+    account ||--o{ visit : "вошёл"
+    visit ||--o{ analytic_event : ""
+    visit ||--o{ search_query : ""
+    event_type ||--o{ analytic_event : ""
+    page ||--o{ analytic_event : ""
+    film ||--o{ analytic_event : "объект события"
+    person ||--o{ analytic_event : "объект события"
+    collection ||--o{ analytic_event : "объект события"
+
+    film_revision {
+        attr id PK
+        attr film_id FK
+        attr changed_by FK
+        attr title
+        attr original_title
+        attr film_type
+        attr production_year
+        attr duration_min
+        attr age_limit
+        attr description
+        attr created_at
+    }
+    review_revision {
+        attr id PK
+        attr review_id FK
+        attr title
+        attr content
+        attr contains_spoilers
+        attr created_at
+    }
+    account_role_history {
+        attr id PK
+        attr account_id FK
+        attr old_role_id FK
+        attr new_role_id FK
+        attr changed_by FK
+        attr created_at
+    }
+    film_rating_daily {
+        attr film_id PK
+        attr stat_date PK
+        attr rating_count
+        attr rating_sum
+        attr average_score
+    }
+    visitor {
+        attr id PK
+        attr public_id UK
+        attr first_seen_at
+    }
+    traffic_source {
+        attr id PK
+        attr utm_source
+        attr utm_medium
+        attr utm_campaign
+    }
+    page {
+        attr id PK
+        attr path UK
+        attr title
+    }
+    event_type {
+        attr id PK
+        attr code UK
+        attr title UK
+    }
+    visit {
+        attr id PK
+        attr visitor_id FK
+        attr account_id FK
+        attr traffic_source_id FK
+        attr started_at
+        attr finished_at
+        attr user_agent
+        attr ip_address
+    }
+    analytic_event {
+        attr id PK
+        attr visit_id FK
+        attr event_type_id FK
+        attr page_id FK
+        attr film_id FK
+        attr person_id FK
+        attr collection_id FK
+        attr element_code
+        attr occurred_at
+    }
+    search_query {
+        attr id PK
+        attr visit_id FK
+        attr query_text
+        attr result_count
+    }
+```
+
+Журналы версий (`film_revision`, `review_revision`, `account_role_history`) и
+аналитические события — отношения только на запись: строки в них не изменяются,
+поэтому поля `updated_at` у них нет.
 
 ---
 

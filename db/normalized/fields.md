@@ -1,7 +1,7 @@
 # Словарь данных: все поля, типы и ограничения
 
-Версия 4. 31 таблица в PostgreSQL 17 и 5 структур в Redis.
-Схема применена и проверена на живой базе: 25 проверок ограничений из 25 пройдены.
+Версия 5. 42 таблицы в PostgreSQL 17 и 5 структур в Redis.
+Схема применена и проверена на живой базе: 41 проверка ограничений из 41 пройдена.
 Дополняет [relations.md](relations.md): там отношения и функциональные
 зависимости, здесь — типы и ограничения целостности с обоснованием.
 ER-диаграммы — в [er.md](er.md), DDL целиком — в `db/migrations`.
@@ -322,11 +322,16 @@ ER-диаграммы — в [er.md](er.md), DDL целиком — в `db/migra
 | deleted_at | timestamptz | | мягкое удаление |
 | deleted_by | bigint | FK → account, RESTRICT | совпадает с account_id — удалил автор, иначе модератор |
 | — | — | CHECK (deleted_at IS NULL) = (deleted_by IS NULL) | оба поля только вместе |
+| — | — | частичный UNIQUE (account_id, film_id) WHERE deleted_at IS NULL | одна **действующая** рецензия на пару пользователь-фильм. Обычный UNIQUE не подошёл: удалённая строка остаётся в таблице и блокировала бы новую рецензию |
 | created_at | timestamptz | NN, DEFAULT now() | |
 | updated_at | timestamptz | NN, DEFAULT now() | ведёт триггер |
 
 Поля `is_approved` нет: состояние проверки живёт в `moderation_task`, чтобы не
 хранить одно и то же в двух местах.
+
+Удаление мягкое, поэтому строка остаётся в таблице. Чтобы это не мешало
+пользователю написать новую рецензию на тот же фильм, уникальность наложена
+только на действующие строки — частичным индексом `review_active_unique_idx`.
 
 ## 22. folder — папка пользователя
 
@@ -468,7 +473,157 @@ ER-диаграммы — в [er.md](er.md), DDL целиком — в `db/migra
 
 ---
 
-## 32. Хранилища вне PostgreSQL
+## 32. film_revision — версии карточки фильма
+Журнал только на запись: строки после вставки не изменяются.
+
+| Поле | Тип | Ограничения | Обоснование |
+|---|---|---|---|
+| id | bigint IDENTITY | PK | |
+| film_id | bigint | NN, FK → film, CASCADE | |
+| changed_by | bigint | FK → account, RESTRICT | кто правил карточку; берётся из параметра сессии `app.account_id`, который выставляет приложение |
+| title, original_title, film_type, production_year, duration_min, age_limit, description | как в `film` | те же CHECK | копия значений **до** правки |
+| created_at | timestamptz | NN, DEFAULT now() | сюда пишется прежнее `film.updated_at` |
+
+Заполняется триггером `film_write_revision`. Обоснование триггера: карточку
+правят из админки, из скриптов и из psql, и история не должна зависеть от того,
+каким путём прошло изменение.
+
+## 33. review_revision — версии рецензии
+
+| Поле | Тип | Ограничения | Обоснование |
+|---|---|---|---|
+| id | bigint IDENTITY | PK | |
+| review_id | bigint | NN, FK → review, CASCADE | |
+| title, content, contains_spoilers | как в `review` | те же CHECK | текст до правки |
+| created_at | timestamptz | NN, DEFAULT now() | прежнее `review.updated_at` |
+
+Позволяет показать отметку «рецензия отредактирована» и разобрать случай, когда
+текст изменили уже после модерации.
+
+## 34. account_role_history — история ролей
+
+| Поле | Тип | Ограничения | Обоснование |
+|---|---|---|---|
+| id | bigint IDENTITY | PK | |
+| account_id | bigint | NN, FK → account, RESTRICT | |
+| old_role_id | bigint | FK → role, RESTRICT | пусто при регистрации |
+| new_role_id | bigint | NN, FK → role, RESTRICT | |
+| changed_by | bigint | FK → account, RESTRICT | кто выдал роль |
+| — | — | CHECK old_role_id IS NULL OR old_role_id <> new_role_id | записей «роль не изменилась» не бывает |
+| created_at | timestamptz | NN, DEFAULT now() | |
+
+Отвечает на вопрос, кто и когда сделал пользователя модератором: без такой
+истории выдача прав не расследуется.
+
+## 35. film_rating_daily — снимок рейтинга за день
+
+| Поле | Тип | Ограничения | Обоснование |
+|---|---|---|---|
+| film_id | bigint | PK, FK → film, CASCADE | |
+| stat_date | date | PK, CHECK ≥ 1888-01-01 | один снимок на фильм в день |
+| rating_count | integer | NN, CHECK > 0 | число оценок на конец дня |
+| rating_sum | integer | NN, CHECK > 0 | сумма оценок: по ней среднее пересчитывается без потери точности |
+| average_score | numeric(4,2) | NN, CHECK 1–10 | среднее на дату |
+| created_at | timestamptz | NN, DEFAULT now() | |
+
+Это не дублирование `film_rating`: текущее среднее считается запросом, а
+значение на прошедшую дату из текущих данных не восстановить — оценки меняют и
+удаляют.
+
+## 36. visitor — анонимный посетитель
+
+| Поле | Тип | Ограничения | Обоснование |
+|---|---|---|---|
+| id | bigint IDENTITY | PK | |
+| public_id | text | NN, UQ, CHECK маска из латиницы, цифр, дефиса и подчёркивания, 16–64 символа | идентификатор из браузера; связывает события до и после входа в аккаунт |
+| first_seen_at | timestamptz | NN, DEFAULT now() | первый визит |
+| created_at | timestamptz | NN, DEFAULT now() | |
+| updated_at | timestamptz | NN, DEFAULT now() | ведёт триггер |
+
+## 37. traffic_source — рекламный источник
+
+| Поле | Тип | Ограничения | Обоснование |
+|---|---|---|---|
+| id | bigint IDENTITY | PK | |
+| utm_source | text | NN, CHECK 1–128 | откуда пришёл переход |
+| utm_medium | text | CHECK 1–128 | тип трафика |
+| utm_campaign | text | CHECK 1–128 | рекламная кампания |
+| — | — | UQ **NULLS NOT DISTINCT** (utm_source, utm_medium, utm_campaign) | обычный UNIQUE пропустил бы несколько строк «telegram, social, без кампании» |
+| created_at | timestamptz | NN, DEFAULT now() | |
+| updated_at | timestamptz | NN, DEFAULT now() | ведёт триггер |
+
+Метки вынесены в справочник: иначе они повторялись бы в каждом визите, и
+переименование кампании пришлось бы править по всем строкам.
+
+## 38. page — страница сайта
+
+| Поле | Тип | Ограничения | Обоснование |
+|---|---|---|---|
+| id | bigint IDENTITY | PK | |
+| path | text | NN, UQ, CHECK начинается с косой черты, ≤ 512 | шаблон пути `/film/:id`, а не конкретный адрес: иначе справочник рос бы вместе с каталогом |
+| title | text | CHECK 1–255 | подпись для отчётов |
+| created_at | timestamptz | NN, DEFAULT now() | |
+| updated_at | timestamptz | NN, DEFAULT now() | ведёт триггер |
+
+## 39. event_type — тип события
+
+| Поле | Тип | Ограничения | Обоснование |
+|---|---|---|---|
+| id | bigint IDENTITY | PK | |
+| code | text | NN, UQ, CHECK только строчные латинские и подчёркивание, 3–48 | page_view, click, search, film_open, trailer_play |
+| title | text | NN, UQ, CHECK 2–128 | подпись для отчётов |
+| created_at | timestamptz | NN, DEFAULT now() | |
+| updated_at | timestamptz | NN, DEFAULT now() | ведёт триггер |
+
+## 40. visit — визит на сайт
+
+| Поле | Тип | Ограничения | Обоснование |
+|---|---|---|---|
+| id | bigint IDENTITY | PK | |
+| visitor_id | bigint | NN, FK → visitor, CASCADE | |
+| account_id | bigint | FK → account, RESTRICT | пусто, если пользователь не входил в аккаунт |
+| traffic_source_id | bigint | FK → traffic_source, RESTRICT | источник перехода |
+| started_at | timestamptz | NN, DEFAULT now() | |
+| finished_at | timestamptz | CHECK ≥ started_at | пусто, пока визит не закрыт |
+| user_agent | text | CHECK 1–512 | браузер и устройство |
+| ip_address | inet | | тип проверяет формат и поддерживает IPv6 |
+| created_at | timestamptz | NN, DEFAULT now() | |
+| updated_at | timestamptz | NN, DEFAULT now() | ведёт триггер |
+
+Визит — промежуточный уровень между посетителем и событием: он хранит то, что
+одинаково для всей цепочки, и это не повторяется в каждом событии.
+
+## 41. analytic_event — событие с фронта
+
+| Поле | Тип | Ограничения | Обоснование |
+|---|---|---|---|
+| id | bigint IDENTITY | PK | самая большая таблица схемы, поэтому `bigint` |
+| visit_id | bigint | NN, FK → visit, CASCADE | |
+| event_type_id | bigint | NN, FK → event_type, RESTRICT | тип нельзя удалить, пока по нему есть события |
+| page_id | bigint | FK → page, RESTRICT | где произошло событие |
+| film_id, person_id, collection_id | bigint | FK, CASCADE | объект, которого касается событие |
+| — | — | CHECK `num_nonnulls(film_id, person_id, collection_id) <= 1` | событие относится максимум к одному объекту; типизированные ссылки вместо универсального поля сохраняют внешние ключи |
+| element_code | text | CHECK строчные латиница, цифры, дефис, 2–64 | код элемента интерфейса: `trailer_play_button`, `add_to_favorite` |
+| occurred_at | timestamptz | NN, CHECK ≥ 2020-01-01 | время события у клиента |
+| created_at | timestamptz | NN, DEFAULT now() | время записи на сервере; `updated_at` нет, журнал не изменяется |
+
+Произвольные свойства события не складываются в одно поле: это нарушило бы 1НФ
+и запрет на составные типы. Набор ссылок типизирован, а редкие атрибуты
+выносятся в отдельные таблицы, как `search_query`.
+
+## 42. search_query — поисковый запрос
+
+| Поле | Тип | Ограничения | Обоснование |
+|---|---|---|---|
+| id | bigint IDENTITY | PK | |
+| visit_id | bigint | NN, FK → visit, CASCADE | |
+| query_text | text | NN, CHECK 1–255 | |
+| result_count | integer | NN, CHECK ≥ 0 | ноль означает, что в каталоге ничего не нашлось |
+| created_at | timestamptz | NN, DEFAULT now() | |
+
+---
+
+## 43. Хранилища вне PostgreSQL
 
 ### Redis
 
@@ -493,7 +648,7 @@ ER-диаграммы — в [er.md](er.md), DDL целиком — в `db/migra
 | `person` | фотографии персон |
 | `cover` | обложки подборок |
 
-## 33. Сводка по типам и их отображение в Go
+## 44. Сводка по типам и их отображение в Go
 
 Таблица отвечает на вопрос ревью о том, как типы SQL превращаются в типы Go при
 работе через `pgx`.
@@ -517,21 +672,21 @@ ER-диаграммы — в [er.md](er.md), DDL целиком — в `db/migra
 Не используются: `varchar(n)`, `char(n)`, `serial`, `money`, `timestamp` без
 часового пояса, `array`, `json`, `jsonb`.
 
-## 34. Сводка по ограничениям целостности
+## 45. Сводка по ограничениям целостности
 
 | Ограничение | Где |
 |---|---|
-| PRIMARY KEY | у всех 31 таблицы |
+| PRIMARY KEY | у всех 42 таблиц |
 | UNIQUE | email, username, коды и названия справочников, slug, (id, film_type) у film, (film_id, file_role, sort_order) у film_file, film_id у обсуждения |
 | UNIQUE NULLS NOT DISTINCT | film_person |
-| Частичные уникальные индексы | системные папки, нерешённые задачи модерации по рецензии и по сообщению |
+| Частичные уникальные индексы | системные папки, нерешённые задачи модерации по рецензии и по сообщению, действующая рецензия на пару пользователь-фильм |
 | FOREIGN KEY | все ссылки; RESTRICT на пользовательский контент, CASCADE на личные данные, SET NULL на файлы; `ON UPDATE` не указан нигде |
 | Составной FOREIGN KEY | season → film (id, film_type); episode → season (film_id, season_number) |
 | NOT NULL | все обязательные поля |
 | CHECK | маски, диапазоны, длины, `num_nonnulls`, симметричность similar_film, согласованность пар полей, анонимизация аккаунта |
 | DEFAULT | флаги, статусы, created_at, updated_at |
-| Триггеры | set_updated_at на всех изменяемых таблицах, write_film_rating_history |
-| Функции | anonymize_account(bigint) — мягкое удаление учётной записи |
+| Триггеры | set_updated_at на всех изменяемых таблицах, write_film_rating_history, write_film_revision, write_review_revision, write_account_role_history |
+| Функции | anonymize_account(bigint) — мягкое удаление учётной записи; current_account_id() — пользователь текущего запроса для журналов |
 
 | EXCLUDE | account_ban: блокировки одного пользователя не пересекаются во времени |
 

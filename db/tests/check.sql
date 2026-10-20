@@ -201,6 +201,100 @@ SELECT pg_temp.expect(25, 'самоблокировка запрещена',
            (SELECT moderator_id FROM account_ban LIMIT 1),
            (SELECT moderator_id FROM account_ban LIMIT 1)), true);
 
+SELECT pg_temp.expect(26, 'правка фильма пишет версию',
+    format('UPDATE film SET title = title || %L WHERE id = %s', ' (ред.)',
+           (SELECT id FROM film LIMIT 1)), false);
+
+INSERT INTO test_result
+SELECT 27, 'версия карточки сохранена', count(*) > 0,
+       format('строк в film_revision: %s', count(*))
+  FROM film_revision;
+
+SELECT pg_temp.expect(28, 'правка рецензии пишет версию',
+    format('UPDATE review SET content = content || %L WHERE id = %s', ' Дополнено.',
+           (SELECT id FROM review LIMIT 1)), false);
+
+INSERT INTO test_result
+SELECT 29, 'версия рецензии сохранена', count(*) > 0,
+       format('строк в review_revision: %s', count(*))
+  FROM review_revision;
+
+INSERT INTO test_result
+SELECT 30, 'история ролей заполнена при регистрации', count(*) >= 5,
+       format('строк в account_role_history: %s', count(*))
+  FROM account_role_history;
+
+SELECT pg_temp.expect(31, 'смена роли пишет историю',
+    format('UPDATE account SET role_id = %s WHERE id = %s',
+           (SELECT id FROM role WHERE code = 'moderator'),
+           (SELECT id FROM account WHERE username = 'ivan')), false);
+
+INSERT INTO test_result
+SELECT 32, 'смена роли попала в историю', count(*) = 1,
+       format('записей о смене роли: %s', count(*))
+  FROM account_role_history
+ WHERE old_role_id IS NOT NULL;
+
+SELECT pg_temp.expect(33, 'событие с двумя объектами запрещено',
+    format($sql$INSERT INTO analytic_event (visit_id, event_type_id, film_id,
+                                            person_id, occurred_at)
+                VALUES (%s, %s, %s, %s, now())$sql$,
+           (SELECT id FROM visit LIMIT 1),
+           (SELECT id FROM event_type WHERE code = 'click'),
+           (SELECT id FROM film LIMIT 1),
+           (SELECT id FROM person LIMIT 1)), true);
+
+SELECT pg_temp.expect(34, 'событие без визита запрещено',
+    format($sql$INSERT INTO analytic_event (visit_id, event_type_id, occurred_at)
+                VALUES (0, %s, now())$sql$,
+           (SELECT id FROM event_type WHERE code = 'click')), true);
+
+SELECT pg_temp.expect(35, 'визит, завершённый раньше начала, запрещён',
+    format($sql$INSERT INTO visit (visitor_id, started_at, finished_at)
+                VALUES (%s, now(), now() - interval '1 hour')$sql$,
+           (SELECT id FROM visitor LIMIT 1)), true);
+
+SELECT pg_temp.expect(36, 'повторная utm-метка запрещена',
+    $sql$INSERT INTO traffic_source (utm_source, utm_medium, utm_campaign)
+         VALUES ('telegram', 'social', NULL)$sql$, true);
+
+SELECT pg_temp.expect(37, 'два снимка рейтинга за один день запрещены',
+    format($sql$INSERT INTO film_rating_daily (film_id, stat_date, rating_count,
+                                               rating_sum, average_score)
+                VALUES (%s, CURRENT_DATE - 1, 3, 27, 9.0)$sql$,
+           (SELECT film_id FROM film_rating_daily LIMIT 1)), true);
+
+SELECT pg_temp.expect(38, 'вторая действующая рецензия запрещена',
+    format($sql$INSERT INTO review (account_id, film_id, title, content)
+                VALUES (%s, %s, 'Ещё раз о том же',
+                        'Второй отзыв того же пользователя на тот же фильм появиться не должен, пока первый не удалён.')$sql$,
+           (SELECT account_id FROM review WHERE deleted_at IS NULL LIMIT 1),
+           (SELECT film_id FROM review WHERE deleted_at IS NULL LIMIT 1)), true);
+
+SELECT pg_temp.expect(39, 'удаление рецензии автором',
+    format($sql$UPDATE review
+                   SET deleted_at = now(),
+                       deleted_by = account_id
+                 WHERE id = %s$sql$,
+           (SELECT id FROM review WHERE deleted_at IS NULL LIMIT 1)), false);
+
+SELECT pg_temp.expect(40, 'после удаления можно написать новую рецензию',
+    format($sql$INSERT INTO review (account_id, film_id, title, content)
+                VALUES (%s, %s, 'Передумала',
+                        'После удаления прежнего отзыва пользователь может написать новый на тот же фильм.')$sql$,
+           (SELECT account_id FROM review WHERE deleted_at IS NOT NULL LIMIT 1),
+           (SELECT film_id FROM review WHERE deleted_at IS NOT NULL LIMIT 1)), false);
+
+INSERT INTO test_result
+SELECT 41, 'удалённая рецензия осталась в таблице', count(*) = 2,
+       format('рецензий на пару пользователь-фильм: %s (из них удалённых %s)',
+              count(*), count(*) FILTER (WHERE deleted_at IS NOT NULL))
+  FROM review
+ WHERE (account_id, film_id) = (SELECT account_id, film_id
+                                  FROM review
+                                 WHERE deleted_at IS NOT NULL
+                                 LIMIT 1);
+
 SELECT step,
        name AS "проверка",
        CASE WHEN passed THEN 'OK' ELSE 'ОШИБКА' END AS "результат",

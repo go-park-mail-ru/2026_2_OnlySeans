@@ -1,6 +1,6 @@
 # Отношения и функциональные зависимости
 
-Версия 4. 31 отношение в PostgreSQL 17 и 5 структур в Redis.
+Версия 5. 42 отношения в PostgreSQL 17 и 5 структур в Redis.
 Типы и ограничения — в [fields.md](fields.md), ER-диаграммы в нотации Чена — в
 [er.md](er.md).
 Как схема пришла к этому виду по шагам нормальных форм — в
@@ -297,20 +297,26 @@ film_rating_history:
 ```
 
 ### review
-Рецензия пользователя на фильм, одна на пару «пользователь + фильм». Состояние
-проверки хранится не здесь, а в `moderation_task`.
+Рецензия пользователя на фильм. Действующая рецензия одна на пару
+«пользователь + фильм», но удалённые остаются в отношении, поэтому после
+удаления можно написать новую. Состояние проверки хранится не здесь, а в
+`moderation_task`.
 
 Атрибуты: id (PK), account_id (FK), film_id (FK), title, content,
 contains_spoilers, deleted_at, deleted_by (FK), created_at, updated_at.
-UQ: (account_id, film_id).
+UQ: (account_id, film_id) среди строк с пустым `deleted_at`.
 
 ```
 review:
 {id} -> account_id, film_id, title, content, contains_spoilers, deleted_at,
         deleted_by, created_at, updated_at
-{account_id, film_id} -> id, title, content, contains_spoilers, deleted_at,
-                         deleted_by, created_at, updated_at
+{account_id, film_id, deleted_at} -> id, title, content, contains_spoilers,
+                                     deleted_by, created_at, updated_at
 ```
+Вторая зависимость выполняется только для действующих рецензий: среди строк с
+пустым `deleted_at` пара «пользователь + фильм» уникальна, и это обеспечивает
+частичный уникальный индекс. Удалённых рецензий на одну пару может быть
+несколько, поэтому в детерминант входит и `deleted_at`.
 
 ---
 
@@ -441,7 +447,151 @@ moderation_task:
 
 ---
 
-## 8. Отношения вне PostgreSQL
+## 8. Историчность данных
+
+### film_revision
+Предыдущие версии карточки фильма: что было до правки и кто правил. Пишется
+триггером при изменении `film`, строки не изменяются.
+
+Атрибуты: id (PK), film_id (FK), changed_by (FK), title, original_title,
+film_type, production_year, duration_min, age_limit, description, created_at.
+
+```
+film_revision:
+{id} -> film_id, changed_by, title, original_title, film_type, production_year,
+        duration_min, age_limit, description, created_at
+```
+
+### review_revision
+Предыдущие версии рецензии. Пишется триггером при изменении текста.
+
+Атрибуты: id (PK), review_id (FK), title, content, contains_spoilers, created_at.
+
+```
+review_revision:
+{id} -> review_id, title, content, contains_spoilers, created_at
+```
+
+### account_role_history
+История назначения ролей: кому, какую роль, кем и когда выдали. Пустая прежняя
+роль означает регистрацию.
+
+Атрибуты: id (PK), account_id (FK), old_role_id (FK), new_role_id (FK),
+changed_by (FK), created_at.
+
+```
+account_role_history:
+{id} -> account_id, old_role_id, new_role_id, changed_by, created_at
+```
+
+### film_rating_daily
+Снимок рейтинга фильма на конец дня: число оценок, их сумма и среднее. По нему
+строится график изменения оценки во времени.
+
+Атрибуты: film_id (PK, FK), stat_date (PK), rating_count, rating_sum,
+average_score, created_at.
+
+```
+film_rating_daily:
+{film_id, stat_date} -> rating_count, rating_sum, average_score, created_at
+```
+Среднее здесь — не дублирование `film_rating`: текущее среднее вычисляется
+запросом, а в снимке хранится значение на прошедшую дату, которое из текущих
+данных восстановить уже нельзя.
+
+---
+
+## 9. Аналитика событий
+
+### visitor
+Анонимный посетитель. Идентификатор хранится в браузере и связывает события до
+и после входа в аккаунт.
+
+Атрибуты: id (PK), public_id (UQ), first_seen_at, created_at, updated_at.
+
+```
+visitor:
+{id} -> public_id, first_seen_at, created_at, updated_at
+{public_id} -> id, first_seen_at, created_at, updated_at
+```
+
+### traffic_source
+Рекламный источник перехода: набор utm-меток.
+
+Атрибуты: id (PK), utm_source, utm_medium, utm_campaign, created_at, updated_at.
+UQ: (utm_source, utm_medium, utm_campaign).
+
+```
+traffic_source:
+{id} -> utm_source, utm_medium, utm_campaign, created_at, updated_at
+{utm_source, utm_medium, utm_campaign} -> id, created_at, updated_at
+```
+
+### page
+Страница сайта в виде шаблона пути, например `/film/:id`.
+
+Атрибуты: id (PK), path (UQ), title, created_at, updated_at.
+
+```
+page:
+{id} -> path, title, created_at, updated_at
+{path} -> id, title, created_at, updated_at
+```
+
+### event_type
+Справочник типов событий: просмотр страницы, клик, поиск, добавление в папку.
+
+Атрибуты: id (PK), code (UQ), title (UQ), created_at, updated_at.
+
+```
+event_type:
+{id} -> code, title, created_at, updated_at
+{code} -> id, title, created_at, updated_at
+{title} -> id, code, created_at, updated_at
+```
+
+### visit
+Визит на сайт: цепочка событий одного посетителя с меткой источника. Пустой
+`account_id` означает, что пользователь не входил в аккаунт.
+
+Атрибуты: id (PK), visitor_id (FK), account_id (FK), traffic_source_id (FK),
+started_at, finished_at, user_agent, ip_address, created_at, updated_at.
+
+```
+visit:
+{id} -> visitor_id, account_id, traffic_source_id, started_at, finished_at,
+        user_agent, ip_address, created_at, updated_at
+```
+
+### analytic_event
+Событие с фронта. Ссылается максимум на один объект каталога: фильм, персону
+или подборку.
+
+Атрибуты: id (PK), visit_id (FK), event_type_id (FK), page_id (FK), film_id (FK),
+person_id (FK), collection_id (FK), element_code, occurred_at, created_at.
+
+```
+analytic_event:
+{id} -> visit_id, event_type_id, page_id, film_id, person_id, collection_id,
+        element_code, occurred_at, created_at
+```
+`occurred_at` — время события у клиента, `created_at` — время записи на сервере:
+это разные факты, и расхождение между ними само по себе полезно аналитике.
+
+### search_query
+Поисковые запросы и число найденных результатов. Запросы с нулём результатов
+показывают, чего не хватает в каталоге.
+
+Атрибуты: id (PK), visit_id (FK), query_text, result_count, created_at.
+
+```
+search_query:
+{id} -> visit_id, query_text, result_count, created_at
+```
+
+---
+
+## 10. Отношения вне PostgreSQL
 
 ### session, email_verification, password_reset (Redis)
 ```
@@ -476,7 +626,7 @@ rate_limit:
 
 ---
 
-## 9. Доказательство нормальных форм
+## 11. Доказательство нормальных форм
 
 ### Первая нормальная форма
 Все атрибуты атомарны, составных типов (массивы, JSON) нет. Диапазон
@@ -539,7 +689,14 @@ rate_limit:
   `season`, `episode`, `collection_film`, `film_file`, `folder_item`) все
   детерминанты объявлены как PRIMARY KEY или UNIQUE;
 - в `account_ban` второй детерминант (account_id, active_during) обеспечен
-  ограничением EXCLUDE, которое здесь играет роль уникального ключа.
+  ограничением EXCLUDE, которое здесь играет роль уникального ключа;
+- в журналах (`film_revision`, `review_revision`, `account_role_history`,
+  `film_rating_history`, `analytic_event`, `search_query`) единственный
+  детерминант — суррогатный ключ: строки журнала намеренно не уникальны по
+  содержимому, один и тот же клик может повториться;
+- в `review` второй детерминант действует только среди неудалённых строк и
+  обеспечен частичным уникальным индексом: он играет роль потенциального ключа
+  на том подмножестве отношения, где `deleted_at` пуст.
 
 Ситуации, когда неключевой атрибут определяет другой атрибут, в схеме нет,
 поэтому все отношения находятся в НФБК.

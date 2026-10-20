@@ -510,7 +510,6 @@ CREATE TABLE review (
     deleted_by        bigint,
     created_at        timestamptz NOT NULL DEFAULT now(),
     updated_at        timestamptz NOT NULL DEFAULT now(),
-    CONSTRAINT review_account_id_film_id_key UNIQUE (account_id, film_id),
     CONSTRAINT review_account_id_fkey FOREIGN KEY (account_id)
         REFERENCES account (id) ON DELETE RESTRICT,
     CONSTRAINT review_film_id_fkey FOREIGN KEY (film_id)
@@ -523,12 +522,18 @@ CREATE TABLE review (
         CHECK ((deleted_at IS NULL) = (deleted_by IS NULL))
 );
 
+CREATE UNIQUE INDEX review_active_unique_idx
+    ON review (account_id, film_id)
+    WHERE deleted_at IS NULL;
+
 CREATE TRIGGER review_set_updated_at
     BEFORE UPDATE ON review
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 COMMENT ON TABLE review IS
-    'Рецензия пользователя на фильм, одна на пару пользователь-фильм. Публикуется после модерации.';
+    'Рецензия пользователя на фильм. Одна действующая рецензия на пару пользователь-фильм; после удаления можно написать новую.';
+COMMENT ON INDEX review_active_unique_idx IS
+    'Ограничение целостности: у пользователя не бывает двух неудалённых рецензий на один фильм. Удалённые рецензии остаются в таблице и повторной записи не мешают.';
 COMMENT ON COLUMN review.deleted_by IS
     'Кто удалил рецензию: если совпадает с account_id — сам автор, иначе модератор.';
 
@@ -1098,3 +1103,447 @@ SELECT target.id, moder.id, 'Оскорбления в обсуждении фи
        tstzrange(now(), now() + interval '7 days')
   FROM account AS target, account AS moder
  WHERE target.username = 'ivan' AND moder.username = 'moderator';
+
+CREATE TABLE film_revision (
+    id              bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    film_id         bigint      NOT NULL,
+    changed_by      bigint,
+    title           text        NOT NULL,
+    original_title  text,
+    film_type       text        NOT NULL,
+    production_year smallint    NOT NULL,
+    duration_min    smallint,
+    age_limit       smallint    NOT NULL,
+    description     text,
+    created_at      timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT film_revision_film_id_fkey FOREIGN KEY (film_id)
+        REFERENCES film (id) ON DELETE CASCADE,
+    CONSTRAINT film_revision_changed_by_fkey FOREIGN KEY (changed_by)
+        REFERENCES account (id) ON DELETE RESTRICT,
+    CONSTRAINT film_revision_title_check CHECK (length(title) BETWEEN 1 AND 255),
+    CONSTRAINT film_revision_film_type_check
+        CHECK (film_type IN ('movie', 'series')),
+    CONSTRAINT film_revision_production_year_check
+        CHECK (production_year BETWEEN 1888 AND 2200),
+    CONSTRAINT film_revision_age_limit_check CHECK (age_limit IN (0, 6, 12, 16, 18))
+);
+
+COMMENT ON TABLE film_revision IS
+    'Предыдущие версии карточки фильма. Пишется триггером при изменении film.';
+COMMENT ON COLUMN film_revision.changed_by IS
+    'Кто правил карточку. Берётся из параметра сессии app.account_id, который выставляет приложение.';
+
+CREATE FUNCTION current_account_id() RETURNS bigint
+    LANGUAGE plpgsql STABLE AS $$
+DECLARE
+    raw_value text := current_setting('app.account_id', true);
+BEGIN
+    IF raw_value IS NULL OR raw_value = '' THEN
+        RETURN NULL;
+    END IF;
+
+    RETURN raw_value::bigint;
+END;
+$$;
+
+COMMENT ON FUNCTION current_account_id() IS
+    'Идентификатор пользователя, от имени которого выполняется запрос. Приложение задаёт его через SET LOCAL app.account_id.';
+
+CREATE FUNCTION write_film_revision() RETURNS trigger
+    LANGUAGE plpgsql AS $$
+BEGIN
+    IF OLD.title IS DISTINCT FROM NEW.title
+       OR OLD.original_title IS DISTINCT FROM NEW.original_title
+       OR OLD.film_type IS DISTINCT FROM NEW.film_type
+       OR OLD.production_year IS DISTINCT FROM NEW.production_year
+       OR OLD.duration_min IS DISTINCT FROM NEW.duration_min
+       OR OLD.age_limit IS DISTINCT FROM NEW.age_limit
+       OR OLD.description IS DISTINCT FROM NEW.description THEN
+        INSERT INTO film_revision (film_id, changed_by, title, original_title,
+                                   film_type, production_year, duration_min,
+                                   age_limit, description, created_at)
+        VALUES (OLD.id, current_account_id(), OLD.title, OLD.original_title,
+                OLD.film_type, OLD.production_year, OLD.duration_min,
+                OLD.age_limit, OLD.description, OLD.updated_at);
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER film_write_revision
+    BEFORE UPDATE ON film
+    FOR EACH ROW EXECUTE FUNCTION write_film_revision();
+
+CREATE TABLE review_revision (
+    id                bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    review_id         bigint      NOT NULL,
+    title             text        NOT NULL,
+    content           text        NOT NULL,
+    contains_spoilers boolean     NOT NULL,
+    created_at        timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT review_revision_review_id_fkey FOREIGN KEY (review_id)
+        REFERENCES review (id) ON DELETE CASCADE,
+    CONSTRAINT review_revision_title_check CHECK (length(title) BETWEEN 3 AND 255),
+    CONSTRAINT review_revision_content_check
+        CHECK (length(content) BETWEEN 50 AND 20000)
+);
+
+COMMENT ON TABLE review_revision IS
+    'Предыдущие версии рецензии. Пишется триггером при изменении текста.';
+
+CREATE FUNCTION write_review_revision() RETURNS trigger
+    LANGUAGE plpgsql AS $$
+BEGIN
+    IF OLD.title IS DISTINCT FROM NEW.title
+       OR OLD.content IS DISTINCT FROM NEW.content
+       OR OLD.contains_spoilers IS DISTINCT FROM NEW.contains_spoilers THEN
+        INSERT INTO review_revision (review_id, title, content,
+                                     contains_spoilers, created_at)
+        VALUES (OLD.id, OLD.title, OLD.content, OLD.contains_spoilers,
+                OLD.updated_at);
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER review_write_revision
+    BEFORE UPDATE ON review
+    FOR EACH ROW EXECUTE FUNCTION write_review_revision();
+
+CREATE TABLE account_role_history (
+    id          bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    account_id  bigint      NOT NULL,
+    old_role_id bigint,
+    new_role_id bigint      NOT NULL,
+    changed_by  bigint,
+    created_at  timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT account_role_history_account_id_fkey FOREIGN KEY (account_id)
+        REFERENCES account (id) ON DELETE RESTRICT,
+    CONSTRAINT account_role_history_old_role_id_fkey FOREIGN KEY (old_role_id)
+        REFERENCES role (id) ON DELETE RESTRICT,
+    CONSTRAINT account_role_history_new_role_id_fkey FOREIGN KEY (new_role_id)
+        REFERENCES role (id) ON DELETE RESTRICT,
+    CONSTRAINT account_role_history_changed_by_fkey FOREIGN KEY (changed_by)
+        REFERENCES account (id) ON DELETE RESTRICT,
+    CONSTRAINT account_role_history_change_check
+        CHECK (old_role_id IS NULL OR old_role_id <> new_role_id)
+);
+
+COMMENT ON TABLE account_role_history IS
+    'История назначения ролей: когда и кем пользователю выдана роль. Пустая прежняя роль означает регистрацию.';
+
+CREATE FUNCTION write_account_role_history() RETURNS trigger
+    LANGUAGE plpgsql AS $$
+BEGIN
+    IF tg_op = 'INSERT' THEN
+        INSERT INTO account_role_history (account_id, old_role_id, new_role_id,
+                                          changed_by)
+        VALUES (NEW.id, NULL, NEW.role_id, current_account_id());
+    ELSIF NEW.role_id <> OLD.role_id THEN
+        INSERT INTO account_role_history (account_id, old_role_id, new_role_id,
+                                          changed_by)
+        VALUES (NEW.id, OLD.role_id, NEW.role_id, current_account_id());
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER account_write_role_history
+    AFTER INSERT OR UPDATE OF role_id ON account
+    FOR EACH ROW EXECUTE FUNCTION write_account_role_history();
+
+CREATE TABLE film_rating_daily (
+    film_id       bigint         NOT NULL,
+    stat_date     date           NOT NULL,
+    rating_count  integer        NOT NULL,
+    rating_sum    integer        NOT NULL,
+    average_score numeric(4, 2)  NOT NULL,
+    created_at    timestamptz    NOT NULL DEFAULT now(),
+    CONSTRAINT film_rating_daily_pkey PRIMARY KEY (film_id, stat_date),
+    CONSTRAINT film_rating_daily_film_id_fkey FOREIGN KEY (film_id)
+        REFERENCES film (id) ON DELETE CASCADE,
+    CONSTRAINT film_rating_daily_rating_count_check CHECK (rating_count > 0),
+    CONSTRAINT film_rating_daily_rating_sum_check CHECK (rating_sum > 0),
+    CONSTRAINT film_rating_daily_average_score_check
+        CHECK (average_score BETWEEN 1 AND 10),
+    CONSTRAINT film_rating_daily_stat_date_check
+        CHECK (stat_date >= DATE '1888-01-01')
+);
+
+COMMENT ON TABLE film_rating_daily IS
+    'Снимок рейтинга фильма на конец дня: по нему строится график изменения оценки во времени.';
+COMMENT ON COLUMN film_rating_daily.average_score IS
+    'Среднее на дату снимка. Это не дублирование: текущее среднее считается по film_rating, а здесь хранится история.';
+
+INSERT INTO account_role_history (account_id, old_role_id, new_role_id, created_at)
+SELECT id, NULL, role_id, created_at
+  FROM account
+ WHERE NOT EXISTS (SELECT 1
+                     FROM account_role_history AS h
+                    WHERE h.account_id = account.id);
+
+CREATE TABLE visitor (
+    id            bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    public_id     text        NOT NULL,
+    first_seen_at timestamptz NOT NULL DEFAULT now(),
+    created_at    timestamptz NOT NULL DEFAULT now(),
+    updated_at    timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT visitor_public_id_key UNIQUE (public_id),
+    CONSTRAINT visitor_public_id_check CHECK (public_id ~ '^[A-Za-z0-9_-]{16,64}$')
+);
+
+CREATE TRIGGER visitor_set_updated_at
+    BEFORE UPDATE ON visitor
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+COMMENT ON TABLE visitor IS
+    'Анонимный посетитель сайта. Идентификатор хранится в браузере и связывает события до и после входа в аккаунт.';
+
+CREATE TABLE traffic_source (
+    id           bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    utm_source   text        NOT NULL,
+    utm_medium   text,
+    utm_campaign text,
+    created_at   timestamptz NOT NULL DEFAULT now(),
+    updated_at   timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT traffic_source_key
+        UNIQUE NULLS NOT DISTINCT (utm_source, utm_medium, utm_campaign),
+    CONSTRAINT traffic_source_utm_source_check CHECK (length(utm_source) BETWEEN 1 AND 128),
+    CONSTRAINT traffic_source_utm_medium_check CHECK (length(utm_medium) BETWEEN 1 AND 128),
+    CONSTRAINT traffic_source_utm_campaign_check CHECK (length(utm_campaign) BETWEEN 1 AND 128)
+);
+
+CREATE TRIGGER traffic_source_set_updated_at
+    BEFORE UPDATE ON traffic_source
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+COMMENT ON TABLE traffic_source IS
+    'Рекламный источник перехода: пара utm-меток. Справочник, чтобы не повторять метки в каждом визите.';
+
+CREATE TABLE page (
+    id         bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    path       text        NOT NULL,
+    title      text,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT page_path_key UNIQUE (path),
+    CONSTRAINT page_path_check CHECK (path ~ '^/' AND length(path) <= 512),
+    CONSTRAINT page_title_check CHECK (length(title) BETWEEN 1 AND 255)
+);
+
+CREATE TRIGGER page_set_updated_at
+    BEFORE UPDATE ON page
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+COMMENT ON TABLE page IS
+    'Страница сайта в виде шаблона пути, например /film/:id. Справочник для событий просмотра.';
+
+CREATE TABLE event_type (
+    id         bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    code       text        NOT NULL,
+    title      text        NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT event_type_code_key UNIQUE (code),
+    CONSTRAINT event_type_title_key UNIQUE (title),
+    CONSTRAINT event_type_code_check CHECK (code ~ '^[a-z_]{3,48}$'),
+    CONSTRAINT event_type_title_check CHECK (length(title) BETWEEN 2 AND 128)
+);
+
+CREATE TRIGGER event_type_set_updated_at
+    BEFORE UPDATE ON event_type
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+COMMENT ON TABLE event_type IS
+    'Справочник типов событий: просмотр страницы, клик, поиск, добавление в папку.';
+
+CREATE TABLE visit (
+    id                bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    visitor_id        bigint      NOT NULL,
+    account_id        bigint,
+    traffic_source_id bigint,
+    started_at        timestamptz NOT NULL DEFAULT now(),
+    finished_at       timestamptz,
+    user_agent        text,
+    ip_address        inet,
+    created_at        timestamptz NOT NULL DEFAULT now(),
+    updated_at        timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT visit_visitor_id_fkey FOREIGN KEY (visitor_id)
+        REFERENCES visitor (id) ON DELETE CASCADE,
+    CONSTRAINT visit_account_id_fkey FOREIGN KEY (account_id)
+        REFERENCES account (id) ON DELETE RESTRICT,
+    CONSTRAINT visit_traffic_source_id_fkey FOREIGN KEY (traffic_source_id)
+        REFERENCES traffic_source (id) ON DELETE RESTRICT,
+    CONSTRAINT visit_user_agent_check CHECK (length(user_agent) BETWEEN 1 AND 512),
+    CONSTRAINT visit_finished_at_check CHECK (finished_at >= started_at)
+);
+
+CREATE TRIGGER visit_set_updated_at
+    BEFORE UPDATE ON visit
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+COMMENT ON TABLE visit IS
+    'Визит на сайт: цепочка событий одного посетителя. Пустой account_id означает, что пользователь не вошёл.';
+
+CREATE TABLE analytic_event (
+    id            bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    visit_id      bigint      NOT NULL,
+    event_type_id bigint      NOT NULL,
+    page_id       bigint,
+    film_id       bigint,
+    person_id     bigint,
+    collection_id bigint,
+    element_code  text,
+    occurred_at   timestamptz NOT NULL,
+    created_at    timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT analytic_event_visit_id_fkey FOREIGN KEY (visit_id)
+        REFERENCES visit (id) ON DELETE CASCADE,
+    CONSTRAINT analytic_event_event_type_id_fkey FOREIGN KEY (event_type_id)
+        REFERENCES event_type (id) ON DELETE RESTRICT,
+    CONSTRAINT analytic_event_page_id_fkey FOREIGN KEY (page_id)
+        REFERENCES page (id) ON DELETE RESTRICT,
+    CONSTRAINT analytic_event_film_id_fkey FOREIGN KEY (film_id)
+        REFERENCES film (id) ON DELETE CASCADE,
+    CONSTRAINT analytic_event_person_id_fkey FOREIGN KEY (person_id)
+        REFERENCES person (id) ON DELETE CASCADE,
+    CONSTRAINT analytic_event_collection_id_fkey FOREIGN KEY (collection_id)
+        REFERENCES collection (id) ON DELETE CASCADE,
+    CONSTRAINT analytic_event_object_check
+        CHECK (num_nonnulls(film_id, person_id, collection_id) <= 1),
+    CONSTRAINT analytic_event_element_code_check
+        CHECK (element_code ~ '^[a-z0-9_-]{2,64}$'),
+    CONSTRAINT analytic_event_occurred_at_check
+        CHECK (occurred_at >= TIMESTAMPTZ '2020-01-01 00:00+00')
+);
+
+COMMENT ON TABLE analytic_event IS
+    'Событие с фронта: просмотр страницы, клик по элементу, поиск. Строки не изменяются.';
+COMMENT ON COLUMN analytic_event.element_code IS
+    'Код элемента интерфейса, по которому кликнули, например poster_play или add_to_favorite.';
+COMMENT ON COLUMN analytic_event.occurred_at IS
+    'Момент события на стороне клиента; created_at -- момент записи на сервере.';
+
+CREATE TABLE search_query (
+    id           bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    visit_id     bigint      NOT NULL,
+    query_text   text        NOT NULL,
+    result_count integer     NOT NULL,
+    created_at   timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT search_query_visit_id_fkey FOREIGN KEY (visit_id)
+        REFERENCES visit (id) ON DELETE CASCADE,
+    CONSTRAINT search_query_query_text_check CHECK (length(query_text) BETWEEN 1 AND 255),
+    CONSTRAINT search_query_result_count_check CHECK (result_count >= 0)
+);
+
+COMMENT ON TABLE search_query IS
+    'Поисковые запросы: текст запроса и число найденных результатов. Запросы без результатов показывают, чего не хватает в каталоге.';
+
+INSERT INTO event_type (code, title)
+VALUES ('page_view', 'Просмотр страницы'),
+       ('click', 'Клик по элементу'),
+       ('search', 'Поиск'),
+       ('film_open', 'Открытие карточки фильма'),
+       ('trailer_play', 'Запуск трейлера'),
+       ('folder_add', 'Добавление в папку'),
+       ('rating_set', 'Выставление оценки');
+
+INSERT INTO page (path, title)
+VALUES ('/', 'Главная'),
+       ('/film/:id', 'Страница фильма'),
+       ('/person/:id', 'Страница персоны'),
+       ('/collection/:slug', 'Подборка'),
+       ('/search', 'Результаты поиска'),
+       ('/profile', 'Профиль пользователя');
+
+INSERT INTO traffic_source (utm_source, utm_medium, utm_campaign)
+VALUES ('vk', 'cpc', 'autumn_premieres'),
+       ('yandex', 'cpc', 'brand'),
+       ('telegram', 'social', NULL),
+       ('direct', NULL, NULL);
+
+INSERT INTO visitor (public_id, first_seen_at)
+VALUES ('vis_8fJ2kQpL4nR7xW0a', now() - interval '20 days'),
+       ('vis_Zq5TbN1cYv93MdLs', now() - interval '3 days');
+
+INSERT INTO visit (visitor_id, account_id, traffic_source_id, started_at,
+                   finished_at, user_agent, ip_address)
+SELECT v.id, a.id, t.id, now() - interval '3 days',
+       now() - interval '3 days' + interval '14 minutes',
+       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/141.0', '203.0.113.17'
+  FROM visitor AS v, account AS a, traffic_source AS t
+ WHERE v.public_id = 'vis_8fJ2kQpL4nR7xW0a'
+   AND a.username = 'anna'
+   AND t.utm_source = 'vk';
+
+INSERT INTO visit (visitor_id, traffic_source_id, started_at, finished_at,
+                   user_agent, ip_address)
+SELECT v.id, t.id, now() - interval '2 hours',
+       now() - interval '2 hours' + interval '6 minutes',
+       'Mozilla/5.0 (iPhone; CPU iPhone OS 18_2) Safari/605.1', '198.51.100.42'
+  FROM visitor AS v, traffic_source AS t
+ WHERE v.public_id = 'vis_Zq5TbN1cYv93MdLs'
+   AND t.utm_source = 'telegram';
+
+INSERT INTO analytic_event (visit_id, event_type_id, page_id, occurred_at)
+SELECT vi.id, et.id, p.id, vi.started_at + interval '2 seconds'
+  FROM visit AS vi, event_type AS et, page AS p
+ WHERE vi.account_id IS NOT NULL
+   AND et.code = 'page_view'
+   AND p.path = '/';
+
+INSERT INTO analytic_event (visit_id, event_type_id, page_id, film_id, occurred_at)
+SELECT vi.id, et.id, p.id, f.id, vi.started_at + interval '45 seconds'
+  FROM visit AS vi, event_type AS et, page AS p, film AS f
+ WHERE vi.account_id IS NOT NULL
+   AND et.code = 'film_open'
+   AND p.path = '/film/:id'
+   AND f.original_title = 'The Shawshank Redemption';
+
+INSERT INTO analytic_event (visit_id, event_type_id, page_id, film_id,
+                            element_code, occurred_at)
+SELECT vi.id, et.id, p.id, f.id, 'trailer_play_button',
+       vi.started_at + interval '70 seconds'
+  FROM visit AS vi, event_type AS et, page AS p, film AS f
+ WHERE vi.account_id IS NOT NULL
+   AND et.code = 'click'
+   AND p.path = '/film/:id'
+   AND f.original_title = 'The Shawshank Redemption';
+
+INSERT INTO analytic_event (visit_id, event_type_id, page_id, film_id,
+                            element_code, occurred_at)
+SELECT vi.id, et.id, p.id, f.id, 'add_to_favorite',
+       vi.started_at + interval '3 minutes'
+  FROM visit AS vi, event_type AS et, page AS p, film AS f
+ WHERE vi.account_id IS NOT NULL
+   AND et.code = 'folder_add'
+   AND p.path = '/film/:id'
+   AND f.original_title = 'The Shawshank Redemption';
+
+INSERT INTO analytic_event (visit_id, event_type_id, page_id, occurred_at)
+SELECT vi.id, et.id, p.id, vi.started_at + interval '12 seconds'
+  FROM visit AS vi, event_type AS et, page AS p
+ WHERE vi.account_id IS NULL
+   AND et.code = 'search'
+   AND p.path = '/search';
+
+INSERT INTO search_query (visit_id, query_text, result_count)
+SELECT vi.id, 'побег из шоушенка', 1
+  FROM visit AS vi
+ WHERE vi.account_id IS NULL;
+
+INSERT INTO search_query (visit_id, query_text, result_count)
+SELECT vi.id, 'фильмы про космос', 0
+  FROM visit AS vi
+ WHERE vi.account_id IS NULL;
+
+INSERT INTO film_rating_daily (film_id, stat_date, rating_count, rating_sum,
+                               average_score)
+SELECT f.id, v.stat_date, v.rating_count, v.rating_sum,
+       round(v.rating_sum::numeric / v.rating_count, 2)
+  FROM film AS f,
+       (VALUES (CURRENT_DATE - 2, 2, 19),
+               (CURRENT_DATE - 1, 2, 20)) AS v (stat_date, rating_count, rating_sum)
+ WHERE f.original_title = 'The Shawshank Redemption';

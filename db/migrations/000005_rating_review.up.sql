@@ -71,7 +71,6 @@ CREATE TABLE review (
     deleted_by        bigint,
     created_at        timestamptz NOT NULL DEFAULT now(),
     updated_at        timestamptz NOT NULL DEFAULT now(),
-    CONSTRAINT review_account_id_film_id_key UNIQUE (account_id, film_id),
     CONSTRAINT review_account_id_fkey FOREIGN KEY (account_id)
         REFERENCES account (id) ON DELETE RESTRICT,
     CONSTRAINT review_film_id_fkey FOREIGN KEY (film_id)
@@ -84,11 +83,17 @@ CREATE TABLE review (
         CHECK ((deleted_at IS NULL) = (deleted_by IS NULL))
 );
 
+CREATE UNIQUE INDEX review_active_unique_idx
+    ON review (account_id, film_id)
+    WHERE deleted_at IS NULL;
+
 CREATE TRIGGER review_set_updated_at
     BEFORE UPDATE ON review
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 COMMENT ON TABLE review IS
-    'Рецензия пользователя на фильм, одна на пару пользователь-фильм. Публикуется после модерации.';
+    'Рецензия пользователя на фильм. Одна действующая рецензия на пару пользователь-фильм; после удаления можно написать новую.';
+COMMENT ON INDEX review_active_unique_idx IS
+    'Ограничение целостности: у пользователя не бывает двух неудалённых рецензий на один фильм. Удалённые рецензии остаются в таблице и повторной записи не мешают.';
 COMMENT ON COLUMN review.deleted_by IS
     'Кто удалил рецензию: если совпадает с account_id — сам автор, иначе модератор.';
