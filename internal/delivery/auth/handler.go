@@ -100,7 +100,7 @@ func writeRegisterError(w http.ResponseWriter, err error) {
 		writeError(w, http.StatusConflict, domain.ErrUserExists.Error())
 	default:
 		log.Printf("auth: register user: %v", err)
-		writeError(w, http.StatusInternalServerError, ErrInternal.Error())
+		writeError(w, http.StatusInternalServerError, domain.ErrInternal.Error())
 	}
 }
 
@@ -163,7 +163,7 @@ func (h *Handler) Authenticate(ctx context.Context, sessionID string) (domain.Us
 	userID, err := h.authenticate.Run(ctx, usecase.NewAuthenticateInput(sessionID))
 	if err != nil {
 		if errors.Is(err, domain.ErrUnauthorized) {
-			return 0, ErrUnauthorized
+			return 0, err
 		}
 
 		log.Printf("auth: authenticate session: %v", err)
