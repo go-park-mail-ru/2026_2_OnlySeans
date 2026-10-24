@@ -13,6 +13,7 @@ import (
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/films"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/router"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	authservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/auth"
 	filmsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/films"
 	authusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/auth"
@@ -142,10 +143,10 @@ func TestRequireAuth(t *testing.T) {
 		wantError  string
 		wantNext   bool
 	}{
-		{"no cookie", nil, nil, http.StatusUnauthorized, auth.ErrUnauthorized.Error(), false},
-		{"invalid session", sidCookie, auth.ErrUnauthorized, http.StatusUnauthorized, auth.ErrUnauthorized.Error(), false},
-		{"internal error", sidCookie, auth.ErrInternal, http.StatusInternalServerError, auth.ErrInternal.Error(), false},
-		{"unexpected error is hidden", sidCookie, errors.New("db is down"), http.StatusInternalServerError, auth.ErrInternal.Error(), false},
+		{"no cookie", nil, nil, http.StatusUnauthorized, domain.ErrUnauthorized.Error(), false},
+		{"invalid session", sidCookie, domain.ErrUnauthorized, http.StatusUnauthorized, domain.ErrUnauthorized.Error(), false},
+		{"internal error", sidCookie, domain.ErrInternal, http.StatusInternalServerError, domain.ErrInternal.Error(), false},
+		{"unexpected error is hidden", sidCookie, errors.New("db is down"), http.StatusInternalServerError, domain.ErrInternal.Error(), false},
 		{"valid session", sidCookie, nil, http.StatusOK, "", true},
 	}
 

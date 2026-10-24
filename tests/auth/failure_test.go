@@ -137,8 +137,8 @@ func TestHandler_Authenticate(t *testing.T) {
 		wantErr error
 	}{
 		{"сессия найдена", nil, nil},
-		{"сессия не найдена", authdelivery.ErrSessionNotFound, authdelivery.ErrUnauthorized},
-		{"сбой хранилища скрыт", errBoom, authdelivery.ErrInternal},
+		{"сессия не найдена", domain.ErrSessionNotFound, domain.ErrUnauthorized},
+		{"сбой хранилища скрыт", errBoom, domain.ErrInternal},
 	}
 
 	for _, tt := range tests {

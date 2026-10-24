@@ -136,7 +136,7 @@ func writeLoginError(w http.ResponseWriter, err error) {
 		writeError(w, http.StatusUnauthorized, domain.ErrInvalidCredentials.Error())
 	default:
 		log.Printf("auth: login user: %v", err)
-		writeError(w, http.StatusInternalServerError, ErrInternal.Error())
+		writeError(w, http.StatusInternalServerError, domain.ErrInternal.Error())
 	}
 }
 
@@ -150,7 +150,7 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	if cookie, err := r.Cookie(SessionCookieName); err == nil {
 		if err := h.logout.Run(r.Context(), usecase.NewLogoutInput(cookie.Value)); err != nil {
 			log.Printf("auth: logout user: %v", err)
-			writeError(w, http.StatusInternalServerError, ErrInternal.Error())
+			writeError(w, http.StatusInternalServerError, domain.ErrInternal.Error())
 			return
 		}
 	}
@@ -167,7 +167,7 @@ func (h *Handler) Authenticate(ctx context.Context, sessionID string) (domain.Us
 		}
 
 		log.Printf("auth: authenticate session: %v", err)
-		return 0, ErrInternal
+		return 0, domain.ErrInternal
 	}
 
 	return userID.ID, nil
@@ -200,19 +200,19 @@ func (h *Handler) clearSessionCookie(w http.ResponseWriter) {
 func (h *Handler) Authorised(w http.ResponseWriter, r *http.Request) {
 	id, ok := UserIDFromContext(r.Context())
 	if !ok {
-		writeError(w, http.StatusUnauthorized, ErrUnauthorized.Error())
+		writeError(w, http.StatusUnauthorized, domain.ErrUnauthorized.Error())
 		return
 	}
 
 	user, err := h.getUser.Run(r.Context(), usecase.NewGetUserInput(id))
 	if err != nil {
 		log.Printf("auth: get authorised user: %v", err)
-		writeError(w, http.StatusInternalServerError, ErrInternal.Error())
+		writeError(w, http.StatusInternalServerError, domain.ErrInternal.Error())
 		return
 	}
 	if user == nil {
 		log.Printf("auth: get authorised user: use case returned nil user")
-		writeError(w, http.StatusInternalServerError, ErrInternal.Error())
+		writeError(w, http.StatusInternalServerError, domain.ErrInternal.Error())
 		return
 	}
 

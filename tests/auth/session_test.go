@@ -7,7 +7,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	authservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/auth"
 )
@@ -26,7 +25,7 @@ func TestInMemorySessionStore_CreateGetDelete(t *testing.T) {
 	require.NoError(t, store.Delete(ctx, s.ID), "failed to delete session")
 
 	_, err = store.Get(ctx, s.ID)
-	assert.ErrorIs(t, err, auth.ErrSessionNotFound)
+	assert.ErrorIs(t, err, domain.ErrSessionNotFound)
 }
 
 func TestInMemorySessionStore_Expired(t *testing.T) {
@@ -37,7 +36,7 @@ func TestInMemorySessionStore_Expired(t *testing.T) {
 	require.NoError(t, err, "failed to create session")
 
 	_, err = store.Get(ctx, s.ID)
-	assert.ErrorIs(t, err, auth.ErrSessionNotFound)
+	assert.ErrorIs(t, err, domain.ErrSessionNotFound)
 }
 
 func TestInMemorySessionStore_Get_Unknown(t *testing.T) {
@@ -45,5 +44,5 @@ func TestInMemorySessionStore_Get_Unknown(t *testing.T) {
 	store := authservice.NewInMemorySessionStore(time.Hour)
 
 	_, err := store.Get(ctx, "unknown")
-	assert.ErrorIs(t, err, auth.ErrSessionNotFound)
+	assert.ErrorIs(t, err, domain.ErrSessionNotFound)
 }
