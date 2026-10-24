@@ -18,10 +18,10 @@ func NewListFilmsUseCase(repository FilmRepository) (*ListFilmsUseCase, error) {
 	return &ListFilmsUseCase{repository: repository}, nil
 }
 
-func (uc *ListFilmsUseCase) Run(ctx context.Context, input ListFilmsInput) (ListFilmsOutput, error) {
+func (uc *ListFilmsUseCase) Run(ctx context.Context, input ListFilmsInput) (*ListFilmsOutput, error) {
 	films, total, err := uc.repository.ListFilms(ctx, input.Limit, input.Offset)
 	if err != nil {
-		return ListFilmsOutput{}, fmt.Errorf("list films: %w", err)
+		return nil, fmt.Errorf("list films: %w", err)
 	}
 
 	return NewListFilmsOutput(films, total), nil

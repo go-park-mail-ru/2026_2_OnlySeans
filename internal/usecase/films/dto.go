@@ -1,7 +1,7 @@
 package usecase
 
 import (
-	entities "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 )
 
 type ListFilmsInput struct {
@@ -14,12 +14,12 @@ func NewListFilmsInput(limit, offset int) ListFilmsInput {
 }
 
 type ListCollectionsOutput struct {
-	Collections []entities.Collection
+	Collections []domain.Collection
 	Total       int
 }
 
-func NewListCollectionsOutput(collections []entities.Collection, total int) ListCollectionsOutput {
-	return ListCollectionsOutput{Collections: collections, Total: total}
+func NewListCollectionsOutput(collections []domain.Collection, total int) *ListCollectionsOutput {
+	return &ListCollectionsOutput{Collections: collections, Total: total}
 }
 
 type ListCollectionsInput struct {
@@ -32,46 +32,46 @@ func NewListCollectionsInput(limit, offset int) ListCollectionsInput {
 }
 
 type GetCollectionInput struct {
-	CollectionID entities.CollectionID
+	CollectionID domain.CollectionID
 	Limit        int
 	Offset       int
 }
 
-func NewGetCollectionInput(collectionID entities.CollectionID, limit, offset int) GetCollectionInput {
+func NewGetCollectionInput(collectionID domain.CollectionID, limit, offset int) GetCollectionInput {
 	return GetCollectionInput{CollectionID: collectionID, Limit: limit, Offset: offset}
 }
 
 type GetCollectionOutput struct {
-	Collection entities.Collection
-	Films      []entities.Film
+	Collection domain.Collection
+	Films      []domain.Film
 	Total      int
 }
 
-func NewGetCollectionOutput(collection entities.Collection, films []entities.Film, total int) GetCollectionOutput {
-	return GetCollectionOutput{Collection: collection, Films: films, Total: total}
+func NewGetCollectionOutput(collection domain.Collection, films []domain.Film, total int) *GetCollectionOutput {
+	return &GetCollectionOutput{Collection: collection, Films: films, Total: total}
 }
 
 type GetFilmInput struct {
-	FilmID entities.FilmID
+	FilmID domain.FilmID
 }
 
-func NewGetFilmInput(filmID entities.FilmID) GetFilmInput {
+func NewGetFilmInput(filmID domain.FilmID) GetFilmInput {
 	return GetFilmInput{FilmID: filmID}
 }
 
 type GetFilmOutput struct {
-	Film entities.Film
+	Film domain.Film
 }
 
-func NewGetFilmOutput(film entities.Film) GetFilmOutput {
-	return GetFilmOutput{Film: film}
+func NewGetFilmOutput(film domain.Film) *GetFilmOutput {
+	return &GetFilmOutput{Film: film}
 }
 
 type ListFilmsOutput struct {
-	Films []entities.Film
+	Films []domain.Film
 	Total int
 }
 
-func NewListFilmsOutput(films []entities.Film, total int) ListFilmsOutput {
-	return ListFilmsOutput{Films: films, Total: total}
+func NewListFilmsOutput(films []domain.Film, total int) *ListFilmsOutput {
+	return &ListFilmsOutput{Films: films, Total: total}
 }
