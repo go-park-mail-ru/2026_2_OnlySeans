@@ -10,11 +10,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/auth"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/auth/usecase"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/films"
-	filmsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/films/usecase"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/router"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/films"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/router"
+	authservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/auth"
+	filmsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/films"
+	authusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/auth"
+	filmsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/films"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -25,15 +27,15 @@ func newTestRouter(t *testing.T) http.Handler {
 	t.Helper()
 
 	authHandler := newTestAuthHandler(t)
-	filmsService, err := films.NewSeededService()
+	filmsRepo, err := filmsservice.NewSeededService()
 	require.NoError(t, err)
-	listFilms, err := filmsusecase.NewListFilmsUseCase(filmsService)
+	listFilms, err := filmsusecase.NewListFilmsUseCase(filmsRepo)
 	require.NoError(t, err)
-	getFilm, err := filmsusecase.NewGetFilmUseCase(filmsService)
+	getFilm, err := filmsusecase.NewGetFilmUseCase(filmsRepo)
 	require.NoError(t, err)
-	listCollections, err := filmsusecase.NewListCollectionsUseCase(filmsService)
+	listCollections, err := filmsusecase.NewListCollectionsUseCase(filmsRepo)
 	require.NoError(t, err)
-	getCollection, err := filmsusecase.NewGetCollectionUseCase(filmsService)
+	getCollection, err := filmsusecase.NewGetCollectionUseCase(filmsRepo)
 	require.NoError(t, err)
 	filmsHandler, err := films.NewHandler(films.HandlerUseCases{
 		ListFilms:       listFilms,
@@ -49,19 +51,19 @@ func newTestRouter(t *testing.T) http.Handler {
 func newTestAuthHandler(t *testing.T) *auth.Handler {
 	t.Helper()
 
-	users := auth.NewInMemoryUserRepo()
-	sessions := auth.NewInMemorySessionStore(time.Hour)
-	passwordService := auth.BcryptPasswordService{}
+	users := authservice.NewInMemoryUserRepo()
+	sessions := authservice.NewInMemorySessionStore(time.Hour)
+	passwordService := authservice.BcryptPasswordService{}
 
-	register, err := usecase.NewRegisterUserUseCase(users, sessions, passwordService)
+	register, err := authusecase.NewRegisterUserUseCase(users, sessions, passwordService)
 	require.NoError(t, err)
-	login, err := usecase.NewLoginUserUseCase(users, sessions, passwordService)
+	login, err := authusecase.NewLoginUserUseCase(users, sessions, passwordService)
 	require.NoError(t, err)
-	logout, err := usecase.NewLogoutUserUseCase(sessions)
+	logout, err := authusecase.NewLogoutUserUseCase(sessions)
 	require.NoError(t, err)
-	authenticate, err := usecase.NewAuthenticateUserUseCase(sessions)
+	authenticate, err := authusecase.NewAuthenticateUserUseCase(sessions)
 	require.NoError(t, err)
-	getUser, err := usecase.NewGetUserUseCase(users)
+	getUser, err := authusecase.NewGetUserUseCase(users)
 	require.NoError(t, err)
 
 	handler, err := auth.NewHandler(auth.HandlerUseCases{

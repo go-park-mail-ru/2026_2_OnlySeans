@@ -14,9 +14,10 @@ import (
 
 	"github.com/gorilla/mux"
 
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/entities"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/films"
-	filmsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/films/usecase"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/films"
+	entities "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
+	filmsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/films"
+	filmsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/films"
 )
 
 var errStorage = errors.New("storage is down")
@@ -136,7 +137,7 @@ func (b brokenService) ListCollectionFilms(context.Context, entities.CollectionI
 	return nil, 0, errStorage
 }
 
-func newTestRouter(t testing.TB, service films.Service) *mux.Router {
+func newTestRouter(t testing.TB, service filmsservice.Service) *mux.Router {
 	t.Helper()
 
 	listFilms, err := filmsusecase.NewListFilmsUseCase(service)
@@ -178,7 +179,7 @@ func newTestRouter(t testing.TB, service films.Service) *mux.Router {
 func newSeededRouter(t *testing.T) *mux.Router {
 	t.Helper()
 
-	service, err := films.NewSeededService()
+	service, err := filmsservice.NewSeededService()
 	if err != nil {
 		t.Fatalf("NewSeededService: %v", err)
 	}

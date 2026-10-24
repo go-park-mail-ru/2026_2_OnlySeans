@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/auth"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 )
 
 func TestValidateEmail(t *testing.T) {
@@ -18,19 +18,19 @@ func TestValidateEmail(t *testing.T) {
 		{"валидный email", "user@example.com", nil},
 		{"точка и плюс", "user.name+tag@example.co.uk", nil},
 		{"пробелы по краям", "  user@example.com  ", nil},
-		{"emoji в email", "user😊@example.com", auth.ErrInvalidEmail},
-		{"кириллица в email", "пользователь@example.com", auth.ErrInvalidEmail},
-		{"кавычка в email", "user'name@example.com", auth.ErrInvalidEmail},
-		{"пустая строка", "", auth.ErrInvalidEmail},
-		{"только пробелы", "   ", auth.ErrInvalidEmail},
-		{"без @", "userexample.com", auth.ErrInvalidEmail},
-		{"без домена", "user@", auth.ErrInvalidEmail},
-		{"без точки в домене", "user@examplecom", auth.ErrInvalidEmail},
+		{"emoji в email", "user😊@example.com", domain.ErrInvalidEmail},
+		{"кириллица в email", "пользователь@example.com", domain.ErrInvalidEmail},
+		{"кавычка в email", "user'name@example.com", domain.ErrInvalidEmail},
+		{"пустая строка", "", domain.ErrInvalidEmail},
+		{"только пробелы", "   ", domain.ErrInvalidEmail},
+		{"без @", "userexample.com", domain.ErrInvalidEmail},
+		{"без домена", "user@", domain.ErrInvalidEmail},
+		{"без точки в домене", "user@examplecom", domain.ErrInvalidEmail},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := auth.ValidateEmail(tt.email)
+			err := domain.ValidateEmail(tt.email)
 			if tt.wantErr == nil {
 				assert.NoError(t, err)
 				return
@@ -64,9 +64,9 @@ func TestValidateUsername(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := auth.ValidateUsername(tt.username)
+			err := domain.ValidateUsername(tt.username)
 			if tt.wantErr {
-				assert.ErrorIs(t, err, auth.ErrInvalidUsername)
+				assert.ErrorIs(t, err, domain.ErrInvalidUsername)
 				return
 			}
 			assert.NoError(t, err)
@@ -100,9 +100,9 @@ func TestValidatePassword(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := auth.ValidatePassword(tt.password)
+			err := domain.ValidatePassword(tt.password)
 			if tt.wantErr {
-				assert.ErrorIs(t, err, auth.ErrInvalidPassword)
+				assert.ErrorIs(t, err, domain.ErrInvalidPassword)
 				return
 			}
 			assert.NoError(t, err)

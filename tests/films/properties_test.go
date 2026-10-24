@@ -12,8 +12,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/entities"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/films"
+	entities "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
+	films "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/films"
 )
 
 func TestInMemoryService_PagesCoverAllFilmsOnce(t *testing.T) {
@@ -108,7 +108,8 @@ func TestHandler_FilmJSONContract(t *testing.T) {
 		t.Fatalf("got %d films, want %d", len(body.Films), seedFilmCount)
 	}
 
-	required := []string{"id", "title", "film_type", "release_year", "age_limit", "genres"}
+	required := []string{"id", "title", "release_year", "genres"}
+	excluded := []string{"original_title", "film_type", "duration_min", "age_limit", "description", "trailer_url"}
 	for i, film := range body.Films {
 		for _, key := range required {
 			if _, ok := film[key]; !ok {
@@ -118,6 +119,11 @@ func TestHandler_FilmJSONContract(t *testing.T) {
 		for key, value := range film {
 			if string(value) == "null" {
 				t.Errorf("film %d: field %q is null", i, key)
+			}
+		}
+		for _, key := range excluded {
+			if _, ok := film[key]; ok {
+				t.Errorf("film %d: card unexpectedly contains field %q", i, key)
 			}
 		}
 		if !strings.HasPrefix(string(film["genres"]), "[") {

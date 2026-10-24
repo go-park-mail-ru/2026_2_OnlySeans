@@ -11,8 +11,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/auth"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/auth/usecase"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
+	authservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/auth"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/auth"
 )
 
 type registerRequest struct {
@@ -84,12 +85,12 @@ func newTestHandler(t *testing.T) *auth.Handler {
 	return h
 }
 
-func newTestAuth(t *testing.T) (*auth.Handler, *auth.InMemoryUserRepo, *auth.InMemorySessionStore) {
+func newTestAuth(t *testing.T) (*auth.Handler, *authservice.InMemoryUserRepo, *authservice.InMemorySessionStore) {
 	t.Helper()
 
-	users := auth.NewInMemoryUserRepo()
-	sessions := auth.NewInMemorySessionStore(time.Hour)
-	passwordService := auth.BcryptPasswordService{}
+	users := authservice.NewInMemoryUserRepo()
+	sessions := authservice.NewInMemorySessionStore(time.Hour)
+	passwordService := authservice.BcryptPasswordService{}
 
 	register, err := usecase.NewRegisterUserUseCase(users, sessions, passwordService)
 	require.NoError(t, err)

@@ -4,7 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/auth"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
+	authservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/auth"
 )
 
 func TestInMemoryUserRepo_Create(t *testing.T) {
@@ -21,7 +22,7 @@ func TestInMemoryUserRepo_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			repo := auth.NewInMemoryUserRepo()
+			repo := authservice.NewInMemoryUserRepo()
 
 			if tt.existingUser != "" {
 				if _, err := repo.Create(ctx, tt.existingUser, "existing", "hash"); err != nil {
@@ -38,7 +39,7 @@ func TestInMemoryUserRepo_Create(t *testing.T) {
 }
 
 func TestInMemoryUserRepo_GetByEmail(t *testing.T) {
-	repo := auth.NewInMemoryUserRepo()
+	repo := authservice.NewInMemoryUserRepo()
 	ctx := context.Background()
 
 	createdID, err := repo.Create(ctx, "find@example.com", "finduser", "hash123")

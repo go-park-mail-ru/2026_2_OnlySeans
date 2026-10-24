@@ -8,8 +8,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/auth"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/router"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/router"
 )
 
 func TestRequireAuth_SessionFlow(t *testing.T) {

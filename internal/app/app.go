@@ -11,15 +11,15 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/auth"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/auth/usecase"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/config"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/films"
-	filmsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/films/usecase"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/router"
+	authdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
+	filmsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/films"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/router"
+	authservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/auth"
+	filmsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/films"
+	authusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/auth"
+	filmsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/films"
 )
-
-const sessionTTL = 24 * time.Hour
 
 func Run(configPath string) error {
 	cfg, err := config.Load(configPath)
@@ -27,63 +27,73 @@ func Run(configPath string) error {
 		return fmt.Errorf("load config: %w", err)
 	}
 
-	repo := auth.NewInMemoryUserRepo()
-	sessions := auth.NewInMemorySessionStore(sessionTTL)
+	repo := authservice.NewInMemoryUserRepo()
+	sessions := authservice.NewInMemorySessionStore(cfg.Server.SessionTTL)
 
-	passwordService := auth.BcryptPasswordService{}
-	register, err := usecase.NewRegisterUserUseCase(repo, sessions, passwordService)
+	passwordService := authservice.BcryptPasswordService{}
+
+	filmsRepo, err := filmsservice.NewSeededService()
 	if err != nil {
-		return fmt.Errorf("create register use case: %w", err)
-	}
-	login, err := usecase.NewLoginUserUseCase(repo, sessions, passwordService)
-	if err != nil {
-		return fmt.Errorf("create login use case: %w", err)
-	}
-	logout, err := usecase.NewLogoutUserUseCase(sessions)
-	if err != nil {
-		return fmt.Errorf("create logout use case: %w", err)
-	}
-	authenticate, err := usecase.NewAuthenticateUserUseCase(sessions)
-	if err != nil {
-		return fmt.Errorf("create authenticate use case: %w", err)
-	}
-	getUser, err := usecase.NewGetUserUseCase(repo)
-	if err != nil {
-		return fmt.Errorf("create get user use case: %w", err)
+		return fmt.Errorf("seed films: %w", err)
 	}
 
-	handler, err := auth.NewHandler(auth.HandlerUseCases{
-		Register:     register,
-		Login:        login,
-		Logout:       logout,
-		Authenticate: authenticate,
-		GetUser:      getUser,
+	registerUC, err := authusecase.NewRegisterUserUseCase(repo, sessions, passwordService)
+	if err != nil {
+		return fmt.Errorf("can't create register use case: %w", err)
+	}
+
+	loginUC, err := authusecase.NewLoginUserUseCase(repo, sessions, passwordService)
+	if err != nil {
+		return fmt.Errorf("can't create login use case: %w", err)
+	}
+
+	logoutUC, err := authusecase.NewLogoutUserUseCase(sessions)
+	if err != nil {
+		return fmt.Errorf("can't create logout use case: %w", err)
+	}
+
+	authenticateUC, err := authusecase.NewAuthenticateUserUseCase(sessions)
+	if err != nil {
+		return fmt.Errorf("can't create authenticate use case: %w", err)
+	}
+
+	getUserUC, err := authusecase.NewGetUserUseCase(repo)
+	if err != nil {
+		return fmt.Errorf("can't create get user use case: %w", err)
+	}
+
+	listFilms, err := filmsusecase.NewListFilmsUseCase(filmsRepo)
+	if err != nil {
+		return fmt.Errorf("create list films use case: %w", err)
+	}
+
+	getFilm, err := filmsusecase.NewGetFilmUseCase(filmsRepo)
+	if err != nil {
+		return fmt.Errorf("create get film use case: %w", err)
+	}
+
+	listCollections, err := filmsusecase.NewListCollectionsUseCase(filmsRepo)
+	if err != nil {
+		return fmt.Errorf("create list collections use case: %w", err)
+	}
+
+	getCollection, err := filmsusecase.NewGetCollectionUseCase(filmsRepo)
+	if err != nil {
+		return fmt.Errorf("create get collection use case: %w", err)
+	}
+
+	authHandler, err := authdelivery.NewHandler(authdelivery.HandlerUseCases{
+		Register:     registerUC,
+		Login:        loginUC,
+		Logout:       logoutUC,
+		Authenticate: authenticateUC,
+		GetUser:      getUserUC,
 	})
 	if err != nil {
 		return fmt.Errorf("create handler: %w", err)
 	}
 
-	filmsService, err := films.NewSeededService()
-	if err != nil {
-		return fmt.Errorf("seed films: %w", err)
-	}
-	listFilms, err := filmsusecase.NewListFilmsUseCase(filmsService)
-	if err != nil {
-		return fmt.Errorf("create list films use case: %w", err)
-	}
-	getFilm, err := filmsusecase.NewGetFilmUseCase(filmsService)
-	if err != nil {
-		return fmt.Errorf("create get film use case: %w", err)
-	}
-	listCollections, err := filmsusecase.NewListCollectionsUseCase(filmsService)
-	if err != nil {
-		return fmt.Errorf("create list collections use case: %w", err)
-	}
-	getCollection, err := filmsusecase.NewGetCollectionUseCase(filmsService)
-	if err != nil {
-		return fmt.Errorf("create get collection use case: %w", err)
-	}
-	filmsHandler, err := films.NewHandler(films.HandlerUseCases{
+	filmsHandler, err := filmsdelivery.NewHandler(filmsdelivery.HandlerUseCases{
 		ListFilms:       listFilms,
 		GetFilm:         getFilm,
 		ListCollections: listCollections,
@@ -93,7 +103,7 @@ func Run(configPath string) error {
 		return fmt.Errorf("create films handler: %w", err)
 	}
 
-	httpHandler := router.NewRouter(handler, filmsHandler, cfg.Server.AllowedOrigin)
+	httpHandler := router.NewRouter(authHandler, filmsHandler, cfg.Server.AllowedOrigin)
 
 	server := &http.Server{
 		Addr:         cfg.Server.Addr(),
