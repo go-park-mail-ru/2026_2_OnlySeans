@@ -46,7 +46,7 @@ func newTestRouter(t *testing.T) http.Handler {
 	})
 	require.NoError(t, err)
 
-	return router.NewRouter(authHandler, filmsHandler, testOrigin)
+	return router.NewRouter(authHandler, filmsHandler, newTestReviewsHandler(t, filmsRepo), testOrigin)
 }
 
 func newTestAuthHandler(t *testing.T) *auth.Handler {
