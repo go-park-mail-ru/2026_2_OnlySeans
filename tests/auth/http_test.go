@@ -181,7 +181,7 @@ func TestHandler_SessionsAreIndependent(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			assert.Equal(t, auth.UserID(1), userID)
+			assert.Equal(t, domain.UserID(1), userID)
 		})
 	}
 }

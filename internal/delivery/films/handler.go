@@ -57,11 +57,11 @@ var clientErrors = []struct {
 		status: http.StatusBadRequest,
 	},
 	{
-		err:    ErrFilmNotFound,
+		err:    domain.ErrFilmNotFound,
 		status: http.StatusNotFound,
 	},
 	{
-		err:    ErrCollectionNotFound,
+		err:    domain.ErrCollectionNotFound,
 		status: http.StatusNotFound,
 	},
 }

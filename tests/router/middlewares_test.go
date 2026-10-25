@@ -122,12 +122,12 @@ func TestWithCORS(t *testing.T) {
 }
 
 type fakeAuthenticator struct {
-	userID       auth.UserID
+	userID       domain.UserID
 	err          error
 	gotSessionID string
 }
 
-func (f *fakeAuthenticator) Authenticate(_ context.Context, sessionID string) (auth.UserID, error) {
+func (f *fakeAuthenticator) Authenticate(_ context.Context, sessionID string) (domain.UserID, error) {
 	f.gotSessionID = sessionID
 	return f.userID, f.err
 }
@@ -155,7 +155,7 @@ func TestRequireAuth(t *testing.T) {
 			authn := &fakeAuthenticator{userID: 42, err: tt.authErr}
 
 			nextCalled := false
-			var gotID auth.UserID
+			var gotID domain.UserID
 			var gotOK bool
 			handler := router.RequireAuth(authn, func(w http.ResponseWriter, r *http.Request) {
 				nextCalled = true
@@ -180,7 +180,7 @@ func TestRequireAuth(t *testing.T) {
 
 			if tt.wantNext {
 				assert.True(t, gotOK, "user ID must be in context")
-				assert.Equal(t, auth.UserID(42), gotID)
+				assert.Equal(t, domain.UserID(42), gotID)
 				return
 			}
 

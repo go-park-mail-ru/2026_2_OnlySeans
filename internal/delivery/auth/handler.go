@@ -99,7 +99,7 @@ func writeRegisterError(w http.ResponseWriter, err error) {
 	case errors.Is(err, domain.ErrUserExists):
 		writeError(w, http.StatusConflict, domain.ErrUserExists.Error())
 	default:
-		log.Printf("auth: register user: %v", err)
+		//log.Printf("auth: register user: %v", err)
 		writeError(w, http.StatusInternalServerError, domain.ErrInternal.Error())
 	}
 }

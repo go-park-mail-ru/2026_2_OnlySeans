@@ -1,7 +1,10 @@
 package domain
 
 import (
+	"context"
 	"time"
+
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/pkg/utils"
 )
 
 type UserID int
@@ -14,14 +17,14 @@ type User struct {
 }
 
 func NewUser(email, username, passwordHash string) (*User, error) {
-	if err := ValidateEmail(email); err != nil {
-		return &User{}, err
+	if err := utils.ValidateEmail(email); err != nil {
+		return nil, err
 	}
-	if err := ValidateUsername(username); err != nil {
-		return &User{}, err
+	if err := utils.ValidateUsername(username); err != nil {
+		return nil, err
 	}
 	if passwordHash == "" {
-		return &User{}, ErrInvalidPasswordHash
+		return nil, ErrInvalidPasswordHash
 	}
 
 	return &User{
@@ -51,4 +54,16 @@ type PasswordHasher interface {
 
 type PasswordVerifier interface {
 	Verify(password, hash string) error
+}
+
+type SessionStore interface {
+	Create(ctx context.Context, userID UserID) (*Session, error)
+	Get(ctx context.Context, sessionID string) (*Session, error)
+	Delete(ctx context.Context, sessionID string) error
+}
+
+type UserRepository interface {
+	Create(ctx context.Context, email, username, passwordHash string) (UserID, error)
+	GetByEmail(ctx context.Context, email string) (*User, error)
+	GetUser(ctx context.Context, id UserID) (*User, error)
 }

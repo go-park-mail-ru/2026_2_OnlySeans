@@ -4,13 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 )
 
 type LogoutUserUseCase struct {
-	sessions SessionStore
+	sessions domain.SessionStore
 }
 
-func NewLogoutUserUseCase(sessions SessionStore) (*LogoutUserUseCase, error) {
+func NewLogoutUserUseCase(sessions domain.SessionStore) (*LogoutUserUseCase, error) {
 	if sessions == nil {
 		return nil, errors.New("sessions store is nil")
 	}

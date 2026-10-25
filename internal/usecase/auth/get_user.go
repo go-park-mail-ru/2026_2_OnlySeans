@@ -9,10 +9,10 @@ import (
 )
 
 type GetUserUseCase struct {
-	users UserRepository
+	users domain.UserRepository
 }
 
-func NewGetUserUseCase(users UserRepository) (*GetUserUseCase, error) {
+func NewGetUserUseCase(users domain.UserRepository) (*GetUserUseCase, error) {
 	if users == nil {
 		return nil, errors.New("users repository is nil")
 	}

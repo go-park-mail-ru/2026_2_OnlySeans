@@ -32,13 +32,25 @@ func NewLoginUserInput(email, password string) LoginUserInput {
 	}
 }
 
-type AuthOutput struct {
+type RegisterOutput struct {
 	User    UserDTO
 	Session SessionDTO
 }
 
-func NewAuthOutput(user UserDTO, session SessionDTO) AuthOutput {
-	return AuthOutput{
+func NewRegisterOutput(user UserDTO, session SessionDTO) RegisterOutput {
+	return RegisterOutput{
+		User:    user,
+		Session: session,
+	}
+}
+
+type LoginOutput struct {
+	User    UserDTO
+	Session SessionDTO
+}
+
+func NewLoginOutput(user UserDTO, session SessionDTO) LoginOutput {
+	return LoginOutput{
 		User:    user,
 		Session: session,
 	}

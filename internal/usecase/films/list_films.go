@@ -8,10 +8,10 @@ import (
 )
 
 type ListFilmsUseCase struct {
-	repository FilmRepository
+	repository domain.FilmRepository
 }
 
-func NewListFilmsUseCase(repository FilmRepository) (*ListFilmsUseCase, error) {
+func NewListFilmsUseCase(repository domain.FilmRepository) (*ListFilmsUseCase, error) {
 	if repository == nil {
 		return nil, domain.ErrNilFilmsRepo
 	}

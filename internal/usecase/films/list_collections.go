@@ -8,10 +8,10 @@ import (
 )
 
 type ListCollectionsUseCase struct {
-	repository CollectionRepository
+	repository domain.CollectionRepository
 }
 
-func NewListCollectionsUseCase(repository CollectionRepository) (*ListCollectionsUseCase, error) {
+func NewListCollectionsUseCase(repository domain.CollectionRepository) (*ListCollectionsUseCase, error) {
 	if repository == nil {
 		return nil, domain.ErrNilCollectionsRepo
 	}

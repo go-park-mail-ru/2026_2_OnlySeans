@@ -27,7 +27,7 @@ func Run(configPath string) error {
 		return fmt.Errorf("load config: %w", err)
 	}
 
-	repo := authservice.NewInMemoryUserRepo()
+	useRepo := authservice.NewInMemoryUserRepo()
 	sessions := authservice.NewInMemorySessionStore(cfg.Server.SessionTTL)
 
 	passwordService := authservice.BcryptPasswordService{}
@@ -37,12 +37,12 @@ func Run(configPath string) error {
 		return fmt.Errorf("seed films: %w", err)
 	}
 
-	registerUC, err := authusecase.NewRegisterUserUseCase(repo, sessions, passwordService)
+	registerUC, err := authusecase.NewRegisterUserUseCase(useRepo, sessions, passwordService)
 	if err != nil {
 		return fmt.Errorf("can't create register use case: %w", err)
 	}
 
-	loginUC, err := authusecase.NewLoginUserUseCase(repo, sessions, passwordService)
+	loginUC, err := authusecase.NewLoginUserUseCase(useRepo, sessions, passwordService)
 	if err != nil {
 		return fmt.Errorf("can't create login use case: %w", err)
 	}
@@ -57,27 +57,27 @@ func Run(configPath string) error {
 		return fmt.Errorf("can't create authenticate use case: %w", err)
 	}
 
-	getUserUC, err := authusecase.NewGetUserUseCase(repo)
+	getUserUC, err := authusecase.NewGetUserUseCase(useRepo)
 	if err != nil {
 		return fmt.Errorf("can't create get user use case: %w", err)
 	}
 
-	listFilms, err := filmsusecase.NewListFilmsUseCase(filmsRepo)
+	listFilmsUC, err := filmsusecase.NewListFilmsUseCase(filmsRepo)
 	if err != nil {
 		return fmt.Errorf("create list films use case: %w", err)
 	}
 
-	getFilm, err := filmsusecase.NewGetFilmUseCase(filmsRepo)
+	getFilmUC, err := filmsusecase.NewGetFilmUseCase(filmsRepo)
 	if err != nil {
 		return fmt.Errorf("create get film use case: %w", err)
 	}
 
-	listCollections, err := filmsusecase.NewListCollectionsUseCase(filmsRepo)
+	listCollectionsUC, err := filmsusecase.NewListCollectionsUseCase(filmsRepo)
 	if err != nil {
 		return fmt.Errorf("create list collections use case: %w", err)
 	}
 
-	getCollection, err := filmsusecase.NewGetCollectionUseCase(filmsRepo)
+	getCollectionUC, err := filmsusecase.NewGetCollectionUseCase(filmsRepo)
 	if err != nil {
 		return fmt.Errorf("create get collection use case: %w", err)
 	}
@@ -94,10 +94,10 @@ func Run(configPath string) error {
 	}
 
 	filmsHandler, err := filmsdelivery.NewHandler(filmsdelivery.HandlerUseCases{
-		ListFilms:       listFilms,
-		GetFilm:         getFilm,
-		ListCollections: listCollections,
-		GetCollection:   getCollection,
+		ListFilms:       listFilmsUC,
+		GetFilm:         getFilmUC,
+		ListCollections: listCollectionsUC,
+		GetCollection:   getCollectionUC,
 	})
 	if err != nil {
 		return fmt.Errorf("create films handler: %w", err)

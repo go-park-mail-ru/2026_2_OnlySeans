@@ -6,15 +6,16 @@ import (
 	"fmt"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/pkg/utils"
 )
 
 type LoginUserUseCase struct {
-	users    UserRepository
-	sessions SessionStore
+	users    domain.UserRepository
+	sessions domain.SessionStore
 	verifier domain.PasswordVerifier
 }
 
-func NewLoginUserUseCase(users UserRepository, sessions SessionStore, verifier domain.PasswordVerifier) (*LoginUserUseCase, error) {
+func NewLoginUserUseCase(users domain.UserRepository, sessions domain.SessionStore, verifier domain.PasswordVerifier) (*LoginUserUseCase, error) {
 	if users == nil {
 		return nil, domain.ErrInvalidUserRepo
 	}
@@ -34,8 +35,8 @@ func NewLoginUserUseCase(users UserRepository, sessions SessionStore, verifier d
 	}, nil
 }
 
-func (uc *LoginUserUseCase) Run(ctx context.Context, input LoginUserInput) (*AuthOutput, error) {
-	if err := domain.ValidateEmail(input.Email); err != nil {
+func (uc *LoginUserUseCase) Run(ctx context.Context, input LoginUserInput) (*LoginOutput, error) {
+	if err := utils.ValidateEmail(input.Email); err != nil {
 		return nil, err
 	}
 
@@ -67,7 +68,7 @@ func (uc *LoginUserUseCase) Run(ctx context.Context, input LoginUserInput) (*Aut
 		return nil, fmt.Errorf("create session: %w", err)
 	}
 
-	output := NewAuthOutput(
+	output := NewLoginOutput(
 		NewUserDTO(user.ID, user.Email, user.Username),
 		NewSessionDTO(session.ID, session.ExpiresAt),
 	)

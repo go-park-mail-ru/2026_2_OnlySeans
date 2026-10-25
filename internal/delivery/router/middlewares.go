@@ -11,7 +11,7 @@ import (
 )
 
 type Authenticator interface {
-	Authenticate(ctx context.Context, sessionID string) (auth.UserID, error)
+	Authenticate(ctx context.Context, sessionID string) (domain.UserID, error)
 }
 
 func withCORS(next http.Handler, allowedOrigin string) http.Handler {

@@ -8,8 +8,6 @@ import (
 
 type userIDCtxKey struct{}
 
-type UserID = domain.UserID
-
 func ContextWithUserID(ctx context.Context, id domain.UserID) context.Context {
 	return context.WithValue(ctx, userIDCtxKey{}, id)
 }

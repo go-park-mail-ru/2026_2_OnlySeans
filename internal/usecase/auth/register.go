@@ -5,15 +5,16 @@ import (
 	"fmt"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/pkg/utils"
 )
 
 type RegisterUserUseCase struct {
-	users    UserRepository
-	sessions SessionStore
+	users    domain.UserRepository
+	sessions domain.SessionStore
 	hasher   domain.PasswordHasher
 }
 
-func NewRegisterUserUseCase(users UserRepository, sessions SessionStore, hasher domain.PasswordHasher) (*RegisterUserUseCase, error) {
+func NewRegisterUserUseCase(users domain.UserRepository, sessions domain.SessionStore, hasher domain.PasswordHasher) (*RegisterUserUseCase, error) {
 	if users == nil {
 		return nil, domain.ErrInvalidUserRepo
 	}
@@ -30,14 +31,14 @@ func NewRegisterUserUseCase(users UserRepository, sessions SessionStore, hasher 
 	}, nil
 }
 
-func (uc *RegisterUserUseCase) Run(ctx context.Context, input RegisterUserInput) (*AuthOutput, error) {
-	if err := domain.ValidatePassword(input.Password); err != nil {
+func (uc *RegisterUserUseCase) Run(ctx context.Context, input RegisterUserInput) (*RegisterOutput, error) {
+	if err := utils.ValidatePassword(input.Password); err != nil {
 		return nil, err
 	}
-	if err := domain.ValidateEmail(input.Email); err != nil {
+	if err := utils.ValidateEmail(input.Email); err != nil {
 		return nil, fmt.Errorf("validate email: %w", err)
 	}
-	if err := domain.ValidateUsername(input.Username); err != nil {
+	if err := utils.ValidateUsername(input.Username); err != nil {
 		return nil, fmt.Errorf("validate username: %w", err)
 	}
 
@@ -64,7 +65,7 @@ func (uc *RegisterUserUseCase) Run(ctx context.Context, input RegisterUserInput)
 		return nil, fmt.Errorf("create session: %w", err)
 	}
 
-	output := NewAuthOutput(
+	output := NewRegisterOutput(
 		NewUserDTO(createdUser.ID, createdUser.Email, createdUser.Username),
 		NewSessionDTO(session.ID, session.ExpiresAt),
 	)

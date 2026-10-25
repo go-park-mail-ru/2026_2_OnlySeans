@@ -9,10 +9,10 @@ import (
 )
 
 type AuthenticateUserUseCase struct {
-	sessions SessionStore
+	sessions domain.SessionStore
 }
 
-func NewAuthenticateUserUseCase(sessions SessionStore) (*AuthenticateUserUseCase, error) {
+func NewAuthenticateUserUseCase(sessions domain.SessionStore) (*AuthenticateUserUseCase, error) {
 	if sessions == nil {
 		return nil, errors.New("sessions store is nil")
 	}

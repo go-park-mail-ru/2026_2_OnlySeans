@@ -1,5 +1,9 @@
 package domain
 
+import (
+	"context"
+)
+
 type FilmID int64
 
 type GenreID int64
@@ -29,4 +33,15 @@ type Film struct {
 	PosterURL     *string  `db:"poster_url"`
 	TrailerURL    *string  `db:"trailer_url"`
 	Genres        []Genre
+}
+
+type FilmRepository interface {
+	ListFilms(ctx context.Context, limit, offset int) ([]Film, int, error)
+	GetFilmByID(ctx context.Context, id FilmID) (Film, error)
+}
+
+type CollectionRepository interface {
+	ListCollections(ctx context.Context, limit, offset int) ([]Collection, int, error)
+	GetCollectionByID(ctx context.Context, id CollectionID) (Collection, error)
+	ListCollectionFilms(ctx context.Context, collectionID CollectionID, limit, offset int) ([]Film, int, error)
 }
