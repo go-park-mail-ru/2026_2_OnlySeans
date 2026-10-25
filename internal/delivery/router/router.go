@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/films"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/reviews"
 	staticassets "github.com/go-park-mail-ru/2026_2_OnlySeans/static"
 )
 
