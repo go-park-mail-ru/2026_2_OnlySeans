@@ -15,6 +15,7 @@ import (
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/config"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/films"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/reviews"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/storage"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/router"
 )
 
@@ -26,20 +27,41 @@ func Run(configPath string) error {
 		return fmt.Errorf("load config: %w", err)
 	}
 
-	repo := auth.NewInMemoryUserRepo()
+	var (
+		users        auth.UserRepository
+		filmsService films.Service
+		reviewsRepo  reviews.ReviewRepository
+	)
+
+	if cfg.Database.URL != "" {
+		//база
+		db, err := storage.Open(context.Background(), cfg.Database)
+		if err != nil {
+			return fmt.Errorf("open database: %w", err)
+		}
+		defer db.Close()
+		users = auth.NewPostgresUserRepo(db)
+		filmsService = films.NewPostgresService(db)
+		reviewsRepo = reviews.NewPostgresReviewRepo(db)
+		log.Println("storage: postgres")
+	} else {
+		//память
+		users = auth.NewInMemoryUserRepo()
+		filmsService, err = films.NewSeededService()
+		if err != nil {
+			return fmt.Errorf("seed films: %w", err)
+		}
+		reviewsRepo = reviews.NewInMemoryReviewRepo()
+		log.Println("storage: in=memory")
+	}
+
 	sessions := auth.NewInMemorySessionStore(sessionTTL)
 
-	handler, err := auth.NewHandler(repo, sessions)
+	handler, err := auth.NewHandler(users, sessions)
 	if err != nil {
 		return fmt.Errorf("create handler: %w", err)
 	}
 
-	filmsService, err := films.NewSeededService()
-	if err != nil {
-		return fmt.Errorf("seed films: %w", err)
-	}
-
-	reviewsRepo := reviews.NewInMemoryReviewRepo()
 	reviewsUsecase, err := reviews.NewUsecase(reviewsRepo, filmsService)
 	if err != nil {
 		return fmt.Errorf("create reviews usecase: %w", err)
