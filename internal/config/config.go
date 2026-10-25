@@ -31,6 +31,7 @@ const (
 	defaultWriteTimeout    = 10 * time.Second
 	defaultIdleTimeout     = 60 * time.Second
 	defaultShutdownTimeout = 10 * time.Second
+	defaultSessionTTL      = 24 * time.Hour
 	defaultAllowedOrigin   = "http://localhost:3000"
 )
 
@@ -46,6 +47,7 @@ type Server struct {
 	WriteTimeout    time.Duration `yaml:"write_timeout"`
 	IdleTimeout     time.Duration `yaml:"idle_timeout"`
 	ShutdownTimeout time.Duration `yaml:"shutdown_timeout"`
+	SessionTTL      time.Duration `yaml:"session_ttl"`
 }
 
 func (s *Server) Addr() string {
@@ -62,6 +64,7 @@ func Default() *Config {
 			WriteTimeout:    defaultWriteTimeout,
 			IdleTimeout:     defaultIdleTimeout,
 			ShutdownTimeout: defaultShutdownTimeout,
+			SessionTTL:      defaultSessionTTL,
 		},
 	}
 }
@@ -140,6 +143,10 @@ func (c *Config) Validate() error {
 		{
 			name:  "server.shutdown_timeout",
 			value: c.Server.ShutdownTimeout,
+		},
+		{
+			name:  "server.session_ttl",
+			value: c.Server.SessionTTL,
 		},
 	}
 	for _, t := range timeouts {

@@ -13,7 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/auth"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 )
 
 const validRegisterBody = `{"email":"anna@example.com","username":"anna","password":"Password1"}`
@@ -78,7 +79,7 @@ func TestHandler_InvalidBody(t *testing.T) {
 }
 
 func TestHandler_ResponseHidesPassword(t *testing.T) {
-	h := newTestHandler(t)
+	h, users, _ := newTestAuth(t)
 
 	for _, step := range []struct {
 		name        string
@@ -99,7 +100,7 @@ func TestHandler_ResponseHidesPassword(t *testing.T) {
 		})
 	}
 
-	user, err := h.Users.GetByEmail(context.Background(), "anna@example.com")
+	user, err := users.GetByEmail(context.Background(), "anna@example.com")
 	require.NoError(t, err)
 	assert.NotEqual(t, "Password1", user.PasswordHash)
 	assert.NoError(t, bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte("Password1")))
@@ -141,7 +142,7 @@ func TestHandler_Logout(t *testing.T) {
 	assert.Negative(t, cleared.MaxAge)
 
 	_, err = h.Authenticate(ctx, cookie.Value)
-	assert.ErrorIs(t, err, auth.ErrUnauthorized)
+	assert.ErrorIs(t, err, domain.ErrUnauthorized)
 
 	assert.Equal(t, http.StatusNoContent, rawRequest(h.Logout, http.MethodPost, "", cookie).Code)
 	assert.Equal(t, http.StatusNoContent, rawRequest(h.Logout, http.MethodPost, "").Code)
@@ -167,7 +168,7 @@ func TestHandler_SessionsAreIndependent(t *testing.T) {
 		session *http.Cookie
 		wantErr error
 	}{
-		{"вышедшая сессия", phone, auth.ErrUnauthorized},
+		{"вышедшая сессия", phone, domain.ErrUnauthorized},
 		{"сессия регистрации жива", registered, nil},
 		{"сессия ноутбука жива", laptop, nil},
 	}
@@ -180,7 +181,7 @@ func TestHandler_SessionsAreIndependent(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			assert.Equal(t, auth.UserID(1), userID)
+			assert.Equal(t, domain.UserID(1), userID)
 		})
 	}
 }

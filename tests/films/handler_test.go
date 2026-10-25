@@ -14,8 +14,10 @@ import (
 
 	"github.com/gorilla/mux"
 
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/entities"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/films"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/films"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
+	filmsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/films"
+	filmsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/films"
 )
 
 var errStorage = errors.New("storage is down")
@@ -27,58 +29,91 @@ const (
 
 var seedCollectionFilms = []struct {
 	slug    string
-	filmIDs []entities.FilmID
+	filmIDs []domain.FilmID
 }{
-	{"best-of-all-time", []entities.FilmID{1, 2, 3, 4, 5, 7}},
-	{"family", []entities.FilmID{7, 8, 3, 9}},
-	{"mind-benders", []entities.FilmID{5, 6, 4, 10}},
-	{"weekend-series", []entities.FilmID{11, 12}},
+	{"best-of-all-time", []domain.FilmID{1, 2, 3, 4, 5, 7}},
+	{"family", []domain.FilmID{7, 8, 3, 9}},
+	{"mind-benders", []domain.FilmID{5, 6, 4, 10}},
+	{"weekend-series", []domain.FilmID{11, 12}},
 }
 
 type filmsPage struct {
-	Films  []entities.Film `json:"films"`
-	Total  int             `json:"total"`
-	Limit  int             `json:"limit"`
-	Offset int             `json:"offset"`
+	Films  []filmResponseDTO `json:"films"`
+	Total  int               `json:"total"`
+	Limit  int               `json:"limit"`
+	Offset int               `json:"offset"`
 }
 
 type filmResponse struct {
-	Film entities.Film `json:"film"`
+	Film filmResponseDTO `json:"film"`
+}
+
+type filmResponseDTO struct {
+	ID     domain.FilmID      `json:"id"`
+	Title  string             `json:"title"`
+	Genres []genreResponseDTO `json:"genres"`
+}
+
+type genreResponseDTO struct {
+	ID   domain.GenreID `json:"id"`
+	Name string         `json:"name"`
+	Slug string         `json:"slug"`
+}
+
+type collectionResponseDTO struct {
+	ID    domain.CollectionID `json:"id"`
+	Title string              `json:"title"`
+	Slug  string              `json:"slug"`
+}
+
+type collectionWithFilmsResponseDTO struct {
+	ID    domain.CollectionID `json:"id"`
+	Title string              `json:"title"`
+	Slug  string              `json:"slug"`
+	Films []filmResponseDTO   `json:"films"`
 }
 
 type collectionsPage struct {
-	Collections []entities.CollectionWithFilms `json:"collections"`
-	Total       int                            `json:"total"`
-	Limit       int                            `json:"limit"`
-	Offset      int                            `json:"offset"`
+	Collections []collectionResponseDTO `json:"collections"`
+	Total       int                     `json:"total"`
+	Limit       int                     `json:"limit"`
+	Offset      int                     `json:"offset"`
 }
 
 type collectionPage struct {
-	Collection entities.CollectionWithFilms `json:"collection"`
-	Total      int                          `json:"total"`
-	Limit      int                          `json:"limit"`
-	Offset     int                          `json:"offset"`
+	Collection collectionWithFilmsResponseDTO `json:"collection"`
+	Total      int                            `json:"total"`
+	Limit      int                            `json:"limit"`
+	Offset     int                            `json:"offset"`
 }
 
 type errorResponse struct {
 	Error string `json:"error"`
 }
 
+func responseFilmIDs(films []filmResponseDTO) []domain.FilmID {
+	ids := make([]domain.FilmID, len(films))
+	for i, film := range films {
+		ids[i] = film.ID
+	}
+	return ids
+}
+
 type brokenService struct {
 	failCollectionFilms bool
 }
 
-func (b brokenService) ListFilms(context.Context, int, int) ([]entities.Film, int, error) {
+func (b brokenService) ListFilms(context.Context, int, int) ([]domain.Film, int, error) {
 	return nil, 0, errStorage
 }
 
-func (b brokenService) GetFilmByID(context.Context, entities.FilmID) (entities.Film, error) {
-	return entities.Film{}, errStorage
+func (b brokenService) GetFilmByID(context.Context, domain.FilmID) (domain.Film, error) {
+	return domain.Film{}, errStorage
 }
 
-func (b brokenService) ListCollections(context.Context, int, int) ([]entities.Collection, int, error) {
+func (b brokenService) ListCollections(context.Context, int, int) ([]domain.Collection, int, error) {
 	if b.failCollectionFilms {
-		return []entities.Collection{
+		return []domain.Collection{
 			{
 				ID:   1,
 				Slug: "family",
@@ -88,23 +123,50 @@ func (b brokenService) ListCollections(context.Context, int, int) ([]entities.Co
 	return nil, 0, errStorage
 }
 
-func (b brokenService) GetCollectionByID(_ context.Context, id entities.CollectionID) (entities.Collection, error) {
+func (b brokenService) GetCollectionByID(_ context.Context, id domain.CollectionID) (domain.Collection, error) {
 	if b.failCollectionFilms {
-		return entities.Collection{
+		return domain.Collection{
 			ID:   id,
 			Slug: "family",
 		}, nil
 	}
-	return entities.Collection{}, errStorage
+	return domain.Collection{}, errStorage
 }
 
-func (b brokenService) ListCollectionFilms(context.Context, entities.CollectionID, int, int) ([]entities.Film, int, error) {
+func (b brokenService) ListCollectionFilms(context.Context, domain.CollectionID, int, int) ([]domain.Film, int, error) {
 	return nil, 0, errStorage
 }
 
-func newTestRouter(service films.Service) *mux.Router {
+func newTestRouter(t testing.TB, service filmsservice.Service) *mux.Router {
+	t.Helper()
+
+	listFilms, err := filmsusecase.NewListFilmsUseCase(service)
+	if err != nil {
+		t.Fatalf("NewListFilmsUseCase: %v", err)
+	}
+	getFilm, err := filmsusecase.NewGetFilmUseCase(service)
+	if err != nil {
+		t.Fatalf("NewGetFilmUseCase: %v", err)
+	}
+	listCollections, err := filmsusecase.NewListCollectionsUseCase(service)
+	if err != nil {
+		t.Fatalf("NewListCollectionsUseCase: %v", err)
+	}
+	getCollection, err := filmsusecase.NewGetCollectionUseCase(service)
+	if err != nil {
+		t.Fatalf("NewGetCollectionUseCase: %v", err)
+	}
+	h, err := films.NewHandler(films.HandlerUseCases{
+		ListFilms:       listFilms,
+		GetFilm:         getFilm,
+		ListCollections: listCollections,
+		GetCollection:   getCollection,
+	})
+	if err != nil {
+		t.Fatalf("NewHandler: %v", err)
+	}
+
 	router := mux.NewRouter()
-	h := films.NewHandler(service)
 
 	router.HandleFunc("/api/films", h.ListFilms).Methods(http.MethodGet)
 	router.HandleFunc("/api/films/{id}", h.GetFilm).Methods(http.MethodGet)
@@ -117,11 +179,11 @@ func newTestRouter(service films.Service) *mux.Router {
 func newSeededRouter(t *testing.T) *mux.Router {
 	t.Helper()
 
-	service, err := films.NewSeededService()
+	service, err := filmsservice.NewSeededService()
 	if err != nil {
 		t.Fatalf("NewSeededService: %v", err)
 	}
-	return newTestRouter(service)
+	return newTestRouter(t, service)
 }
 
 func serve(router http.Handler, method, target string) *httptest.ResponseRecorder {
@@ -164,32 +226,32 @@ func TestHandler_ListFilms(t *testing.T) {
 		name       string
 		target     string
 		wantStatus int
-		wantIDs    []entities.FilmID
+		wantIDs    []domain.FilmID
 		wantError  error
 	}{
 		{
 			name:       "default params",
 			target:     "/api/films",
 			wantStatus: http.StatusOK,
-			wantIDs:    []entities.FilmID{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12},
+			wantIDs:    []domain.FilmID{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12},
 		},
 		{
 			name:       "limit and offset",
 			target:     "/api/films?limit=3&offset=1",
 			wantStatus: http.StatusOK,
-			wantIDs:    []entities.FilmID{2, 3, 4},
+			wantIDs:    []domain.FilmID{2, 3, 4},
 		},
 		{
 			name:       "max limit",
 			target:     "/api/films?limit=100",
 			wantStatus: http.StatusOK,
-			wantIDs:    []entities.FilmID{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12},
+			wantIDs:    []domain.FilmID{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12},
 		},
 		{
 			name:       "page out of range",
 			target:     "/api/films?offset=1000",
 			wantStatus: http.StatusOK,
-			wantIDs:    []entities.FilmID{},
+			wantIDs:    []domain.FilmID{},
 		},
 		{
 			name:       "limit is not a number",
@@ -242,7 +304,7 @@ func TestHandler_ListFilms(t *testing.T) {
 			if page.Films == nil {
 				t.Fatal("films must be an array, not null")
 			}
-			if got := filmIDs(page.Films); !slices.Equal(got, tt.wantIDs) {
+			if got := responseFilmIDs(page.Films); !slices.Equal(got, tt.wantIDs) {
 				t.Errorf("ids = %v, want %v", got, tt.wantIDs)
 			}
 			if page.Total != seedFilmCount {
@@ -259,7 +321,7 @@ func TestHandler_GetFilm(t *testing.T) {
 		name       string
 		target     string
 		wantStatus int
-		wantID     entities.FilmID
+		wantID     domain.FilmID
 		wantError  error
 	}{
 		{
@@ -272,7 +334,7 @@ func TestHandler_GetFilm(t *testing.T) {
 			name:       "unknown film",
 			target:     "/api/films/999",
 			wantStatus: http.StatusNotFound,
-			wantError:  films.ErrFilmNotFound,
+			wantError:  domain.ErrFilmNotFound,
 		},
 		{
 			name:       "id is not a number",
@@ -396,11 +458,8 @@ func TestHandler_ListCollections(t *testing.T) {
 			}
 			for i, collection := range page.Collections {
 				want := seedCollectionFilms[tt.wantFirst+i]
-				if collection.ID != entities.CollectionID(tt.wantFirst+i+1) || collection.Slug != want.slug {
+				if collection.ID != domain.CollectionID(tt.wantFirst+i+1) || collection.Slug != want.slug {
 					t.Errorf("collection %d = %d %q, want %q", i, collection.ID, collection.Slug, want.slug)
-				}
-				if got := filmIDs(collection.Films); !slices.Equal(got, want.filmIDs) {
-					t.Errorf("films of %q = %v, want %v", collection.Slug, got, want.filmIDs)
 				}
 			}
 		})
@@ -414,38 +473,38 @@ func TestHandler_GetCollection(t *testing.T) {
 		name       string
 		target     string
 		wantStatus int
-		wantIDs    []entities.FilmID
+		wantIDs    []domain.FilmID
 		wantError  error
 	}{
 		{
 			name:       "existing collection",
 			target:     "/api/collections/2",
 			wantStatus: http.StatusOK,
-			wantIDs:    []entities.FilmID{7, 8, 3, 9},
+			wantIDs:    []domain.FilmID{7, 8, 3, 9},
 		},
 		{
 			name:       "limit and offset",
 			target:     "/api/collections/2?limit=2&offset=1",
 			wantStatus: http.StatusOK,
-			wantIDs:    []entities.FilmID{8, 3},
+			wantIDs:    []domain.FilmID{8, 3},
 		},
 		{
 			name:       "tail shorter than limit",
 			target:     "/api/collections/2?limit=3&offset=3",
 			wantStatus: http.StatusOK,
-			wantIDs:    []entities.FilmID{9},
+			wantIDs:    []domain.FilmID{9},
 		},
 		{
 			name:       "page out of range",
 			target:     "/api/collections/2?offset=50",
 			wantStatus: http.StatusOK,
-			wantIDs:    []entities.FilmID{},
+			wantIDs:    []domain.FilmID{},
 		},
 		{
 			name:       "unknown collection",
 			target:     "/api/collections/999",
 			wantStatus: http.StatusNotFound,
-			wantError:  films.ErrCollectionNotFound,
+			wantError:  domain.ErrCollectionNotFound,
 		},
 		{
 			name:       "slug instead of id",
@@ -487,12 +546,12 @@ func TestHandler_GetCollection(t *testing.T) {
 
 			page := decode[collectionPage](t, rec)
 			if page.Collection.ID != 2 || page.Collection.Slug != "family" || page.Collection.Title == "" {
-				t.Errorf("collection = %+v", page.Collection.Collection)
+				t.Errorf("collection = %+v", page.Collection)
 			}
 			if page.Collection.Films == nil {
 				t.Fatal("films must be an array, not null")
 			}
-			if got := filmIDs(page.Collection.Films); !slices.Equal(got, tt.wantIDs) {
+			if got := responseFilmIDs(page.Collection.Films); !slices.Equal(got, tt.wantIDs) {
 				t.Errorf("ids = %v, want %v", got, tt.wantIDs)
 			}
 			if page.Total != 4 {
@@ -538,11 +597,6 @@ func TestHandler_InternalErrorIsHidden(t *testing.T) {
 			target:  "/api/collections",
 		},
 		{
-			name:    "list collections: films of collection",
-			service: brokenService{failCollectionFilms: true},
-			target:  "/api/collections",
-		},
-		{
 			name:    "get collection",
 			service: brokenService{},
 			target:  "/api/collections/1",
@@ -556,7 +610,7 @@ func TestHandler_InternalErrorIsHidden(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rec := serve(newTestRouter(tt.service), http.MethodGet, tt.target)
+			rec := serve(newTestRouter(t, tt.service), http.MethodGet, tt.target)
 			if rec.Code != http.StatusInternalServerError {
 				t.Fatalf("status = %d, want %d", rec.Code, http.StatusInternalServerError)
 			}
@@ -564,6 +618,19 @@ func TestHandler_InternalErrorIsHidden(t *testing.T) {
 				t.Errorf("error = %q, internal details must not leak to client", got)
 			}
 		})
+	}
+}
+
+func TestHandler_ListCollectionsDoesNotLoadFilms(t *testing.T) {
+	service := brokenService{failCollectionFilms: true}
+	rec := serve(newTestRouter(t, service), http.MethodGet, "/api/collections")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d (body: %s)", rec.Code, http.StatusOK, rec.Body)
+	}
+
+	page := decode[collectionsPage](t, rec)
+	if len(page.Collections) != 1 {
+		t.Fatalf("got %d collections, want 1", len(page.Collections))
 	}
 }
 

@@ -3,7 +3,7 @@ package films
 import (
 	"fmt"
 
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/entities"
+	entities "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 )
 
 func ptr[T any](v T) *T {

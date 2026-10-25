@@ -1,6 +1,7 @@
-package auth
+package utils
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -14,6 +15,12 @@ const (
 	minPasswordLen  = 8
 	maxPasswordLen  = 32
 	passwordSymbols = "!@#$%^&*()-_=+[]{};:,.?/"
+)
+
+var (
+	ErrInvalidEmail    = errors.New("invalid email")
+	ErrInvalidUsername = errors.New("invalid username")
+	ErrInvalidPassword = errors.New("invalid password")
 )
 
 var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)

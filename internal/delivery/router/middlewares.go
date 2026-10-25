@@ -6,11 +6,12 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/auth"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 )
 
 type Authenticator interface {
-	Authenticate(ctx context.Context, sessionID string) (auth.UserID, error)
+	Authenticate(ctx context.Context, sessionID string) (domain.UserID, error)
 }
 
 func withCORS(next http.Handler, allowedOrigin string) http.Handler {
@@ -35,17 +36,17 @@ func RequireAuth(authn Authenticator, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cookie, err := r.Cookie(auth.SessionCookieName)
 		if err != nil {
-			writeError(w, http.StatusUnauthorized, auth.ErrUnauthorized)
+			writeError(w, http.StatusUnauthorized, domain.ErrUnauthorized)
 			return
 		}
 
 		userID, err := authn.Authenticate(r.Context(), cookie.Value)
 		if err != nil {
-			if errors.Is(err, auth.ErrUnauthorized) {
-				writeError(w, http.StatusUnauthorized, auth.ErrUnauthorized)
+			if errors.Is(err, domain.ErrUnauthorized) {
+				writeError(w, http.StatusUnauthorized, domain.ErrUnauthorized)
 				return
 			}
-			writeError(w, http.StatusInternalServerError, auth.ErrInternal)
+			writeError(w, http.StatusInternalServerError, domain.ErrInternal)
 			return
 		}
 
