@@ -15,8 +15,9 @@ import (
 )
 
 const (
-	EnvServerHost = "SERVER_HOST"
-	EnvServerPort = "SERVER_PORT"
+	EnvServerHost  = "SERVER_HOST"
+	EnvServerPort  = "SERVER_PORT"
+	EnvDatabaseURL = "DATABASE_URL"
 )
 
 const (
@@ -32,10 +33,16 @@ const (
 	defaultIdleTimeout     = 60 * time.Second
 	defaultShutdownTimeout = 10 * time.Second
 	defaultAllowedOrigin   = "http://localhost:3000"
+
+	defaultMaxOpenConns    = 10               //максимум соединений с базой
+	defaultMaxIdleConns    = 5                //сколько из них откытыми прозапас когда запросов нет
+	defaultConnMaxLifetime = 30 * time.Minute //через сколько пересоздавать соединение чтобы зависшие не копились
+	defaultConnectTimeout  = 5 * time.Second  //сколько ждать продключения при запуске
 )
 
 type Config struct {
-	Server Server `yaml:"server"`
+	Server   Server   `yaml:"server"`
+	Database Database `yaml:"database"`
 }
 
 type Server struct {
@@ -46,6 +53,14 @@ type Server struct {
 	WriteTimeout    time.Duration `yaml:"write_timeout"`
 	IdleTimeout     time.Duration `yaml:"idle_timeout"`
 	ShutdownTimeout time.Duration `yaml:"shutdown_timeout"`
+}
+
+type Database struct {
+	URL             string        `yaml:"url"`
+	MaxOpenConns    int           `yaml:"max_open_conns"`
+	MaxIdleConns    int           `yaml:"max_idle_conns"`
+	ConnMaxLifetime time.Duration `yaml:"conn_max_lifetime"`
+	ConnectTimeout  time.Duration `yaml:"connect_timeout"`
 }
 
 func (s *Server) Addr() string {
@@ -62,6 +77,13 @@ func Default() *Config {
 			WriteTimeout:    defaultWriteTimeout,
 			IdleTimeout:     defaultIdleTimeout,
 			ShutdownTimeout: defaultShutdownTimeout,
+		},
+
+		Database: Database{
+			MaxOpenConns:    defaultMaxOpenConns,
+			MaxIdleConns:    defaultMaxIdleConns,
+			ConnMaxLifetime: defaultConnMaxLifetime,
+			ConnectTimeout:  defaultConnectTimeout,
 		},
 	}
 }
@@ -103,6 +125,10 @@ func (c *Config) applyEnv(lookupEnv func(string) (string, bool)) error {
 		}
 		c.Server.Port = port
 	}
+
+	if dbURL, ok := lookupEnv(EnvDatabaseURL); ok {
+		c.Database.URL = dbURL
+	}
 	return nil
 }
 
@@ -119,6 +145,14 @@ func (c *Config) Validate() error {
 
 	if c.Server.Port < MinPort || c.Server.Port > MaxPort {
 		errs = append(errs, fmt.Errorf("server.port must be between %d and %d, got %d", MinPort, MaxPort, c.Server.Port))
+	}
+
+	if c.Database.MaxOpenConns < 1 {
+		errs = append(errs, errors.New("database.max_open_conns must be positive"))
+	}
+
+	if c.Database.MaxIdleConns < 0 || c.Database.MaxIdleConns > c.Database.MaxOpenConns {
+		errs = append(errs, errors.New("database.max_idle_conns must be between 0 and database.max_open_conns"))
 	}
 
 	timeouts := []struct {
@@ -140,6 +174,14 @@ func (c *Config) Validate() error {
 		{
 			name:  "server.shutdown_timeout",
 			value: c.Server.ShutdownTimeout,
+		},
+		{
+			name:  "database.conn_max_lifetime",
+			value: c.Database.ConnMaxLifetime,
+		},
+		{
+			name:  "database.connect_timeout",
+			value: c.Database.ConnectTimeout,
 		},
 	}
 	for _, t := range timeouts {

@@ -6,3 +6,9 @@ server:
   idle_timeout: 60s
   shutdown_timeout: 10s
   allowed_origin: "http://localhost:8000"
+
+database:
+  max_open_conns: 10
+  max_idle_conns: 5
+  conn_max_lifetime: 30m
+  connect_timeout: 5s
