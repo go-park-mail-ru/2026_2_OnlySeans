@@ -9,44 +9,60 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/auth"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/entities"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/films"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/reviews"
+	authdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
+	reviewsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/reviews"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 )
 
 const (
-	anna  auth.UserID = 7
-	boris auth.UserID = 8
-	guest auth.UserID = 0
+	anna  domain.UserID = 7
+	boris domain.UserID = 8
+	guest domain.UserID = 0
 )
 
+// reviewJSON — отзыв в том виде, в каком его получает фронтенд.
+type reviewJSON struct {
+	ID               domain.ReviewID `json:"id"`
+	AuthorID         domain.UserID   `json:"author_id"`
+	FilmID           domain.FilmID   `json:"film_id"`
+	Title            string          `json:"title"`
+	Content          string          `json:"content"`
+	ContainsSpoilers bool            `json:"contains_spoilers"`
+	CreatedAt        time.Time       `json:"created_at"`
+	UpdatedAt        time.Time       `json:"updated_at"`
+}
+
 type reviewResponse struct {
-	Review entities.Review `json:"review"`
+	Review reviewJSON `json:"review"`
 }
 
 type reviewsPage struct {
-	Reviews []entities.Review `json:"reviews"`
-	Total   int               `json:"total"`
-	Limit   int               `json:"limit"`
-	Offset  int               `json:"offset"`
+	Reviews []reviewJSON `json:"reviews"`
+	Total   int          `json:"total"`
+	Limit   int          `json:"limit"`
+	Offset  int          `json:"offset"`
 }
 
 type errorResponse struct {
 	Error string `json:"error"`
 }
 
-func newTestRouter(t *testing.T, filmGetter reviews.FilmGetter) *mux.Router {
+func newTestRouter(t *testing.T, films domain.FilmRepository) *mux.Router {
 	t.Helper()
 
-	uc, err := reviews.NewUsecase(reviews.NewInMemoryReviewRepo(), filmGetter)
-	require.NoError(t, err)
-	h, err := reviews.NewHandler(uc)
+	cases := newReviewCases(t, films)
+	h, err := reviewsdelivery.NewHandler(reviewsdelivery.HandlerUseCases{
+		List:   cases.list,
+		Create: cases.create,
+		Update: cases.update,
+		Delete: cases.delete,
+	})
 	require.NoError(t, err)
 
 	router := mux.NewRouter()
@@ -59,10 +75,10 @@ func newTestRouter(t *testing.T, filmGetter reviews.FilmGetter) *mux.Router {
 
 // serve выполняет запрос от имени user; guest — без пользователя в контексте,
 // как будто middleware RequireAuth не пропустил бы запрос.
-func serve(router http.Handler, method, target, body string, user auth.UserID) *httptest.ResponseRecorder {
+func serve(router http.Handler, method, target, body string, user domain.UserID) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(method, target, strings.NewReader(body))
 	if user != guest {
-		req = req.WithContext(auth.ContextWithUserID(req.Context(), user))
+		req = req.WithContext(authdelivery.ContextWithUserID(req.Context(), user))
 	}
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
@@ -97,16 +113,16 @@ func reviewBody(title, content string, spoilers bool) string {
 
 var validBody = reviewBody(validTitle, validContent, false)
 
-func filmReviewsPath(film entities.FilmID) string {
+func filmReviewsPath(film domain.FilmID) string {
 	return fmt.Sprintf("/api/films/%d/reviews", film)
 }
 
-func reviewPath(id entities.ReviewID) string {
+func reviewPath(id domain.ReviewID) string {
 	return fmt.Sprintf("/api/reviews/%d", id)
 }
 
 // createReview создаёт отзыв через ручку и возвращает его.
-func createReview(t *testing.T, router http.Handler, user auth.UserID) entities.Review {
+func createReview(t *testing.T, router http.Handler, user domain.UserID) reviewJSON {
 	t.Helper()
 
 	rec := serve(router, http.MethodPost, filmReviewsPath(existingFilm), validBody, user)
@@ -122,9 +138,9 @@ func silenceLog(t *testing.T) {
 	t.Cleanup(func() { log.SetOutput(previous) })
 }
 
-func TestNewHandler_NilUsecase(t *testing.T) {
-	_, err := reviews.NewHandler(nil)
-	assert.ErrorIs(t, err, reviews.ErrNilUsecase)
+func TestNewHandler_NilUseCases(t *testing.T) {
+	_, err := reviewsdelivery.NewHandler(reviewsdelivery.HandlerUseCases{})
+	assert.Error(t, err)
 }
 
 func TestHandler_Create(t *testing.T) {
@@ -135,8 +151,8 @@ func TestHandler_Create(t *testing.T) {
 	assert.Equal(t, "application/json; charset=utf-8", rec.Header().Get("Content-Type"))
 
 	review := decode[reviewResponse](t, rec).Review
-	assert.Equal(t, entities.ReviewID(1), review.ID)
-	assert.Equal(t, int64(anna), review.AuthorID)
+	assert.Equal(t, domain.ReviewID(1), review.ID)
+	assert.Equal(t, anna, review.AuthorID)
 	assert.Equal(t, existingFilm, review.FilmID)
 	assert.Equal(t, validTitle, review.Title)
 	assert.Equal(t, validContent, review.Content)
@@ -149,20 +165,20 @@ func TestHandler_CreateErrors(t *testing.T) {
 		name    string
 		target  string
 		body    string
-		user    auth.UserID
+		user    domain.UserID
 		status  int
 		wantErr error
 	}{
-		{"id фильма не число", "/api/films/abc/reviews", validBody, anna, http.StatusBadRequest, reviews.ErrInvalidID},
-		{"id фильма ноль", "/api/films/0/reviews", validBody, anna, http.StatusBadRequest, reviews.ErrInvalidID},
-		{"без пользователя", filmReviewsPath(existingFilm), validBody, guest, http.StatusUnauthorized, auth.ErrUnauthorized},
-		{"сломанный JSON", filmReviewsPath(existingFilm), `{"title":`, anna, http.StatusBadRequest, reviews.ErrInvalidBody},
-		{"пустое тело", filmReviewsPath(existingFilm), "", anna, http.StatusBadRequest, reviews.ErrInvalidBody},
-		{"строка вместо флага", filmReviewsPath(existingFilm), `{"title":"Отлично","content":"x","contains_spoilers":"да"}`, anna, http.StatusBadRequest, reviews.ErrInvalidBody},
-		{"попытка подставить автора", filmReviewsPath(existingFilm), `{"title":"Отлично","content":"x","author_id":99}`, anna, http.StatusBadRequest, reviews.ErrInvalidBody},
-		{"короткий заголовок", filmReviewsPath(existingFilm), reviewBody("ab", validContent, false), anna, http.StatusBadRequest, reviews.ErrInvalidTitle},
-		{"короткий текст", filmReviewsPath(existingFilm), reviewBody(validTitle, "мало", false), anna, http.StatusBadRequest, reviews.ErrInvalidContent},
-		{"несуществующий фильм", filmReviewsPath(missingFilm), validBody, anna, http.StatusNotFound, films.ErrFilmNotFound},
+		{"id фильма не число", "/api/films/abc/reviews", validBody, anna, http.StatusBadRequest, reviewsdelivery.ErrInvalidID},
+		{"id фильма ноль", "/api/films/0/reviews", validBody, anna, http.StatusBadRequest, reviewsdelivery.ErrInvalidID},
+		{"без пользователя", filmReviewsPath(existingFilm), validBody, guest, http.StatusUnauthorized, domain.ErrUnauthorized},
+		{"сломанный JSON", filmReviewsPath(existingFilm), `{"title":`, anna, http.StatusBadRequest, reviewsdelivery.ErrInvalidBody},
+		{"пустое тело", filmReviewsPath(existingFilm), "", anna, http.StatusBadRequest, reviewsdelivery.ErrInvalidBody},
+		{"строка вместо флага", filmReviewsPath(existingFilm), `{"title":"Отлично","content":"x","contains_spoilers":"да"}`, anna, http.StatusBadRequest, reviewsdelivery.ErrInvalidBody},
+		{"попытка подставить автора", filmReviewsPath(existingFilm), `{"title":"Отлично","content":"x","author_id":99}`, anna, http.StatusBadRequest, reviewsdelivery.ErrInvalidBody},
+		{"короткий заголовок", filmReviewsPath(existingFilm), reviewBody("ab", validContent, false), anna, http.StatusBadRequest, domain.ErrInvalidTitle},
+		{"короткий текст", filmReviewsPath(existingFilm), reviewBody(validTitle, "мало", false), anna, http.StatusBadRequest, domain.ErrInvalidContent},
+		{"несуществующий фильм", filmReviewsPath(missingFilm), validBody, anna, http.StatusNotFound, domain.ErrFilmNotFound},
 	}
 
 	for _, tt := range tests {
@@ -178,14 +194,14 @@ func TestHandler_CreateTwice(t *testing.T) {
 	createReview(t, router, anna)
 
 	rec := serve(router, http.MethodPost, filmReviewsPath(existingFilm), validBody, anna)
-	assertError(t, rec, http.StatusConflict, reviews.ErrReviewExists)
+	assertError(t, rec, http.StatusConflict, domain.ErrReviewExists)
 }
 
 func TestHandler_CreateBodyTooLarge(t *testing.T) {
 	huge := reviewBody(validTitle, strings.Repeat("a", 2<<20), false)
 
 	rec := serve(newTestRouter(t, fakeFilms{}), http.MethodPost, filmReviewsPath(existingFilm), huge, anna)
-	assertError(t, rec, http.StatusBadRequest, reviews.ErrInvalidBody)
+	assertError(t, rec, http.StatusBadRequest, reviewsdelivery.ErrInvalidBody)
 }
 
 func TestHandler_ListByFilm(t *testing.T) {
@@ -204,7 +220,7 @@ func TestHandler_ListByFilm(t *testing.T) {
 	assert.Equal(t, 2, page.Total)
 	assert.Equal(t, 20, page.Limit, "limit по умолчанию")
 	assert.Equal(t, 0, page.Offset)
-	assert.Equal(t, []entities.ReviewID{second.ID, first.ID}, reviewIDs(page.Reviews), "новые отзывы первыми")
+	assert.Equal(t, []domain.ReviewID{second.ID, first.ID}, jsonReviewIDs(page.Reviews), "новые отзывы первыми")
 
 	rec = serve(router, http.MethodGet, filmReviewsPath(existingFilm)+"?limit=1&offset=1", "", guest)
 	require.Equal(t, http.StatusOK, rec.Code)
@@ -212,7 +228,7 @@ func TestHandler_ListByFilm(t *testing.T) {
 	assert.Equal(t, 2, page.Total)
 	assert.Equal(t, 1, page.Limit)
 	assert.Equal(t, 1, page.Offset)
-	assert.Equal(t, []entities.ReviewID{first.ID}, reviewIDs(page.Reviews))
+	assert.Equal(t, []domain.ReviewID{first.ID}, jsonReviewIDs(page.Reviews))
 }
 
 func TestHandler_ListByFilmErrors(t *testing.T) {
@@ -222,14 +238,14 @@ func TestHandler_ListByFilmErrors(t *testing.T) {
 		status  int
 		wantErr error
 	}{
-		{"id фильма не число", "/api/films/abc/reviews", http.StatusBadRequest, reviews.ErrInvalidID},
-		{"id фильма отрицательный", "/api/films/-1/reviews", http.StatusBadRequest, reviews.ErrInvalidID},
-		{"limit ноль", filmReviewsPath(existingFilm) + "?limit=0", http.StatusBadRequest, reviews.ErrInvalidLimit},
-		{"limit больше максимума", filmReviewsPath(existingFilm) + "?limit=101", http.StatusBadRequest, reviews.ErrInvalidLimit},
-		{"limit не число", filmReviewsPath(existingFilm) + "?limit=abc", http.StatusBadRequest, reviews.ErrInvalidLimit},
-		{"offset отрицательный", filmReviewsPath(existingFilm) + "?offset=-1", http.StatusBadRequest, reviews.ErrInvalidOffset},
-		{"offset не число", filmReviewsPath(existingFilm) + "?offset=abc", http.StatusBadRequest, reviews.ErrInvalidOffset},
-		{"несуществующий фильм", filmReviewsPath(missingFilm), http.StatusNotFound, films.ErrFilmNotFound},
+		{"id фильма не число", "/api/films/abc/reviews", http.StatusBadRequest, reviewsdelivery.ErrInvalidID},
+		{"id фильма отрицательный", "/api/films/-1/reviews", http.StatusBadRequest, reviewsdelivery.ErrInvalidID},
+		{"limit ноль", filmReviewsPath(existingFilm) + "?limit=0", http.StatusBadRequest, reviewsdelivery.ErrInvalidLimit},
+		{"limit больше максимума", filmReviewsPath(existingFilm) + "?limit=101", http.StatusBadRequest, reviewsdelivery.ErrInvalidLimit},
+		{"limit не число", filmReviewsPath(existingFilm) + "?limit=abc", http.StatusBadRequest, reviewsdelivery.ErrInvalidLimit},
+		{"offset отрицательный", filmReviewsPath(existingFilm) + "?offset=-1", http.StatusBadRequest, reviewsdelivery.ErrInvalidOffset},
+		{"offset не число", filmReviewsPath(existingFilm) + "?offset=abc", http.StatusBadRequest, reviewsdelivery.ErrInvalidOffset},
+		{"несуществующий фильм", filmReviewsPath(missingFilm), http.StatusNotFound, domain.ErrFilmNotFound},
 	}
 
 	for _, tt := range tests {
@@ -263,16 +279,16 @@ func TestHandler_UpdateErrors(t *testing.T) {
 		name    string
 		target  string
 		body    string
-		user    auth.UserID
+		user    domain.UserID
 		status  int
 		wantErr error
 	}{
-		{"id отзыва не число", "/api/reviews/abc", validBody, anna, http.StatusBadRequest, reviews.ErrInvalidID},
-		{"без пользователя", reviewPath(1), validBody, guest, http.StatusUnauthorized, auth.ErrUnauthorized},
-		{"сломанный JSON", reviewPath(1), `{`, anna, http.StatusBadRequest, reviews.ErrInvalidBody},
-		{"короткий текст", reviewPath(1), reviewBody(validTitle, "мало", false), anna, http.StatusBadRequest, reviews.ErrInvalidContent},
-		{"чужой отзыв", reviewPath(1), validBody, boris, http.StatusForbidden, reviews.ErrForbidden},
-		{"несуществующий отзыв", reviewPath(99), validBody, anna, http.StatusNotFound, reviews.ErrReviewNotFound},
+		{"id отзыва не число", "/api/reviews/abc", validBody, anna, http.StatusBadRequest, reviewsdelivery.ErrInvalidID},
+		{"без пользователя", reviewPath(1), validBody, guest, http.StatusUnauthorized, domain.ErrUnauthorized},
+		{"сломанный JSON", reviewPath(1), `{`, anna, http.StatusBadRequest, reviewsdelivery.ErrInvalidBody},
+		{"короткий текст", reviewPath(1), reviewBody(validTitle, "мало", false), anna, http.StatusBadRequest, domain.ErrInvalidContent},
+		{"чужой отзыв", reviewPath(1), validBody, boris, http.StatusForbidden, domain.ErrForbidden},
+		{"несуществующий отзыв", reviewPath(99), validBody, anna, http.StatusNotFound, domain.ErrReviewNotFound},
 	}
 
 	for _, tt := range tests {
@@ -305,14 +321,14 @@ func TestHandler_DeleteErrors(t *testing.T) {
 	tests := []struct {
 		name    string
 		target  string
-		user    auth.UserID
+		user    domain.UserID
 		status  int
 		wantErr error
 	}{
-		{"id отзыва не число", "/api/reviews/abc", anna, http.StatusBadRequest, reviews.ErrInvalidID},
-		{"без пользователя", reviewPath(1), guest, http.StatusUnauthorized, auth.ErrUnauthorized},
-		{"чужой отзыв", reviewPath(1), boris, http.StatusForbidden, reviews.ErrForbidden},
-		{"несуществующий отзыв", reviewPath(99), anna, http.StatusNotFound, reviews.ErrReviewNotFound},
+		{"id отзыва не число", "/api/reviews/abc", anna, http.StatusBadRequest, reviewsdelivery.ErrInvalidID},
+		{"без пользователя", reviewPath(1), guest, http.StatusUnauthorized, domain.ErrUnauthorized},
+		{"чужой отзыв", reviewPath(1), boris, http.StatusForbidden, domain.ErrForbidden},
+		{"несуществующий отзыв", reviewPath(99), anna, http.StatusNotFound, domain.ErrReviewNotFound},
 	}
 
 	for _, tt := range tests {
@@ -341,4 +357,12 @@ func TestHandler_InternalErrorIsHidden(t *testing.T) {
 		assert.Equal(t, "internal server error", decode[errorResponse](t, rec).Error)
 		assert.NotContains(t, rec.Body.String(), errStorage.Error(), "подробности ошибки не уходят клиенту")
 	}
+}
+
+func jsonReviewIDs(list []reviewJSON) []domain.ReviewID {
+	ids := make([]domain.ReviewID, 0, len(list))
+	for _, review := range list {
+		ids = append(ids, review.ID)
+	}
+	return ids
 }

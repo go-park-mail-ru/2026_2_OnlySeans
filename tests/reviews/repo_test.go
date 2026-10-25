@@ -9,26 +9,25 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/auth"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/entities"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/reviews"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
+	reviews "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/reviews"
 )
 
-func validInput() reviews.ReviewInput {
-	return reviews.ReviewInput{Title: validTitle, Content: validContent}
+func validInput() domain.ReviewInput {
+	return domain.ReviewInput{Title: validTitle, Content: validContent}
 }
 
 func TestInMemoryReviewRepo_Create(t *testing.T) {
 	ctx := context.Background()
 	repo := reviews.NewInMemoryReviewRepo()
 
-	input := reviews.ReviewInput{Title: validTitle, Content: validContent, ContainsSpoilers: true}
+	input := domain.ReviewInput{Title: validTitle, Content: validContent, ContainsSpoilers: true}
 	review, err := repo.Create(ctx, 7, 3, input)
 	require.NoError(t, err)
 
-	assert.Equal(t, entities.ReviewID(1), review.ID)
-	assert.Equal(t, int64(7), review.AuthorID)
-	assert.Equal(t, entities.FilmID(3), review.FilmID)
+	assert.Equal(t, domain.ReviewID(1), review.ID)
+	assert.Equal(t, domain.UserID(7), review.AuthorID)
+	assert.Equal(t, domain.FilmID(3), review.FilmID)
 	assert.Equal(t, input.Title, review.Title)
 	assert.Equal(t, input.Content, review.Content)
 	assert.True(t, review.ContainsSpoilers)
@@ -49,8 +48,8 @@ func TestInMemoryReviewRepo_CreateIDsAreSequential(t *testing.T) {
 	second, err := repo.Create(ctx, 2, 1, validInput())
 	require.NoError(t, err)
 
-	assert.Equal(t, entities.ReviewID(1), first.ID)
-	assert.Equal(t, entities.ReviewID(2), second.ID)
+	assert.Equal(t, domain.ReviewID(1), first.ID)
+	assert.Equal(t, domain.ReviewID(2), second.ID)
 }
 
 func TestInMemoryReviewRepo_CreateDuplicate(t *testing.T) {
@@ -58,11 +57,11 @@ func TestInMemoryReviewRepo_CreateDuplicate(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		author  auth.UserID
-		film    entities.FilmID
+		author  domain.UserID
+		film    domain.FilmID
 		wantErr error
 	}{
-		{"тот же автор на тот же фильм", 1, 1, reviews.ErrReviewExists},
+		{"тот же автор на тот же фильм", 1, 1, domain.ErrReviewExists},
 		{"тот же автор на другой фильм", 1, 2, nil},
 		{"другой автор на тот же фильм", 2, 1, nil},
 	}
@@ -87,7 +86,7 @@ func TestInMemoryReviewRepo_GetByIDNotFound(t *testing.T) {
 	repo := reviews.NewInMemoryReviewRepo()
 
 	_, err := repo.GetByID(context.Background(), 1)
-	assert.ErrorIs(t, err, reviews.ErrReviewNotFound)
+	assert.ErrorIs(t, err, domain.ErrReviewNotFound)
 }
 
 func TestInMemoryReviewRepo_Update(t *testing.T) {
@@ -97,7 +96,7 @@ func TestInMemoryReviewRepo_Update(t *testing.T) {
 	created, err := repo.Create(ctx, 7, 3, validInput())
 	require.NoError(t, err)
 
-	changes := reviews.ReviewInput{Title: "Передумала", Content: validContent + " Ещё раз.", ContainsSpoilers: true}
+	changes := domain.ReviewInput{Title: "Передумала", Content: validContent + " Ещё раз.", ContainsSpoilers: true}
 	updated, err := repo.Update(ctx, created.ID, changes)
 	require.NoError(t, err)
 
@@ -119,7 +118,7 @@ func TestInMemoryReviewRepo_UpdateNotFound(t *testing.T) {
 	repo := reviews.NewInMemoryReviewRepo()
 
 	_, err := repo.Update(context.Background(), 1, validInput())
-	assert.ErrorIs(t, err, reviews.ErrReviewNotFound)
+	assert.ErrorIs(t, err, domain.ErrReviewNotFound)
 }
 
 func TestInMemoryReviewRepo_Delete(t *testing.T) {
@@ -132,7 +131,7 @@ func TestInMemoryReviewRepo_Delete(t *testing.T) {
 	require.NoError(t, repo.Delete(ctx, created.ID, 7))
 
 	_, err = repo.GetByID(ctx, created.ID)
-	assert.ErrorIs(t, err, reviews.ErrReviewNotFound)
+	assert.ErrorIs(t, err, domain.ErrReviewNotFound)
 
 	_, total, err := repo.ListByFilm(ctx, 3, 10, 0)
 	require.NoError(t, err)
@@ -146,7 +145,7 @@ func TestInMemoryReviewRepo_DeleteNotFound(t *testing.T) {
 	repo := reviews.NewInMemoryReviewRepo()
 
 	err := repo.Delete(context.Background(), 1, 1)
-	assert.ErrorIs(t, err, reviews.ErrReviewNotFound)
+	assert.ErrorIs(t, err, domain.ErrReviewNotFound)
 }
 
 func TestInMemoryReviewRepo_ListByFilm(t *testing.T) {
@@ -154,7 +153,7 @@ func TestInMemoryReviewRepo_ListByFilm(t *testing.T) {
 	repo := reviews.NewInMemoryReviewRepo()
 
 	// На фильм 1 пишут авторы 1, 2, 3, на фильм 2 — автор 1.
-	for author := auth.UserID(1); author <= 3; author++ {
+	for author := domain.UserID(1); author <= 3; author++ {
 		_, err := repo.Create(ctx, author, 1, validInput())
 		require.NoError(t, err)
 	}
@@ -163,18 +162,18 @@ func TestInMemoryReviewRepo_ListByFilm(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		film      entities.FilmID
+		film      domain.FilmID
 		limit     int
 		offset    int
-		wantIDs   []entities.ReviewID
+		wantIDs   []domain.ReviewID
 		wantTotal int
 	}{
-		{"все отзывы фильма, новые первыми", 1, 10, 0, []entities.ReviewID{3, 2, 1}, 3},
-		{"первая страница", 1, 2, 0, []entities.ReviewID{3, 2}, 3},
-		{"вторая страница", 1, 2, 2, []entities.ReviewID{1}, 3},
-		{"offset за концом списка", 1, 10, 10, []entities.ReviewID{}, 3},
-		{"отзывы другого фильма не попадают", 2, 10, 0, []entities.ReviewID{4}, 1},
-		{"фильм без отзывов", 5, 10, 0, []entities.ReviewID{}, 0},
+		{"все отзывы фильма, новые первыми", 1, 10, 0, []domain.ReviewID{3, 2, 1}, 3},
+		{"первая страница", 1, 2, 0, []domain.ReviewID{3, 2}, 3},
+		{"вторая страница", 1, 2, 2, []domain.ReviewID{1}, 3},
+		{"offset за концом списка", 1, 10, 10, []domain.ReviewID{}, 3},
+		{"отзывы другого фильма не попадают", 2, 10, 0, []domain.ReviewID{4}, 1},
+		{"фильм без отзывов", 5, 10, 0, []domain.ReviewID{}, 0},
 	}
 
 	for _, tt := range tests {
@@ -193,7 +192,7 @@ func TestInMemoryReviewRepo_ListByFilmSkipsDeleted(t *testing.T) {
 	ctx := context.Background()
 	repo := reviews.NewInMemoryReviewRepo()
 
-	for author := auth.UserID(1); author <= 3; author++ {
+	for author := domain.UserID(1); author <= 3; author++ {
 		_, err := repo.Create(ctx, author, 1, validInput())
 		require.NoError(t, err)
 	}
@@ -202,7 +201,7 @@ func TestInMemoryReviewRepo_ListByFilmSkipsDeleted(t *testing.T) {
 	list, total, err := repo.ListByFilm(ctx, 1, 10, 0)
 	require.NoError(t, err)
 	assert.Equal(t, 2, total)
-	assert.Equal(t, []entities.ReviewID{3, 1}, reviewIDs(list))
+	assert.Equal(t, []domain.ReviewID{3, 1}, reviewIDs(list))
 }
 
 func TestInMemoryReviewRepo_ConcurrentCreateSameAuthor(t *testing.T) {
@@ -228,7 +227,7 @@ func TestInMemoryReviewRepo_ConcurrentCreateSameAuthor(t *testing.T) {
 		switch {
 		case err == nil:
 			created++
-		case errors.Is(err, reviews.ErrReviewExists):
+		case errors.Is(err, domain.ErrReviewExists):
 			duplicates++
 		default:
 			t.Errorf("unexpected error: %v", err)
@@ -244,7 +243,7 @@ func TestInMemoryReviewRepo_ConcurrentAccess(t *testing.T) {
 
 	const authors = 50
 	var wg sync.WaitGroup
-	for author := auth.UserID(1); author <= authors; author++ {
+	for author := domain.UserID(1); author <= authors; author++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -268,8 +267,8 @@ func TestInMemoryReviewRepo_ConcurrentAccess(t *testing.T) {
 	assert.Equal(t, authors/2, total)
 }
 
-func reviewIDs(list []entities.Review) []entities.ReviewID {
-	ids := make([]entities.ReviewID, 0, len(list))
+func reviewIDs(list []domain.Review) []domain.ReviewID {
+	ids := make([]domain.ReviewID, 0, len(list))
 	for _, review := range list {
 		ids = append(ids, review.ID)
 	}

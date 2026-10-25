@@ -11,15 +11,20 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/auth"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/config"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/films"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/reviews"
+	authdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
+	filmsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/films"
+	reviewsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/reviews"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/router"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
+	authservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/auth"
+	filmsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/films"
+	reviewsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/reviews"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/storage"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/router"
+	authusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/auth"
+	filmsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/films"
+	reviewsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/reviews"
 )
-
-const sessionTTL = 24 * time.Hour
 
 func Run(configPath string) error {
 	cfg, err := config.Load(configPath)
@@ -28,50 +33,133 @@ func Run(configPath string) error {
 	}
 
 	var (
-		users        auth.UserRepository
-		filmsService films.Service
-		reviewsRepo  reviews.ReviewRepository
+		useRepo     domain.UserRepository
+		filmsRepo   filmsservice.Service
+		reviewsRepo domain.ReviewRepository
 	)
 
 	if cfg.Database.URL != "" {
-		//база
 		db, err := storage.Open(context.Background(), cfg.Database)
 		if err != nil {
 			return fmt.Errorf("open database: %w", err)
 		}
 		defer db.Close()
-		users = auth.NewPostgresUserRepo(db)
-		filmsService = films.NewPostgresService(db)
-		reviewsRepo = reviews.NewPostgresReviewRepo(db)
+
+		useRepo = authservice.NewPostgresUserRepo(db)
+		filmsRepo = filmsservice.NewPostgresService(db)
+		reviewsRepo = reviewsservice.NewPostgresReviewRepo(db)
 		log.Println("storage: postgres")
 	} else {
-		//память
-		users = auth.NewInMemoryUserRepo()
-		filmsService, err = films.NewSeededService()
+		useRepo = authservice.NewInMemoryUserRepo()
+		filmsRepo, err = filmsservice.NewSeededService()
 		if err != nil {
 			return fmt.Errorf("seed films: %w", err)
 		}
-		reviewsRepo = reviews.NewInMemoryReviewRepo()
-		log.Println("storage: in=memory")
+		reviewsRepo = reviewsservice.NewInMemoryReviewRepo()
+		log.Println("storage: in-memory")
 	}
 
-	sessions := auth.NewInMemorySessionStore(sessionTTL)
+	sessions := authservice.NewInMemorySessionStore(cfg.Server.SessionTTL)
 
-	handler, err := auth.NewHandler(users, sessions)
+	passwordService := authservice.BcryptPasswordService{}
+
+	registerUC, err := authusecase.NewRegisterUserUseCase(useRepo, sessions, passwordService)
+	if err != nil {
+		return fmt.Errorf("can't create register use case: %w", err)
+	}
+
+	loginUC, err := authusecase.NewLoginUserUseCase(useRepo, sessions, passwordService)
+	if err != nil {
+		return fmt.Errorf("can't create login use case: %w", err)
+	}
+
+	logoutUC, err := authusecase.NewLogoutUserUseCase(sessions)
+	if err != nil {
+		return fmt.Errorf("can't create logout use case: %w", err)
+	}
+
+	authenticateUC, err := authusecase.NewAuthenticateUserUseCase(sessions)
+	if err != nil {
+		return fmt.Errorf("can't create authenticate use case: %w", err)
+	}
+
+	getUserUC, err := authusecase.NewGetUserUseCase(useRepo)
+	if err != nil {
+		return fmt.Errorf("can't create get user use case: %w", err)
+	}
+
+	listFilmsUC, err := filmsusecase.NewListFilmsUseCase(filmsRepo)
+	if err != nil {
+		return fmt.Errorf("create list films use case: %w", err)
+	}
+
+	getFilmUC, err := filmsusecase.NewGetFilmUseCase(filmsRepo)
+	if err != nil {
+		return fmt.Errorf("create get film use case: %w", err)
+	}
+
+	listCollectionsUC, err := filmsusecase.NewListCollectionsUseCase(filmsRepo)
+	if err != nil {
+		return fmt.Errorf("create list collections use case: %w", err)
+	}
+
+	getCollectionUC, err := filmsusecase.NewGetCollectionUseCase(filmsRepo)
+	if err != nil {
+		return fmt.Errorf("create get collection use case: %w", err)
+	}
+
+	authHandler, err := authdelivery.NewHandler(authdelivery.HandlerUseCases{
+		Register:     registerUC,
+		Login:        loginUC,
+		Logout:       logoutUC,
+		Authenticate: authenticateUC,
+		GetUser:      getUserUC,
+	})
 	if err != nil {
 		return fmt.Errorf("create handler: %w", err)
 	}
 
-	reviewsUsecase, err := reviews.NewUsecase(reviewsRepo, filmsService)
+	filmsHandler, err := filmsdelivery.NewHandler(filmsdelivery.HandlerUseCases{
+		ListFilms:       listFilmsUC,
+		GetFilm:         getFilmUC,
+		ListCollections: listCollectionsUC,
+		GetCollection:   getCollectionUC,
+	})
 	if err != nil {
-		return fmt.Errorf("create reviews usecase: %w", err)
+		return fmt.Errorf("create films handler: %w", err)
 	}
-	reviewsHandler, err := reviews.NewHandler(reviewsUsecase)
+
+	listReviewsUC, err := reviewsusecase.NewListReviewsUseCase(reviewsRepo, filmsRepo)
+	if err != nil {
+		return fmt.Errorf("create list reviews use case: %w", err)
+	}
+
+	createReviewUC, err := reviewsusecase.NewCreateReviewUseCase(reviewsRepo, filmsRepo)
+	if err != nil {
+		return fmt.Errorf("create create review use case: %w", err)
+	}
+
+	updateReviewUC, err := reviewsusecase.NewUpdateReviewUseCase(reviewsRepo)
+	if err != nil {
+		return fmt.Errorf("create update review use case: %w", err)
+	}
+
+	deleteReviewUC, err := reviewsusecase.NewDeleteReviewUseCase(reviewsRepo)
+	if err != nil {
+		return fmt.Errorf("create delete review use case: %w", err)
+	}
+
+	reviewsHandler, err := reviewsdelivery.NewHandler(reviewsdelivery.HandlerUseCases{
+		List:   listReviewsUC,
+		Create: createReviewUC,
+		Update: updateReviewUC,
+		Delete: deleteReviewUC,
+	})
 	if err != nil {
 		return fmt.Errorf("create reviews handler: %w", err)
 	}
 
-	httpHandler := router.NewRouter(handler, films.NewHandler(filmsService), reviewsHandler, cfg.Server.AllowedOrigin)
+	httpHandler := router.NewRouter(authHandler, filmsHandler, reviewsHandler, cfg.Server.AllowedOrigin)
 
 	server := &http.Server{
 		Addr:         cfg.Server.Addr(),

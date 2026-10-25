@@ -9,8 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/entities"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/films"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
+	films "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/films"
 )
 
 var (
@@ -46,17 +46,17 @@ func newPostgresService(t *testing.T) (*films.PostgresService, sqlmock.Sqlmock) 
 }
 
 var (
-	dramaGenre = entities.Genre{ID: 1, Name: "драма", Slug: "drama"}
-	crimeGenre = entities.Genre{ID: 3, Name: "криминал", Slug: "crime"}
+	dramaGenre = domain.Genre{ID: 1, Name: "драма", Slug: "drama"}
+	crimeGenre = domain.Genre{ID: 3, Name: "криминал", Slug: "crime"}
 )
 
 // shawshank — фильм со всеми полями, ivan — без оригинального названия и трейлера.
-func shawshank() entities.Film {
-	return entities.Film{
+func shawshank() domain.Film {
+	return domain.Film{
 		ID:            1,
 		Title:         "Побег из Шоушенка",
 		OriginalTitle: ptr("The Shawshank Redemption"),
-		FilmType:      entities.FilmTypeMovie,
+		FilmType:      domain.FilmTypeMovie,
 		ReleaseYear:   1994,
 		DurationMin:   ptr[int16](142),
 		AgeLimit:      16,
@@ -66,11 +66,11 @@ func shawshank() entities.Film {
 	}
 }
 
-func ivan() entities.Film {
-	return entities.Film{
+func ivan() domain.Film {
+	return domain.Film{
 		ID:          11,
 		Title:       "Иван Васильевич меняет профессию",
-		FilmType:    entities.FilmTypeMovie,
+		FilmType:    domain.FilmTypeMovie,
 		ReleaseYear: 1973,
 		DurationMin: ptr[int16](88),
 		AgeLimit:    6,
@@ -90,7 +90,7 @@ func value[T any](p *T) driver.Value {
 	return *p
 }
 
-func filmRows(filmsToReturn ...entities.Film) *sqlmock.Rows {
+func filmRows(filmsToReturn ...domain.Film) *sqlmock.Rows {
 	rows := sqlmock.NewRows(filmColumns)
 	for _, f := range filmsToReturn {
 		rows.AddRow(f.ID, f.Title, value(f.OriginalTitle), string(f.FilmType), f.ReleaseYear,
@@ -99,8 +99,8 @@ func filmRows(filmsToReturn ...entities.Film) *sqlmock.Rows {
 	return rows
 }
 
-func withGenres(film entities.Film, genres ...entities.Genre) entities.Film {
-	film.Genres = append([]entities.Genre{}, genres...)
+func withGenres(film domain.Film, genres ...domain.Genre) domain.Film {
+	film.Genres = append([]domain.Genre{}, genres...)
 	return film
 }
 
@@ -112,7 +112,7 @@ func TestPostgresService_GetFilmByID(t *testing.T) {
 	service, mock := newPostgresService(t)
 
 	mock.ExpectQuery(`FROM film AS f\s+WHERE f.id = \$1`).
-		WithArgs(entities.FilmID(1)).
+		WithArgs(domain.FilmID(1)).
 		WillReturnRows(filmRows(shawshank()))
 	mock.ExpectQuery(`FROM film_genre`).
 		WithArgs([]int64{1}).
@@ -183,7 +183,7 @@ func TestPostgresService_ListFilms(t *testing.T) {
 	list, total, err := service.ListFilms(context.Background(), 2, 0)
 	require.NoError(t, err)
 	assert.Equal(t, 13, total)
-	assert.Equal(t, []entities.Film{withGenres(shawshank()), withGenres(ivan(), dramaGenre)}, list,
+	assert.Equal(t, []domain.Film{withGenres(shawshank()), withGenres(ivan(), dramaGenre)}, list,
 		"жанр достаётся своему фильму, порядок фильмов сохраняется")
 }
 
@@ -242,13 +242,13 @@ func TestPostgresService_GetCollectionByID(t *testing.T) {
 	service, mock := newPostgresService(t)
 
 	mock.ExpectQuery(`FROM collection AS c WHERE c.id = \$1`).
-		WithArgs(entities.CollectionID(2)).
+		WithArgs(domain.CollectionID(2)).
 		WillReturnRows(sqlmock.NewRows(collectionColumns).
 			AddRow(2, "Лучшие фильмы всех времён", "best-of-all-time", "Фильмы, которые стоит посмотреть.", nil))
 
 	collection, err := service.GetCollectionByID(context.Background(), 2)
 	require.NoError(t, err)
-	assert.Equal(t, entities.Collection{
+	assert.Equal(t, domain.Collection{
 		ID:          2,
 		Title:       "Лучшие фильмы всех времён",
 		Slug:        "best-of-all-time",
@@ -333,7 +333,7 @@ func TestPostgresService_ListCollectionsErrors(t *testing.T) {
 	}
 }
 
-func expectCollectionExists(mock sqlmock.Sqlmock, id entities.CollectionID) {
+func expectCollectionExists(mock sqlmock.Sqlmock, id domain.CollectionID) {
 	mock.ExpectQuery(`FROM collection AS c WHERE c.id = \$1`).
 		WithArgs(id).
 		WillReturnRows(sqlmock.NewRows(collectionColumns).AddRow(id, "Подборка", "slug", nil, nil))
@@ -344,10 +344,10 @@ func TestPostgresService_ListCollectionFilms(t *testing.T) {
 
 	expectCollectionExists(mock, 2)
 	mock.ExpectQuery(`count\(\*\) FROM collection_film`).
-		WithArgs(entities.CollectionID(2)).
+		WithArgs(domain.CollectionID(2)).
 		WillReturnRows(countRows(6))
 	mock.ExpectQuery(`FROM collection_film AS cf\s+JOIN film AS f.+ORDER BY cf.position\s+LIMIT \$2 OFFSET \$3`).
-		WithArgs(entities.CollectionID(2), 2, 0).
+		WithArgs(domain.CollectionID(2), 2, 0).
 		WillReturnRows(filmRows(ivan(), shawshank()))
 	mock.ExpectQuery(`FROM film_genre`).
 		WithArgs([]int64{11, 1}).
@@ -357,7 +357,7 @@ func TestPostgresService_ListCollectionFilms(t *testing.T) {
 	list, total, err := service.ListCollectionFilms(context.Background(), 2, 2, 0)
 	require.NoError(t, err)
 	assert.Equal(t, 6, total)
-	assert.Equal(t, []entities.Film{withGenres(ivan()), withGenres(shawshank(), crimeGenre)}, list,
+	assert.Equal(t, []domain.Film{withGenres(ivan()), withGenres(shawshank(), crimeGenre)}, list,
 		"фильмы идут в порядке подборки, а не по номеру")
 }
 

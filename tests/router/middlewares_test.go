@@ -10,10 +10,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/auth"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/films"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/reviews"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/router"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/films"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/router"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
+	authservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/auth"
+	filmsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/films"
+	authusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/auth"
+	filmsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/films"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -23,17 +27,55 @@ const testOrigin = "http://localhost:3000"
 func newTestRouter(t *testing.T) http.Handler {
 	t.Helper()
 
-	authHandler, err := auth.NewHandler(auth.NewInMemoryUserRepo(), auth.NewInMemorySessionStore(time.Hour))
+	authHandler := newTestAuthHandler(t)
+	filmsRepo, err := filmsservice.NewSeededService()
 	require.NoError(t, err)
-	filmsService, err := films.NewSeededService()
+	listFilms, err := filmsusecase.NewListFilmsUseCase(filmsRepo)
 	require.NoError(t, err)
-	reviewsRepo := reviews.NewInMemoryReviewRepo()
-	reviewsUsecase, err := reviews.NewUsecase(reviewsRepo, filmsService)
+	getFilm, err := filmsusecase.NewGetFilmUseCase(filmsRepo)
 	require.NoError(t, err)
-	reviewsHandler, err := reviews.NewHandler(reviewsUsecase)
+	listCollections, err := filmsusecase.NewListCollectionsUseCase(filmsRepo)
+	require.NoError(t, err)
+	getCollection, err := filmsusecase.NewGetCollectionUseCase(filmsRepo)
+	require.NoError(t, err)
+	filmsHandler, err := films.NewHandler(films.HandlerUseCases{
+		ListFilms:       listFilms,
+		GetFilm:         getFilm,
+		ListCollections: listCollections,
+		GetCollection:   getCollection,
+	})
 	require.NoError(t, err)
 
-	return router.NewRouter(authHandler, films.NewHandler(filmsService), reviewsHandler, testOrigin)
+	return router.NewRouter(authHandler, filmsHandler, newTestReviewsHandler(t, filmsRepo), testOrigin)
+}
+
+func newTestAuthHandler(t *testing.T) *auth.Handler {
+	t.Helper()
+
+	users := authservice.NewInMemoryUserRepo()
+	sessions := authservice.NewInMemorySessionStore(time.Hour)
+	passwordService := authservice.BcryptPasswordService{}
+
+	register, err := authusecase.NewRegisterUserUseCase(users, sessions, passwordService)
+	require.NoError(t, err)
+	login, err := authusecase.NewLoginUserUseCase(users, sessions, passwordService)
+	require.NoError(t, err)
+	logout, err := authusecase.NewLogoutUserUseCase(sessions)
+	require.NoError(t, err)
+	authenticate, err := authusecase.NewAuthenticateUserUseCase(sessions)
+	require.NoError(t, err)
+	getUser, err := authusecase.NewGetUserUseCase(users)
+	require.NoError(t, err)
+
+	handler, err := auth.NewHandler(auth.HandlerUseCases{
+		Register:     register,
+		Login:        login,
+		Logout:       logout,
+		Authenticate: authenticate,
+		GetUser:      getUser,
+	})
+	require.NoError(t, err)
+	return handler
 }
 
 func TestWithCORS(t *testing.T) {
@@ -80,12 +122,12 @@ func TestWithCORS(t *testing.T) {
 }
 
 type fakeAuthenticator struct {
-	userID       auth.UserID
+	userID       domain.UserID
 	err          error
 	gotSessionID string
 }
 
-func (f *fakeAuthenticator) Authenticate(_ context.Context, sessionID string) (auth.UserID, error) {
+func (f *fakeAuthenticator) Authenticate(_ context.Context, sessionID string) (domain.UserID, error) {
 	f.gotSessionID = sessionID
 	return f.userID, f.err
 }
@@ -101,10 +143,10 @@ func TestRequireAuth(t *testing.T) {
 		wantError  string
 		wantNext   bool
 	}{
-		{"no cookie", nil, nil, http.StatusUnauthorized, auth.ErrUnauthorized.Error(), false},
-		{"invalid session", sidCookie, auth.ErrUnauthorized, http.StatusUnauthorized, auth.ErrUnauthorized.Error(), false},
-		{"internal error", sidCookie, auth.ErrInternal, http.StatusInternalServerError, auth.ErrInternal.Error(), false},
-		{"unexpected error is hidden", sidCookie, errors.New("db is down"), http.StatusInternalServerError, auth.ErrInternal.Error(), false},
+		{"no cookie", nil, nil, http.StatusUnauthorized, domain.ErrUnauthorized.Error(), false},
+		{"invalid session", sidCookie, domain.ErrUnauthorized, http.StatusUnauthorized, domain.ErrUnauthorized.Error(), false},
+		{"internal error", sidCookie, domain.ErrInternal, http.StatusInternalServerError, domain.ErrInternal.Error(), false},
+		{"unexpected error is hidden", sidCookie, errors.New("db is down"), http.StatusInternalServerError, domain.ErrInternal.Error(), false},
 		{"valid session", sidCookie, nil, http.StatusOK, "", true},
 	}
 
@@ -113,7 +155,7 @@ func TestRequireAuth(t *testing.T) {
 			authn := &fakeAuthenticator{userID: 42, err: tt.authErr}
 
 			nextCalled := false
-			var gotID auth.UserID
+			var gotID domain.UserID
 			var gotOK bool
 			handler := router.RequireAuth(authn, func(w http.ResponseWriter, r *http.Request) {
 				nextCalled = true
@@ -138,7 +180,7 @@ func TestRequireAuth(t *testing.T) {
 
 			if tt.wantNext {
 				assert.True(t, gotOK, "user ID must be in context")
-				assert.Equal(t, auth.UserID(42), gotID)
+				assert.Equal(t, domain.UserID(42), gotID)
 				return
 			}
 

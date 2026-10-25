@@ -8,15 +8,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/auth"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/entities"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/films"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/reviews"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
+	reviewsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/reviews"
+	usecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/reviews"
 )
 
 const (
-	existingFilm entities.FilmID = 1
-	missingFilm  entities.FilmID = 999
+	existingFilm domain.FilmID = 1
+	missingFilm  domain.FilmID = 999
 )
 
 var errStorage = errors.New("storage is down")
@@ -24,53 +23,113 @@ var errStorage = errors.New("storage is down")
 // fakeFilms знает только фильм existingFilm.
 type fakeFilms struct{}
 
-func (fakeFilms) GetFilmByID(_ context.Context, id entities.FilmID) (entities.Film, error) {
+func (fakeFilms) GetFilmByID(_ context.Context, id domain.FilmID) (domain.Film, error) {
 	if id != existingFilm {
-		return entities.Film{}, films.ErrFilmNotFound
+		return domain.Film{}, domain.ErrFilmNotFound
 	}
-	return entities.Film{ID: id, Title: "Тестовый фильм"}, nil
+	return domain.Film{ID: id, Title: "Тестовый фильм"}, nil
 }
 
-// brokenFilms имитирует упавший сервис фильмов.
+func (fakeFilms) ListFilms(context.Context, int, int) ([]domain.Film, int, error) {
+	return nil, 0, nil
+}
+
+// brokenFilms имитирует упавшее хранилище фильмов.
 type brokenFilms struct{}
 
-func (brokenFilms) GetFilmByID(context.Context, entities.FilmID) (entities.Film, error) {
-	return entities.Film{}, errStorage
+func (brokenFilms) GetFilmByID(context.Context, domain.FilmID) (domain.Film, error) {
+	return domain.Film{}, errStorage
 }
 
-func newUsecase(t *testing.T) *reviews.Usecase {
+func (brokenFilms) ListFilms(context.Context, int, int) ([]domain.Film, int, error) {
+	return nil, 0, errStorage
+}
+
+// reviewCases — четыре сценария отзывов над одним хранилищем.
+type reviewCases struct {
+	list   *usecase.ListReviewsUseCase
+	create *usecase.CreateReviewUseCase
+	update *usecase.UpdateReviewUseCase
+	delete *usecase.DeleteReviewUseCase
+}
+
+func newReviewCases(t *testing.T, films domain.FilmRepository) reviewCases {
 	t.Helper()
 
-	uc, err := reviews.NewUsecase(reviews.NewInMemoryReviewRepo(), fakeFilms{})
+	repo := reviewsservice.NewInMemoryReviewRepo()
+	list, err := usecase.NewListReviewsUseCase(repo, films)
 	require.NoError(t, err)
-	return uc
+	create, err := usecase.NewCreateReviewUseCase(repo, films)
+	require.NoError(t, err)
+	update, err := usecase.NewUpdateReviewUseCase(repo)
+	require.NoError(t, err)
+	del, err := usecase.NewDeleteReviewUseCase(repo)
+	require.NoError(t, err)
+
+	return reviewCases{list: list, create: create, update: update, delete: del}
 }
 
-func TestNewUsecase_NilDependencies(t *testing.T) {
-	_, err := reviews.NewUsecase(nil, fakeFilms{})
-	assert.ErrorIs(t, err, reviews.ErrNilRepo)
-
-	_, err = reviews.NewUsecase(reviews.NewInMemoryReviewRepo(), nil)
-	assert.ErrorIs(t, err, reviews.ErrNilFilms)
+func (c reviewCases) createReview(author domain.UserID, film domain.FilmID, in domain.ReviewInput) (domain.Review, error) {
+	out, err := c.create.Run(context.Background(), usecase.NewCreateReviewInput(author, film, in))
+	if err != nil {
+		return domain.Review{}, err
+	}
+	return out.Review, nil
 }
 
-func TestUsecase_Create(t *testing.T) {
+func (c reviewCases) updateReview(user domain.UserID, id domain.ReviewID, in domain.ReviewInput) (domain.Review, error) {
+	out, err := c.update.Run(context.Background(), usecase.NewUpdateReviewInput(user, id, in))
+	if err != nil {
+		return domain.Review{}, err
+	}
+	return out.Review, nil
+}
+
+func (c reviewCases) listReviews(film domain.FilmID) ([]domain.Review, int, error) {
+	out, err := c.list.Run(context.Background(), usecase.NewListReviewsInput(film, 10, 0))
+	if err != nil {
+		return nil, 0, err
+	}
+	return out.Reviews, out.Total, nil
+}
+
+func TestNewReviewUseCases_NilDependencies(t *testing.T) {
+	repo := reviewsservice.NewInMemoryReviewRepo()
+
+	_, err := usecase.NewListReviewsUseCase(nil, fakeFilms{})
+	assert.ErrorIs(t, err, domain.ErrNilReviewsRepo)
+	_, err = usecase.NewListReviewsUseCase(repo, nil)
+	assert.ErrorIs(t, err, domain.ErrNilFilmsRepo)
+
+	_, err = usecase.NewCreateReviewUseCase(nil, fakeFilms{})
+	assert.ErrorIs(t, err, domain.ErrNilReviewsRepo)
+	_, err = usecase.NewCreateReviewUseCase(repo, nil)
+	assert.ErrorIs(t, err, domain.ErrNilFilmsRepo)
+
+	_, err = usecase.NewUpdateReviewUseCase(nil)
+	assert.ErrorIs(t, err, domain.ErrNilReviewsRepo)
+
+	_, err = usecase.NewDeleteReviewUseCase(nil)
+	assert.ErrorIs(t, err, domain.ErrNilReviewsRepo)
+}
+
+func TestCreateReviewUseCase(t *testing.T) {
 	tests := []struct {
 		name    string
-		film    entities.FilmID
-		input   reviews.ReviewInput
+		film    domain.FilmID
+		input   domain.ReviewInput
 		wantErr error
 	}{
 		{"обычный отзыв", existingFilm, validInput(), nil},
-		{"несуществующий фильм", missingFilm, validInput(), films.ErrFilmNotFound},
-		{"короткий заголовок", existingFilm, reviews.ReviewInput{Title: "ab", Content: validContent}, reviews.ErrInvalidTitle},
-		{"заголовок из одних пробелов", existingFilm, reviews.ReviewInput{Title: "     ", Content: validContent}, reviews.ErrInvalidTitle},
-		{"короткий текст", existingFilm, reviews.ReviewInput{Title: validTitle, Content: "мало"}, reviews.ErrInvalidContent},
+		{"несуществующий фильм", missingFilm, validInput(), domain.ErrFilmNotFound},
+		{"короткий заголовок", existingFilm, domain.ReviewInput{Title: "ab", Content: validContent}, domain.ErrInvalidTitle},
+		{"заголовок из одних пробелов", existingFilm, domain.ReviewInput{Title: "     ", Content: validContent}, domain.ErrInvalidTitle},
+		{"короткий текст", existingFilm, domain.ReviewInput{Title: validTitle, Content: "мало"}, domain.ErrInvalidContent},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := newUsecase(t).Create(context.Background(), 7, tt.film, tt.input)
+			_, err := newReviewCases(t, fakeFilms{}).createReview(7, tt.film, tt.input)
 			if tt.wantErr == nil {
 				assert.NoError(t, err)
 				return
@@ -80,8 +139,8 @@ func TestUsecase_Create(t *testing.T) {
 	}
 }
 
-func TestUsecase_CreateTrimsSpaces(t *testing.T) {
-	review, err := newUsecase(t).Create(context.Background(), 7, existingFilm, reviews.ReviewInput{
+func TestCreateReviewUseCase_TrimsSpaces(t *testing.T) {
+	review, err := newReviewCases(t, fakeFilms{}).createReview(7, existingFilm, domain.ReviewInput{
 		Title:   "  " + validTitle + "\n",
 		Content: "\t" + validContent + "  ",
 	})
@@ -89,57 +148,54 @@ func TestUsecase_CreateTrimsSpaces(t *testing.T) {
 
 	assert.Equal(t, validTitle, review.Title)
 	assert.Equal(t, validContent, review.Content)
+	assert.Equal(t, domain.UserID(7), review.AuthorID)
 }
 
-func TestUsecase_CreateTwice(t *testing.T) {
-	ctx := context.Background()
-	uc := newUsecase(t)
+func TestCreateReviewUseCase_Twice(t *testing.T) {
+	cases := newReviewCases(t, fakeFilms{})
 
-	_, err := uc.Create(ctx, 7, existingFilm, validInput())
+	_, err := cases.createReview(7, existingFilm, validInput())
 	require.NoError(t, err)
 
-	_, err = uc.Create(ctx, 7, existingFilm, validInput())
-	assert.ErrorIs(t, err, reviews.ErrReviewExists)
+	_, err = cases.createReview(7, existingFilm, validInput())
+	assert.ErrorIs(t, err, domain.ErrReviewExists)
 }
 
-func TestUsecase_FilmsFailure(t *testing.T) {
-	ctx := context.Background()
-	uc, err := reviews.NewUsecase(reviews.NewInMemoryReviewRepo(), brokenFilms{})
-	require.NoError(t, err)
+func TestReviewUseCases_FilmsFailure(t *testing.T) {
+	cases := newReviewCases(t, brokenFilms{})
 
-	_, err = uc.Create(ctx, 7, existingFilm, validInput())
+	_, err := cases.createReview(7, existingFilm, validInput())
 	assert.ErrorIs(t, err, errStorage)
 
-	_, _, err = uc.ListByFilm(ctx, existingFilm, 10, 0)
+	_, _, err = cases.listReviews(existingFilm)
 	assert.ErrorIs(t, err, errStorage)
 }
 
-func TestUsecase_Update(t *testing.T) {
-	ctx := context.Background()
-	changes := reviews.ReviewInput{Title: "  Передумала  ", Content: validContent, ContainsSpoilers: true}
+func TestUpdateReviewUseCase(t *testing.T) {
+	changes := domain.ReviewInput{Title: "  Передумала  ", Content: validContent, ContainsSpoilers: true}
 
 	tests := []struct {
 		name    string
-		user    auth.UserID
-		review  entities.ReviewID
-		input   reviews.ReviewInput
+		user    domain.UserID
+		review  domain.ReviewID
+		input   domain.ReviewInput
 		wantErr error
 	}{
 		{"автор меняет свой отзыв", 7, 1, changes, nil},
-		{"чужой отзыв", 8, 1, changes, reviews.ErrForbidden},
-		{"несуществующий отзыв", 7, 99, changes, reviews.ErrReviewNotFound},
-		{"невалидные данные", 7, 1, reviews.ReviewInput{Title: "ab", Content: validContent}, reviews.ErrInvalidTitle},
+		{"чужой отзыв", 8, 1, changes, domain.ErrForbidden},
+		{"несуществующий отзыв", 7, 99, changes, domain.ErrReviewNotFound},
+		{"невалидные данные", 7, 1, domain.ReviewInput{Title: "ab", Content: validContent}, domain.ErrInvalidTitle},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			uc := newUsecase(t)
-			created, err := uc.Create(ctx, 7, existingFilm, validInput())
+			cases := newReviewCases(t, fakeFilms{})
+			created, err := cases.createReview(7, existingFilm, validInput())
 			require.NoError(t, err)
 
-			updated, err := uc.Update(ctx, tt.user, tt.review, tt.input)
+			updated, err := cases.updateReview(tt.user, tt.review, tt.input)
 
-			list, _, listErr := uc.ListByFilm(ctx, existingFilm, 10, 0)
+			list, _, listErr := cases.listReviews(existingFilm)
 			require.NoError(t, listErr)
 			require.Len(t, list, 1)
 
@@ -156,50 +212,47 @@ func TestUsecase_Update(t *testing.T) {
 	}
 }
 
-func TestUsecase_Delete(t *testing.T) {
-	ctx := context.Background()
-
+func TestDeleteReviewUseCase(t *testing.T) {
 	tests := []struct {
 		name      string
-		user      auth.UserID
-		review    entities.ReviewID
+		user      domain.UserID
+		review    domain.ReviewID
 		wantErr   error
 		wantTotal int
 	}{
 		{"автор удаляет свой отзыв", 7, 1, nil, 0},
-		{"чужой отзыв", 8, 1, reviews.ErrForbidden, 1},
-		{"несуществующий отзыв", 7, 99, reviews.ErrReviewNotFound, 1},
+		{"чужой отзыв", 8, 1, domain.ErrForbidden, 1},
+		{"несуществующий отзыв", 7, 99, domain.ErrReviewNotFound, 1},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			uc := newUsecase(t)
-			_, err := uc.Create(ctx, 7, existingFilm, validInput())
+			cases := newReviewCases(t, fakeFilms{})
+			_, err := cases.createReview(7, existingFilm, validInput())
 			require.NoError(t, err)
 
-			err = uc.Delete(ctx, tt.user, tt.review)
+			err = cases.delete.Run(context.Background(), usecase.NewDeleteReviewInput(tt.user, tt.review))
 			if tt.wantErr == nil {
 				assert.NoError(t, err)
 			} else {
 				assert.ErrorIs(t, err, tt.wantErr)
 			}
 
-			_, total, err := uc.ListByFilm(ctx, existingFilm, 10, 0)
+			_, total, err := cases.listReviews(existingFilm)
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantTotal, total)
 		})
 	}
 }
 
-func TestUsecase_ListByFilm(t *testing.T) {
-	ctx := context.Background()
-	uc := newUsecase(t)
+func TestListReviewsUseCase(t *testing.T) {
+	cases := newReviewCases(t, fakeFilms{})
 
-	list, total, err := uc.ListByFilm(ctx, existingFilm, 10, 0)
+	list, total, err := cases.listReviews(existingFilm)
 	require.NoError(t, err)
 	assert.Empty(t, list)
 	assert.Zero(t, total)
 
-	_, _, err = uc.ListByFilm(ctx, missingFilm, 10, 0)
-	assert.ErrorIs(t, err, films.ErrFilmNotFound)
+	_, _, err = cases.listReviews(missingFilm)
+	assert.ErrorIs(t, err, domain.ErrFilmNotFound)
 }

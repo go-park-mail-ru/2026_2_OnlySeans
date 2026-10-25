@@ -5,6 +5,7 @@ server:
   write_timeout: 10s
   idle_timeout: 60s
   shutdown_timeout: 10s
+  session_ttl: 24h
   allowed_origin: "http://localhost:8000"
 
 database:

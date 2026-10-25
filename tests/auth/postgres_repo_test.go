@@ -10,7 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/auth"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
+	auth "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/auth"
 )
 
 var errConnLost = errors.New("connection lost")
@@ -42,7 +43,7 @@ func TestPostgresUserRepo_Create(t *testing.T) {
 
 	id, err := repo.Create(context.Background(), "anna@example.com", "Анна", "hash")
 	require.NoError(t, err)
-	assert.Equal(t, auth.UserID(7), id)
+	assert.Equal(t, domain.UserID(7), id)
 }
 
 func TestPostgresUserRepo_CreateErrors(t *testing.T) {
@@ -54,12 +55,12 @@ func TestPostgresUserRepo_CreateErrors(t *testing.T) {
 		{
 			name:    "занят email",
 			dbErr:   &pgconn.PgError{Code: "23505", ConstraintName: "account_email_key"},
-			wantErr: auth.ErrUserExists,
+			wantErr: domain.ErrUserExists,
 		},
 		{
 			name:    "занято имя",
 			dbErr:   &pgconn.PgError{Code: "23505", ConstraintName: "account_username_key"},
-			wantErr: auth.ErrUsernameTaken,
+			wantErr: domain.ErrUsernameTaken,
 		},
 	}
 
@@ -91,8 +92,8 @@ func TestPostgresUserRepo_CreateUnexpectedError(t *testing.T) {
 			_, err := repo.Create(context.Background(), "anna@example.com", "anna", "hash")
 			require.Error(t, err)
 			assert.ErrorIs(t, err, tt.dbErr, "исходная ошибка должна сохраниться внутри обёртки")
-			assert.NotErrorIs(t, err, auth.ErrUserExists)
-			assert.NotErrorIs(t, err, auth.ErrUsernameTaken)
+			assert.NotErrorIs(t, err, domain.ErrUserExists)
+			assert.NotErrorIs(t, err, domain.ErrUsernameTaken)
 		})
 	}
 }
@@ -106,19 +107,19 @@ func TestPostgresUserRepo_GetByEmail(t *testing.T) {
 
 	user, err := repo.GetByEmail(context.Background(), "anna@example.com")
 	require.NoError(t, err)
-	assert.Equal(t, &auth.User{ID: 7, Email: "anna@example.com", Username: "Анна", PasswordHash: "hash"}, user)
+	assert.Equal(t, &domain.User{ID: 7, Email: "anna@example.com", Username: "Анна", PasswordHash: "hash"}, user)
 }
 
 func TestPostgresUserRepo_GetUser(t *testing.T) {
 	repo, mock := newPostgresUserRepo(t)
 
 	mock.ExpectQuery(`FROM account\s+WHERE id = \$1 AND deleted_at IS NULL`).
-		WithArgs(auth.UserID(7)).
+		WithArgs(domain.UserID(7)).
 		WillReturnRows(sqlmock.NewRows(userColumns).AddRow(7, "anna@example.com", "Анна", "hash"))
 
 	user, err := repo.GetUser(context.Background(), 7)
 	require.NoError(t, err)
-	assert.Equal(t, auth.UserID(7), user.ID)
+	assert.Equal(t, domain.UserID(7), user.ID)
 	assert.Equal(t, "Анна", user.Username)
 }
 
@@ -129,7 +130,7 @@ func TestPostgresUserRepo_GetErrors(t *testing.T) {
 		dbErr   error
 		wantErr error
 	}{
-		{"пользователя нет", sqlmock.NewRows(userColumns), nil, auth.ErrUserNotFound},
+		{"пользователя нет", sqlmock.NewRows(userColumns), nil, domain.ErrUserNotFound},
 		{"база недоступна", nil, errConnLost, errConnLost},
 	}
 

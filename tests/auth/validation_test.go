@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/auth"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/pkg/utils"
 )
 
 func TestValidateEmail(t *testing.T) {
@@ -18,21 +18,21 @@ func TestValidateEmail(t *testing.T) {
 		{"валидный email", "user@example.com", nil},
 		{"точка и плюс", "user.name+tag@example.co.uk", nil},
 		{"пробелы по краям", "  user@example.com  ", nil},
-		{"emoji в email", "user😊@example.com", auth.ErrInvalidEmail},
-		{"кириллица в email", "пользователь@example.com", auth.ErrInvalidEmail},
-		{"кавычка в email", "user'name@example.com", auth.ErrInvalidEmail},
-		{"пустая строка", "", auth.ErrInvalidEmail},
-		{"только пробелы", "   ", auth.ErrInvalidEmail},
-		{"без @", "userexample.com", auth.ErrInvalidEmail},
-		{"без домена", "user@", auth.ErrInvalidEmail},
-		{"без точки в домене", "user@examplecom", auth.ErrInvalidEmail},
+		{"emoji в email", "user😊@example.com", utils.ErrInvalidEmail},
+		{"кириллица в email", "пользователь@example.com", utils.ErrInvalidEmail},
+		{"кавычка в email", "user'name@example.com", utils.ErrInvalidEmail},
+		{"пустая строка", "", utils.ErrInvalidEmail},
+		{"только пробелы", "   ", utils.ErrInvalidEmail},
+		{"без @", "userexample.com", utils.ErrInvalidEmail},
+		{"без домена", "user@", utils.ErrInvalidEmail},
+		{"без точки в домене", "user@examplecom", utils.ErrInvalidEmail},
 		{"254 символа — предел колонки в базе", strings.Repeat("a", 242) + "@example.com", nil},
-		{"255 символов", strings.Repeat("a", 243) + "@example.com", auth.ErrInvalidEmail},
+		{"255 символов", strings.Repeat("a", 243) + "@example.com", utils.ErrInvalidEmail},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := auth.ValidateEmail(tt.email)
+			err := utils.ValidateEmail(tt.email)
 			if tt.wantErr == nil {
 				assert.NoError(t, err)
 				return
@@ -66,9 +66,9 @@ func TestValidateUsername(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := auth.ValidateUsername(tt.username)
+			err := utils.ValidateUsername(tt.username)
 			if tt.wantErr {
-				assert.ErrorIs(t, err, auth.ErrInvalidUsername)
+				assert.ErrorIs(t, err, utils.ErrInvalidUsername)
 				return
 			}
 			assert.NoError(t, err)
@@ -102,9 +102,9 @@ func TestValidatePassword(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := auth.ValidatePassword(tt.password)
+			err := utils.ValidatePassword(tt.password)
 			if tt.wantErr {
-				assert.ErrorIs(t, err, auth.ErrInvalidPassword)
+				assert.ErrorIs(t, err, utils.ErrInvalidPassword)
 				return
 			}
 			assert.NoError(t, err)

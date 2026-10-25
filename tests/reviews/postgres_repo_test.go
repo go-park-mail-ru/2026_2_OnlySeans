@@ -11,10 +11,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/auth"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/entities"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/films"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/reviews"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
+	reviews "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/reviews"
 )
 
 var reviewColumns = []string{"id", "account_id", "film_id", "title", "content",
@@ -35,7 +33,7 @@ func newPostgresReviewRepo(t *testing.T) (*reviews.PostgresReviewRepo, sqlmock.S
 	return reviews.NewPostgresReviewRepo(db), mock
 }
 
-func reviewRows(reviewsToReturn ...entities.Review) *sqlmock.Rows {
+func reviewRows(reviewsToReturn ...domain.Review) *sqlmock.Rows {
 	rows := sqlmock.NewRows(reviewColumns)
 	for _, r := range reviewsToReturn {
 		rows.AddRow(r.ID, r.AuthorID, r.FilmID, r.Title, r.Content, r.ContainsSpoilers, r.CreatedAt, r.UpdatedAt)
@@ -43,9 +41,9 @@ func reviewRows(reviewsToReturn ...entities.Review) *sqlmock.Rows {
 	return rows
 }
 
-func storedReview(id entities.ReviewID) entities.Review {
+func storedReview(id domain.ReviewID) domain.Review {
 	created := time.Date(2026, 10, 20, 12, 0, 0, 0, time.UTC)
-	return entities.Review{
+	return domain.Review{
 		ID:        id,
 		AuthorID:  7,
 		FilmID:    existingFilm,
@@ -62,11 +60,11 @@ func TestPostgresReviewRepo_Create(t *testing.T) {
 	want.ContainsSpoilers = true
 
 	mock.ExpectQuery(`INSERT INTO review`).
-		WithArgs(auth.UserID(7), existingFilm, validTitle, validContent, true).
+		WithArgs(domain.UserID(7), existingFilm, validTitle, validContent, true).
 		WillReturnRows(reviewRows(want))
 
 	got, err := repo.Create(context.Background(), 7, existingFilm,
-		reviews.ReviewInput{Title: validTitle, Content: validContent, ContainsSpoilers: true})
+		domain.ReviewInput{Title: validTitle, Content: validContent, ContainsSpoilers: true})
 	require.NoError(t, err)
 	assert.Equal(t, want, got)
 }
@@ -80,12 +78,12 @@ func TestPostgresReviewRepo_CreateErrors(t *testing.T) {
 		{
 			name:    "у автора уже есть отзыв на фильм",
 			dbErr:   &pgconn.PgError{Code: "23505", ConstraintName: "review_active_unique_idx"},
-			wantErr: reviews.ErrReviewExists,
+			wantErr: domain.ErrReviewExists,
 		},
 		{
 			name:    "фильма нет",
 			dbErr:   &pgconn.PgError{Code: "23503", ConstraintName: "review_film_id_fkey"},
-			wantErr: films.ErrFilmNotFound,
+			wantErr: domain.ErrFilmNotFound,
 		},
 	}
 
@@ -117,8 +115,8 @@ func TestPostgresReviewRepo_CreateUnexpectedError(t *testing.T) {
 			_, err := repo.Create(context.Background(), 7, existingFilm, validInput())
 			require.Error(t, err)
 			assert.ErrorIs(t, err, tt.dbErr)
-			assert.NotErrorIs(t, err, films.ErrFilmNotFound)
-			assert.NotErrorIs(t, err, reviews.ErrReviewExists)
+			assert.NotErrorIs(t, err, domain.ErrFilmNotFound)
+			assert.NotErrorIs(t, err, domain.ErrReviewExists)
 		})
 	}
 }
@@ -128,7 +126,7 @@ func TestPostgresReviewRepo_GetByID(t *testing.T) {
 	want := storedReview(5)
 
 	mock.ExpectQuery(`FROM review\s+WHERE id = \$1 AND deleted_at IS NULL`).
-		WithArgs(entities.ReviewID(5)).
+		WithArgs(domain.ReviewID(5)).
 		WillReturnRows(reviewRows(want))
 
 	got, err := repo.GetByID(context.Background(), 5)
@@ -144,11 +142,11 @@ func TestPostgresReviewRepo_Update(t *testing.T) {
 	want.UpdatedAt = want.CreatedAt.Add(time.Hour)
 
 	mock.ExpectQuery(`UPDATE review SET title = \$2`).
-		WithArgs(entities.ReviewID(5), "Передумала", validContent, true).
+		WithArgs(domain.ReviewID(5), "Передумала", validContent, true).
 		WillReturnRows(reviewRows(want))
 
 	got, err := repo.Update(context.Background(), 5,
-		reviews.ReviewInput{Title: "Передумала", Content: validContent, ContainsSpoilers: true})
+		domain.ReviewInput{Title: "Передумала", Content: validContent, ContainsSpoilers: true})
 	require.NoError(t, err)
 	assert.Equal(t, want, got)
 }
@@ -159,7 +157,7 @@ func TestPostgresReviewRepo_GetAndUpdateErrors(t *testing.T) {
 		dbErr   error
 		wantErr error
 	}{
-		{"отзыва нет или он удалён", nil, reviews.ErrReviewNotFound},
+		{"отзыва нет или он удалён", nil, domain.ErrReviewNotFound},
 		{"база недоступна", errStorage, errStorage},
 	}
 
@@ -202,7 +200,7 @@ func TestPostgresReviewRepo_Delete(t *testing.T) {
 		wantErr  error
 	}{
 		{"отзыв помечен удалённым", 1, nil, nil},
-		{"отзыва нет или он уже удалён", 0, nil, reviews.ErrReviewNotFound},
+		{"отзыва нет или он уже удалён", 0, nil, domain.ErrReviewNotFound},
 		{"база недоступна", 0, errStorage, errStorage},
 	}
 
@@ -210,7 +208,7 @@ func TestPostgresReviewRepo_Delete(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			repo, mock := newPostgresReviewRepo(t)
 			expect := mock.ExpectExec(`UPDATE review SET deleted_at = now\(\), deleted_by = \$2`).
-				WithArgs(entities.ReviewID(5), auth.UserID(7))
+				WithArgs(domain.ReviewID(5), domain.UserID(7))
 			if tt.dbErr != nil {
 				expect.WillReturnError(tt.dbErr)
 			} else {
@@ -234,7 +232,7 @@ func TestPostgresReviewRepo_DeleteRowsAffectedError(t *testing.T) {
 
 	err := repo.Delete(context.Background(), 5, 7)
 	require.Error(t, err)
-	assert.NotErrorIs(t, err, reviews.ErrReviewNotFound)
+	assert.NotErrorIs(t, err, domain.ErrReviewNotFound)
 }
 
 func TestPostgresReviewRepo_ListByFilm(t *testing.T) {
@@ -251,7 +249,7 @@ func TestPostgresReviewRepo_ListByFilm(t *testing.T) {
 	list, total, err := repo.ListByFilm(context.Background(), existingFilm, 2, 3)
 	require.NoError(t, err)
 	assert.Equal(t, 5, total, "total — все отзывы фильма, а не только страница")
-	assert.Equal(t, []entities.Review{second, first}, list)
+	assert.Equal(t, []domain.Review{second, first}, list)
 }
 
 func TestPostgresReviewRepo_ListByFilmEmpty(t *testing.T) {

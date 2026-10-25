@@ -3,12 +3,77 @@ package router_test
 import (
 	"encoding/json"
 	"net/http"
+	"net/http/cookiejar"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	reviewsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/reviews"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
+	reviewsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/reviews"
+	reviewsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/reviews"
 )
+
+func newTestReviewsHandler(t *testing.T, films domain.FilmRepository) *reviewsdelivery.Handler {
+	t.Helper()
+
+	repo := reviewsservice.NewInMemoryReviewRepo()
+	list, err := reviewsusecase.NewListReviewsUseCase(repo, films)
+	require.NoError(t, err)
+	create, err := reviewsusecase.NewCreateReviewUseCase(repo, films)
+	require.NoError(t, err)
+	update, err := reviewsusecase.NewUpdateReviewUseCase(repo)
+	require.NoError(t, err)
+	del, err := reviewsusecase.NewDeleteReviewUseCase(repo)
+	require.NoError(t, err)
+
+	handler, err := reviewsdelivery.NewHandler(reviewsdelivery.HandlerUseCases{
+		List:   list,
+		Create: create,
+		Update: update,
+		Delete: del,
+	})
+	require.NoError(t, err)
+	return handler
+}
+
+// testClient ходит в настоящий HTTP-сервер с роутером и хранит cookie сессии.
+type testClient struct {
+	t       *testing.T
+	baseURL string
+	http    *http.Client
+}
+
+func newTestClient(t *testing.T) *testClient {
+	t.Helper()
+
+	server := httptest.NewServer(newTestRouter(t))
+	t.Cleanup(server.Close)
+
+	jar, err := cookiejar.New(nil)
+	require.NoError(t, err)
+
+	return &testClient{t: t, baseURL: server.URL, http: &http.Client{Jar: jar}}
+}
+
+func (c *testClient) do(method, path, body string) (int, map[string]json.RawMessage) {
+	c.t.Helper()
+
+	req, err := http.NewRequest(method, c.baseURL+path, strings.NewReader(body))
+	require.NoError(c.t, err)
+	resp, err := c.http.Do(req)
+	require.NoError(c.t, err)
+	defer resp.Body.Close()
+
+	var parsed map[string]json.RawMessage
+	if resp.StatusCode != http.StatusNoContent && strings.HasPrefix(resp.Header.Get("Content-Type"), "application/json") {
+		require.NoError(c.t, json.NewDecoder(resp.Body).Decode(&parsed))
+	}
+	return resp.StatusCode, parsed
+}
 
 const reviewBody = `{"title":"Отлично","content":"Посмотрела фильм два раза, и второй раз понравился даже больше первого.","contains_spoilers":false}`
 
