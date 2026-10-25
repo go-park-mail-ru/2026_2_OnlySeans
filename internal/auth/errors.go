@@ -14,4 +14,5 @@ var (
 	ErrNilSessionStore    = errors.New("session store cannot be nil")
 	ErrSessionNotFound    = errors.New("session not found or expired")
 	ErrUnauthorized       = errors.New("unauthorized")
+	ErrUsernameTaken      = errors.New("user with this username already exists")
 )

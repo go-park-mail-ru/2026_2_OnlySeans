@@ -97,6 +97,10 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusConflict, ErrUserExists.Error())
 			return
 		}
+		if errors.Is(err, ErrUsernameTaken) {
+			writeError(w, http.StatusConflict, ErrUsernameTaken.Error())
+			return
+		}
 		writeError(w, http.StatusInternalServerError, ErrInternal.Error())
 		return
 	}
