@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/app"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/config"
 )
 
 func TestRun_InvalidConfig(t *testing.T) {
@@ -52,5 +53,33 @@ func TestRun_PortInUse(t *testing.T) {
 func TestRun_MissingConfig(t *testing.T) {
 	if err := app.Run(filepath.Join(t.TempDir(), "missing.yaml")); err == nil {
 		t.Error("expected error for missing config")
+	}
+}
+
+func TestRun_DatabaseUnavailable(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	closedAddr := listener.Addr().String()
+	listener.Close()
+
+	t.Setenv(config.EnvDatabaseURL, "postgres://user@"+closedAddr+"/kinopoisk?sslmode=disable")
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	raw := "server:\n  host: 127.0.0.1\n  port: 1\ndatabase:\n  connect_timeout: 2s\n"
+	if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	done := make(chan error, 1)
+	go func() { done <- app.Run(path) }()
+
+	select {
+	case err := <-done:
+		if err == nil {
+			t.Error("expected error when the database is unavailable")
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("Run did not give up on an unavailable database")
 	}
 }
