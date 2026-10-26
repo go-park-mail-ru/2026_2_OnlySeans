@@ -17,6 +17,7 @@ import (
 const (
 	EnvServerHost = "SERVER_HOST"
 	EnvServerPort = "SERVER_PORT"
+	EnvRedisURL   = "REDIS_URL"
 )
 
 const (
@@ -31,11 +32,18 @@ const (
 	defaultWriteTimeout    = 10 * time.Second
 	defaultIdleTimeout     = 60 * time.Second
 	defaultShutdownTimeout = 10 * time.Second
+	defaultSessionTTL      = 24 * time.Hour
 	defaultAllowedOrigin   = "http://localhost:3000"
+	defaultRedisURL        = "redis://localhost:6379/0"
 )
 
 type Config struct {
 	Server Server `yaml:"server"`
+	Redis  Redis  `yaml:"redis"`
+}
+
+type Redis struct {
+	URL string `yaml:"url"`
 }
 
 type Server struct {
@@ -46,6 +54,7 @@ type Server struct {
 	WriteTimeout    time.Duration `yaml:"write_timeout"`
 	IdleTimeout     time.Duration `yaml:"idle_timeout"`
 	ShutdownTimeout time.Duration `yaml:"shutdown_timeout"`
+	SessionTTL      time.Duration `yaml:"session_ttl"`
 }
 
 func (s *Server) Addr() string {
@@ -62,6 +71,10 @@ func Default() *Config {
 			WriteTimeout:    defaultWriteTimeout,
 			IdleTimeout:     defaultIdleTimeout,
 			ShutdownTimeout: defaultShutdownTimeout,
+			SessionTTL:      defaultSessionTTL,
+		},
+		Redis: Redis{
+			URL: defaultRedisURL,
 		},
 	}
 }
@@ -96,6 +109,7 @@ func (c *Config) applyEnv(lookupEnv func(string) (string, bool)) error {
 	if host, ok := lookupEnv(EnvServerHost); ok {
 		c.Server.Host = host
 	}
+
 	if rawPort, ok := lookupEnv(EnvServerPort); ok {
 		port, err := strconv.Atoi(rawPort)
 		if err != nil {
@@ -103,6 +117,11 @@ func (c *Config) applyEnv(lookupEnv func(string) (string, bool)) error {
 		}
 		c.Server.Port = port
 	}
+
+	if redisURL, ok := lookupEnv(EnvRedisURL); ok {
+		c.Redis.URL = redisURL
+	}
+
 	return nil
 }
 
@@ -115,6 +134,10 @@ func (c *Config) Validate() error {
 
 	if strings.TrimSpace(c.Server.AllowedOrigin) == "" {
 		errs = append(errs, errors.New("server.allowed_origin is required"))
+	}
+
+	if strings.TrimSpace(c.Redis.URL) == "" {
+		errs = append(errs, errors.New("redis.url is required"))
 	}
 
 	if c.Server.Port < MinPort || c.Server.Port > MaxPort {
@@ -140,6 +163,10 @@ func (c *Config) Validate() error {
 		{
 			name:  "server.shutdown_timeout",
 			value: c.Server.ShutdownTimeout,
+		},
+		{
+			name:  "server.session_ttl",
+			value: c.Server.SessionTTL,
 		},
 	}
 	for _, t := range timeouts {

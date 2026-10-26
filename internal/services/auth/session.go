@@ -6,32 +6,22 @@ import (
 	"encoding/hex"
 	"sync"
 	"time"
+
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 )
 
 const sessionIDBytes = 32
 
-type Session struct {
-	ID        string
-	UserID    UserID
-	ExpiresAt time.Time
-}
-
-type SessionStore interface {
-	Create(ctx context.Context, userID UserID) (*Session, error)
-	Get(ctx context.Context, sessionID string) (*Session, error)
-	Delete(ctx context.Context, sessionID string) error
-}
-
 type InMemorySessionStore struct {
 	mu       sync.Mutex
-	sessions map[string]*Session
+	sessions map[string]*domain.Session
 	ttl      time.Duration
 	now      func() time.Time
 }
 
 func NewInMemorySessionStore(ttl time.Duration) *InMemorySessionStore {
 	return &InMemorySessionStore{
-		sessions: make(map[string]*Session),
+		sessions: make(map[string]*domain.Session),
 		ttl:      ttl,
 		now:      time.Now,
 	}
@@ -46,13 +36,13 @@ func generateSessionID() (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
-func (s *InMemorySessionStore) Create(_ context.Context, userID UserID) (*Session, error) {
+func (s *InMemorySessionStore) Create(_ context.Context, userID domain.UserID) (*domain.Session, error) {
 	id, err := generateSessionID()
 	if err != nil {
 		return nil, err
 	}
 
-	session := &Session{
+	session := &domain.Session{
 		ID:        id,
 		UserID:    userID,
 		ExpiresAt: s.now().Add(s.ttl),
@@ -66,18 +56,18 @@ func (s *InMemorySessionStore) Create(_ context.Context, userID UserID) (*Sessio
 	return session, nil
 }
 
-func (s *InMemorySessionStore) Get(_ context.Context, sessionID string) (*Session, error) {
+func (s *InMemorySessionStore) Get(_ context.Context, sessionID string) (*domain.Session, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	session, ok := s.sessions[sessionID]
 	if !ok {
-		return nil, ErrSessionNotFound
+		return nil, domain.ErrSessionNotFound
 	}
 
 	if !s.now().Before(session.ExpiresAt) {
 		delete(s.sessions, sessionID)
-		return nil, ErrSessionNotFound
+		return nil, domain.ErrSessionNotFound
 	}
 
 	return session, nil

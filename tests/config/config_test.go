@@ -44,6 +44,7 @@ server:
 				WriteTimeout:    2 * time.Second,
 				IdleTimeout:     3 * time.Second,
 				ShutdownTimeout: 4 * time.Second,
+				SessionTTL:      defaults.SessionTTL,
 			},
 		},
 		{
@@ -62,6 +63,7 @@ server:
 				WriteTimeout:    defaults.WriteTimeout,
 				IdleTimeout:     defaults.IdleTimeout,
 				ShutdownTimeout: defaults.ShutdownTimeout,
+				SessionTTL:      defaults.SessionTTL,
 			},
 		},
 		{
@@ -79,6 +81,7 @@ server:
 				WriteTimeout:    defaults.WriteTimeout,
 				IdleTimeout:     defaults.IdleTimeout,
 				ShutdownTimeout: defaults.ShutdownTimeout,
+				SessionTTL:      defaults.SessionTTL,
 			},
 		},
 	}

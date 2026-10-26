@@ -1,2 +1,6 @@
 coverage/
+<<<<<<< HEAD
 .env
+=======
+.vscode
+>>>>>>> dfabae7ecebc2b37f60f7d31da75e70cb6ffd883

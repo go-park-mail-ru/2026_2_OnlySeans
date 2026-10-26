@@ -10,8 +10,8 @@ import (
 	"testing"
 	"unicode/utf8"
 
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/entities"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/films"
+	entities "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
+	films "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/films"
 )
 
 var genreDrama = entities.Genre{
