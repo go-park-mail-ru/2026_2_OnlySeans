@@ -19,11 +19,10 @@ func NewListReviewsUseCase(reviews domain.ReviewRepository, films domain.FilmRep
 	if films == nil {
 		return nil, domain.ErrNilFilmsRepo
 	}
+
 	return &ListReviewsUseCase{reviews: reviews, films: films}, nil
 }
 
-// Run отдаёт страницу отзывов фильма. Для несуществующего фильма —
-// ErrFilmNotFound, а не пустой список.
 func (uc *ListReviewsUseCase) Run(ctx context.Context, input ListReviewsInput) (*ListReviewsOutput, error) {
 	if _, err := uc.films.GetFilmByID(ctx, input.FilmID); err != nil {
 		return nil, fmt.Errorf("get film %d: %w", input.FilmID, err)

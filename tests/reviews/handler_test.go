@@ -2,6 +2,7 @@ package reviews_test
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -24,6 +25,12 @@ const (
 	anna  domain.UserID = 7
 	boris domain.UserID = 8
 	guest domain.UserID = 0
+)
+
+var (
+	errTitleMessage   = errors.New("title must be from 3 to 255 characters")
+	errContentMessage = errors.New("content must be from 50 to 20000 characters")
+	errLimitMessage   = errors.New("limit must be an integer from 1 to 100")
 )
 
 // reviewJSON — отзыв в том виде, в каком его получает фронтенд.
@@ -176,8 +183,8 @@ func TestHandler_CreateErrors(t *testing.T) {
 		{"пустое тело", filmReviewsPath(existingFilm), "", anna, http.StatusBadRequest, reviewsdelivery.ErrInvalidBody},
 		{"строка вместо флага", filmReviewsPath(existingFilm), `{"title":"Отлично","content":"x","contains_spoilers":"да"}`, anna, http.StatusBadRequest, reviewsdelivery.ErrInvalidBody},
 		{"попытка подставить автора", filmReviewsPath(existingFilm), `{"title":"Отлично","content":"x","author_id":99}`, anna, http.StatusBadRequest, reviewsdelivery.ErrInvalidBody},
-		{"короткий заголовок", filmReviewsPath(existingFilm), reviewBody("ab", validContent, false), anna, http.StatusBadRequest, domain.ErrInvalidTitle},
-		{"короткий текст", filmReviewsPath(existingFilm), reviewBody(validTitle, "мало", false), anna, http.StatusBadRequest, domain.ErrInvalidContent},
+		{"короткий заголовок", filmReviewsPath(existingFilm), reviewBody("ab", validContent, false), anna, http.StatusBadRequest, errTitleMessage},
+		{"короткий текст", filmReviewsPath(existingFilm), reviewBody(validTitle, "мало", false), anna, http.StatusBadRequest, errContentMessage},
 		{"несуществующий фильм", filmReviewsPath(missingFilm), validBody, anna, http.StatusNotFound, domain.ErrFilmNotFound},
 	}
 
@@ -240,9 +247,9 @@ func TestHandler_ListByFilmErrors(t *testing.T) {
 	}{
 		{"id фильма не число", "/api/films/abc/reviews", http.StatusBadRequest, reviewsdelivery.ErrInvalidID},
 		{"id фильма отрицательный", "/api/films/-1/reviews", http.StatusBadRequest, reviewsdelivery.ErrInvalidID},
-		{"limit ноль", filmReviewsPath(existingFilm) + "?limit=0", http.StatusBadRequest, reviewsdelivery.ErrInvalidLimit},
-		{"limit больше максимума", filmReviewsPath(existingFilm) + "?limit=101", http.StatusBadRequest, reviewsdelivery.ErrInvalidLimit},
-		{"limit не число", filmReviewsPath(existingFilm) + "?limit=abc", http.StatusBadRequest, reviewsdelivery.ErrInvalidLimit},
+		{"limit ноль", filmReviewsPath(existingFilm) + "?limit=0", http.StatusBadRequest, errLimitMessage},
+		{"limit больше максимума", filmReviewsPath(existingFilm) + "?limit=101", http.StatusBadRequest, errLimitMessage},
+		{"limit не число", filmReviewsPath(existingFilm) + "?limit=abc", http.StatusBadRequest, errLimitMessage},
 		{"offset отрицательный", filmReviewsPath(existingFilm) + "?offset=-1", http.StatusBadRequest, reviewsdelivery.ErrInvalidOffset},
 		{"offset не число", filmReviewsPath(existingFilm) + "?offset=abc", http.StatusBadRequest, reviewsdelivery.ErrInvalidOffset},
 		{"несуществующий фильм", filmReviewsPath(missingFilm), http.StatusNotFound, domain.ErrFilmNotFound},
@@ -286,7 +293,7 @@ func TestHandler_UpdateErrors(t *testing.T) {
 		{"id отзыва не число", "/api/reviews/abc", validBody, anna, http.StatusBadRequest, reviewsdelivery.ErrInvalidID},
 		{"без пользователя", reviewPath(1), validBody, guest, http.StatusUnauthorized, domain.ErrUnauthorized},
 		{"сломанный JSON", reviewPath(1), `{`, anna, http.StatusBadRequest, reviewsdelivery.ErrInvalidBody},
-		{"короткий текст", reviewPath(1), reviewBody(validTitle, "мало", false), anna, http.StatusBadRequest, domain.ErrInvalidContent},
+		{"короткий текст", reviewPath(1), reviewBody(validTitle, "мало", false), anna, http.StatusBadRequest, errContentMessage},
 		{"чужой отзыв", reviewPath(1), validBody, boris, http.StatusForbidden, domain.ErrForbidden},
 		{"несуществующий отзыв", reviewPath(99), validBody, anna, http.StatusNotFound, domain.ErrReviewNotFound},
 	}

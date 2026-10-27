@@ -39,7 +39,7 @@ func TestReviewInput_Validate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := domain.ReviewInput{Title: tt.title, Content: tt.content}.Validate()
+			err := (&domain.ReviewInput{Title: tt.title, Content: tt.content}).Validate()
 
 			if tt.wantErr == nil {
 				assert.NoError(t, err)

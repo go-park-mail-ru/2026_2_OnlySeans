@@ -19,11 +19,11 @@ func NewCreateReviewUseCase(reviews domain.ReviewRepository, films domain.FilmRe
 	if films == nil {
 		return nil, domain.ErrNilFilmsRepo
 	}
+
 	return &CreateReviewUseCase{reviews: reviews, films: films}, nil
 }
 
-// Run создаёт отзыв. Повторный отзыв того же автора на тот же фильм
-// отклоняет хранилище, без отдельной проверки заранее.
+// Повторный отзыв того же автора на тот же фильм отклоняет хранилище, без отдельной проверки заранее.
 func (uc *CreateReviewUseCase) Run(ctx context.Context, input CreateReviewInput) (*ReviewOutput, error) {
 	review, err := prepareReview(input.Review)
 	if err != nil {
@@ -34,7 +34,7 @@ func (uc *CreateReviewUseCase) Run(ctx context.Context, input CreateReviewInput)
 		return nil, fmt.Errorf("get film %d: %w", input.FilmID, err)
 	}
 
-	created, err := uc.reviews.Create(ctx, input.AuthorID, input.FilmID, review)
+	created, err := uc.reviews.Create(ctx, input.AuthorID, input.FilmID, *review)
 	if err != nil {
 		return nil, fmt.Errorf("create review: %w", err)
 	}

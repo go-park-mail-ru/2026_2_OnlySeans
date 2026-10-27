@@ -1,7 +1,6 @@
 package domain
 
 import (
-	"context"
 	"fmt"
 	"time"
 	"unicode/utf8"
@@ -27,15 +26,14 @@ type Review struct {
 	UpdatedAt        time.Time `db:"updated_at"`
 }
 
-// ReviewInput — то, что автор задаёт сам при создании и изменении отзыва.
 type ReviewInput struct {
 	Title            string
 	Content          string
 	ContainsSpoilers bool
 }
 
-// Validate проверяет длину заголовка и текста в символах, а не в байтах.
-func (in ReviewInput) Validate() error {
+// проверяет длину заголовка и текста в символах, а не в байтах
+func (in *ReviewInput) Validate() error {
 	titleLen := utf8.RuneCountInString(in.Title)
 	if titleLen < MinReviewTitleLen {
 		return fmt.Errorf("%w: too short, minimum %d characters", ErrInvalidTitle, MinReviewTitleLen)
@@ -52,12 +50,4 @@ func (in ReviewInput) Validate() error {
 		return fmt.Errorf("%w: too long, maximum %d characters", ErrInvalidContent, MaxReviewContentLen)
 	}
 	return nil
-}
-
-type ReviewRepository interface {
-	Create(ctx context.Context, authorID UserID, filmID FilmID, input ReviewInput) (Review, error)
-	GetByID(ctx context.Context, id ReviewID) (Review, error)
-	ListByFilm(ctx context.Context, filmID FilmID, limit, offset int) ([]Review, int, error)
-	Update(ctx context.Context, id ReviewID, input ReviewInput) (Review, error)
-	Delete(ctx context.Context, id ReviewID, deletedBy UserID) error
 }

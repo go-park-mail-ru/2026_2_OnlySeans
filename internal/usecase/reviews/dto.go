@@ -49,8 +49,8 @@ type ReviewOutput struct {
 	Review domain.Review
 }
 
-func NewReviewOutput(review domain.Review) *ReviewOutput {
-	return &ReviewOutput{Review: review}
+func NewReviewOutput(review *domain.Review) *ReviewOutput {
+	return &ReviewOutput{Review: *review}
 }
 
 type ListReviewsOutput struct {
@@ -62,13 +62,12 @@ func NewListReviewsOutput(reviews []domain.Review, total int) *ListReviewsOutput
 	return &ListReviewsOutput{Reviews: reviews, Total: total}
 }
 
-// prepareReview обрезает пробелы по краям и проверяет длину.
-// Ошибку валидации возвращает без обёртки: её текст уходит клиенту.
-func prepareReview(in domain.ReviewInput) (domain.ReviewInput, error) {
+// обрезает пробелы по краям и проверяет длину.
+func prepareReview(in domain.ReviewInput) (*domain.ReviewInput, error) {
 	in.Title = strings.TrimSpace(in.Title)
 	in.Content = strings.TrimSpace(in.Content)
 	if err := in.Validate(); err != nil {
-		return domain.ReviewInput{}, err
+		return nil, err
 	}
-	return in, nil
+	return &in, nil
 }
