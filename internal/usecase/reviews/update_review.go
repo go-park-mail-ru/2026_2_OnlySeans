@@ -15,10 +15,10 @@ func NewUpdateReviewUseCase(reviews domain.ReviewRepository) (*UpdateReviewUseCa
 	if reviews == nil {
 		return nil, domain.ErrNilReviewsRepo
 	}
+
 	return &UpdateReviewUseCase{reviews: reviews}, nil
 }
 
-// Run меняет отзыв. Менять можно только свой отзыв.
 func (uc *UpdateReviewUseCase) Run(ctx context.Context, input UpdateReviewInput) (*ReviewOutput, error) {
 	changes, err := prepareReview(input.Review)
 	if err != nil {
@@ -33,7 +33,7 @@ func (uc *UpdateReviewUseCase) Run(ctx context.Context, input UpdateReviewInput)
 		return nil, domain.ErrForbidden
 	}
 
-	updated, err := uc.reviews.Update(ctx, input.ReviewID, changes)
+	updated, err := uc.reviews.Update(ctx, input.ReviewID, *changes)
 	if err != nil {
 		return nil, fmt.Errorf("update review %d: %w", input.ReviewID, err)
 	}

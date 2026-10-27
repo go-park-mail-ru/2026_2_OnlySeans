@@ -1068,7 +1068,7 @@ components:
             invalidLimit:
               summary: limit не число, меньше 1 или больше 100
               value:
-                error: invalid limit
+                error: 'limit must be an integer from 1 to 100'
             invalidOffset:
               summary: offset не число или отрицательный
               value:
@@ -1091,19 +1091,19 @@ components:
             shortTitle:
               summary: заголовок короче 3 символов
               value:
-                error: 'title is invalid: too short, minimum 3 characters'
+                error: 'title must be from 3 to 255 characters'
             longTitle:
               summary: заголовок длиннее 255 символов
               value:
-                error: 'title is invalid: too long, maximum 255 characters'
+                error: 'title must be from 3 to 255 characters'
             shortContent:
               summary: текст короче 50 символов
               value:
-                error: 'content is invalid: too short, minimum 50 characters'
+                error: 'content must be from 50 to 20000 characters'
             longContent:
               summary: текст длиннее 20000 символов
               value:
-                error: 'content is invalid: too long, maximum 20000 characters'
+                error: 'content must be from 50 to 20000 characters'
     InvalidReviewId:
       description: Id отзыва не число или не больше нуля.
       content:

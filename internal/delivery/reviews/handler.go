@@ -3,6 +3,7 @@ package reviews
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -20,6 +21,8 @@ const (
 	maxLimit      = 100
 	defaultOffset = 0
 	maxBodyBytes  = 1 << 20
+	decimalBase   = 10
+	int64Bits     = 64
 )
 
 const (
@@ -38,20 +41,65 @@ var (
 )
 
 var clientErrors = []struct {
-	err    error
-	status int
+	err     error
+	status  int
+	message string
 }{
-	{err: ErrInvalidID, status: http.StatusBadRequest},
-	{err: ErrInvalidLimit, status: http.StatusBadRequest},
-	{err: ErrInvalidOffset, status: http.StatusBadRequest},
-	{err: ErrInvalidBody, status: http.StatusBadRequest},
-	{err: domain.ErrInvalidTitle, status: http.StatusBadRequest},
-	{err: domain.ErrInvalidContent, status: http.StatusBadRequest},
-	{err: domain.ErrUnauthorized, status: http.StatusUnauthorized},
-	{err: domain.ErrForbidden, status: http.StatusForbidden},
-	{err: domain.ErrReviewNotFound, status: http.StatusNotFound},
-	{err: domain.ErrFilmNotFound, status: http.StatusNotFound},
-	{err: domain.ErrReviewExists, status: http.StatusConflict},
+	{
+		err:     ErrInvalidID,
+		status:  http.StatusBadRequest,
+		message: ErrInvalidID.Error(),
+	},
+	{
+		err:     ErrInvalidLimit,
+		status:  http.StatusBadRequest,
+		message: fmt.Sprintf("limit must be an integer from %d to %d", minLimit, maxLimit),
+	},
+	{
+		err:     ErrInvalidOffset,
+		status:  http.StatusBadRequest,
+		message: ErrInvalidOffset.Error(),
+	},
+	{
+		err:     ErrInvalidBody,
+		status:  http.StatusBadRequest,
+		message: ErrInvalidBody.Error(),
+	},
+	{
+		err:     domain.ErrInvalidTitle,
+		status:  http.StatusBadRequest,
+		message: fmt.Sprintf("title must be from %d to %d characters", domain.MinReviewTitleLen, domain.MaxReviewTitleLen),
+	},
+	{
+		err:     domain.ErrInvalidContent,
+		status:  http.StatusBadRequest,
+		message: fmt.Sprintf("content must be from %d to %d characters", domain.MinReviewContentLen, domain.MaxReviewContentLen),
+	},
+	{
+		err:     domain.ErrUnauthorized,
+		status:  http.StatusUnauthorized,
+		message: domain.ErrUnauthorized.Error(),
+	},
+	{
+		err:     domain.ErrForbidden,
+		status:  http.StatusForbidden,
+		message: domain.ErrForbidden.Error(),
+	},
+	{
+		err:     domain.ErrReviewNotFound,
+		status:  http.StatusNotFound,
+		message: domain.ErrReviewNotFound.Error(),
+	},
+	{
+		err:     domain.ErrFilmNotFound,
+		status:  http.StatusNotFound,
+		message: domain.ErrFilmNotFound.Error(),
+	},
+	{
+		err:     domain.ErrReviewExists,
+		status:  http.StatusConflict,
+		message: domain.ErrReviewExists.Error(),
+	},
 }
 
 type HandlerUseCases struct {
@@ -62,10 +110,7 @@ type HandlerUseCases struct {
 }
 
 type Handler struct {
-	list   *usecase.ListReviewsUseCase
-	create *usecase.CreateReviewUseCase
-	update *usecase.UpdateReviewUseCase
-	delete *usecase.DeleteReviewUseCase
+	useCases HandlerUseCases
 }
 
 func NewHandler(cases HandlerUseCases) (*Handler, error) {
@@ -81,12 +126,8 @@ func NewHandler(cases HandlerUseCases) (*Handler, error) {
 	if cases.Delete == nil {
 		return nil, errors.New("delete review use case is nil")
 	}
-	return &Handler{
-		list:   cases.List,
-		create: cases.Create,
-		update: cases.Update,
-		delete: cases.Delete,
-	}, nil
+
+	return &Handler{useCases: cases}, nil
 }
 
 type reviewRequest struct {
@@ -95,7 +136,6 @@ type reviewRequest struct {
 	ContainsSpoilers bool   `json:"contains_spoilers"`
 }
 
-// ListByFilm handles GET /api/films/{id}/reviews.
 func (h *Handler) ListByFilm(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(r)
 	if !ok {
@@ -108,7 +148,11 @@ func (h *Handler) ListByFilm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := h.list.Run(r.Context(), usecase.NewListReviewsInput(domain.FilmID(id), limit, offset))
+	result, err := h.useCases.List.Run(r.Context(), usecase.NewListReviewsInput(
+		domain.FilmID(id),
+		limit,
+		offset,
+	))
 	if err != nil {
 		writeError(w, err)
 		return
@@ -122,7 +166,6 @@ func (h *Handler) ListByFilm(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// Create handles POST /api/films/{id}/reviews.
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(r)
 	if !ok {
@@ -140,7 +183,11 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := h.create.Run(r.Context(), usecase.NewCreateReviewInput(userID, domain.FilmID(id), input))
+	result, err := h.useCases.Create.Run(r.Context(), usecase.NewCreateReviewInput(
+		userID,
+		domain.FilmID(id),
+		input,
+	))
 	if err != nil {
 		writeError(w, err)
 		return
@@ -149,7 +196,6 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, reviewResponse{Review: toReviewResponseDTO(result.Review)})
 }
 
-// Update handles PUT /api/reviews/{id}.
 func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(r)
 	if !ok {
@@ -167,7 +213,11 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := h.update.Run(r.Context(), usecase.NewUpdateReviewInput(userID, domain.ReviewID(id), input))
+	result, err := h.useCases.Update.Run(r.Context(), usecase.NewUpdateReviewInput(
+		userID,
+		domain.ReviewID(id),
+		input,
+	))
 	if err != nil {
 		writeError(w, err)
 		return
@@ -176,7 +226,6 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, reviewResponse{Review: toReviewResponseDTO(result.Review)})
 }
 
-// Delete handles DELETE /api/reviews/{id}.
 func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(r)
 	if !ok {
@@ -189,7 +238,12 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.delete.Run(r.Context(), usecase.NewDeleteReviewInput(userID, domain.ReviewID(id))); err != nil {
+	err := h.useCases.Delete.Run(r.Context(),
+		usecase.NewDeleteReviewInput(
+			userID,
+			domain.ReviewID(id),
+		))
+	if err != nil {
 		writeError(w, err)
 		return
 	}
@@ -197,8 +251,7 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// decodeReview читает тело не больше 1 МБ и не пропускает неизвестные поля,
-// например попытку подставить author_id.
+// читает тело не больше 1 МБ и не пропускает неизвестные поля
 func decodeReview(w http.ResponseWriter, r *http.Request) (domain.ReviewInput, error) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
 	decoder := json.NewDecoder(r.Body)
@@ -220,15 +273,18 @@ func pagination(r *http.Request) (limit, offset int, err error) {
 	if !ok || limit < minLimit || limit > maxLimit {
 		return 0, 0, ErrInvalidLimit
 	}
+
 	offset, ok = queryInt(r, offsetParam, defaultOffset)
 	if !ok || offset < 0 {
 		return 0, 0, ErrInvalidOffset
 	}
+
 	return limit, offset, nil
 }
 
+// достает номер из адреса запроса и проверяет что это норм число
 func pathID(r *http.Request) (int64, bool) {
-	id, err := strconv.ParseInt(mux.Vars(r)[idVar], 10, 64)
+	id, err := strconv.ParseInt(mux.Vars(r)[idVar], decimalBase, int64Bits)
 	return id, err == nil && id > 0
 }
 
@@ -249,16 +305,10 @@ func writeJSON(w http.ResponseWriter, status int, body any) {
 	}
 }
 
-// writeError отвечает статусом по таблице clientErrors. Для 400 клиент видит
-// подробный текст, для остальных — текст самой ошибки без внутренних обёрток.
 func writeError(w http.ResponseWriter, err error) {
 	for _, known := range clientErrors {
 		if errors.Is(err, known.err) {
-			msg := known.err.Error()
-			if known.status == http.StatusBadRequest {
-				msg = err.Error()
-			}
-			writeJSON(w, known.status, errorResponse{Error: msg})
+			writeJSON(w, known.status, errorResponse{Error: known.message})
 			return
 		}
 	}

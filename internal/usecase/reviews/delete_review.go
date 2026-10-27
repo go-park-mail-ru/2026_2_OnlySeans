@@ -15,10 +15,10 @@ func NewDeleteReviewUseCase(reviews domain.ReviewRepository) (*DeleteReviewUseCa
 	if reviews == nil {
 		return nil, domain.ErrNilReviewsRepo
 	}
+
 	return &DeleteReviewUseCase{reviews: reviews}, nil
 }
 
-// Run удаляет отзыв. Удалять можно только свой отзыв.
 func (uc *DeleteReviewUseCase) Run(ctx context.Context, input DeleteReviewInput) error {
 	review, err := uc.reviews.GetByID(ctx, input.ReviewID)
 	if err != nil {

@@ -45,7 +45,7 @@ func toReviewResponseDTO(review domain.Review) reviewResponseDTO {
 	}
 }
 
-// toReviewResponseDTOs всегда возвращает срез, чтобы пустой список ушёл как [], а не null.
+// всегда возвращает срез, чтобы пустой список ушёл как [], а не null.
 func toReviewResponseDTOs(reviews []domain.Review) []reviewResponseDTO {
 	result := make([]reviewResponseDTO, 0, len(reviews))
 	for _, review := range reviews {
