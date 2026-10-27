@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -71,28 +70,6 @@ func TestInMemoryUserRepo_ConcurrentCreate_UniqueIDs(t *testing.T) {
 		user, err := repo.GetUser(ctx, id)
 		require.NoError(t, err)
 		assert.Equal(t, fmt.Sprintf("user%d@example.com", i), user.Email)
-	}
-	assert.Len(t, seen, workers)
-}
-
-func TestInMemorySessionStore_ConcurrentCreate(t *testing.T) {
-	store := authservice.NewInMemorySessionStore(time.Hour)
-	ctx := t.Context()
-	sessions := make([]*domain.Session, workers)
-	errs := make([]error, workers)
-
-	runConcurrently(func(i int) {
-		sessions[i], errs[i] = store.Create(ctx, domain.UserID(i))
-	})
-
-	seen := make(map[string]struct{}, workers)
-	for i, session := range sessions {
-		require.NoError(t, errs[i])
-		seen[session.ID] = struct{}{}
-
-		got, err := store.Get(ctx, session.ID)
-		require.NoError(t, err)
-		assert.Equal(t, domain.UserID(i), got.UserID)
 	}
 	assert.Len(t, seen, workers)
 }

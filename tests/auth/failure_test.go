@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net/http"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -14,6 +13,7 @@ import (
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	authservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/auth"
 	authusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/auth"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/tests/fakes"
 )
 
 var errBoom = errors.New("boom: connection refused 10.0.0.5:5432")
@@ -39,7 +39,7 @@ func (r flakyRepo) GetUser(ctx context.Context, id domain.UserID) (*domain.User,
 }
 
 type flakyStore struct {
-	*authservice.InMemorySessionStore
+	*fakes.SessionStore
 	createErr error
 	getErr    error
 	deleteErr error
@@ -49,28 +49,28 @@ func (s flakyStore) Create(ctx context.Context, userID domain.UserID) (*domain.S
 	if s.createErr != nil {
 		return nil, s.createErr
 	}
-	return s.InMemorySessionStore.Create(ctx, userID)
+	return s.SessionStore.Create(ctx, userID)
 }
 
 func (s flakyStore) Get(ctx context.Context, sessionID string) (*domain.Session, error) {
 	if s.getErr != nil {
 		return nil, s.getErr
 	}
-	return s.InMemorySessionStore.Get(ctx, sessionID)
+	return s.SessionStore.Get(ctx, sessionID)
 }
 
 func (s flakyStore) Delete(ctx context.Context, sessionID string) error {
 	if s.deleteErr != nil {
 		return s.deleteErr
 	}
-	return s.InMemorySessionStore.Delete(ctx, sessionID)
+	return s.SessionStore.Delete(ctx, sessionID)
 }
 
 func newFlakyHandler(t *testing.T, repo flakyRepo, store flakyStore) (*authdelivery.Handler, flakyStore) {
 	t.Helper()
 
 	repo.InMemoryUserRepo = authservice.NewInMemoryUserRepo()
-	store.InMemorySessionStore = authservice.NewInMemorySessionStore(time.Hour)
+	store.SessionStore = fakes.NewSessionStore()
 
 	passwordService := authservice.BcryptPasswordService{}
 	register, err := authusecase.NewRegisterUserUseCase(repo, store, passwordService)
@@ -147,7 +147,7 @@ func TestHandler_Authenticate(t *testing.T) {
 
 			sid := "sid"
 			if tt.getErr == nil {
-				session, err := store.InMemorySessionStore.Create(context.Background(), 7)
+				session, err := store.SessionStore.Create(context.Background(), 7)
 				require.NoError(t, err)
 				sid = session.ID
 			}

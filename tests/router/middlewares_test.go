@@ -8,7 +8,6 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/films"
@@ -18,6 +17,7 @@ import (
 	filmsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/films"
 	authusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/auth"
 	filmsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/films"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/tests/fakes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -53,7 +53,7 @@ func newTestAuthHandler(t *testing.T) *auth.Handler {
 	t.Helper()
 
 	users := authservice.NewInMemoryUserRepo()
-	sessions := authservice.NewInMemorySessionStore(time.Hour)
+	sessions := fakes.NewSessionStore()
 	passwordService := authservice.BcryptPasswordService{}
 
 	register, err := authusecase.NewRegisterUserUseCase(users, sessions, passwordService)
