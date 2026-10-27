@@ -60,8 +60,6 @@ func NewPostgresReviewRepo(db *sql.DB) *PostgresReviewRepo {
 	return &PostgresReviewRepo{db: db}
 }
 
-var _ domain.ReviewRepository = (*PostgresReviewRepo)(nil)
-
 // превратить строку из базы в domain.Review
 type rowScanner interface {
 	Scan(dest ...any) error
@@ -82,26 +80,26 @@ func scanReview(row rowScanner) (domain.Review, error) {
 	return review, err
 }
 
-func (r *PostgresReviewRepo) GetByID(ctx context.Context, id domain.ReviewID) (domain.Review, error) {
+func (r *PostgresReviewRepo) GetByID(ctx context.Context, id domain.ReviewID) (*domain.Review, error) {
 	review, err := scanReview(r.db.QueryRowContext(ctx, getReviewQuery, id))
 	if errors.Is(err, sql.ErrNoRows) {
-		return domain.Review{}, domain.ErrReviewNotFound
+		return nil, domain.ErrReviewNotFound
 	}
 	if err != nil {
-		return domain.Review{}, fmt.Errorf("get review %d: %w", id, err)
+		return nil, fmt.Errorf("get review %d: %w", id, err)
 	}
-	return review, nil
+	return &review, nil
 }
 
-func (r *PostgresReviewRepo) Update(ctx context.Context, id domain.ReviewID, input domain.ReviewInput) (domain.Review, error) {
+func (r *PostgresReviewRepo) Update(ctx context.Context, id domain.ReviewID, input domain.ReviewInput) (*domain.Review, error) {
 	review, err := scanReview(r.db.QueryRowContext(ctx, updateReviewQuery, id, input.Title, input.Content, input.ContainsSpoilers))
 	if errors.Is(err, sql.ErrNoRows) {
-		return domain.Review{}, domain.ErrReviewNotFound
+		return nil, domain.ErrReviewNotFound
 	}
 	if err != nil {
-		return domain.Review{}, fmt.Errorf("update review %d: %w", id, err)
+		return nil, fmt.Errorf("update review %d: %w", id, err)
 	}
-	return review, nil
+	return &review, nil
 }
 
 func (r *PostgresReviewRepo) Delete(ctx context.Context, id domain.ReviewID, deletedBy domain.UserID) error {
@@ -119,21 +117,21 @@ func (r *PostgresReviewRepo) Delete(ctx context.Context, id domain.ReviewID, del
 	return nil
 }
 
-func (r *PostgresReviewRepo) Create(ctx context.Context, authorID domain.UserID, filmID domain.FilmID, input domain.ReviewInput) (domain.Review, error) {
+func (r *PostgresReviewRepo) Create(ctx context.Context, authorID domain.UserID, filmID domain.FilmID, input domain.ReviewInput) (*domain.Review, error) {
 	review, err := scanReview(r.db.QueryRowContext(ctx, createReviewQuery, authorID, filmID, input.Title, input.Content, input.ContainsSpoilers))
 	if err == nil {
-		return review, nil
+		return &review, nil
 	}
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) {
 		if pgErr.Code == uniqueViolation {
-			return domain.Review{}, domain.ErrReviewExists
+			return nil, domain.ErrReviewExists
 		}
 		if pgErr.Code == foreignKeyViolation && pgErr.ConstraintName == "review_film_id_fkey" {
-			return domain.Review{}, domain.ErrFilmNotFound
+			return nil, domain.ErrFilmNotFound
 		}
 	}
-	return domain.Review{}, fmt.Errorf("create review: %w", err)
+	return nil, fmt.Errorf("create review: %w", err)
 }
 
 func (r *PostgresReviewRepo) ListByFilm(ctx context.Context, filmID domain.FilmID, limit, offset int) ([]domain.Review, int, error) {

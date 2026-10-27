@@ -86,8 +86,6 @@ func NewPostgresService(db *sql.DB) *PostgresService {
 	return &PostgresService{db: db}
 }
 
-var _ Service = (*PostgresService)(nil)
-
 type rowScanner interface {
 	Scan(dest ...any) error
 }

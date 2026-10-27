@@ -66,7 +66,7 @@ func TestPostgresReviewRepo_Create(t *testing.T) {
 	got, err := repo.Create(context.Background(), 7, existingFilm,
 		domain.ReviewInput{Title: validTitle, Content: validContent, ContainsSpoilers: true})
 	require.NoError(t, err)
-	assert.Equal(t, want, got)
+	assert.Equal(t, &want, got)
 }
 
 func TestPostgresReviewRepo_CreateErrors(t *testing.T) {
@@ -131,7 +131,7 @@ func TestPostgresReviewRepo_GetByID(t *testing.T) {
 
 	got, err := repo.GetByID(context.Background(), 5)
 	require.NoError(t, err)
-	assert.Equal(t, want, got)
+	assert.Equal(t, &want, got)
 }
 
 func TestPostgresReviewRepo_Update(t *testing.T) {
@@ -148,7 +148,7 @@ func TestPostgresReviewRepo_Update(t *testing.T) {
 	got, err := repo.Update(context.Background(), 5,
 		domain.ReviewInput{Title: "Передумала", Content: validContent, ContainsSpoilers: true})
 	require.NoError(t, err)
-	assert.Equal(t, want, got)
+	assert.Equal(t, &want, got)
 }
 
 func TestPostgresReviewRepo_GetAndUpdateErrors(t *testing.T) {

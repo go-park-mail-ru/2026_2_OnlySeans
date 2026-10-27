@@ -44,8 +44,6 @@ func NewPostgresUserRepo(db *sql.DB) *PostgresUserRepo {
 	return &PostgresUserRepo{db: db}
 }
 
-var _ domain.UserRepository = (*PostgresUserRepo)(nil) //проверка что подходит под интерфейс
-
 // после входа
 func (r *PostgresUserRepo) GetUser(ctx context.Context, id domain.UserID) (*domain.User, error) {
 	var user domain.User
