@@ -159,7 +159,10 @@ func Run(configPath string) error {
 		return fmt.Errorf("create reviews handler: %w", err)
 	}
 
-	httpHandler := router.NewRouter(authHandler, filmsHandler, reviewsHandler, cfg.Server.AllowedOrigin)
+	httpHandler, err := router.NewRouter(authHandler, filmsHandler, reviewsHandler, cfg.Server.AllowedOrigin)
+	if err != nil {
+		return fmt.Errorf("create router: %w", err)
+	}
 
 	server := &http.Server{
 		Addr:         cfg.Server.Addr(),

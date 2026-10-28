@@ -11,7 +11,7 @@ import (
 	staticassets "github.com/go-park-mail-ru/2026_2_OnlySeans/static"
 )
 
-func NewRouter(authHandler *auth.Handler, filmsHandler *films.Handler, reviewsHandler *reviews.Handler, allowedOrigin string) http.Handler {
+func NewRouter(authHandler *auth.Handler, filmsHandler *films.Handler, reviewsHandler *reviews.Handler, allowedOrigin string) (http.Handler, error) {
 	r := mux.NewRouter()
 
 	r.PathPrefix("/static/").Handler(
@@ -35,5 +35,10 @@ func NewRouter(authHandler *auth.Handler, filmsHandler *films.Handler, reviewsHa
 	r.HandleFunc("/api/reviews/{id}", RequireAuth(authHandler, reviewsHandler.Update)).Methods(http.MethodPut)
 	r.HandleFunc("/api/reviews/{id}", RequireAuth(authHandler, reviewsHandler.Delete)).Methods(http.MethodDelete)
 
-	return withSecurityHeaders(withCORS(r, allowedOrigin))
+	protected, err := withCSRF(r, allowedOrigin)
+	if err != nil {
+		return nil, err
+	}
+
+	return withSecurityHeaders(withCORS(protected, allowedOrigin)), nil
 }

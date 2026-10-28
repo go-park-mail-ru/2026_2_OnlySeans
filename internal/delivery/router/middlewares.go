@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
@@ -13,6 +14,10 @@ import (
 type Authenticator interface {
 	Authenticate(ctx context.Context, sessionID string) (domain.UserID, error)
 }
+
+var (
+	ErrCrossOrigin = errors.New("cross-origin request blocked")
+)
 
 func withCORS(next http.Handler, allowedOrigin string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -40,6 +45,22 @@ func withSecurityHeaders(next http.Handler) http.Handler {
 		w.Header().Set("X-Frame-Options", "DENY")                                               // запрет встраивать ответы во фреймы
 		next.ServeHTTP(w, r)
 	})
+}
+
+// отклоняет POST, PUT и DELETE с чужих сайтов
+func withCSRF(next http.Handler, allowedOrigin string) (http.Handler, error) {
+	protection := http.NewCrossOriginProtection()
+
+	err := protection.AddTrustedOrigin(allowedOrigin) // добавляем фронтенд в доверенные
+	if err != nil {
+		return nil, fmt.Errorf("add trusted origin %q: %w", allowedOrigin, err)
+	}
+
+	protection.SetDenyHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		writeError(w, http.StatusForbidden, ErrCrossOrigin)
+	}))
+
+	return protection.Handler(next), nil
 }
 
 func RequireAuth(authn Authenticator, next http.HandlerFunc) http.HandlerFunc {
