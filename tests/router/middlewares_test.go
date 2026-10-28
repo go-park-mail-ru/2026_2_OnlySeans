@@ -49,7 +49,9 @@ func newTestRouter(t *testing.T) http.Handler {
 	})
 	require.NoError(t, err)
 
-	return router.NewRouter(authHandler, filmsHandler, newTestReviewsHandler(t, filmsRepo), testOrigin)
+	handler, err := router.NewRouter(authHandler, filmsHandler, newTestReviewsHandler(t, filmsRepo), testOrigin)
+	require.NoError(t, err)
+	return handler
 }
 
 func newTestAuthHandler(t *testing.T) *auth.Handler {
@@ -210,7 +212,7 @@ func TestRequireAuth(t *testing.T) {
 				return
 			}
 
-			assert.Equal(t, "application/json", rec.Header().Get("Content-Type"))
+			assert.Equal(t, "application/json; charset=utf-8", rec.Header().Get("Content-Type"))
 			var body map[string]string
 			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
 			assert.Equal(t, tt.wantError, body["error"])
@@ -252,6 +254,81 @@ func TestRouter_LogoutRequiresAuth(t *testing.T) {
 			handler.ServeHTTP(rec, req)
 
 			assert.Equal(t, tt.wantStatus, rec.Code)
+		})
+	}
+}
+
+// заголовки безопасности есть во всех видах ответов: API, статика, preflight, ошибка
+func TestWithSecurityHeaders(t *testing.T) {
+	handler := newTestRouter(t)
+
+	tests := []struct {
+		name   string
+		method string
+		path   string
+	}{
+		{"ручка API", http.MethodGet, "/api/films"},
+		{"статика", http.MethodGet, "/static/posters/inceptio.svg"},
+		{"preflight", http.MethodOptions, "/api/login"},
+		{"ошибка", http.MethodGet, "/api/films/0"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, httptest.NewRequest(tt.method, tt.path, nil))
+
+			assert.Equal(t, "nosniff", rec.Header().Get("X-Content-Type-Options"))
+			assert.Equal(t, "default-src 'none'; frame-ancestors 'none'", rec.Header().Get("Content-Security-Policy"))
+			assert.Equal(t, "DENY", rec.Header().Get("X-Frame-Options"))
+		})
+	}
+}
+
+// запросы, меняющие данные,с чужих сайтов 403
+func TestCSRFProtection(t *testing.T) {
+	handler := newTestRouter(t)
+
+	tests := []struct {
+		name        string
+		method      string
+		path        string
+		origin      string
+		fetchSite   string
+		wantBlocked bool
+	}{
+		{"чужой сайт", http.MethodPost, "/api/login", "http://evil.example", "cross-site", true},
+		{"соседний порт", http.MethodPost, "/api/login", "http://localhost:9999", "same-site", true},
+		{"старый браузер", http.MethodPost, "/api/login", "http://evil.example", "", true},
+		{"удаление отзыва с чужого", http.MethodDelete, "/api/reviews/1", "http://evil.example", "cross-site", true},
+		{"наш фронт", http.MethodPost, "/api/login", testOrigin, "same-site", false},
+		{"не браузер", http.MethodPost, "/api/login", "", "", false},
+		{"GET с чужого", http.MethodGet, "/api/films", "http://evil.example", "cross-site", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(tt.method, tt.path, nil)
+			if tt.origin != "" {
+				req.Header.Set("Origin", tt.origin)
+			}
+			if tt.fetchSite != "" {
+				req.Header.Set("Sec-Fetch-Site", tt.fetchSite)
+			}
+			rec := httptest.NewRecorder()
+
+			handler.ServeHTTP(rec, req)
+
+			if tt.wantBlocked {
+				//заблокирован
+				assert.Equal(t, http.StatusForbidden, rec.Code)
+				var body map[string]string
+				require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+				assert.Equal(t, router.ErrCrossOrigin.Error(), body["error"])
+			} else {
+				//пропущен
+				assert.NotEqual(t, http.StatusForbidden, rec.Code)
+			}
 		})
 	}
 }
