@@ -43,7 +43,39 @@ func Run(configPath string) error {
 
 	filmsRepo, err := filmsservice.NewSeededService()
 	if err != nil {
-		return fmt.Errorf("seed films: %w", err)
+		return fmt.Errorf("create films handler: %w", err)
+	}
+
+	reviewsRepo := reviewsservice.NewInMemoryReviewRepo()
+
+	listReviewsUC, err := reviewsusecase.NewListReviewsUseCase(reviewsRepo, filmsRepo)
+	if err != nil {
+		return fmt.Errorf("create list reviews use case: %w", err)
+	}
+
+	createReviewUC, err := reviewsusecase.NewCreateReviewUseCase(reviewsRepo, filmsRepo)
+	if err != nil {
+		return fmt.Errorf("create create review use case: %w", err)
+	}
+
+	updateReviewUC, err := reviewsusecase.NewUpdateReviewUseCase(reviewsRepo)
+	if err != nil {
+		return fmt.Errorf("create update review use case: %w", err)
+	}
+
+	deleteReviewUC, err := reviewsusecase.NewDeleteReviewUseCase(reviewsRepo)
+	if err != nil {
+		return fmt.Errorf("create delete review use case: %w", err)
+	}
+
+	reviewsHandler, err := reviewsdelivery.NewHandler(reviewsdelivery.HandlerUseCases{
+		List:   listReviewsUC,
+		Create: createReviewUC,
+		Update: updateReviewUC,
+		Delete: deleteReviewUC,
+	})
+	if err != nil {
+		return fmt.Errorf("create reviews handler: %w", err)
 	}
 
 	registerUC, err := authusecase.NewRegisterUserUseCase(useRepo, sessions, passwordService)
