@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
@@ -79,6 +80,8 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
+	req.Email = strings.TrimSpace(req.Email)
+	req.Username = strings.TrimSpace(req.Username)
 
 	result, err := h.register.Run(r.Context(), toRegisterUserInput(req))
 	if err != nil {
@@ -98,6 +101,8 @@ func writeRegisterError(w http.ResponseWriter, err error) {
 		writeError(w, http.StatusBadRequest, err.Error())
 	case errors.Is(err, domain.ErrUserExists):
 		writeError(w, http.StatusConflict, domain.ErrUserExists.Error())
+	case errors.Is(err, domain.ErrUsernameTaken):
+		writeError(w, http.StatusConflict, domain.ErrUsernameTaken.Error())
 	default:
 		//log.Printf("auth: register user: %v", err)
 		writeError(w, http.StatusInternalServerError, domain.ErrInternal.Error())
@@ -116,6 +121,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
+	req.Email = strings.TrimSpace(req.Email)
 
 	result, err := h.login.Run(r.Context(), toLoginUserInput(req))
 	if err != nil {

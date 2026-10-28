@@ -78,7 +78,7 @@ func (c reviewCases) createReview(author domain.UserID, film domain.FilmID, in d
 }
 
 func (c reviewCases) updateReview(user domain.UserID, id domain.ReviewID, in domain.ReviewInput) (domain.Review, error) {
-	out, err := c.update.Run(context.Background(), usecase.NewUpdateReviewInput(user, id, in))
+	out, err := c.update.Run(context.Background(), usecase.NewUpdateReviewInput(user, id, in, 1))
 	if err != nil {
 		return domain.Review{}, err
 	}

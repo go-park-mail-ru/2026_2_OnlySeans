@@ -41,6 +41,7 @@ type reviewJSON struct {
 	Title            string          `json:"title"`
 	Content          string          `json:"content"`
 	ContainsSpoilers bool            `json:"contains_spoilers"`
+	Version          int             `json:"version"`
 	CreatedAt        time.Time       `json:"created_at"`
 	UpdatedAt        time.Time       `json:"updated_at"`
 }
@@ -114,6 +115,16 @@ func reviewBody(title, content string, spoilers bool) string {
 		"title":             title,
 		"content":           content,
 		"contains_spoilers": spoilers,
+	})
+	return string(body)
+}
+
+func reviewBodyWithVersion(title, content string, spoilers bool, version int) string {
+	body, _ := json.Marshal(map[string]any{
+		"title":             title,
+		"content":           content,
+		"contains_spoilers": spoilers,
+		"version":           version,
 	})
 	return string(body)
 }
@@ -267,13 +278,19 @@ func TestHandler_Update(t *testing.T) {
 	router := newTestRouter(t, fakeFilms{})
 	created := createReview(t, router, anna)
 
-	rec := serve(router, http.MethodPut, reviewPath(created.ID), reviewBody("Передумала", validContent, true), anna)
+	rec := serve(router, http.MethodPut, reviewPath(created.ID),
+		reviewBodyWithVersion("Передумала", validContent, true, created.Version), anna)
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 
 	updated := decode[reviewResponse](t, rec).Review
 	assert.Equal(t, created.ID, updated.ID)
 	assert.Equal(t, "Передумала", updated.Title)
 	assert.True(t, updated.ContainsSpoilers)
+	assert.Equal(t, created.Version+1, updated.Version)
+
+	rec = serve(router, http.MethodPut, reviewPath(created.ID),
+		reviewBodyWithVersion("Ещё раз", validContent, false, created.Version), anna)
+	assert.Equal(t, http.StatusConflict, rec.Code, "правка по устаревшей версии не проходит")
 
 	rec = serve(router, http.MethodGet, filmReviewsPath(existingFilm), "", guest)
 	page := decode[reviewsPage](t, rec)

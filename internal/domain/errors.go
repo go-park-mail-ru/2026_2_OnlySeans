@@ -1,15 +1,20 @@
 package domain
 
-import "errors"
+import (
+	"errors"
+
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/pkg/utils"
+)
 
 var (
 	ErrNilRepo               = errors.New("repository cannot be nil")
-	ErrInvalidEmail          = errors.New("invalid email")
-	ErrInvalidUsername       = errors.New("invalid username")
-	ErrInvalidPassword       = errors.New("invalid password")
+	ErrInvalidEmail          = utils.ErrInvalidEmail
+	ErrInvalidUsername       = utils.ErrInvalidUsername
+	ErrInvalidPassword       = utils.ErrInvalidPassword
 	ErrInvalidCredentials    = errors.New("invalid email or password")
 	ErrInternal              = errors.New("internal server error")
 	ErrUserExists            = errors.New("user with this email already exists")
+	ErrUsernameTaken         = errors.New("user with this username already exists")
 	ErrUserNotFound          = errors.New("user not found")
 	ErrNilSessionStore       = errors.New("session store cannot be nil")
 	ErrSessionNotFound       = errors.New("session not found or expired")

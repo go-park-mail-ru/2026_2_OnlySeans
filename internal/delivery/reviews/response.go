@@ -13,6 +13,7 @@ type reviewResponseDTO struct {
 	Title            string          `json:"title"`
 	Content          string          `json:"content"`
 	ContainsSpoilers bool            `json:"contains_spoilers"`
+	Version          int             `json:"version"`
 	CreatedAt        time.Time       `json:"created_at"`
 	UpdatedAt        time.Time       `json:"updated_at"`
 }
@@ -40,6 +41,7 @@ func toReviewResponseDTO(review domain.Review) reviewResponseDTO {
 		Title:            review.Title,
 		Content:          review.Content,
 		ContainsSpoilers: review.ContainsSpoilers,
+		Version:          review.Version,
 		CreatedAt:        review.CreatedAt,
 		UpdatedAt:        review.UpdatedAt,
 	}

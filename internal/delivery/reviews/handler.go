@@ -66,6 +66,16 @@ var clientErrors = []struct {
 		message: ErrInvalidBody.Error(),
 	},
 	{
+		err:     domain.ErrInvalidVersion,
+		status:  http.StatusBadRequest,
+		message: "version must be a positive integer",
+	},
+	{
+		err:     domain.ErrVersionConflict,
+		status:  http.StatusConflict,
+		message: "review was changed by someone else, reload it",
+	},
+	{
 		err:     domain.ErrInvalidTitle,
 		status:  http.StatusBadRequest,
 		message: fmt.Sprintf("title must be from %d to %d characters", domain.MinReviewTitleLen, domain.MaxReviewTitleLen),
@@ -134,6 +144,7 @@ type reviewRequest struct {
 	Title            string `json:"title"`
 	Content          string `json:"content"`
 	ContainsSpoilers bool   `json:"contains_spoilers"`
+	Version          int    `json:"version"`
 }
 
 func (h *Handler) ListByFilm(w http.ResponseWriter, r *http.Request) {
@@ -177,7 +188,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		writeError(w, domain.ErrUnauthorized)
 		return
 	}
-	input, err := decodeReview(w, r)
+	input, _, err := decodeReview(w, r)
 	if err != nil {
 		writeError(w, err)
 		return
@@ -207,7 +218,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		writeError(w, domain.ErrUnauthorized)
 		return
 	}
-	input, err := decodeReview(w, r)
+	input, version, err := decodeReview(w, r)
 	if err != nil {
 		writeError(w, err)
 		return
@@ -217,6 +228,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		userID,
 		domain.ReviewID(id),
 		input,
+		version,
 	))
 	if err != nil {
 		writeError(w, err)
@@ -252,20 +264,20 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 }
 
 // читает тело не больше 1 МБ и не пропускает неизвестные поля
-func decodeReview(w http.ResponseWriter, r *http.Request) (domain.ReviewInput, error) {
+func decodeReview(w http.ResponseWriter, r *http.Request) (domain.ReviewInput, int, error) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
 
 	var req reviewRequest
 	if err := decoder.Decode(&req); err != nil {
-		return domain.ReviewInput{}, ErrInvalidBody
+		return domain.ReviewInput{}, 0, ErrInvalidBody
 	}
 	return domain.ReviewInput{
 		Title:            req.Title,
 		Content:          req.Content,
 		ContainsSpoilers: req.ContainsSpoilers,
-	}, nil
+	}, req.Version, nil
 }
 
 func pagination(r *http.Request) (limit, offset int, err error) {

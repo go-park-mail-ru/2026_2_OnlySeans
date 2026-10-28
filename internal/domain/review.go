@@ -22,6 +22,7 @@ type Review struct {
 	Title            string    `db:"title"`
 	Content          string    `db:"content"`
 	ContainsSpoilers bool      `db:"contains_spoilers"`
+	Version          int       `db:"version"`
 	CreatedAt        time.Time `db:"created_at"`
 	UpdatedAt        time.Time `db:"updated_at"`
 }
@@ -30,6 +31,11 @@ type ReviewInput struct {
 	Title            string
 	Content          string
 	ContainsSpoilers bool
+}
+
+type ReviewUpdate struct {
+	Input   ReviewInput
+	Version int
 }
 
 // проверяет длину заголовка и текста в символах, а не в байтах
