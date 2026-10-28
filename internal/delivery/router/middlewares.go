@@ -32,6 +32,16 @@ func withCORS(next http.Handler, allowedOrigin string) http.Handler {
 	})
 }
 
+// добавляет ко всем ответам заголовки, запрещающие браузеру исполнять или встраивать ответы
+func withSecurityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Content-Type-Options", "nosniff")                                     // запрет браузеру угадывать тип ответа
+		w.Header().Set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'") // что документу разрешено. ничего не исполняет и не встраивается во фреймы
+		w.Header().Set("X-Frame-Options", "DENY")                                               // запрет встраивать ответы во фреймы
+		next.ServeHTTP(w, r)
+	})
+}
+
 func RequireAuth(authn Authenticator, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cookie, err := r.Cookie(auth.SessionCookieName)
@@ -55,7 +65,7 @@ func RequireAuth(authn Authenticator, next http.HandlerFunc) http.HandlerFunc {
 }
 
 func writeError(w http.ResponseWriter, status int, err error) {
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 }

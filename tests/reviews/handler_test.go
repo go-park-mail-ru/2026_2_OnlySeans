@@ -167,6 +167,23 @@ func TestHandler_Create(t *testing.T) {
 	assert.False(t, review.CreatedAt.IsZero())
 }
 
+func TestHandler_CreateEscapesHTML(t *testing.T) {
+	router := newTestRouter(t, fakeFilms{})
+
+	title := "<script>alert(1)</script>"
+	content := `<img src=x onerror="alert(document.cookie)">` + strings.Repeat("а", 50)
+
+	rec := serve(router, http.MethodPost, filmReviewsPath(existingFilm), reviewBody(title, content, false), anna)
+	require.Equal(t, http.StatusCreated, rec.Code, rec.Body.String())
+	assert.NotContains(t, rec.Body.String(), "<")
+	assert.NotContains(t, rec.Body.String(), ">")
+	assert.Contains(t, rec.Body.String(), `\u003cscript\u003e`)
+
+	review := decode[reviewResponse](t, rec).Review
+	assert.Equal(t, content, review.Content)
+	assert.Equal(t, title, review.Title)
+}
+
 func TestHandler_CreateErrors(t *testing.T) {
 	tests := []struct {
 		name    string
