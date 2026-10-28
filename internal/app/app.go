@@ -14,14 +14,12 @@ import (
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/config"
 	authdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
 	filmsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/films"
-	reviewsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/reviews"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/router"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/pkg/redis"
 	authservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/auth"
 	filmsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/films"
-	reviewsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/reviews"
 	authusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/auth"
 	filmsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/films"
-	reviewsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/reviews"
 )
 
 func Run(configPath string) error {
@@ -31,13 +29,53 @@ func Run(configPath string) error {
 	}
 
 	useRepo := authservice.NewInMemoryUserRepo()
-	sessions := authservice.NewInMemorySessionStore(cfg.Server.SessionTTL)
+
+	newClient, err := redis.NewClientWithPing(context.Background(), cfg.Redis.URL)
+	if err != nil {
+		return fmt.Errorf("connect redis: %w", err)
+	}
+
+	defer newClient.Close()
+
+	sessions := authservice.NewRedisSessionStore(newClient, cfg.Server.SessionTTL)
 
 	passwordService := authservice.BcryptPasswordService{}
 
 	filmsRepo, err := filmsservice.NewSeededService()
 	if err != nil {
-		return fmt.Errorf("seed films: %w", err)
+		return fmt.Errorf("create films handler: %w", err)
+	}
+
+	reviewsRepo := reviewsservice.NewInMemoryReviewRepo()
+
+	listReviewsUC, err := reviewsusecase.NewListReviewsUseCase(reviewsRepo, filmsRepo)
+	if err != nil {
+		return fmt.Errorf("create list reviews use case: %w", err)
+	}
+
+	createReviewUC, err := reviewsusecase.NewCreateReviewUseCase(reviewsRepo, filmsRepo)
+	if err != nil {
+		return fmt.Errorf("create create review use case: %w", err)
+	}
+
+	updateReviewUC, err := reviewsusecase.NewUpdateReviewUseCase(reviewsRepo)
+	if err != nil {
+		return fmt.Errorf("create update review use case: %w", err)
+	}
+
+	deleteReviewUC, err := reviewsusecase.NewDeleteReviewUseCase(reviewsRepo)
+	if err != nil {
+		return fmt.Errorf("create delete review use case: %w", err)
+	}
+
+	reviewsHandler, err := reviewsdelivery.NewHandler(reviewsdelivery.HandlerUseCases{
+		List:   listReviewsUC,
+		Create: createReviewUC,
+		Update: updateReviewUC,
+		Delete: deleteReviewUC,
+	})
+	if err != nil {
+		return fmt.Errorf("create reviews handler: %w", err)
 	}
 
 	registerUC, err := authusecase.NewRegisterUserUseCase(useRepo, sessions, passwordService)
@@ -106,39 +144,7 @@ func Run(configPath string) error {
 		return fmt.Errorf("create films handler: %w", err)
 	}
 
-	reviewsRepo := reviewsservice.NewInMemoryReviewRepo()
-
-	listReviewsUC, err := reviewsusecase.NewListReviewsUseCase(reviewsRepo, filmsRepo)
-	if err != nil {
-		return fmt.Errorf("create list reviews use case: %w", err)
-	}
-
-	createReviewUC, err := reviewsusecase.NewCreateReviewUseCase(reviewsRepo, filmsRepo)
-	if err != nil {
-		return fmt.Errorf("create create review use case: %w", err)
-	}
-
-	updateReviewUC, err := reviewsusecase.NewUpdateReviewUseCase(reviewsRepo)
-	if err != nil {
-		return fmt.Errorf("create update review use case: %w", err)
-	}
-
-	deleteReviewUC, err := reviewsusecase.NewDeleteReviewUseCase(reviewsRepo)
-	if err != nil {
-		return fmt.Errorf("create delete review use case: %w", err)
-	}
-
-	reviewsHandler, err := reviewsdelivery.NewHandler(reviewsdelivery.HandlerUseCases{
-		List:   listReviewsUC,
-		Create: createReviewUC,
-		Update: updateReviewUC,
-		Delete: deleteReviewUC,
-	})
-	if err != nil {
-		return fmt.Errorf("create reviews handler: %w", err)
-	}
-
-	httpHandler := router.NewRouter(authHandler, filmsHandler, reviewsHandler, cfg.Server.AllowedOrigin)
+	httpHandler := router.NewRouter(authHandler, filmsHandler, cfg.Server.AllowedOrigin)
 
 	server := &http.Server{
 		Addr:         cfg.Server.Addr(),

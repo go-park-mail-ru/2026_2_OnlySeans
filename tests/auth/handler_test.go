@@ -6,14 +6,14 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
 	authservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/auth"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/auth"
+	usecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/auth"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/tests/fakes"
 )
 
 type registerRequest struct {
@@ -85,11 +85,11 @@ func newTestHandler(t *testing.T) *auth.Handler {
 	return h
 }
 
-func newTestAuth(t *testing.T) (*auth.Handler, *authservice.InMemoryUserRepo, *authservice.InMemorySessionStore) {
+func newTestAuth(t *testing.T) (*auth.Handler, *authservice.InMemoryUserRepo, *fakes.SessionStore) {
 	t.Helper()
 
 	users := authservice.NewInMemoryUserRepo()
-	sessions := authservice.NewInMemorySessionStore(time.Hour)
+	sessions := fakes.NewSessionStore()
 	passwordService := authservice.BcryptPasswordService{}
 
 	register, err := usecase.NewRegisterUserUseCase(users, sessions, passwordService)

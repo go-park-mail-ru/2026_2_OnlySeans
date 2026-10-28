@@ -1,0 +1,50 @@
+services:
+  db:
+    image: postgres:18.1
+    container_name: postgres_db
+    environment:
+      POSTGRES_USER: ${DB_USER:-user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-password}
+      POSTGRES_DB: ${DB_NAME:-nameDB}
+    ports:
+      - "5433:5432"
+    volumes:
+      - db_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: always
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis_db
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: always
+
+  backend:
+    image: onlyseans_backend
+    build:
+      context: .
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      REDIS_URL: "redis://redis:6379/0"
+      SERVER_ADDR: ":8080"
+    restart: always
+      
+volumes:
+  db_data:
+  redis_data:

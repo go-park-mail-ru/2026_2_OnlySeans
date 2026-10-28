@@ -4,27 +4,33 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"sync"
+	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
+	"github.com/redis/rueidis"
 )
 
-const sessionIDBytes = 32
+const (
+	sessionKeyPrefix = "session:"
+	sessionIDBytes   = 32
+)
 
-type InMemorySessionStore struct {
-	mu       sync.Mutex
-	sessions map[string]*domain.Session
-	ttl      time.Duration
-	now      func() time.Time
+type RedisSessionStore struct {
+	client rueidis.Client
+	ttl    time.Duration
 }
 
-func NewInMemorySessionStore(ttl time.Duration) *InMemorySessionStore {
-	return &InMemorySessionStore{
-		sessions: make(map[string]*domain.Session),
-		ttl:      ttl,
-		now:      time.Now,
+func NewRedisSessionStore(client rueidis.Client, ttl time.Duration) *RedisSessionStore {
+	return &RedisSessionStore{
+		client: client,
+		ttl:    ttl,
 	}
+}
+
+func sessionKey(id string) string {
+	return sessionKeyPrefix + id
 }
 
 func generateSessionID() (string, error) {
@@ -36,48 +42,57 @@ func generateSessionID() (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
-func (s *InMemorySessionStore) Create(_ context.Context, userID domain.UserID) (*domain.Session, error) {
+func (s *RedisSessionStore) Create(ctx context.Context, userID domain.UserID) (*domain.Session, error) {
 	id, err := generateSessionID()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("generate session id: %w", err)
+	}
+
+	cmd := s.client.B().Set().Key(sessionKey(id)).Value(strconv.Itoa(int(userID))).ExSeconds(int64(s.ttl.Seconds())).Build()
+
+	res := s.client.Do(ctx, cmd)
+	if res.Error() != nil {
+		return nil, fmt.Errorf("create session: %w", res.Error())
 	}
 
 	session := &domain.Session{
 		ID:        id,
 		UserID:    userID,
-		ExpiresAt: s.now().Add(s.ttl),
-	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.sessions[id] = session
-
-	return session, nil
-}
-
-func (s *InMemorySessionStore) Get(_ context.Context, sessionID string) (*domain.Session, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	session, ok := s.sessions[sessionID]
-	if !ok {
-		return nil, domain.ErrSessionNotFound
-	}
-
-	if !s.now().Before(session.ExpiresAt) {
-		delete(s.sessions, sessionID)
-		return nil, domain.ErrSessionNotFound
+		ExpiresAt: time.Now().Add(s.ttl),
 	}
 
 	return session, nil
 }
 
-func (s *InMemorySessionStore) Delete(_ context.Context, sessionID string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+func (s *RedisSessionStore) Get(ctx context.Context, sessionID string) (*domain.Session, error) {
+	cmd := s.client.B().Get().Key(sessionKey(sessionID)).Build()
 
-	delete(s.sessions, sessionID)
+	rawUserID, err := s.client.Do(ctx, cmd).ToString()
+	if err != nil {
+		if rueidis.IsRedisNil(err) {
+			return nil, domain.ErrSessionNotFound
+		}
+		return nil, fmt.Errorf("get session: %w", err)
+	}
 
+	userID, err := strconv.Atoi(rawUserID)
+	if err != nil {
+		return nil, fmt.Errorf("parse user id: %w", err)
+	}
+
+	session := &domain.Session{
+		ID:     sessionID,
+		UserID: domain.UserID(userID),
+	}
+
+	return session, nil
+}
+
+func (s *RedisSessionStore) Delete(ctx context.Context, sessionID string) error {
+	cmd := s.client.B().Del().Key(sessionKey(sessionID)).Build()
+	err := s.client.Do(ctx, cmd).Error()
+	if err != nil {
+		return fmt.Errorf("delete session: %w", err)
+	}
 	return nil
 }

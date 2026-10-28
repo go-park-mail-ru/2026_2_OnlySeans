@@ -7,3 +7,6 @@ server:
   shutdown_timeout: 10s
   session_ttl: 24h
   allowed_origin: "http://localhost:8000"
+
+redis:
+  url: "redis://localhost:6379/0"
