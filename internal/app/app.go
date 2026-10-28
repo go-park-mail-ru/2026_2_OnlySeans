@@ -37,32 +37,25 @@ func Run(configPath, databaseConfigPath string) error {
 		return fmt.Errorf("load database config: %w", err)
 	}
 
+	if dbCfg.URL == "" {
+		return fmt.Errorf("%s is required", config.EnvDatabaseURL)
+	}
+
 	var (
 		useRepo     domain.UserRepository
 		filmsRepo   filmsservice.Service
 		reviewsRepo domain.ReviewRepository
 	)
 
-	if dbCfg.URL != "" {
-		db, err := storage.Open(context.Background(), *dbCfg)
-		if err != nil {
-			return fmt.Errorf("open database: %w", err)
-		}
-		defer db.Close()
-
-		useRepo = authservice.NewPostgresUserRepo(db)
-		filmsRepo = filmsservice.NewPostgresService(db)
-		reviewsRepo = reviewsservice.NewPostgresReviewRepo(db)
-		log.Println("storage: postgres")
-	} else {
-		useRepo = authservice.NewInMemoryUserRepo()
-		filmsRepo, err = filmsservice.NewSeededService()
-		if err != nil {
-			return fmt.Errorf("seed films: %w", err)
-		}
-		reviewsRepo = reviewsservice.NewInMemoryReviewRepo()
-		log.Println("storage: in-memory")
+	db, err := storage.Open(context.Background(), *dbCfg)
+	if err != nil {
+		return fmt.Errorf("open database: %w", err)
 	}
+	defer db.Close()
+
+	useRepo = authservice.NewPostgresUserRepo(db)
+	filmsRepo = filmsservice.NewPostgresService(db)
+	reviewsRepo = reviewsservice.NewPostgresReviewRepo(db)
 
 	sessions := authservice.NewInMemorySessionStore(cfg.Server.SessionTTL)
 

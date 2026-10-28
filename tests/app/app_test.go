@@ -1,10 +1,10 @@
 package app_test
 
 import (
-	"fmt"
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -38,27 +38,17 @@ func TestRun_InvalidConfig(t *testing.T) {
 	}
 }
 
-func TestRun_PortInUse(t *testing.T) {
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("listen: %v", err)
+// без адреса базы сервер не стартует, и ошибка называет нужную переменную
+func TestRun_MissingDatabaseURL(t *testing.T) {
+	t.Setenv(config.EnvDatabaseURL, "")
+	path := writeConfig(t, "config.yaml", "server:\n  host: 127.0.0.1\n  port: 1\n")
+
+	err := app.Run(path, emptyDatabaseConfig(t))
+	if err == nil {
+		t.Fatal("expected error without database url")
 	}
-	defer listener.Close()
-
-	port := listener.Addr().(*net.TCPAddr).Port
-	path := writeConfig(t, "config.yaml", fmt.Sprintf("server:\n  host: 127.0.0.1\n  port: %d\n", port))
-	databasePath := emptyDatabaseConfig(t)
-
-	done := make(chan error, 1)
-	go func() { done <- app.Run(path, databasePath) }()
-
-	select {
-	case err := <-done:
-		if err == nil {
-			t.Error("expected error when port is already in use")
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("Run did not return on busy port")
+	if !strings.Contains(err.Error(), config.EnvDatabaseURL) {
+		t.Errorf("error %q does not mention %s", err, config.EnvDatabaseURL)
 	}
 }
 
