@@ -145,6 +145,10 @@ func TestParse_Errors(t *testing.T) {
 			name: "empty allowed origin",
 			raw:  "server:\n  allowed_origin: \"\"\n",
 		},
+		{
+			name: "database section belongs to database.yaml",
+			raw:  "database:\n  max_open_conns: 5\n",
+		},
 	}
 
 	for _, tt := range tests {
@@ -215,5 +219,8 @@ func TestLoad_MissingFile(t *testing.T) {
 func TestRepositoryConfigIsValid(t *testing.T) {
 	if _, err := config.Load(filepath.Join("..", "..", "configs", "config.yaml")); err != nil {
 		t.Errorf("configs/config.yaml is invalid: %v", err)
+	}
+	if _, err := config.LoadDatabase(filepath.Join("..", "..", "configs", "database.yaml")); err != nil {
+		t.Errorf("configs/database.yaml is invalid: %v", err)
 	}
 }

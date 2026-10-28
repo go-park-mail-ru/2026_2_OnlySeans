@@ -12,13 +12,28 @@ import (
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/config"
 )
 
-func TestRun_InvalidConfig(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.yaml")
-	if err := os.WriteFile(path, []byte("server:\n  port: 0\n"), 0o600); err != nil {
-		t.Fatalf("write config: %v", err)
-	}
+// кладёт файл конфига во временную папку теста и возвращает путь к нему
+func writeConfig(t *testing.T, name, raw string) string {
+	t.Helper()
 
-	if err := app.Run(path); err == nil {
+	path := filepath.Join(t.TempDir(), name)
+	if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
+		t.Fatalf("write %s: %v", name, err)
+	}
+	return path
+}
+
+// конфиг базы со значениями по умолчанию, для тестов, где база не важна
+func emptyDatabaseConfig(t *testing.T) string {
+	t.Helper()
+
+	return writeConfig(t, "database.yaml", "")
+}
+
+func TestRun_InvalidConfig(t *testing.T) {
+	path := writeConfig(t, "config.yaml", "server:\n  port: 0\n")
+
+	if err := app.Run(path, emptyDatabaseConfig(t)); err == nil {
 		t.Error("expected error for invalid config")
 	}
 }
@@ -31,14 +46,11 @@ func TestRun_PortInUse(t *testing.T) {
 	defer listener.Close()
 
 	port := listener.Addr().(*net.TCPAddr).Port
-	path := filepath.Join(t.TempDir(), "config.yaml")
-	raw := fmt.Sprintf("server:\n  host: 127.0.0.1\n  port: %d\n", port)
-	if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
-		t.Fatalf("write config: %v", err)
-	}
+	path := writeConfig(t, "config.yaml", fmt.Sprintf("server:\n  host: 127.0.0.1\n  port: %d\n", port))
+	databasePath := emptyDatabaseConfig(t)
 
 	done := make(chan error, 1)
-	go func() { done <- app.Run(path) }()
+	go func() { done <- app.Run(path, databasePath) }()
 
 	select {
 	case err := <-done:
@@ -51,8 +63,16 @@ func TestRun_PortInUse(t *testing.T) {
 }
 
 func TestRun_MissingConfig(t *testing.T) {
-	if err := app.Run(filepath.Join(t.TempDir(), "missing.yaml")); err == nil {
+	if err := app.Run(filepath.Join(t.TempDir(), "missing.yaml"), emptyDatabaseConfig(t)); err == nil {
 		t.Error("expected error for missing config")
+	}
+}
+
+func TestRun_MissingDatabaseConfig(t *testing.T) {
+	path := writeConfig(t, "config.yaml", "server:\n  host: 127.0.0.1\n  port: 1\n")
+
+	if err := app.Run(path, filepath.Join(t.TempDir(), "missing.yaml")); err == nil {
+		t.Error("expected error for missing database config")
 	}
 }
 
@@ -65,14 +85,11 @@ func TestRun_DatabaseUnavailable(t *testing.T) {
 	listener.Close()
 
 	t.Setenv(config.EnvDatabaseURL, "postgres://user@"+closedAddr+"/kinopoisk?sslmode=disable")
-	path := filepath.Join(t.TempDir(), "config.yaml")
-	raw := "server:\n  host: 127.0.0.1\n  port: 1\ndatabase:\n  connect_timeout: 2s\n"
-	if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
-		t.Fatalf("write config: %v", err)
-	}
+	path := writeConfig(t, "config.yaml", "server:\n  host: 127.0.0.1\n  port: 1\n")
+	databasePath := writeConfig(t, "database.yaml", "connect_timeout: 2s\n")
 
 	done := make(chan error, 1)
-	go func() { done <- app.Run(path) }()
+	go func() { done <- app.Run(path, databasePath) }()
 
 	select {
 	case err := <-done:

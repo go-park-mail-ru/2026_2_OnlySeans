@@ -26,10 +26,15 @@ import (
 	reviewsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/reviews"
 )
 
-func Run(configPath string) error {
+func Run(configPath, databaseConfigPath string) error {
 	cfg, err := config.Load(configPath)
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
+	}
+
+	dbCfg, err := config.LoadDatabase(databaseConfigPath)
+	if err != nil {
+		return fmt.Errorf("load database config: %w", err)
 	}
 
 	var (
@@ -38,8 +43,8 @@ func Run(configPath string) error {
 		reviewsRepo domain.ReviewRepository
 	)
 
-	if cfg.Database.URL != "" {
-		db, err := storage.Open(context.Background(), cfg.Database)
+	if dbCfg.URL != "" {
+		db, err := storage.Open(context.Background(), *dbCfg)
 		if err != nil {
 			return fmt.Errorf("open database: %w", err)
 		}

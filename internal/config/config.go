@@ -42,8 +42,7 @@ const (
 )
 
 type Config struct {
-	Server   Server   `yaml:"server"`
-	Database Database `yaml:"database"`
+	Server Server `yaml:"server"`
 }
 
 type Server struct {
@@ -81,13 +80,15 @@ func Default() *Config {
 			ShutdownTimeout: defaultShutdownTimeout,
 			SessionTTL:      defaultSessionTTL,
 		},
+	}
+}
 
-		Database: Database{
-			MaxOpenConns:    defaultMaxOpenConns,
-			MaxIdleConns:    defaultMaxIdleConns,
-			ConnMaxLifetime: defaultConnMaxLifetime,
-			ConnectTimeout:  defaultConnectTimeout,
-		},
+func DefaultDatabase() *Database {
+	return &Database{
+		MaxOpenConns:    defaultMaxOpenConns,
+		MaxIdleConns:    defaultMaxIdleConns,
+		ConnMaxLifetime: defaultConnMaxLifetime,
+		ConnectTimeout:  defaultConnectTimeout,
 	}
 }
 
@@ -117,6 +118,65 @@ func Parse(raw []byte, lookupEnv func(string) (string, bool)) (*Config, error) {
 	return cfg, nil
 }
 
+func LoadDatabase(path string) (*Database, error) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read database config: %w", err)
+	}
+	return ParseDatabase(raw, os.LookupEnv)
+}
+
+func ParseDatabase(raw []byte, lookupEnv func(string) (string, bool)) (*Database, error) {
+	cfg := DefaultDatabase()
+
+	decoder := yaml.NewDecoder(bytes.NewReader(raw))
+	decoder.KnownFields(true)
+	if err := decoder.Decode(cfg); err != nil && !errors.Is(err, io.EOF) {
+		return nil, fmt.Errorf("parse database config: %w", err)
+	}
+
+	if dbURL, ok := lookupEnv(EnvDatabaseURL); ok {
+		cfg.URL = dbURL
+	}
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+	return cfg, nil
+}
+
+// проверяет настройки пула соединений
+func (d *Database) Validate() error {
+	var errs []error
+
+	if d.MaxOpenConns < 1 {
+		errs = append(errs, errors.New("database.max_open_conns must be positive"))
+	}
+
+	if d.MaxIdleConns < 0 || d.MaxIdleConns > d.MaxOpenConns {
+		errs = append(errs, errors.New("database.max_idle_conns must be between 0 and database.max_open_conns"))
+	}
+
+	timeouts := []struct {
+		name  string
+		value time.Duration
+	}{
+		{
+			name:  "database.conn_max_lifetime",
+			value: d.ConnMaxLifetime,
+		},
+		{
+			name:  "database.connect_timeout",
+			value: d.ConnectTimeout,
+		},
+	}
+	for _, t := range timeouts {
+		if t.value <= 0 {
+			errs = append(errs, fmt.Errorf("%s must be positive", t.name))
+		}
+	}
+	return errors.Join(errs...)
+}
+
 func (c *Config) applyEnv(lookupEnv func(string) (string, bool)) error {
 	if host, ok := lookupEnv(EnvServerHost); ok {
 		c.Server.Host = host
@@ -127,10 +187,6 @@ func (c *Config) applyEnv(lookupEnv func(string) (string, bool)) error {
 			return fmt.Errorf("%s must be an integer, got %q", EnvServerPort, rawPort)
 		}
 		c.Server.Port = port
-	}
-
-	if dbURL, ok := lookupEnv(EnvDatabaseURL); ok {
-		c.Database.URL = dbURL
 	}
 	return nil
 }
@@ -148,14 +204,6 @@ func (c *Config) Validate() error {
 
 	if c.Server.Port < MinPort || c.Server.Port > MaxPort {
 		errs = append(errs, fmt.Errorf("server.port must be between %d and %d, got %d", MinPort, MaxPort, c.Server.Port))
-	}
-
-	if c.Database.MaxOpenConns < 1 {
-		errs = append(errs, errors.New("database.max_open_conns must be positive"))
-	}
-
-	if c.Database.MaxIdleConns < 0 || c.Database.MaxIdleConns > c.Database.MaxOpenConns {
-		errs = append(errs, errors.New("database.max_idle_conns must be between 0 and database.max_open_conns"))
 	}
 
 	timeouts := []struct {
@@ -181,14 +229,6 @@ func (c *Config) Validate() error {
 		{
 			name:  "server.session_ttl",
 			value: c.Server.SessionTTL,
-		},
-		{
-			name:  "database.conn_max_lifetime",
-			value: c.Database.ConnMaxLifetime,
-		},
-		{
-			name:  "database.connect_timeout",
-			value: c.Database.ConnectTimeout,
 		},
 	}
 	for _, t := range timeouts {
