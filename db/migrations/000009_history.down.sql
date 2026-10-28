@@ -1,0 +1,11 @@
+DROP TABLE IF EXISTS film_rating_daily;
+DROP TRIGGER IF EXISTS account_write_role_history ON account;
+DROP FUNCTION IF EXISTS write_account_role_history();
+DROP TABLE IF EXISTS account_role_history;
+DROP TRIGGER IF EXISTS review_write_revision ON review;
+DROP FUNCTION IF EXISTS write_review_revision();
+DROP TABLE IF EXISTS review_revision;
+DROP TRIGGER IF EXISTS film_write_revision ON film;
+DROP FUNCTION IF EXISTS write_film_revision();
+DROP TABLE IF EXISTS film_revision;
+DROP FUNCTION IF EXISTS current_account_id();

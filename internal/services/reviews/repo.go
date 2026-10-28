@@ -46,6 +46,7 @@ func (r *InMemoryReviewRepo) Create(_ context.Context, authorID domain.UserID, f
 		Title:            input.Title,
 		Content:          input.Content,
 		ContainsSpoilers: input.ContainsSpoilers,
+		Version:          1,
 		CreatedAt:        now,
 		UpdatedAt:        now,
 	}
@@ -67,7 +68,7 @@ func (r *InMemoryReviewRepo) GetByID(_ context.Context, id domain.ReviewID) (*do
 	return &review, nil
 }
 
-func (r *InMemoryReviewRepo) Update(_ context.Context, id domain.ReviewID, input domain.ReviewInput) (*domain.Review, error) {
+func (r *InMemoryReviewRepo) Update(_ context.Context, id domain.ReviewID, changes domain.ReviewUpdate) (*domain.Review, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -76,9 +77,14 @@ func (r *InMemoryReviewRepo) Update(_ context.Context, id domain.ReviewID, input
 		return nil, domain.ErrReviewNotFound
 	}
 
-	review.Title = input.Title
-	review.Content = input.Content
-	review.ContainsSpoilers = input.ContainsSpoilers
+	if review.Version != changes.Version {
+		return nil, domain.ErrVersionConflict
+	}
+
+	review.Title = changes.Input.Title
+	review.Content = changes.Input.Content
+	review.ContainsSpoilers = changes.Input.ContainsSpoilers
+	review.Version++
 	review.UpdatedAt = time.Now()
 
 	r.byID[id] = review

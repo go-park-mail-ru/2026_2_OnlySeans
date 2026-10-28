@@ -32,8 +32,14 @@ func (uc *UpdateReviewUseCase) Run(ctx context.Context, input UpdateReviewInput)
 	if review.AuthorID != input.UserID {
 		return nil, domain.ErrForbidden
 	}
+	if input.Version <= 0 {
+		return nil, domain.ErrInvalidVersion
+	}
 
-	updated, err := uc.reviews.Update(ctx, input.ReviewID, *changes)
+	updated, err := uc.reviews.Update(ctx, input.ReviewID, domain.ReviewUpdate{
+		Input:   *changes,
+		Version: input.Version,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("update review %d: %w", input.ReviewID, err)
 	}

@@ -97,7 +97,7 @@ func TestInMemoryReviewRepo_Update(t *testing.T) {
 	require.NoError(t, err)
 
 	changes := domain.ReviewInput{Title: "Передумала", Content: validContent + " Ещё раз.", ContainsSpoilers: true}
-	updated, err := repo.Update(ctx, created.ID, changes)
+	updated, err := repo.Update(ctx, created.ID, domain.ReviewUpdate{Input: changes, Version: created.Version})
 	require.NoError(t, err)
 
 	assert.Equal(t, changes.Title, updated.Title)
@@ -117,7 +117,7 @@ func TestInMemoryReviewRepo_Update(t *testing.T) {
 func TestInMemoryReviewRepo_UpdateNotFound(t *testing.T) {
 	repo := reviews.NewInMemoryReviewRepo()
 
-	_, err := repo.Update(context.Background(), 1, validInput())
+	_, err := repo.Update(context.Background(), 1, domain.ReviewUpdate{Input: validInput(), Version: 1})
 	assert.ErrorIs(t, err, domain.ErrReviewNotFound)
 }
 
@@ -251,7 +251,7 @@ func TestInMemoryReviewRepo_ConcurrentAccess(t *testing.T) {
 			if !assert.NoError(t, err) {
 				return
 			}
-			_, err = repo.Update(ctx, review.ID, validInput())
+			_, err = repo.Update(ctx, review.ID, domain.ReviewUpdate{Input: validInput(), Version: review.Version})
 			assert.NoError(t, err)
 			_, _, err = repo.ListByFilm(ctx, 1, 10, 0)
 			assert.NoError(t, err)

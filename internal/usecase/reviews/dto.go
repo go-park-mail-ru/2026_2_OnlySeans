@@ -20,10 +20,11 @@ type UpdateReviewInput struct {
 	UserID   domain.UserID
 	ReviewID domain.ReviewID
 	Review   domain.ReviewInput
+	Version  int
 }
 
-func NewUpdateReviewInput(userID domain.UserID, reviewID domain.ReviewID, review domain.ReviewInput) UpdateReviewInput {
-	return UpdateReviewInput{UserID: userID, ReviewID: reviewID, Review: review}
+func NewUpdateReviewInput(userID domain.UserID, reviewID domain.ReviewID, review domain.ReviewInput, version int) UpdateReviewInput {
+	return UpdateReviewInput{UserID: userID, ReviewID: reviewID, Review: review, Version: version}
 }
 
 type DeleteReviewInput struct {
