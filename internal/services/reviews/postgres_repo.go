@@ -9,13 +9,11 @@ import (
 	"fmt"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/storage"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
 const (
-	uniqueViolation     = "23505" //у автора уже есть отзыв на этот фильм
-	foreignKeyViolation = "23503" //фильма с таким номером нет в базе
-
 	reviewColumns = `id, account_id, film_id, title, content, contains_spoilers, created_at, updated_at` //список колонок отзыва
 
 	createReviewQuery = `
@@ -124,10 +122,10 @@ func (r *PostgresReviewRepo) Create(ctx context.Context, authorID domain.UserID,
 	}
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) {
-		if pgErr.Code == uniqueViolation {
+		if pgErr.Code == storage.UniqueViolation {
 			return nil, domain.ErrReviewExists
 		}
-		if pgErr.Code == foreignKeyViolation && pgErr.ConstraintName == "review_film_id_fkey" {
+		if pgErr.Code == storage.ForeignKeyViolation && pgErr.ConstraintName == "review_film_id_fkey" {
 			return nil, domain.ErrFilmNotFound
 		}
 	}

@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/storage"
 )
 
 const (
@@ -32,8 +33,6 @@ const (
 			FROM account
 			WHERE id = $1 AND deleted_at IS NULL
 		`
-
-	uniqueViolation = "23505" //код когда нарушено ограничение
 )
 
 type PostgresUserRepo struct {
@@ -78,7 +77,7 @@ func (r *PostgresUserRepo) Create(ctx context.Context, email, username, password
 		return id, nil
 	}
 	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) && pgErr.Code == uniqueViolation {
+	if errors.As(err, &pgErr) && pgErr.Code == storage.UniqueViolation {
 		if pgErr.ConstraintName == "account_username_key" {
 			return 0, domain.ErrUsernameTaken
 		}
