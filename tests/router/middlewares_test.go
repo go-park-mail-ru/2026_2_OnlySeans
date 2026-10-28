@@ -12,12 +12,15 @@ import (
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/films"
+	reviewsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/reviews"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/router"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	authservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/auth"
 	filmsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/films"
+	reviewsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/reviews"
 	authusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/auth"
 	filmsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/films"
+	reviewsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/reviews"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -46,7 +49,7 @@ func newTestRouter(t *testing.T) http.Handler {
 	})
 	require.NoError(t, err)
 
-	return router.NewRouter(authHandler, filmsHandler, testOrigin)
+	return router.NewRouter(authHandler, filmsHandler, newTestReviewsHandler(t, filmsRepo), testOrigin)
 }
 
 func newTestAuthHandler(t *testing.T) *auth.Handler {
@@ -73,6 +76,29 @@ func newTestAuthHandler(t *testing.T) *auth.Handler {
 		Logout:       logout,
 		Authenticate: authenticate,
 		GetUser:      getUser,
+	})
+	require.NoError(t, err)
+	return handler
+}
+
+func newTestReviewsHandler(t *testing.T, films domain.FilmRepository) *reviewsdelivery.Handler {
+	t.Helper()
+
+	repo := reviewsservice.NewInMemoryReviewRepo()
+	list, err := reviewsusecase.NewListReviewsUseCase(repo, films)
+	require.NoError(t, err)
+	create, err := reviewsusecase.NewCreateReviewUseCase(repo, films)
+	require.NoError(t, err)
+	update, err := reviewsusecase.NewUpdateReviewUseCase(repo)
+	require.NoError(t, err)
+	del, err := reviewsusecase.NewDeleteReviewUseCase(repo)
+	require.NoError(t, err)
+
+	handler, err := reviewsdelivery.NewHandler(reviewsdelivery.HandlerUseCases{
+		List:   list,
+		Create: create,
+		Update: update,
+		Delete: del,
 	})
 	require.NoError(t, err)
 	return handler

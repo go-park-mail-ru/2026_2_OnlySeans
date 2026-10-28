@@ -1,9 +1,9 @@
 openapi: 3.0.3
 info:
   title: API OnlySeans
-  version: 1.3.0
+  version: 1.4.0
   description: |-
-    API OnlySeans: регистрация, вход, выход, проверка авторизации, фильмы и подборки фильмов.
+    API OnlySeans: регистрация, вход, выход, проверка авторизации, фильмы, подборки фильмов и отзывы.
     Сессия хранится в cookie session_id. Данные пока лежат в памяти сервера.
 servers:
   - url: http://localhost:8080
@@ -12,6 +12,7 @@ tags:
   - name: Авторизация
   - name: Фильмы
   - name: Подборки
+  - name: Отзывы
 security: []
 x-cors:
   allowed-origin: http://localhost:3000
@@ -19,6 +20,8 @@ x-cors:
   allow-methods:
     - GET
     - POST
+    - PUT
+    - DELETE
     - OPTIONS
   allow-headers:
     - Content-Type
@@ -298,6 +301,163 @@ paths:
           $ref: '#/components/responses/InvalidCollectionRequest'
         '404':
           $ref: '#/components/responses/CollectionNotFound'
+        '405':
+          $ref: '#/components/responses/RouteMethodNotAllowed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/films/{id}/reviews:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: Числовой id фильма.
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+        example: 1
+    get:
+      tags:
+        - Отзывы
+      operationId: listFilmReviews
+      summary: Отзывы на фильм
+      description: |-
+        Возвращает страницу отзывов на фильм. Вход не нужен.
+        Отзывы идут от новых к старым. Пагинация через limit и offset, total — общее число отзывов фильма.
+        Если отзывов нет или offset больше их количества, вернётся пустой массив reviews (не null).
+        Id не число или не больше нуля — 400, фильм не найден — 404.
+      x-implementation-status: implemented
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: Страница отзывов.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewsResponse'
+        '400':
+          $ref: '#/components/responses/InvalidReviewsRequest'
+        '404':
+          $ref: '#/components/responses/FilmNotFound'
+        '405':
+          $ref: '#/components/responses/RouteMethodNotAllowed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags:
+        - Отзывы
+      operationId: createFilmReview
+      summary: Написать отзыв
+      description: |-
+        Требует действующую сессию. Автор отзыва берётся из сессии, передать его в теле нельзя.
+        Один пользователь может оставить на фильм только один отзыв, повторная попытка — 409.
+        Пробелы в начале и конце title и content обрезаются до проверки длины.
+        Длина считается в символах, а не в байтах: кириллица проверяется так же, как латиница.
+        Тело не больше 1 МБ, неизвестные поля в JSON запрещены.
+        Отзыв публикуется сразу, модерации пока нет.
+      x-implementation-status: implemented
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewInput'
+      responses:
+        '201':
+          description: Отзыв создан.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewResponse'
+        '400':
+          $ref: '#/components/responses/InvalidReview'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/FilmNotFound'
+        '405':
+          $ref: '#/components/responses/RouteMethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/ReviewConflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/reviews/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: Числовой id отзыва.
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+        example: 1
+    put:
+      tags:
+        - Отзывы
+      operationId: updateReview
+      summary: Изменить отзыв
+      description: |-
+        Требует действующую сессию. Менять можно только свой отзыв, чужой — 403.
+        Заменяет все три поля: title, content и contains_spoilers. Если contains_spoilers не передан,
+        он станет false. Автор, фильм и created_at не меняются, updated_at обновляется.
+        Правила проверки полей те же, что при создании.
+      x-implementation-status: implemented
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewInput'
+      responses:
+        '200':
+          description: Отзыв после изменения.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewResponse'
+        '400':
+          $ref: '#/components/responses/InvalidReview'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/ReviewForbidden'
+        '404':
+          $ref: '#/components/responses/ReviewNotFound'
+        '405':
+          $ref: '#/components/responses/RouteMethodNotAllowed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      tags:
+        - Отзывы
+      operationId: deleteReview
+      summary: Удалить отзыв
+      description: |-
+        Требует действующую сессию. Удалять можно только свой отзыв, чужой — 403.
+        После удаления автор может снова написать отзыв на этот фильм.
+        Тело запроса не читается.
+      x-implementation-status: implemented
+      security:
+        - sessionCookie: []
+      responses:
+        '204':
+          description: Отзыв удалён. Без тела.
+        '400':
+          $ref: '#/components/responses/InvalidReviewId'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/ReviewForbidden'
+        '404':
+          $ref: '#/components/responses/ReviewNotFound'
         '405':
           $ref: '#/components/responses/RouteMethodNotAllowed'
         '500':
@@ -682,6 +842,115 @@ components:
         total: 4
         limit: 1
         offset: 0
+    ReviewInput:
+      type: object
+      additionalProperties: false
+      properties:
+        title:
+          type: string
+          minLength: 3
+          maxLength: 255
+          description: Заголовок, 3–255 символов после обрезки пробелов.
+        content:
+          type: string
+          minLength: 50
+          maxLength: 20000
+          description: Текст отзыва, 50–20000 символов после обрезки пробелов.
+        contains_spoilers:
+          type: boolean
+          default: false
+          description: Есть ли в тексте спойлеры. Фронтенд может прятать такой текст.
+      required:
+        - title
+        - content
+      example:
+        title: Отлично
+        content: Посмотрела фильм два раза, и второй раз понравился даже больше первого.
+        contains_spoilers: false
+    Review:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        author_id:
+          type: integer
+          format: int64
+          description: Id пользователя, написавшего отзыв.
+        film_id:
+          type: integer
+          format: int64
+        title:
+          type: string
+        content:
+          type: string
+        contains_spoilers:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+          description: Совпадает с created_at, пока отзыв не меняли.
+      required:
+        - id
+        - author_id
+        - film_id
+        - title
+        - content
+        - contains_spoilers
+        - created_at
+        - updated_at
+    ReviewResponse:
+      type: object
+      properties:
+        review:
+          $ref: '#/components/schemas/Review'
+      required:
+        - review
+      example:
+        review:
+          id: 1
+          author_id: 1
+          film_id: 1
+          title: Отлично
+          content: Посмотрела фильм два раза, и второй раз понравился даже больше первого.
+          contains_spoilers: false
+          created_at: '2026-10-19T14:02:11Z'
+          updated_at: '2026-10-19T14:02:11Z'
+    ReviewsResponse:
+      type: object
+      properties:
+        reviews:
+          type: array
+          items:
+            $ref: '#/components/schemas/Review'
+        total:
+          type: integer
+          description: Сколько всего отзывов у фильма.
+        limit:
+          type: integer
+        offset:
+          type: integer
+      required:
+        - reviews
+        - total
+        - limit
+        - offset
+      example:
+        reviews:
+          - id: 1
+            author_id: 1
+            film_id: 1
+            title: Отлично
+            content: Посмотрела фильм два раза, и второй раз понравился даже больше первого.
+            contains_spoilers: false
+            created_at: '2026-10-19T14:02:11Z'
+            updated_at: '2026-10-19T14:02:11Z'
+        total: 1
+        limit: 20
+        offset: 0
   responses:
     BadBody:
       description: |-
@@ -785,3 +1054,85 @@ components:
             $ref: '#/components/schemas/Error'
           example:
             error: collection not found
+    InvalidReviewsRequest:
+      description: Неверный id фильма, limit или offset.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            invalidId:
+              summary: id не число или не больше нуля
+              value:
+                error: id must be a positive integer
+            invalidLimit:
+              summary: limit не число, меньше 1 или больше 100
+              value:
+                error: 'limit must be an integer from 1 to 100'
+            invalidOffset:
+              summary: offset не число или отрицательный
+              value:
+                error: offset must be a non-negative integer
+    InvalidReview:
+      description: Неверный id в пути, тело не JSON или поля отзыва не прошли проверку.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            invalidId:
+              summary: id не число или не больше нуля
+              value:
+                error: id must be a positive integer
+            invalidBody:
+              summary: не JSON, неизвестное поле, неверный тип поля или тело больше 1 МБ
+              value:
+                error: invalid request body
+            shortTitle:
+              summary: заголовок короче 3 символов
+              value:
+                error: 'title must be from 3 to 255 characters'
+            longTitle:
+              summary: заголовок длиннее 255 символов
+              value:
+                error: 'title must be from 3 to 255 characters'
+            shortContent:
+              summary: текст короче 50 символов
+              value:
+                error: 'content must be from 50 to 20000 characters'
+            longContent:
+              summary: текст длиннее 20000 символов
+              value:
+                error: 'content must be from 50 to 20000 characters'
+    InvalidReviewId:
+      description: Id отзыва не число или не больше нуля.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: id must be a positive integer
+    ReviewForbidden:
+      description: Отзыв написал другой пользователь.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: access forbidden
+    ReviewNotFound:
+      description: Отзыв не найден или уже удалён.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: review not found
+    ReviewConflict:
+      description: Пользователь уже оставил отзыв на этот фильм.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: review already exists
