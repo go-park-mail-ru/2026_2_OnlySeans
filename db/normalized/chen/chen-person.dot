@@ -1,0 +1,29 @@
+digraph chen {
+    graph [rankdir=TB, fontname="Arial", fontsize=11, splines=true,
+           nodesep=0.35, ranksep=0.55, label="Нотация Чена: тернарная связь фильм -- персона -- профессия", labelloc=t, fontcolor=black];
+    node  [fontname="Arial", fontsize=10, color=black, fontcolor=black];
+    edge  [fontname="Arial", fontsize=9, color=black, fontcolor=black, arrowhead=none];
+    "film" [shape=box, peripheries=1, style=bold, width=1.4, height=0.45];
+    "person" [shape=box, peripheries=1, style=bold, width=1.4, height=0.45];
+    "role_type" [shape=box, peripheries=1, style=bold, width=1.4, height=0.45];
+    "участие" [shape=diamond, peripheries=1, width=1.5, height=0.8, fixedsize=false];
+    "участие" -> "film" [label="M"];
+    "участие" -> "person" [label="N"];
+    "участие" -> "role_type" [label="P"];
+    "fp_char" [shape=ellipse, label="character_name", width=0.9, height=0.35, fontsize=9];
+    "участие" -> "fp_char";
+    "pr_id" [shape=ellipse, label=<<u>id</u>>, width=0.9, height=0.35, fontsize=9];
+    "person" -> "pr_id";
+    "pr_first" [shape=ellipse, label="first_name", width=0.9, height=0.35, fontsize=9];
+    "person" -> "pr_first";
+    "pr_last" [shape=ellipse, label="last_name", width=0.9, height=0.35, fontsize=9];
+    "person" -> "pr_last";
+    "pr_birth" [shape=ellipse, label="birth_date", width=0.9, height=0.35, fontsize=9];
+    "person" -> "pr_birth";
+    "pr_photo" [shape=ellipse, label="photo_file_id", width=0.9, height=0.35, fontsize=9];
+    "person" -> "pr_photo";
+    "rt_code" [shape=ellipse, label=<<u>code</u>>, width=0.9, height=0.35, fontsize=9];
+    "role_type" -> "rt_code";
+    "rt_title" [shape=ellipse, label=<<u>title</u>>, width=0.9, height=0.35, fontsize=9];
+    "role_type" -> "rt_title";
+}

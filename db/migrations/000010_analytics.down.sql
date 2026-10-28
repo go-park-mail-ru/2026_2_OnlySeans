@@ -1,0 +1,7 @@
+DROP TABLE IF EXISTS search_query;
+DROP TABLE IF EXISTS analytic_event;
+DROP TABLE IF EXISTS visit;
+DROP TABLE IF EXISTS event_type;
+DROP TABLE IF EXISTS page;
+DROP TABLE IF EXISTS traffic_source;
+DROP TABLE IF EXISTS visitor;
