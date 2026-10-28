@@ -16,29 +16,50 @@ import (
 	filmsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/films"
 	reviewsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/reviews"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/router"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	authservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/auth"
 	filmsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/films"
 	reviewsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/reviews"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/storage"
 	authusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/auth"
 	filmsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/films"
 	reviewsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/reviews"
 )
 
-func Run(configPath string) error {
+func Run(configPath, databaseConfigPath string) error {
 	cfg, err := config.Load(configPath)
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
 
-	useRepo := authservice.NewInMemoryUserRepo()
+	dbCfg, err := config.LoadDatabase(databaseConfigPath)
+	if err != nil {
+		return fmt.Errorf("load database config: %w", err)
+	}
+
+	if dbCfg.URL == "" {
+		return fmt.Errorf("%s is required", config.EnvDatabaseURL)
+	}
+
+	var (
+		useRepo     domain.UserRepository
+		filmsRepo   domain.FilmsRepository
+		reviewsRepo domain.ReviewRepository
+	)
+
+	db, err := storage.Open(context.Background(), *dbCfg)
+	if err != nil {
+		return fmt.Errorf("open database: %w", err)
+	}
+	defer db.Close()
+
+	useRepo = authservice.NewPostgresUserRepo(db)
+	filmsRepo = filmsservice.NewPostgresService(db)
+	reviewsRepo = reviewsservice.NewPostgresReviewRepo(db)
+
 	sessions := authservice.NewInMemorySessionStore(cfg.Server.SessionTTL)
 
 	passwordService := authservice.BcryptPasswordService{}
-
-	filmsRepo, err := filmsservice.NewSeededService()
-	if err != nil {
-		return fmt.Errorf("seed films: %w", err)
-	}
 
 	registerUC, err := authusecase.NewRegisterUserUseCase(useRepo, sessions, passwordService)
 	if err != nil {
@@ -105,8 +126,6 @@ func Run(configPath string) error {
 	if err != nil {
 		return fmt.Errorf("create films handler: %w", err)
 	}
-
-	reviewsRepo := reviewsservice.NewInMemoryReviewRepo()
 
 	listReviewsUC, err := reviewsusecase.NewListReviewsUseCase(reviewsRepo, filmsRepo)
 	if err != nil {

@@ -15,8 +15,9 @@ import (
 )
 
 const (
-	EnvServerHost = "SERVER_HOST"
-	EnvServerPort = "SERVER_PORT"
+	EnvServerHost  = "SERVER_HOST"
+	EnvServerPort  = "SERVER_PORT"
+	EnvDatabaseURL = "DATABASE_URL"
 )
 
 const (
@@ -33,6 +34,11 @@ const (
 	defaultShutdownTimeout = 10 * time.Second
 	defaultSessionTTL      = 24 * time.Hour
 	defaultAllowedOrigin   = "http://localhost:3000"
+
+	defaultMaxOpenConns    = 10               //максимум соединений с базой
+	defaultMaxIdleConns    = 5                //сколько из них откытыми прозапас когда запросов нет
+	defaultConnMaxLifetime = 30 * time.Minute //через сколько пересоздавать соединение чтобы зависшие не копились
+	defaultConnectTimeout  = 5 * time.Second  //сколько ждать продключения при запуске
 )
 
 type Config struct {
@@ -48,6 +54,14 @@ type Server struct {
 	IdleTimeout     time.Duration `yaml:"idle_timeout"`
 	ShutdownTimeout time.Duration `yaml:"shutdown_timeout"`
 	SessionTTL      time.Duration `yaml:"session_ttl"`
+}
+
+type Database struct {
+	URL             string        `yaml:"url"`
+	MaxOpenConns    int           `yaml:"max_open_conns"`
+	MaxIdleConns    int           `yaml:"max_idle_conns"`
+	ConnMaxLifetime time.Duration `yaml:"conn_max_lifetime"`
+	ConnectTimeout  time.Duration `yaml:"connect_timeout"`
 }
 
 func (s *Server) Addr() string {
@@ -66,6 +80,15 @@ func Default() *Config {
 			ShutdownTimeout: defaultShutdownTimeout,
 			SessionTTL:      defaultSessionTTL,
 		},
+	}
+}
+
+func DefaultDatabase() *Database {
+	return &Database{
+		MaxOpenConns:    defaultMaxOpenConns,
+		MaxIdleConns:    defaultMaxIdleConns,
+		ConnMaxLifetime: defaultConnMaxLifetime,
+		ConnectTimeout:  defaultConnectTimeout,
 	}
 }
 
@@ -93,6 +116,65 @@ func Parse(raw []byte, lookupEnv func(string) (string, bool)) (*Config, error) {
 		return nil, err
 	}
 	return cfg, nil
+}
+
+func LoadDatabase(path string) (*Database, error) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read database config: %w", err)
+	}
+	return ParseDatabase(raw, os.LookupEnv)
+}
+
+func ParseDatabase(raw []byte, lookupEnv func(string) (string, bool)) (*Database, error) {
+	cfg := DefaultDatabase()
+
+	decoder := yaml.NewDecoder(bytes.NewReader(raw))
+	decoder.KnownFields(true)
+	if err := decoder.Decode(cfg); err != nil && !errors.Is(err, io.EOF) {
+		return nil, fmt.Errorf("parse database config: %w", err)
+	}
+
+	if dbURL, ok := lookupEnv(EnvDatabaseURL); ok {
+		cfg.URL = dbURL
+	}
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+	return cfg, nil
+}
+
+// проверяет настройки пула соединений
+func (d *Database) Validate() error {
+	var errs []error
+
+	if d.MaxOpenConns < 1 {
+		errs = append(errs, errors.New("database.max_open_conns must be positive"))
+	}
+
+	if d.MaxIdleConns < 0 || d.MaxIdleConns > d.MaxOpenConns {
+		errs = append(errs, errors.New("database.max_idle_conns must be between 0 and database.max_open_conns"))
+	}
+
+	timeouts := []struct {
+		name  string
+		value time.Duration
+	}{
+		{
+			name:  "database.conn_max_lifetime",
+			value: d.ConnMaxLifetime,
+		},
+		{
+			name:  "database.connect_timeout",
+			value: d.ConnectTimeout,
+		},
+	}
+	for _, t := range timeouts {
+		if t.value <= 0 {
+			errs = append(errs, fmt.Errorf("%s must be positive", t.name))
+		}
+	}
+	return errors.Join(errs...)
 }
 
 func (c *Config) applyEnv(lookupEnv func(string) (string, bool)) error {
