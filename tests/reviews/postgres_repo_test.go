@@ -20,7 +20,7 @@ var reviewColumns = []string{"id", "account_id", "film_id", "title", "content",
 
 // newPostgresReviewRepo возвращает хранилище поверх поддельной базы и саму подделку.
 // В конце теста проверяется, что все ожидаемые запросы были отправлены.
-func newPostgresReviewRepo(t *testing.T) (*reviews.PostgresReviewRepo, sqlmock.Sqlmock) {
+func newPostgresReviewRepo(t *testing.T) (domain.ReviewRepository, sqlmock.Sqlmock) {
 	t.Helper()
 
 	db, mock, err := sqlmock.New()
@@ -163,13 +163,13 @@ func TestPostgresReviewRepo_GetAndUpdateErrors(t *testing.T) {
 
 	calls := map[string]struct {
 		query string
-		call  func(*reviews.PostgresReviewRepo) error
+		call  func(domain.ReviewRepository) error
 	}{
-		"GetByID": {`SELECT .+ FROM review`, func(repo *reviews.PostgresReviewRepo) error {
+		"GetByID": {`SELECT .+ FROM review`, func(repo domain.ReviewRepository) error {
 			_, err := repo.GetByID(context.Background(), 5)
 			return err
 		}},
-		"Update": {`UPDATE review SET title`, func(repo *reviews.PostgresReviewRepo) error {
+		"Update": {`UPDATE review SET title`, func(repo domain.ReviewRepository) error {
 			_, err := repo.Update(context.Background(), 5, validInput())
 			return err
 		}},

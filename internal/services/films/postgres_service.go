@@ -82,7 +82,7 @@ type PostgresService struct {
 	db *sql.DB
 }
 
-func NewPostgresService(db *sql.DB) *PostgresService {
+func NewPostgresService(db *sql.DB) domain.FilmsRepository {
 	return &PostgresService{db: db}
 }
 

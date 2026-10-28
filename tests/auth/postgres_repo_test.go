@@ -19,7 +19,7 @@ var errConnLost = errors.New("connection lost")
 // newPostgresUserRepo возвращает хранилище поверх поддельной базы и саму подделку,
 // через которую тест задаёт ответы базы. В конце теста проверяется,
 // что все ожидаемые запросы действительно были отправлены.
-func newPostgresUserRepo(t *testing.T) (*auth.PostgresUserRepo, sqlmock.Sqlmock) {
+func newPostgresUserRepo(t *testing.T) (domain.UserRepository, sqlmock.Sqlmock) {
 	t.Helper()
 
 	db, mock, err := sqlmock.New()
@@ -134,12 +134,12 @@ func TestPostgresUserRepo_GetErrors(t *testing.T) {
 		{"база недоступна", nil, errConnLost, errConnLost},
 	}
 
-	getters := map[string]func(*auth.PostgresUserRepo) error{
-		"GetByEmail": func(repo *auth.PostgresUserRepo) error {
+	getters := map[string]func(domain.UserRepository) error{
+		"GetByEmail": func(repo domain.UserRepository) error {
 			_, err := repo.GetByEmail(context.Background(), "anna@example.com")
 			return err
 		},
-		"GetUser": func(repo *auth.PostgresUserRepo) error {
+		"GetUser": func(repo domain.UserRepository) error {
 			_, err := repo.GetUser(context.Background(), 7)
 			return err
 		},

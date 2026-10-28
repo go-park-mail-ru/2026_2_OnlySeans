@@ -43,7 +43,7 @@ func Run(configPath, databaseConfigPath string) error {
 
 	var (
 		useRepo     domain.UserRepository
-		filmsRepo   filmsservice.Service
+		filmsRepo   domain.FilmsRepository
 		reviewsRepo domain.ReviewRepository
 	)
 

@@ -54,7 +54,7 @@ type PostgresReviewRepo struct {
 	db *sql.DB
 }
 
-func NewPostgresReviewRepo(db *sql.DB) *PostgresReviewRepo {
+func NewPostgresReviewRepo(db *sql.DB) domain.ReviewRepository {
 	return &PostgresReviewRepo{db: db}
 }
 

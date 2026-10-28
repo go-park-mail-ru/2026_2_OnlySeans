@@ -39,7 +39,7 @@ type PostgresUserRepo struct {
 	db *sql.DB //пул соединений
 }
 
-func NewPostgresUserRepo(db *sql.DB) *PostgresUserRepo {
+func NewPostgresUserRepo(db *sql.DB) domain.UserRepository {
 	return &PostgresUserRepo{db: db}
 }
 
