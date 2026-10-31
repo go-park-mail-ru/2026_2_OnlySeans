@@ -60,7 +60,7 @@ func Run(configPath, databaseConfigPath, redisConfigPath string) error {
 
 	redisCfg, err := config.LoadRedis(redisConfigPath)
 	if err != nil {
-		return fmt.Errorf("load config: %w", err)
+		return fmt.Errorf("load redis config: %w", err)
 	}
 
 	newClient, err := redis.NewClientWithPing(context.Background(), redisCfg.URL)
