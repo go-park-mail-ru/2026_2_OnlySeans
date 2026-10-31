@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/pkg/utils"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/utils"
 )
 
 type UserID int

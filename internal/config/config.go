@@ -18,6 +18,7 @@ const (
 	EnvServerHost  = "SERVER_HOST"
 	EnvServerPort  = "SERVER_PORT"
 	EnvDatabaseURL = "DATABASE_URL"
+	EnvRedisURL    = "REDIS_URL"
 )
 
 const (
@@ -39,6 +40,8 @@ const (
 	defaultMaxIdleConns    = 5                //сколько из них откытыми прозапас когда запросов нет
 	defaultConnMaxLifetime = 30 * time.Minute //через сколько пересоздавать соединение чтобы зависшие не копились
 	defaultConnectTimeout  = 5 * time.Second  //сколько ждать продключения при запуске
+
+	defaultRedisURL = "redis://localhost:6379"
 )
 
 type Config struct {
@@ -62,6 +65,10 @@ type Database struct {
 	MaxIdleConns    int           `yaml:"max_idle_conns"`
 	ConnMaxLifetime time.Duration `yaml:"conn_max_lifetime"`
 	ConnectTimeout  time.Duration `yaml:"connect_timeout"`
+}
+
+type Redis struct {
+	URL string `yaml:"url"`
 }
 
 func (s *Server) Addr() string {
@@ -92,21 +99,27 @@ func DefaultDatabase() *Database {
 	}
 }
 
+func DefaultRedis() *Redis {
+	return &Redis{URL: defaultRedisURL}
+}
+
 func Load(path string) (*Config, error) {
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("read config: %w", err)
-	}
-	return Parse(raw, os.LookupEnv)
+	return loadFile(path, "config", Parse)
+}
+
+func LoadDatabase(path string) (*Database, error) {
+	return loadFile(path, "database config", ParseDatabase)
+}
+
+func LoadRedis(path string) (*Redis, error) {
+	return loadFile(path, "redis config", ParseRedis)
 }
 
 func Parse(raw []byte, lookupEnv func(string) (string, bool)) (*Config, error) {
 	cfg := Default()
 
-	decoder := yaml.NewDecoder(bytes.NewReader(raw))
-	decoder.KnownFields(true)
-	if err := decoder.Decode(cfg); err != nil && !errors.Is(err, io.EOF) {
-		return nil, fmt.Errorf("parse config: %w", err)
+	if err := decodeStrict(raw, cfg, "config"); err != nil {
+		return nil, err
 	}
 
 	if err := cfg.applyEnv(lookupEnv); err != nil {
@@ -118,25 +131,31 @@ func Parse(raw []byte, lookupEnv func(string) (string, bool)) (*Config, error) {
 	return cfg, nil
 }
 
-func LoadDatabase(path string) (*Database, error) {
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("read database config: %w", err)
-	}
-	return ParseDatabase(raw, os.LookupEnv)
-}
-
 func ParseDatabase(raw []byte, lookupEnv func(string) (string, bool)) (*Database, error) {
 	cfg := DefaultDatabase()
 
-	decoder := yaml.NewDecoder(bytes.NewReader(raw))
-	decoder.KnownFields(true)
-	if err := decoder.Decode(cfg); err != nil && !errors.Is(err, io.EOF) {
-		return nil, fmt.Errorf("parse database config: %w", err)
+	if err := decodeStrict(raw, cfg, "database config"); err != nil {
+		return nil, err
 	}
 
 	if dbURL, ok := lookupEnv(EnvDatabaseURL); ok {
 		cfg.URL = dbURL
+	}
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+	return cfg, nil
+}
+
+func ParseRedis(raw []byte, lookupEnv func(string) (string, bool)) (*Redis, error) {
+	cfg := DefaultRedis()
+
+	if err := decodeStrict(raw, cfg, "redis config"); err != nil {
+		return nil, err
+	}
+
+	if redisURL, ok := lookupEnv(EnvRedisURL); ok {
+		cfg.URL = redisURL
 	}
 	if err := cfg.Validate(); err != nil {
 		return nil, err
@@ -175,6 +194,13 @@ func (d *Database) Validate() error {
 		}
 	}
 	return errors.Join(errs...)
+}
+
+func (r *Redis) Validate() error {
+	if strings.TrimSpace(r.URL) == "" {
+		return errors.New("redis.url is required")
+	}
+	return nil
 }
 
 func (c *Config) applyEnv(lookupEnv func(string) (string, bool)) error {
@@ -238,4 +264,24 @@ func (c *Config) Validate() error {
 	}
 
 	return errors.Join(errs...)
+}
+
+func loadFile[T any](
+	path, name string,
+	parse func(raw []byte, lookupEnv func(string) (string, bool)) (*T, error),
+) (*T, error) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", name, err)
+	}
+	return parse(raw, os.LookupEnv)
+}
+
+func decodeStrict(raw []byte, dst any, name string) error {
+	decoder := yaml.NewDecoder(bytes.NewReader(raw))
+	decoder.KnownFields(true)
+	if err := decoder.Decode(dst); err != nil && !errors.Is(err, io.EOF) {
+		return fmt.Errorf("parse %s: %w", name, err)
+	}
+	return nil
 }

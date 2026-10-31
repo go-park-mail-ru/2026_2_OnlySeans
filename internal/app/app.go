@@ -24,9 +24,10 @@ import (
 	authusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/auth"
 	filmsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/films"
 	reviewsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/reviews"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/redis"
 )
 
-func Run(configPath, databaseConfigPath string) error {
+func Run(configPath, databaseConfigPath, redisConfigPath string) error {
 	cfg, err := config.Load(configPath)
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
@@ -57,7 +58,19 @@ func Run(configPath, databaseConfigPath string) error {
 	filmsRepo = filmsservice.NewPostgresService(db)
 	reviewsRepo = reviewsservice.NewPostgresReviewRepo(db)
 
-	sessions := authservice.NewInMemorySessionStore(cfg.Server.SessionTTL)
+	redisCfg, err := config.LoadRedis(redisConfigPath)
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+
+	newClient, err := redis.NewClientWithPing(context.Background(), redisCfg.URL)
+	if err != nil {
+		return fmt.Errorf("connect redis: %w", err)
+	}
+
+	defer newClient.Close()
+
+	sessions := authservice.NewRedisSessionStore(newClient, cfg.Server.SessionTTL)
 
 	passwordService := authservice.BcryptPasswordService{}
 

@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/pkg/utils"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/utils"
 )
 
 func TestValidateEmail(t *testing.T) {

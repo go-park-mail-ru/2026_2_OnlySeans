@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/pkg/utils"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/utils"
 )
 
 type LoginUserUseCase struct {
