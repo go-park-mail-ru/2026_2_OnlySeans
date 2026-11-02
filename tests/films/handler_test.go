@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"io"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -18,6 +16,7 @@ import (
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	filmsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/films"
 	filmsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/films"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 )
 
 var errStorage = errors.New("storage is down")
@@ -99,6 +98,20 @@ func responseFilmIDs(films []filmResponseDTO) []domain.FilmID {
 	return ids
 }
 
+// Тестовый логгер для всех тестов пакета films_test.
+type filmsTestLogger struct{}
+
+func (l *filmsTestLogger) Info(string, map[string]any)  {}
+func (l *filmsTestLogger) Debug(string, map[string]any) {}
+func (l *filmsTestLogger) Warn(string, map[string]any)  {}
+func (l *filmsTestLogger) Error(string, map[string]any) {}
+
+var _ logger.Logger = (*filmsTestLogger)(nil)
+
+func newFilmsTestLogger() logger.Logger {
+	return &filmsTestLogger{}
+}
+
 type brokenService struct {
 	failCollectionFilms bool
 }
@@ -140,27 +153,32 @@ func (b brokenService) ListCollectionFilms(context.Context, domain.CollectionID,
 func newTestRouter(t testing.TB, service filmsservice.Service) *mux.Router {
 	t.Helper()
 
-	listFilms, err := filmsusecase.NewListFilmsUseCase(service)
+	listFilms, err := filmsusecase.NewListFilmsUseCase(service, newFilmsTestLogger())
 	if err != nil {
 		t.Fatalf("NewListFilmsUseCase: %v", err)
 	}
-	getFilm, err := filmsusecase.NewGetFilmUseCase(service)
+
+	getFilm, err := filmsusecase.NewGetFilmUseCase(service, newFilmsTestLogger())
 	if err != nil {
 		t.Fatalf("NewGetFilmUseCase: %v", err)
 	}
-	listCollections, err := filmsusecase.NewListCollectionsUseCase(service)
+
+	listCollections, err := filmsusecase.NewListCollectionsUseCase(service, newFilmsTestLogger())
 	if err != nil {
 		t.Fatalf("NewListCollectionsUseCase: %v", err)
 	}
-	getCollection, err := filmsusecase.NewGetCollectionUseCase(service)
+
+	getCollection, err := filmsusecase.NewGetCollectionUseCase(service, newFilmsTestLogger())
 	if err != nil {
 		t.Fatalf("NewGetCollectionUseCase: %v", err)
 	}
+
 	h, err := films.NewHandler(films.HandlerUseCases{
 		ListFilms:       listFilms,
 		GetFilm:         getFilm,
 		ListCollections: listCollections,
 		GetCollection:   getCollection,
+		AppLogger:       newFilmsTestLogger(),
 	})
 	if err != nil {
 		t.Fatalf("NewHandler: %v", err)
@@ -183,6 +201,7 @@ func newSeededRouter(t *testing.T) *mux.Router {
 	if err != nil {
 		t.Fatalf("NewSeededService: %v", err)
 	}
+
 	return newTestRouter(t, service)
 }
 
@@ -199,6 +218,7 @@ func decode[T any](t *testing.T, rec *httptest.ResponseRecorder) T {
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 		t.Fatalf("invalid JSON %q: %v", rec.Body.String(), err)
 	}
+
 	return body
 }
 
@@ -209,14 +229,6 @@ func assertErrorBody(t *testing.T, rec *httptest.ResponseRecorder, want error) {
 	if !strings.HasPrefix(got, want.Error()) {
 		t.Errorf("error = %q, want prefix %q", got, want.Error())
 	}
-}
-
-func silenceLog(t *testing.T) {
-	t.Helper()
-
-	previous := log.Writer()
-	log.SetOutput(io.Discard)
-	t.Cleanup(func() { log.SetOutput(previous) })
 }
 
 func TestHandler_ListFilms(t *testing.T) {
@@ -288,9 +300,11 @@ func TestHandler_ListFilms(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			rec := serve(router, http.MethodGet, tt.target)
+
 			if rec.Code != tt.wantStatus {
 				t.Fatalf("status = %d, want %d (body: %s)", rec.Code, tt.wantStatus, rec.Body)
 			}
+
 			if !strings.HasPrefix(rec.Header().Get("Content-Type"), "application/json") {
 				t.Errorf("Content-Type = %q", rec.Header().Get("Content-Type"))
 			}
@@ -301,12 +315,15 @@ func TestHandler_ListFilms(t *testing.T) {
 			}
 
 			page := decode[filmsPage](t, rec)
+
 			if page.Films == nil {
 				t.Fatal("films must be an array, not null")
 			}
+
 			if got := responseFilmIDs(page.Films); !slices.Equal(got, tt.wantIDs) {
 				t.Errorf("ids = %v, want %v", got, tt.wantIDs)
 			}
+
 			if page.Total != seedFilmCount {
 				t.Errorf("total = %d, want %d", page.Total, seedFilmCount)
 			}
@@ -365,6 +382,7 @@ func TestHandler_GetFilm(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			rec := serve(router, http.MethodGet, tt.target)
+
 			if rec.Code != tt.wantStatus {
 				t.Fatalf("status = %d, want %d (body: %s)", rec.Code, tt.wantStatus, rec.Body)
 			}
@@ -375,6 +393,7 @@ func TestHandler_GetFilm(t *testing.T) {
 			}
 
 			film := decode[filmResponse](t, rec).Film
+
 			if film.ID != tt.wantID || film.Title == "" || len(film.Genres) == 0 {
 				t.Errorf("film = %+v", film)
 			}
@@ -437,6 +456,7 @@ func TestHandler_ListCollections(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			rec := serve(router, http.MethodGet, tt.target)
+
 			if rec.Code != tt.wantStatus {
 				t.Fatalf("status = %d, want %d (body: %s)", rec.Code, tt.wantStatus, rec.Body)
 			}
@@ -447,17 +467,22 @@ func TestHandler_ListCollections(t *testing.T) {
 			}
 
 			page := decode[collectionsPage](t, rec)
+
 			if page.Collections == nil {
 				t.Fatal("collections must be an array, not null")
 			}
+
 			if page.Total != len(seedCollectionFilms) {
 				t.Errorf("total = %d, want %d", page.Total, len(seedCollectionFilms))
 			}
+
 			if len(page.Collections) != tt.wantCount {
 				t.Fatalf("got %d collections, want %d", len(page.Collections), tt.wantCount)
 			}
+
 			for i, collection := range page.Collections {
 				want := seedCollectionFilms[tt.wantFirst+i]
+
 				if collection.ID != domain.CollectionID(tt.wantFirst+i+1) || collection.Slug != want.slug {
 					t.Errorf("collection %d = %d %q, want %q", i, collection.ID, collection.Slug, want.slug)
 				}
@@ -535,6 +560,7 @@ func TestHandler_GetCollection(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			rec := serve(router, http.MethodGet, tt.target)
+
 			if rec.Code != tt.wantStatus {
 				t.Fatalf("status = %d, want %d (body: %s)", rec.Code, tt.wantStatus, rec.Body)
 			}
@@ -545,15 +571,19 @@ func TestHandler_GetCollection(t *testing.T) {
 			}
 
 			page := decode[collectionPage](t, rec)
+
 			if page.Collection.ID != 2 || page.Collection.Slug != "family" || page.Collection.Title == "" {
 				t.Errorf("collection = %+v", page.Collection)
 			}
+
 			if page.Collection.Films == nil {
 				t.Fatal("films must be an array, not null")
 			}
+
 			if got := responseFilmIDs(page.Collection.Films); !slices.Equal(got, tt.wantIDs) {
 				t.Errorf("ids = %v, want %v", got, tt.wantIDs)
 			}
+
 			if page.Total != 4 {
 				t.Errorf("total = %d, want 4", page.Total)
 			}
@@ -564,8 +594,17 @@ func TestHandler_GetCollection(t *testing.T) {
 func TestHandler_MethodNotAllowed(t *testing.T) {
 	router := newSeededRouter(t)
 
-	for _, target := range []string{"/api/films", "/api/films/1", "/api/collections", "/api/collections/2"} {
-		for _, method := range []string{http.MethodPost, http.MethodPut, http.MethodDelete} {
+	for _, target := range []string{
+		"/api/films",
+		"/api/films/1",
+		"/api/collections",
+		"/api/collections/2",
+	} {
+		for _, method := range []string{
+			http.MethodPost,
+			http.MethodPut,
+			http.MethodDelete,
+		} {
 			if rec := serve(router, method, target); rec.Code != http.StatusMethodNotAllowed {
 				t.Errorf("%s %s: status = %d, want %d", method, target, rec.Code, http.StatusMethodNotAllowed)
 			}
@@ -574,8 +613,6 @@ func TestHandler_MethodNotAllowed(t *testing.T) {
 }
 
 func TestHandler_InternalErrorIsHidden(t *testing.T) {
-	silenceLog(t)
-
 	tests := []struct {
 		name    string
 		service brokenService
@@ -611,9 +648,11 @@ func TestHandler_InternalErrorIsHidden(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			rec := serve(newTestRouter(t, tt.service), http.MethodGet, tt.target)
+
 			if rec.Code != http.StatusInternalServerError {
 				t.Fatalf("status = %d, want %d", rec.Code, http.StatusInternalServerError)
 			}
+
 			if got := decode[errorResponse](t, rec).Error; got != internalErrorMessage {
 				t.Errorf("error = %q, internal details must not leak to client", got)
 			}
@@ -623,12 +662,15 @@ func TestHandler_InternalErrorIsHidden(t *testing.T) {
 
 func TestHandler_ListCollectionsDoesNotLoadFilms(t *testing.T) {
 	service := brokenService{failCollectionFilms: true}
+
 	rec := serve(newTestRouter(t, service), http.MethodGet, "/api/collections")
+
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d (body: %s)", rec.Code, http.StatusOK, rec.Body)
 	}
 
 	page := decode[collectionsPage](t, rec)
+
 	if len(page.Collections) != 1 {
 		t.Fatalf("got %d collections, want 1", len(page.Collections))
 	}
@@ -638,6 +680,7 @@ func TestHandler_InvalidLimitMentionsBounds(t *testing.T) {
 	rec := serve(newSeededRouter(t), http.MethodGet, "/api/films?limit=0")
 
 	got := decode[errorResponse](t, rec).Error
+
 	if !strings.Contains(got, "1 to 100") {
 		t.Errorf("error = %q, want bounds in message", got)
 	}

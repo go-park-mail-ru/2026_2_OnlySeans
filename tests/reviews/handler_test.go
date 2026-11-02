@@ -65,10 +65,11 @@ func newTestRouter(t *testing.T, films domain.FilmRepository) *mux.Router {
 
 	cases := newReviewCases(t, films)
 	h, err := reviewsdelivery.NewHandler(reviewsdelivery.HandlerUseCases{
-		List:   cases.list,
-		Create: cases.create,
-		Update: cases.update,
-		Delete: cases.delete,
+		List:      cases.list,
+		Create:    cases.create,
+		Update:    cases.update,
+		Delete:    cases.delete,
+		AppLogger: newReviewsTestLogger(),
 	})
 	require.NoError(t, err)
 

@@ -24,12 +24,13 @@ func newPostgresUserRepo(t *testing.T) (domain.UserRepository, sqlmock.Sqlmock) 
 
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
+
 	t.Cleanup(func() {
 		assert.NoError(t, mock.ExpectationsWereMet())
 		db.Close()
 	})
 
-	return auth.NewPostgresUserRepo(db), mock
+	return auth.NewPostgresUserRepo(db, newTestLogger()), mock
 }
 
 var userColumns = []string{"id", "email", "username", "password_hash"}
@@ -150,6 +151,7 @@ func TestPostgresUserRepo_GetErrors(t *testing.T) {
 			t.Run(method+": "+tt.name, func(t *testing.T) {
 				repo, mock := newPostgresUserRepo(t)
 				query := mock.ExpectQuery(`FROM account`)
+
 				if tt.dbErr != nil {
 					query.WillReturnError(tt.dbErr)
 				} else {

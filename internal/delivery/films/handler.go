@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 
@@ -12,6 +11,7 @@ import (
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	usecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/films"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 )
 
 const (
@@ -71,6 +71,7 @@ type HandlerUseCases struct {
 	GetFilm         *usecase.GetFilmUseCase
 	ListCollections *usecase.ListCollectionsUseCase
 	GetCollection   *usecase.GetCollectionUseCase
+	AppLogger       logger.Logger
 }
 
 type Handler struct {
@@ -78,6 +79,7 @@ type Handler struct {
 	getFilm         *usecase.GetFilmUseCase
 	listCollections *usecase.ListCollectionsUseCase
 	getCollection   *usecase.GetCollectionUseCase
+	appLogger       logger.Logger
 }
 
 func NewHandler(cases HandlerUseCases) (*Handler, error) {
@@ -93,11 +95,15 @@ func NewHandler(cases HandlerUseCases) (*Handler, error) {
 	if cases.GetCollection == nil {
 		return nil, errors.New("get collection use case is nil")
 	}
+	if cases.AppLogger == nil {
+		return nil, errors.New("logger use case is nil")
+	}
 	return &Handler{
 		listFilms:       cases.ListFilms,
 		getFilm:         cases.GetFilm,
 		listCollections: cases.ListCollections,
 		getCollection:   cases.GetCollection,
+		appLogger:       cases.AppLogger,
 	}, nil
 }
 
@@ -133,7 +139,7 @@ type errorResponse struct {
 func (h *Handler) ListFilms(w http.ResponseWriter, r *http.Request) {
 	limit, offset, err := pagination(r)
 	if err != nil {
-		writeError(w, err)
+		writeError(w, err, h.appLogger)
 		return
 	}
 
@@ -141,38 +147,49 @@ func (h *Handler) ListFilms(w http.ResponseWriter, r *http.Request) {
 
 	result, err := h.listFilms.Run(r.Context(), input)
 	if err != nil {
-		writeError(w, err)
+		writeError(w, err, h.appLogger)
 		return
 	}
+
+	h.appLogger.Info("films listed", map[string]any{
+		"limit":  input.Limit,
+		"offset": input.Offset,
+		"total":  result.Total,
+	})
 
 	writeJSON(w, http.StatusOK, filmsPage{
 		Films:  toFilmCardResponseDTOs(result.Films),
 		Total:  result.Total,
 		Limit:  limit,
 		Offset: offset,
-	})
+	}, h.appLogger)
 }
 
 func (h *Handler) GetFilm(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(r)
 	if !ok {
-		writeError(w, ErrInvalidFilmID)
+		writeError(w, ErrInvalidFilmID, h.appLogger)
 		return
 	}
 
-	result, err := h.getFilm.Run(r.Context(), usecase.NewGetFilmInput(domain.FilmID(id)))
+	input := usecase.NewGetFilmInput(domain.FilmID(id))
+	result, err := h.getFilm.Run(r.Context(), input)
 	if err != nil {
-		writeError(w, fmt.Errorf("get film %d: %w", id, err))
+		writeError(w, fmt.Errorf("get film %d: %w", id, err), h.appLogger)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, filmResponse{Film: toFilmResponseDTO(result.Film)})
+	h.appLogger.Info("film retrieved", map[string]any{
+		"film_id": input.FilmID,
+	})
+
+	writeJSON(w, http.StatusOK, filmResponse{Film: toFilmResponseDTO(result.Film)}, h.appLogger)
 }
 
 func (h *Handler) ListCollections(w http.ResponseWriter, r *http.Request) {
 	limit, offset, err := pagination(r)
 	if err != nil {
-		writeError(w, err)
+		writeError(w, err, h.appLogger)
 		return
 	}
 
@@ -180,42 +197,57 @@ func (h *Handler) ListCollections(w http.ResponseWriter, r *http.Request) {
 
 	result, err := h.listCollections.Run(r.Context(), input)
 	if err != nil {
-		writeError(w, fmt.Errorf("list collections: %w", err))
+		writeError(w, fmt.Errorf("list collections: %w", err), h.appLogger)
 		return
 	}
+
+	h.appLogger.Info("collections listed", map[string]any{
+		"limit":  input.Limit,
+		"offset": input.Offset,
+		"total":  result.Total,
+	})
 
 	writeJSON(w, http.StatusOK, collectionsPage{
 		Collections: toCollectionResponseDTOs(result.Collections),
 		Total:       result.Total,
 		Limit:       limit,
 		Offset:      offset,
-	})
+	}, h.appLogger)
 }
 
 func (h *Handler) GetCollection(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(r)
 	if !ok {
-		writeError(w, ErrInvalidCollectionID)
+		writeError(w, ErrInvalidCollectionID, h.appLogger)
 		return
 	}
 	limit, offset, err := pagination(r)
 	if err != nil {
-		writeError(w, err)
+		writeError(w, err, h.appLogger)
 		return
 	}
 
-	result, err := h.getCollection.Run(r.Context(), usecase.NewGetCollectionInput(domain.CollectionID(id), limit, offset))
+	input := usecase.NewGetCollectionInput(domain.CollectionID(id), limit, offset)
+
+	result, err := h.getCollection.Run(r.Context(), input)
 	if err != nil {
-		writeError(w, err)
+		writeError(w, err, h.appLogger)
 		return
 	}
+
+	h.appLogger.Info("collection retrieved", map[string]any{
+		"collection_id": input.CollectionID,
+		"limit":         input.Limit,
+		"offset":        input.Offset,
+		"total":         result.Total,
+	})
 
 	writeJSON(w, http.StatusOK, collectionPage{
 		Collection: toCollectionWithFilmsResponseDTO(result.Collection, result.Films),
 		Total:      result.Total,
 		Limit:      limit,
 		Offset:     offset,
-	})
+	}, h.appLogger)
 }
 
 func pagination(r *http.Request) (limit, offset int, err error) {
@@ -244,26 +276,26 @@ func queryInt(r *http.Request, key string, fallback int) (int, bool) {
 	return value, err == nil
 }
 
-func writeJSON(w http.ResponseWriter, status int, body any) {
+func writeJSON(w http.ResponseWriter, status int, body any, appLogger logger.Logger) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
 	if err := json.NewEncoder(w).Encode(body); err != nil {
-		log.Printf("films: write response: %v", err)
+		appLogger.Error("write response failed", map[string]any{"error": err})
 	}
 }
 
-func writeError(w http.ResponseWriter, err error) {
+func writeError(w http.ResponseWriter, err error, appLogger logger.Logger) {
 	for _, known := range clientErrors {
 		if errors.Is(err, known.err) {
 			msg := known.err.Error()
 			if known.status == http.StatusBadRequest {
 				msg = err.Error()
 			}
-			writeJSON(w, known.status, errorResponse{Error: msg})
+			writeJSON(w, known.status, errorResponse{Error: msg}, appLogger)
 			return
 		}
 	}
 
-	log.Printf("films: %v", err)
-	writeJSON(w, http.StatusInternalServerError, errorResponse{Error: internalErrorMessage})
+	appLogger.Error("unexpected error", map[string]any{"error": err})
+	writeJSON(w, http.StatusInternalServerError, errorResponse{Error: internalErrorMessage}, appLogger)
 }

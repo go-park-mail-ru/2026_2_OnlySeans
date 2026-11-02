@@ -57,13 +57,15 @@ func newReviewCases(t *testing.T, films domain.FilmRepository) reviewCases {
 	t.Helper()
 
 	repo := reviewsservice.NewInMemoryReviewRepo()
-	list, err := usecase.NewListReviewsUseCase(repo, films)
+	appLogger := newReviewsTestLogger()
+
+	list, err := usecase.NewListReviewsUseCase(repo, films, appLogger)
 	require.NoError(t, err)
-	create, err := usecase.NewCreateReviewUseCase(repo, films)
+	create, err := usecase.NewCreateReviewUseCase(repo, films, appLogger)
 	require.NoError(t, err)
-	update, err := usecase.NewUpdateReviewUseCase(repo)
+	update, err := usecase.NewUpdateReviewUseCase(repo, appLogger)
 	require.NoError(t, err)
-	del, err := usecase.NewDeleteReviewUseCase(repo)
+	del, err := usecase.NewDeleteReviewUseCase(repo, appLogger)
 	require.NoError(t, err)
 
 	return reviewCases{list: list, create: create, update: update, delete: del}
@@ -95,21 +97,22 @@ func (c reviewCases) listReviews(film domain.FilmID) ([]domain.Review, int, erro
 
 func TestNewReviewUseCases_NilDependencies(t *testing.T) {
 	repo := reviewsservice.NewInMemoryReviewRepo()
+	appLogger := newReviewsTestLogger()
 
-	_, err := usecase.NewListReviewsUseCase(nil, fakeFilms{})
+	_, err := usecase.NewListReviewsUseCase(nil, fakeFilms{}, appLogger)
 	assert.ErrorIs(t, err, domain.ErrNilReviewsRepo)
-	_, err = usecase.NewListReviewsUseCase(repo, nil)
+	_, err = usecase.NewListReviewsUseCase(repo, nil, appLogger)
 	assert.ErrorIs(t, err, domain.ErrNilFilmsRepo)
 
-	_, err = usecase.NewCreateReviewUseCase(nil, fakeFilms{})
+	_, err = usecase.NewCreateReviewUseCase(nil, fakeFilms{}, appLogger)
 	assert.ErrorIs(t, err, domain.ErrNilReviewsRepo)
-	_, err = usecase.NewCreateReviewUseCase(repo, nil)
+	_, err = usecase.NewCreateReviewUseCase(repo, nil, appLogger)
 	assert.ErrorIs(t, err, domain.ErrNilFilmsRepo)
 
-	_, err = usecase.NewUpdateReviewUseCase(nil)
+	_, err = usecase.NewUpdateReviewUseCase(nil, appLogger)
 	assert.ErrorIs(t, err, domain.ErrNilReviewsRepo)
 
-	_, err = usecase.NewDeleteReviewUseCase(nil)
+	_, err = usecase.NewDeleteReviewUseCase(nil, appLogger)
 	assert.ErrorIs(t, err, domain.ErrNilReviewsRepo)
 }
 

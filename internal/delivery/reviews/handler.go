@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 
@@ -13,6 +12,7 @@ import (
 	authdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	usecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/reviews"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 )
 
 const (
@@ -103,14 +103,16 @@ var clientErrors = []struct {
 }
 
 type HandlerUseCases struct {
-	List   *usecase.ListReviewsUseCase
-	Create *usecase.CreateReviewUseCase
-	Update *usecase.UpdateReviewUseCase
-	Delete *usecase.DeleteReviewUseCase
+	List      *usecase.ListReviewsUseCase
+	Create    *usecase.CreateReviewUseCase
+	Update    *usecase.UpdateReviewUseCase
+	Delete    *usecase.DeleteReviewUseCase
+	AppLogger logger.Logger
 }
 
 type Handler struct {
-	useCases HandlerUseCases
+	useCases  HandlerUseCases
+	appLogger logger.Logger
 }
 
 func NewHandler(cases HandlerUseCases) (*Handler, error) {
@@ -126,8 +128,10 @@ func NewHandler(cases HandlerUseCases) (*Handler, error) {
 	if cases.Delete == nil {
 		return nil, errors.New("delete review use case is nil")
 	}
-
-	return &Handler{useCases: cases}, nil
+	if cases.AppLogger == nil {
+		return nil, errors.New("logger review use case is nil")
+	}
+	return &Handler{useCases: cases, appLogger: cases.AppLogger}, nil
 }
 
 type reviewRequest struct {
@@ -139,114 +143,140 @@ type reviewRequest struct {
 func (h *Handler) ListByFilm(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(r)
 	if !ok {
-		writeError(w, ErrInvalidID)
+		writeError(w, ErrInvalidID, h.appLogger)
 		return
 	}
 	limit, offset, err := pagination(r)
 	if err != nil {
-		writeError(w, err)
+		writeError(w, err, h.appLogger)
 		return
 	}
 
-	result, err := h.useCases.List.Run(r.Context(), usecase.NewListReviewsInput(
+	input := usecase.NewListReviewsInput(
 		domain.FilmID(id),
 		limit,
 		offset,
-	))
+	)
+	result, err := h.useCases.List.Run(r.Context(), input)
 	if err != nil {
-		writeError(w, err)
+		writeError(w, err, h.appLogger)
 		return
 	}
+
+	h.appLogger.Info("reviews listed", map[string]any{
+		"film_id": input.FilmID,
+		"limit":   input.Limit,
+		"offset":  input.Offset,
+		"total":   result.Total,
+	})
 
 	writeJSON(w, http.StatusOK, reviewsPage{
 		Reviews: toReviewResponseDTOs(result.Reviews),
 		Total:   result.Total,
 		Limit:   limit,
 		Offset:  offset,
-	})
+	}, h.appLogger)
 }
 
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(r)
 	if !ok {
-		writeError(w, ErrInvalidID)
+		writeError(w, ErrInvalidID, h.appLogger)
 		return
 	}
 	userID, ok := authdelivery.UserIDFromContext(r.Context())
 	if !ok {
-		writeError(w, domain.ErrUnauthorized)
+		writeError(w, domain.ErrUnauthorized, h.appLogger)
 		return
 	}
 	input, err := decodeReview(w, r)
 	if err != nil {
-		writeError(w, err)
+		writeError(w, err, h.appLogger)
 		return
 	}
 
-	result, err := h.useCases.Create.Run(r.Context(), usecase.NewCreateReviewInput(
+	inputCreateReview := usecase.NewCreateReviewInput(
 		userID,
 		domain.FilmID(id),
 		input,
-	))
+	)
+	result, err := h.useCases.Create.Run(r.Context(), inputCreateReview)
 	if err != nil {
-		writeError(w, err)
+		writeError(w, err, h.appLogger)
 		return
 	}
 
-	writeJSON(w, http.StatusCreated, reviewResponse{Review: toReviewResponseDTO(result.Review)})
+	h.appLogger.Info("review created", map[string]any{
+		"user_id":   inputCreateReview.AuthorID,
+		"film_id":   inputCreateReview.FilmID,
+		"review_id": result.Review.ID,
+	})
+
+	writeJSON(w, http.StatusCreated, reviewResponse{Review: toReviewResponseDTO(result.Review)}, h.appLogger)
 }
 
 func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(r)
 	if !ok {
-		writeError(w, ErrInvalidID)
+		writeError(w, ErrInvalidID, h.appLogger)
 		return
 	}
 	userID, ok := authdelivery.UserIDFromContext(r.Context())
 	if !ok {
-		writeError(w, domain.ErrUnauthorized)
+		writeError(w, domain.ErrUnauthorized, h.appLogger)
 		return
 	}
 	input, err := decodeReview(w, r)
 	if err != nil {
-		writeError(w, err)
+		writeError(w, err, h.appLogger)
 		return
 	}
 
-	result, err := h.useCases.Update.Run(r.Context(), usecase.NewUpdateReviewInput(
+	inputUpdateReview := usecase.NewUpdateReviewInput(
 		userID,
 		domain.ReviewID(id),
 		input,
-	))
+	)
+	result, err := h.useCases.Update.Run(r.Context(), inputUpdateReview)
 	if err != nil {
-		writeError(w, err)
+		writeError(w, err, h.appLogger)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, reviewResponse{Review: toReviewResponseDTO(result.Review)})
+	h.appLogger.Info("review updated", map[string]any{
+		"user_id":   inputUpdateReview.UserID,
+		"review_id": inputUpdateReview.ReviewID,
+	})
+
+	writeJSON(w, http.StatusOK, reviewResponse{Review: toReviewResponseDTO(result.Review)}, h.appLogger)
 }
 
 func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(r)
 	if !ok {
-		writeError(w, ErrInvalidID)
+		writeError(w, ErrInvalidID, h.appLogger)
 		return
 	}
 	userID, ok := authdelivery.UserIDFromContext(r.Context())
 	if !ok {
-		writeError(w, domain.ErrUnauthorized)
+		writeError(w, domain.ErrUnauthorized, h.appLogger)
 		return
 	}
 
-	err := h.useCases.Delete.Run(r.Context(),
-		usecase.NewDeleteReviewInput(
-			userID,
-			domain.ReviewID(id),
-		))
+	input := usecase.NewDeleteReviewInput(
+		userID,
+		domain.ReviewID(id),
+	)
+	err := h.useCases.Delete.Run(r.Context(), input)
 	if err != nil {
-		writeError(w, err)
+		writeError(w, err, h.appLogger)
 		return
 	}
+
+	h.appLogger.Info("review deleted", map[string]any{
+		"user_id":   input.UserID,
+		"review_id": input.ReviewID,
+	})
 
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -297,22 +327,22 @@ func queryInt(r *http.Request, key string, fallback int) (int, bool) {
 	return value, err == nil
 }
 
-func writeJSON(w http.ResponseWriter, status int, body any) {
+func writeJSON(w http.ResponseWriter, status int, body any, appLogger logger.Logger) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
 	if err := json.NewEncoder(w).Encode(body); err != nil {
-		log.Printf("reviews: write response: %v", err)
+		appLogger.Error("write response failed", map[string]any{"error": err})
 	}
 }
 
-func writeError(w http.ResponseWriter, err error) {
+func writeError(w http.ResponseWriter, err error, appLogger logger.Logger) {
 	for _, known := range clientErrors {
 		if errors.Is(err, known.err) {
-			writeJSON(w, known.status, errorResponse{Error: known.message})
+			writeJSON(w, known.status, errorResponse{Error: known.message}, appLogger)
 			return
 		}
 	}
 
-	log.Printf("reviews: %v", err)
-	writeJSON(w, http.StatusInternalServerError, errorResponse{Error: internalErrorMessage})
+	appLogger.Error("unexpected error", map[string]any{"error": err})
+	writeJSON(w, http.StatusInternalServerError, errorResponse{Error: internalErrorMessage}, appLogger)
 }

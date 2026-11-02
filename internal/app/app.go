@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -24,10 +23,11 @@ import (
 	authusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/auth"
 	filmsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/films"
 	reviewsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/reviews"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/redis"
 )
 
-func Run(configPath, databaseConfigPath, redisConfigPath string) error {
+func Run(configPath, databaseConfigPath, redisConfigPath, loggerConfigPath string) error {
 	cfg, err := config.Load(configPath)
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
@@ -42,79 +42,92 @@ func Run(configPath, databaseConfigPath, redisConfigPath string) error {
 		return fmt.Errorf("%s is required", config.EnvDatabaseURL)
 	}
 
+	redisCfg, err := config.LoadRedis(redisConfigPath)
+	if err != nil {
+		return fmt.Errorf("load redis config: %w", err)
+	}
+
+	loggerCfg, err := config.LoadLogger(loggerConfigPath)
+	if err != nil {
+		return fmt.Errorf("load logger config: %w", err)
+	}
+
+	appLogger, err := logger.NewLogger(os.Stdout, loggerCfg.Level, loggerCfg.Format)
+	if err != nil {
+		return fmt.Errorf("create logger: %w", err)
+	}
+
 	var (
 		useRepo     domain.UserRepository
 		filmsRepo   domain.FilmsRepository
 		reviewsRepo domain.ReviewRepository
 	)
 
-	db, err := storage.Open(context.Background(), *dbCfg)
+	db, err := storage.Open(context.Background(), *dbCfg, appLogger)
 	if err != nil {
 		return fmt.Errorf("open database: %w", err)
 	}
+
+	appLogger.Info("database connected", nil)
 	defer db.Close()
 
-	useRepo = authservice.NewPostgresUserRepo(db)
-	filmsRepo = filmsservice.NewPostgresService(db)
-	reviewsRepo = reviewsservice.NewPostgresReviewRepo(db)
-
-	redisCfg, err := config.LoadRedis(redisConfigPath)
-	if err != nil {
-		return fmt.Errorf("load redis config: %w", err)
-	}
+	useRepo = authservice.NewPostgresUserRepo(db, appLogger)
+	filmsRepo = filmsservice.NewPostgresService(db, appLogger)
+	reviewsRepo = reviewsservice.NewPostgresReviewRepo(db, appLogger)
 
 	newClient, err := redis.NewClientWithPing(context.Background(), redisCfg.URL)
 	if err != nil {
 		return fmt.Errorf("connect redis: %w", err)
 	}
 
+	appLogger.Info("redis connected", nil)
 	defer newClient.Close()
 
-	sessions := authservice.NewRedisSessionStore(newClient, cfg.Server.SessionTTL)
+	sessions := authservice.NewRedisSessionStore(newClient, cfg.Server.SessionTTL, appLogger)
 
 	passwordService := authservice.BcryptPasswordService{}
 
-	registerUC, err := authusecase.NewRegisterUserUseCase(useRepo, sessions, passwordService)
+	registerUC, err := authusecase.NewRegisterUserUseCase(useRepo, sessions, passwordService, appLogger)
 	if err != nil {
 		return fmt.Errorf("can't create register use case: %w", err)
 	}
 
-	loginUC, err := authusecase.NewLoginUserUseCase(useRepo, sessions, passwordService)
+	loginUC, err := authusecase.NewLoginUserUseCase(useRepo, sessions, passwordService, appLogger)
 	if err != nil {
 		return fmt.Errorf("can't create login use case: %w", err)
 	}
 
-	logoutUC, err := authusecase.NewLogoutUserUseCase(sessions)
+	logoutUC, err := authusecase.NewLogoutUserUseCase(sessions, appLogger)
 	if err != nil {
 		return fmt.Errorf("can't create logout use case: %w", err)
 	}
 
-	authenticateUC, err := authusecase.NewAuthenticateUserUseCase(sessions)
+	authenticateUC, err := authusecase.NewAuthenticateUserUseCase(sessions, appLogger)
 	if err != nil {
 		return fmt.Errorf("can't create authenticate use case: %w", err)
 	}
 
-	getUserUC, err := authusecase.NewGetUserUseCase(useRepo)
+	getUserUC, err := authusecase.NewGetUserUseCase(useRepo, appLogger)
 	if err != nil {
 		return fmt.Errorf("can't create get user use case: %w", err)
 	}
 
-	listFilmsUC, err := filmsusecase.NewListFilmsUseCase(filmsRepo)
+	listFilmsUC, err := filmsusecase.NewListFilmsUseCase(filmsRepo, appLogger)
 	if err != nil {
 		return fmt.Errorf("create list films use case: %w", err)
 	}
 
-	getFilmUC, err := filmsusecase.NewGetFilmUseCase(filmsRepo)
+	getFilmUC, err := filmsusecase.NewGetFilmUseCase(filmsRepo, appLogger)
 	if err != nil {
 		return fmt.Errorf("create get film use case: %w", err)
 	}
 
-	listCollectionsUC, err := filmsusecase.NewListCollectionsUseCase(filmsRepo)
+	listCollectionsUC, err := filmsusecase.NewListCollectionsUseCase(filmsRepo, appLogger)
 	if err != nil {
 		return fmt.Errorf("create list collections use case: %w", err)
 	}
 
-	getCollectionUC, err := filmsusecase.NewGetCollectionUseCase(filmsRepo)
+	getCollectionUC, err := filmsusecase.NewGetCollectionUseCase(filmsRepo, appLogger)
 	if err != nil {
 		return fmt.Errorf("create get collection use case: %w", err)
 	}
@@ -125,6 +138,7 @@ func Run(configPath, databaseConfigPath, redisConfigPath string) error {
 		Logout:       logoutUC,
 		Authenticate: authenticateUC,
 		GetUser:      getUserUC,
+		AppLogger:    appLogger,
 	})
 	if err != nil {
 		return fmt.Errorf("create handler: %w", err)
@@ -135,42 +149,44 @@ func Run(configPath, databaseConfigPath, redisConfigPath string) error {
 		GetFilm:         getFilmUC,
 		ListCollections: listCollectionsUC,
 		GetCollection:   getCollectionUC,
+		AppLogger:       appLogger,
 	})
 	if err != nil {
 		return fmt.Errorf("create films handler: %w", err)
 	}
 
-	listReviewsUC, err := reviewsusecase.NewListReviewsUseCase(reviewsRepo, filmsRepo)
+	listReviewsUC, err := reviewsusecase.NewListReviewsUseCase(reviewsRepo, filmsRepo, appLogger)
 	if err != nil {
 		return fmt.Errorf("create list reviews use case: %w", err)
 	}
 
-	createReviewUC, err := reviewsusecase.NewCreateReviewUseCase(reviewsRepo, filmsRepo)
+	createReviewUC, err := reviewsusecase.NewCreateReviewUseCase(reviewsRepo, filmsRepo, appLogger)
 	if err != nil {
 		return fmt.Errorf("create create review use case: %w", err)
 	}
 
-	updateReviewUC, err := reviewsusecase.NewUpdateReviewUseCase(reviewsRepo)
+	updateReviewUC, err := reviewsusecase.NewUpdateReviewUseCase(reviewsRepo, appLogger)
 	if err != nil {
 		return fmt.Errorf("create update review use case: %w", err)
 	}
 
-	deleteReviewUC, err := reviewsusecase.NewDeleteReviewUseCase(reviewsRepo)
+	deleteReviewUC, err := reviewsusecase.NewDeleteReviewUseCase(reviewsRepo, appLogger)
 	if err != nil {
 		return fmt.Errorf("create delete review use case: %w", err)
 	}
 
 	reviewsHandler, err := reviewsdelivery.NewHandler(reviewsdelivery.HandlerUseCases{
-		List:   listReviewsUC,
-		Create: createReviewUC,
-		Update: updateReviewUC,
-		Delete: deleteReviewUC,
+		List:      listReviewsUC,
+		Create:    createReviewUC,
+		Update:    updateReviewUC,
+		Delete:    deleteReviewUC,
+		AppLogger: appLogger,
 	})
 	if err != nil {
 		return fmt.Errorf("create reviews handler: %w", err)
 	}
 
-	httpHandler := router.NewRouter(authHandler, filmsHandler, reviewsHandler, cfg.Server.AllowedOrigin)
+	httpHandler := router.NewRouter(authHandler, filmsHandler, reviewsHandler, cfg.Server.AllowedOrigin, appLogger)
 
 	server := &http.Server{
 		Addr:         cfg.Server.Addr(),
@@ -180,16 +196,16 @@ func Run(configPath, databaseConfigPath, redisConfigPath string) error {
 		IdleTimeout:  cfg.Server.IdleTimeout,
 	}
 
-	return serve(server, cfg.Server.ShutdownTimeout)
+	return serve(server, cfg.Server.ShutdownTimeout, appLogger)
 }
 
-func serve(server *http.Server, shutdownTimeout time.Duration) error {
+func serve(server *http.Server, shutdownTimeout time.Duration, appLogger logger.Logger) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	serverErr := make(chan error, 1)
 	go func() {
-		log.Printf("server started on %s", server.Addr)
+		appLogger.Info("server started", map[string]any{"addr": server.Addr})
 		serverErr <- server.ListenAndServe()
 	}()
 
@@ -203,11 +219,15 @@ func serve(server *http.Server, shutdownTimeout time.Duration) error {
 	case <-ctx.Done():
 	}
 
-	log.Println("shutting down server")
+	appLogger.Info("shutting down", map[string]any{"addr": server.Addr})
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()
 
 	if err := server.Shutdown(shutdownCtx); err != nil {
+		appLogger.Error("server shutdown failed", map[string]any{
+			"addr":  server.Addr,
+			"error": err,
+		})
 		return fmt.Errorf("shutdown server: %w", err)
 	}
 

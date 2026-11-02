@@ -5,31 +5,62 @@ import (
 	"fmt"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 )
 
 type DeleteReviewUseCase struct {
 	reviews domain.ReviewRepository
+	logger  logger.Logger
 }
 
-func NewDeleteReviewUseCase(reviews domain.ReviewRepository) (*DeleteReviewUseCase, error) {
+func NewDeleteReviewUseCase(
+	reviews domain.ReviewRepository,
+	appLogger logger.Logger,
+) (*DeleteReviewUseCase, error) {
 	if reviews == nil {
 		return nil, domain.ErrNilReviewsRepo
 	}
+	if appLogger == nil {
+		return nil, domain.ErrInvalidAppLogger
+	}
 
-	return &DeleteReviewUseCase{reviews: reviews}, nil
+	return &DeleteReviewUseCase{
+		reviews: reviews,
+		logger:  appLogger,
+	}, nil
 }
 
 func (uc *DeleteReviewUseCase) Run(ctx context.Context, input DeleteReviewInput) error {
 	review, err := uc.reviews.GetByID(ctx, input.ReviewID)
 	if err != nil {
+		uc.logger.Error("get review for deletion failed", map[string]any{
+			"review_id": input.ReviewID,
+			"error":     err,
+		})
 		return fmt.Errorf("get review %d: %w", input.ReviewID, err)
 	}
+
 	if review.AuthorID != input.UserID {
+		uc.logger.Warn("review deletion forbidden", map[string]any{
+			"user_id":   input.UserID,
+			"review_id": input.ReviewID,
+		})
 		return domain.ErrForbidden
 	}
 
 	if err := uc.reviews.Delete(ctx, input.ReviewID, input.UserID); err != nil {
+		uc.logger.Error("delete review failed", map[string]any{
+			"user_id":   input.UserID,
+			"review_id": input.ReviewID,
+			"error":     err,
+		})
 		return fmt.Errorf("delete review %d: %w", input.ReviewID, err)
 	}
+
+	uc.logger.Info("review deleted", map[string]any{
+		"user_id":   input.UserID,
+		"review_id": input.ReviewID,
+	})
+
 	return nil
 }

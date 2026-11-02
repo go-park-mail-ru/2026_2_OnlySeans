@@ -8,6 +8,15 @@ import (
 	entities "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 )
 
+// Тестовый логгер.
+type testLogger struct{}
+
+func (l *testLogger) Info(string, map[string]any)  {}
+func (l *testLogger) Debug(string, map[string]any) {}
+func (l *testLogger) Warn(string, map[string]any)  {}
+func (l *testLogger) Error(string, map[string]any) {}
+
+// Заглушка репозитория.
 type filmRepositoryStub struct {
 	films  []entities.Film
 	total  int
@@ -21,6 +30,7 @@ func (r *filmRepositoryStub) ListFilms(ctx context.Context, limit, offset int) (
 	r.ctx = ctx
 	r.limit = limit
 	r.offset = offset
+
 	return r.films, r.total, r.err
 }
 
@@ -31,11 +41,13 @@ func (r *filmRepositoryStub) GetFilmByID(context.Context, entities.FilmID) (enti
 func TestListFilmsUseCaseRun(t *testing.T) {
 	ctx := context.Background()
 	expectedFilms := []entities.Film{{ID: 1}}
+
 	repository := &filmRepositoryStub{
 		films: expectedFilms,
 		total: 5,
 	}
-	uc, err := NewListFilmsUseCase(repository)
+
+	uc, err := NewListFilmsUseCase(repository, &testLogger{})
 	if err != nil {
 		t.Fatalf("NewListFilmsUseCase: %v", err)
 	}
@@ -44,35 +56,54 @@ func TestListFilmsUseCaseRun(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
+
 	if len(result.Films) != len(expectedFilms) || result.Films[0].ID != expectedFilms[0].ID {
 		t.Fatalf("films = %v, want %v", result.Films, expectedFilms)
 	}
+
 	if result.Total != repository.total {
 		t.Fatalf("total = %d, want %d", result.Total, repository.total)
 	}
+
 	if repository.ctx != ctx || repository.limit != 2 || repository.offset != 1 {
-		t.Fatalf("repository received ctx=%v limit=%d offset=%d", repository.ctx, repository.limit, repository.offset)
+		t.Fatalf(
+			"repository received ctx=%v limit=%d offset=%d",
+			repository.ctx,
+			repository.limit,
+			repository.offset,
+		)
 	}
 }
 
 func TestListFilmsUseCaseRunReturnsRepositoryError(t *testing.T) {
 	repositoryErr := errors.New("storage unavailable")
-	uc, err := NewListFilmsUseCase(&filmRepositoryStub{err: repositoryErr})
+
+	uc, err := NewListFilmsUseCase(&filmRepositoryStub{err: repositoryErr}, &testLogger{})
 	if err != nil {
 		t.Fatalf("NewListFilmsUseCase: %v", err)
 	}
 
 	result, err := uc.Run(context.Background(), NewListFilmsInput(10, 0))
+
 	if !errors.Is(err, repositoryErr) {
 		t.Fatalf("Run error = %v, want wrapped %v", err, repositoryErr)
 	}
-	if result.Films != nil || result.Total != 0 {
-		t.Fatalf("Run result = (%v, %d), want (nil, 0) on error", result.Films, result.Total)
+
+	if result != nil {
+		t.Fatalf("Run result = %v, want nil on error", result)
 	}
 }
 
 func TestNewListFilmsUseCaseRejectsNilRepository(t *testing.T) {
-	if _, err := NewListFilmsUseCase(nil); err == nil {
+	if _, err := NewListFilmsUseCase(nil, &testLogger{}); err == nil {
 		t.Fatal("NewListFilmsUseCase(nil) error = nil, want error")
+	}
+}
+
+func TestNewListFilmsUseCaseRejectsNilLogger(t *testing.T) {
+	repository := &filmRepositoryStub{}
+
+	if _, err := NewListFilmsUseCase(repository, nil); err == nil {
+		t.Fatal("NewListFilmsUseCase with nil logger: expected error")
 	}
 }
