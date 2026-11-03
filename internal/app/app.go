@@ -13,15 +13,18 @@ import (
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/config"
 	authdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
 	filmsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/films"
+	persondelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/persons"
 	reviewsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/reviews"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/router"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	authservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/auth"
 	filmsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/films"
+	personservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/persons"
 	reviewsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/reviews"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/storage"
 	authusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/auth"
 	filmsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/films"
+	personusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/persons"
 	reviewsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/reviews"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/redis"
@@ -61,6 +64,7 @@ func Run(configPath, databaseConfigPath, redisConfigPath, loggerConfigPath strin
 		useRepo     domain.UserRepository
 		filmsRepo   domain.FilmsRepository
 		reviewsRepo domain.ReviewRepository
+		personsRepo domain.PersonRepository
 	)
 
 	db, err := storage.Open(context.Background(), *dbCfg, appLogger)
@@ -74,6 +78,7 @@ func Run(configPath, databaseConfigPath, redisConfigPath, loggerConfigPath strin
 	useRepo = authservice.NewPostgresUserRepo(db, appLogger)
 	filmsRepo = filmsservice.NewPostgresService(db, appLogger)
 	reviewsRepo = reviewsservice.NewPostgresReviewRepo(db, appLogger)
+	personsRepo = personservice.NewPersonRepo(db, appLogger)
 
 	newClient, err := redis.NewClientWithPing(context.Background(), redisCfg.URL)
 	if err != nil {
@@ -186,7 +191,51 @@ func Run(configPath, databaseConfigPath, redisConfigPath, loggerConfigPath strin
 		return fmt.Errorf("create reviews handler: %w", err)
 	}
 
-	httpHandler := router.NewRouter(authHandler, filmsHandler, reviewsHandler, cfg.Server.AllowedOrigin, appLogger)
+	createPersonUC, err := personusecase.NewCreatePersonUseCase(personsRepo, appLogger)
+	if err != nil {
+		return fmt.Errorf("create create person use case: %w", err)
+	}
+
+	getPersonUC, err := personusecase.NewGetPersonUseCase(personsRepo, appLogger)
+	if err != nil {
+		return fmt.Errorf("create get person use case: %w", err)
+	}
+
+	listPersonsUC, err := personusecase.NewListPersonsUseCase(personsRepo, appLogger)
+	if err != nil {
+		return fmt.Errorf("create list persons use case: %w", err)
+	}
+
+	updatePersonUC, err := personusecase.NewUpdatePersonUseCase(personsRepo, appLogger)
+	if err != nil {
+		return fmt.Errorf("create update person use case: %w", err)
+	}
+
+	deletePersonUC, err := personusecase.NewDeletePersonUseCase(personsRepo, appLogger)
+	if err != nil {
+		return fmt.Errorf("create delete person use case: %w", err)
+	}
+
+	personsHandler, err := persondelivery.NewHandler(persondelivery.HandlerUseCases{
+		Create:    createPersonUC,
+		Get:       getPersonUC,
+		List:      listPersonsUC,
+		Update:    updatePersonUC,
+		Delete:    deletePersonUC,
+		AppLogger: appLogger,
+	})
+	if err != nil {
+		return fmt.Errorf("create persons handler: %w", err)
+	}
+
+	httpHandler := router.NewRouter(
+		authHandler,
+		filmsHandler,
+		reviewsHandler,
+		personsHandler,
+		cfg.Server.AllowedOrigin,
+		appLogger,
+	)
 
 	server := &http.Server{
 		Addr:         cfg.Server.Addr(),

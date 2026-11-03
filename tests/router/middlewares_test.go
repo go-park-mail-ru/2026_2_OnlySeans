@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/films"
+	personsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/persons"
 	reviewsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/reviews"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/router"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
@@ -20,6 +21,7 @@ import (
 	reviewsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/reviews"
 	authusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/auth"
 	filmsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/films"
+	personusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/persons"
 	reviewsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/reviews"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 	"github.com/stretchr/testify/assert"
@@ -66,6 +68,7 @@ func newTestRouterWithLogger(t *testing.T, appLogger logger.Logger) http.Handler
 		authHandler,
 		filmsHandler,
 		newTestReviewsHandler(t, filmsRepo, appLogger),
+		newTestPersonsHandler(t, appLogger),
 		testOrigin,
 		appLogger,
 	)
@@ -244,4 +247,75 @@ func TestRouter_LogoutRequiresAuth(t *testing.T) {
 			assert.Equal(t, tt.wantStatus, rec.Code)
 		})
 	}
+}
+
+type fakePersonsRepo struct{}
+
+func (f *fakePersonsRepo) Create(
+	ctx context.Context,
+	input domain.PersonInput,
+) (*domain.Person, error) {
+	return nil, nil
+}
+
+func (f *fakePersonsRepo) GetByID(
+	ctx context.Context,
+	id domain.PersonID,
+) (*domain.Person, error) {
+	return nil, nil
+}
+
+func (f *fakePersonsRepo) List(
+	ctx context.Context,
+	limit, offset int,
+) ([]domain.Person, int, error) {
+	return []domain.Person{}, 0, nil
+}
+
+func (f *fakePersonsRepo) Update(
+	ctx context.Context,
+	id domain.PersonID,
+	input domain.PersonInput,
+) (*domain.Person, error) {
+	return nil, nil
+}
+
+func (f *fakePersonsRepo) Delete(
+	ctx context.Context,
+	id domain.PersonID,
+) error {
+	return nil
+}
+
+func newTestPersonsHandler(t *testing.T, appLogger logger.Logger) *personsdelivery.Handler {
+	t.Helper()
+
+	repo := &fakePersonsRepo{}
+
+	create, err := personusecase.NewCreatePersonUseCase(repo, appLogger)
+	require.NoError(t, err)
+
+	get, err := personusecase.NewGetPersonUseCase(repo, appLogger)
+	require.NoError(t, err)
+
+	list, err := personusecase.NewListPersonsUseCase(repo, appLogger)
+	require.NoError(t, err)
+
+	update, err := personusecase.NewUpdatePersonUseCase(repo, appLogger)
+	require.NoError(t, err)
+
+	del, err := personusecase.NewDeletePersonUseCase(repo, appLogger)
+	require.NoError(t, err)
+
+	handler, err := personsdelivery.NewHandler(personsdelivery.HandlerUseCases{
+		Create:    create,
+		Get:       get,
+		List:      list,
+		Update:    update,
+		Delete:    del,
+		AppLogger: appLogger,
+	})
+	require.NoError(t, err)
+
+	return handler
 }
