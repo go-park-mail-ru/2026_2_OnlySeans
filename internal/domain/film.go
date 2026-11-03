@@ -45,3 +45,9 @@ type CollectionRepository interface {
 	GetCollectionByID(ctx context.Context, id CollectionID) (Collection, error)
 	ListCollectionFilms(ctx context.Context, collectionID CollectionID, limit, offset int) ([]Film, int, error)
 }
+
+// фильмы и подборки вместе
+type FilmsRepository interface {
+	FilmRepository
+	CollectionRepository
+}

@@ -32,7 +32,7 @@ func (int64SliceConverter) ConvertValue(v any) (driver.Value, error) {
 	return driver.DefaultParameterConverter.ConvertValue(v)
 }
 
-func newPostgresService(t *testing.T) (*films.PostgresService, sqlmock.Sqlmock) {
+func newPostgresService(t *testing.T) (domain.FilmsRepository, sqlmock.Sqlmock) {
 	t.Helper()
 
 	db, mock, err := sqlmock.New(sqlmock.ValueConverterOption(int64SliceConverter{}))

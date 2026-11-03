@@ -26,38 +26,36 @@ import (
 	reviewsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/reviews"
 )
 
-func Run(configPath string) error {
+func Run(configPath, databaseConfigPath string) error {
 	cfg, err := config.Load(configPath)
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
 
+	dbCfg, err := config.LoadDatabase(databaseConfigPath)
+	if err != nil {
+		return fmt.Errorf("load database config: %w", err)
+	}
+
+	if dbCfg.URL == "" {
+		return fmt.Errorf("%s is required", config.EnvDatabaseURL)
+	}
+
 	var (
 		useRepo     domain.UserRepository
-		filmsRepo   filmsservice.Service
+		filmsRepo   domain.FilmsRepository
 		reviewsRepo domain.ReviewRepository
 	)
 
-	if cfg.Database.URL != "" {
-		db, err := storage.Open(context.Background(), cfg.Database)
-		if err != nil {
-			return fmt.Errorf("open database: %w", err)
-		}
-		defer db.Close()
-
-		useRepo = authservice.NewPostgresUserRepo(db)
-		filmsRepo = filmsservice.NewPostgresService(db)
-		reviewsRepo = reviewsservice.NewPostgresReviewRepo(db)
-		log.Println("storage: postgres")
-	} else {
-		useRepo = authservice.NewInMemoryUserRepo()
-		filmsRepo, err = filmsservice.NewSeededService()
-		if err != nil {
-			return fmt.Errorf("seed films: %w", err)
-		}
-		reviewsRepo = reviewsservice.NewInMemoryReviewRepo()
-		log.Println("storage: in-memory")
+	db, err := storage.Open(context.Background(), *dbCfg)
+	if err != nil {
+		return fmt.Errorf("open database: %w", err)
 	}
+	defer db.Close()
+
+	useRepo = authservice.NewPostgresUserRepo(db)
+	filmsRepo = filmsservice.NewPostgresService(db)
+	reviewsRepo = reviewsservice.NewPostgresReviewRepo(db)
 
 	sessions := authservice.NewInMemorySessionStore(cfg.Server.SessionTTL)
 

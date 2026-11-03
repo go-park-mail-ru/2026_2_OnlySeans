@@ -33,7 +33,7 @@ func ValidateEmail(email string) error {
 		return fmt.Errorf("%w: email is required", ErrInvalidEmail)
 	}
 
-	if len(email) > maxEmailLen {
+	if utf8.RuneCountInString(email) > maxEmailLen {
 		return fmt.Errorf("%w: no longer than %d characters", ErrInvalidEmail, maxEmailLen)
 	}
 

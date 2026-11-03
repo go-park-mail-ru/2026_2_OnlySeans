@@ -8,9 +8,3 @@ server:
   session_ttl: 24h
   allowed_origins:
     - "http://localhost:8000"
-
-database:
-  max_open_conns: 10
-  max_idle_conns: 5
-  conn_max_lifetime: 30m
-  connect_timeout: 5s
