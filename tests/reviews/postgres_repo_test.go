@@ -151,6 +151,22 @@ func TestPostgresReviewRepo_Update(t *testing.T) {
 	assert.Equal(t, &want, got)
 }
 
+// SQL в заголовке уходит в базу отдельным значением $2 и сохраняется как обычный текст
+func TestPostgresReviewRepo_UpdateInjection(t *testing.T) {
+	repo, mock := newPostgresReviewRepo(t)
+	payload := `'; DROP TABLE review; --`
+	want := storedReview(5)
+	want.Title = payload
+
+	mock.ExpectQuery(`UPDATE review SET title = \$2`).
+		WithArgs(domain.ReviewID(5), payload, validContent, false).
+		WillReturnRows(reviewRows(want))
+
+	got, err := repo.Update(context.Background(), 5, domain.ReviewInput{Title: payload, Content: validContent})
+	require.NoError(t, err)
+	assert.Equal(t, payload, got.Title)
+}
+
 func TestPostgresReviewRepo_GetAndUpdateErrors(t *testing.T) {
 	tests := []struct {
 		name    string

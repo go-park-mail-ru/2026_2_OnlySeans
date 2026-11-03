@@ -110,6 +110,19 @@ func TestPostgresUserRepo_GetByEmail(t *testing.T) {
 	assert.Equal(t, &domain.User{ID: 7, Email: "anna@example.com", Username: "Анна", PasswordHash: "hash"}, user)
 }
 
+// вход с SQL в email не обходит проверку строка целиком ищется как email 00($1
+func TestPostgresUserRepo_GetByEmailInjection(t *testing.T) {
+	repo, mock := newPostgresUserRepo(t)
+	payload := `' OR '1'='1`
+
+	mock.ExpectQuery(`WHERE email = \$1`).
+		WithArgs(payload).
+		WillReturnRows(sqlmock.NewRows(userColumns))
+
+	_, err := repo.GetByEmail(context.Background(), payload)
+	assert.ErrorIs(t, err, domain.ErrUserNotFound)
+}
+
 func TestPostgresUserRepo_GetUser(t *testing.T) {
 	repo, mock := newPostgresUserRepo(t)
 
