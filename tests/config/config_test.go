@@ -3,6 +3,7 @@ package config_test
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 
@@ -39,7 +40,7 @@ server:
 			want: config.Server{
 				Host:            "localhost",
 				Port:            9000,
-				AllowedOrigin:   defaults.AllowedOrigin,
+				AllowedOrigins:  defaults.AllowedOrigins,
 				ReadTimeout:     time.Second,
 				WriteTimeout:    2 * time.Second,
 				IdleTimeout:     3 * time.Second,
@@ -58,7 +59,7 @@ server:
 			want: config.Server{
 				Host:            defaults.Host,
 				Port:            9000,
-				AllowedOrigin:   defaults.AllowedOrigin,
+				AllowedOrigins:  defaults.AllowedOrigins,
 				ReadTimeout:     defaults.ReadTimeout,
 				WriteTimeout:    defaults.WriteTimeout,
 				IdleTimeout:     defaults.IdleTimeout,
@@ -76,7 +77,7 @@ server:
 			want: config.Server{
 				Host:            "127.0.0.1",
 				Port:            8081,
-				AllowedOrigin:   defaults.AllowedOrigin,
+				AllowedOrigins:  defaults.AllowedOrigins,
 				ReadTimeout:     defaults.ReadTimeout,
 				WriteTimeout:    defaults.WriteTimeout,
 				IdleTimeout:     defaults.IdleTimeout,
@@ -92,7 +93,7 @@ server:
 			if err != nil {
 				t.Fatalf("Parse: %v", err)
 			}
-			if cfg.Server != tt.want {
+			if !reflect.DeepEqual(cfg.Server, tt.want) {
 				t.Errorf("Server = %+v, want %+v", cfg.Server, tt.want)
 			}
 		})
@@ -142,8 +143,12 @@ func TestParse_Errors(t *testing.T) {
 			env:  map[string]string{config.EnvServerPort: "0"},
 		},
 		{
-			name: "empty allowed origin",
-			raw:  "server:\n  allowed_origin: \"\"\n",
+			name: "empty allowed origins",
+			raw:  "server:\n  allowed_origins: []\n",
+		},
+		{
+			name: "empty origin in list",
+			raw:  "server:\n  allowed_origins:\n    - \"\"\n",
 		},
 	}
 

@@ -66,8 +66,8 @@ func TestListFilmsUseCaseRunReturnsRepositoryError(t *testing.T) {
 	if !errors.Is(err, repositoryErr) {
 		t.Fatalf("Run error = %v, want wrapped %v", err, repositoryErr)
 	}
-	if result.Films != nil || result.Total != 0 {
-		t.Fatalf("Run result = (%v, %d), want (nil, 0) on error", result.Films, result.Total)
+	if result != nil {
+		t.Fatalf("Run result = %v, want nil on error", result)
 	}
 }
 

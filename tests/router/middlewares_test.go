@@ -25,7 +25,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const testOrigin = "http://localhost:3000"
+const (
+	testOrigin       = "http://localhost:3000"
+	secondTestOrigin = "http://localhost:8000"
+)
 
 func newTestRouter(t *testing.T) http.Handler {
 	t.Helper()
@@ -49,7 +52,7 @@ func newTestRouter(t *testing.T) http.Handler {
 	})
 	require.NoError(t, err)
 
-	handler, err := router.NewRouter(authHandler, filmsHandler, newTestReviewsHandler(t, filmsRepo), testOrigin)
+	handler, err := router.NewRouter(authHandler, filmsHandler, newTestReviewsHandler(t, filmsRepo), []string{testOrigin, secondTestOrigin})
 	require.NoError(t, err)
 	return handler
 }
@@ -329,6 +332,65 @@ func TestCSRFProtection(t *testing.T) {
 				//пропущен
 				assert.NotEqual(t, http.StatusForbidden, rec.Code)
 			}
+		})
+	}
+}
+
+func TestTrustedOrigins(t *testing.T) {
+	handler := newTestRouter(t)
+
+	tests := []struct {
+		name            string
+		origin          string
+		wantStatus      int
+		wantAllowOrigin string
+		wantError       string
+	}{
+		{
+			name:            "первый доверенный адрес",
+			origin:          testOrigin,
+			wantStatus:      http.StatusUnauthorized,
+			wantAllowOrigin: testOrigin,
+			wantError:       domain.ErrUnauthorized.Error(),
+		},
+		{
+			name:            "второй доверенный адрес",
+			origin:          secondTestOrigin,
+			wantStatus:      http.StatusUnauthorized,
+			wantAllowOrigin: secondTestOrigin,
+			wantError:       domain.ErrUnauthorized.Error(),
+		},
+		{
+			name:       "посторонний адрес",
+			origin:     "http://evil.example",
+			wantStatus: http.StatusForbidden,
+			wantError:  router.ErrCrossOrigin.Error(),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(
+				http.MethodPost,
+				"/api/logout",
+				nil,
+			)
+			req.Header.Set("Origin", tt.origin)
+			req.Header.Set("Sec-Fetch-Site", "cross-site")
+
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, req)
+
+			assert.Equal(t, tt.wantStatus, rec.Code)
+			assert.Equal(
+				t,
+				tt.wantAllowOrigin,
+				rec.Header().Get("Access-Control-Allow-Origin"),
+			)
+
+			var body map[string]string
+			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+			assert.Equal(t, tt.wantError, body["error"])
 		})
 	}
 }
