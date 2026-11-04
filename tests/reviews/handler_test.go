@@ -19,6 +19,7 @@ import (
 	authdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
 	reviewsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/reviews"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 )
 
 const (
@@ -69,7 +70,7 @@ func newTestRouter(t *testing.T, films domain.FilmRepository) *mux.Router {
 		Create: cases.create,
 		Update: cases.update,
 		Delete: cases.delete,
-	})
+	}, newReviewsTestLogger())
 	require.NoError(t, err)
 
 	router := mux.NewRouter()
@@ -146,8 +147,43 @@ func silenceLog(t *testing.T) {
 }
 
 func TestNewHandler_NilUseCases(t *testing.T) {
-	_, err := reviewsdelivery.NewHandler(reviewsdelivery.HandlerUseCases{})
-	assert.Error(t, err)
+	tests := []struct {
+		name    string
+		remove  func(*reviewsdelivery.HandlerUseCases, *logger.Logger)
+		wantErr string
+	}{
+		{"all dependencies", nil, ""},
+		{"nil list", func(c *reviewsdelivery.HandlerUseCases, _ *logger.Logger) { c.List = nil }, "list reviews use case is nil"},
+		{"nil create", func(c *reviewsdelivery.HandlerUseCases, _ *logger.Logger) { c.Create = nil }, "create review use case is nil"},
+		{"nil update", func(c *reviewsdelivery.HandlerUseCases, _ *logger.Logger) { c.Update = nil }, "update review use case is nil"},
+		{"nil delete", func(c *reviewsdelivery.HandlerUseCases, _ *logger.Logger) { c.Delete = nil }, "delete review use case is nil"},
+		{"nil logger", func(_ *reviewsdelivery.HandlerUseCases, l *logger.Logger) { *l = nil }, "logger is nil"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			useCases := newReviewCases(t, fakeFilms{})
+			cases := reviewsdelivery.HandlerUseCases{
+				List:   useCases.list,
+				Create: useCases.create,
+				Update: useCases.update,
+				Delete: useCases.delete,
+			}
+			appLogger := newReviewsTestLogger()
+			if tt.remove != nil {
+				tt.remove(&cases, &appLogger)
+			}
+
+			h, err := reviewsdelivery.NewHandler(cases, appLogger)
+			if tt.wantErr != "" {
+				assert.Nil(t, h)
+				assert.EqualError(t, err, tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.NotNil(t, h)
+		})
+	}
 }
 
 func TestHandler_Create(t *testing.T) {

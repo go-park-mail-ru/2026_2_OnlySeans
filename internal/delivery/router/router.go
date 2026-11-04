@@ -8,10 +8,11 @@ import (
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/films"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/reviews"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 	staticassets "github.com/go-park-mail-ru/2026_2_OnlySeans/static"
 )
 
-func NewRouter(authHandler *auth.Handler, filmsHandler *films.Handler, reviewsHandler *reviews.Handler, allowedOrigin string) http.Handler {
+func NewRouter(authHandler *auth.Handler, filmsHandler *films.Handler, reviewsHandler *reviews.Handler, allowedOrigin string, appLogger logger.Logger) http.Handler {
 	r := mux.NewRouter()
 
 	r.PathPrefix("/static/").Handler(
@@ -35,5 +36,5 @@ func NewRouter(authHandler *auth.Handler, filmsHandler *films.Handler, reviewsHa
 	r.HandleFunc("/api/reviews/{id}", RequireAuth(authHandler, reviewsHandler.Update)).Methods(http.MethodPut)
 	r.HandleFunc("/api/reviews/{id}", RequireAuth(authHandler, reviewsHandler.Delete)).Methods(http.MethodDelete)
 
-	return withCORS(r, allowedOrigin)
+	return withLogging(withRecover(withCORS(r, allowedOrigin), appLogger), appLogger)
 }
