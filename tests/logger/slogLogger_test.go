@@ -14,14 +14,14 @@ import (
 func TestNewLogger(t *testing.T) {
 	tests := []struct {
 		name    string
-		level   string
+		level   logger.LogLevelType
 		format  string
 		wantErr string
 	}{
-		{"debug/text", "debug", "text", ""},
-		{"info/json", "info", "json", ""},
-		{"warn", "warn", "text", ""},
-		{"error", "error", "json", ""},
+		{"debug/text", logger.LogLevelDebug, "text", ""},
+		{"info/json", logger.LogLevelInfo, "json", ""},
+		{"warn", logger.LogLevelWarn, "text", ""},
+		{"error", logger.LogLevelError, "json", ""},
 		{"регистр и пробелы игнорируются", "  INFO ", " JSON ", ""},
 		{"неизвестный уровень", "verbose", "text", "invalid log level"},
 		{"пустой уровень", "", "text", "invalid log level"},
@@ -48,17 +48,17 @@ func TestNewLogger(t *testing.T) {
 func TestSlogLogger_LevelFiltering(t *testing.T) {
 	// какие методы должны что-то записать при каждом уровне
 	tests := []struct {
-		level string
+		level logger.LogLevelType
 		want  map[string]bool
 	}{
-		{"debug", map[string]bool{"debug": true, "info": true, "warn": true, "error": true}},
-		{"info", map[string]bool{"debug": false, "info": true, "warn": true, "error": true}},
-		{"warn", map[string]bool{"debug": false, "info": false, "warn": true, "error": true}},
-		{"error", map[string]bool{"debug": false, "info": false, "warn": false, "error": true}},
+		{logger.LogLevelDebug, map[string]bool{"debug": true, "info": true, "warn": true, "error": true}},
+		{logger.LogLevelInfo, map[string]bool{"debug": false, "info": true, "warn": true, "error": true}},
+		{logger.LogLevelWarn, map[string]bool{"debug": false, "info": false, "warn": true, "error": true}},
+		{logger.LogLevelError, map[string]bool{"debug": false, "info": false, "warn": false, "error": true}},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.level, func(t *testing.T) {
+		t.Run(string(tt.level), func(t *testing.T) {
 			for method, wantLogged := range tt.want {
 				var buf bytes.Buffer
 				l, err := logger.NewLogger(&buf, tt.level, "text")

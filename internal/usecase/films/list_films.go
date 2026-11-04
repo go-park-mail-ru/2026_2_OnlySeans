@@ -31,6 +31,11 @@ func NewListFilmsUseCase(
 }
 
 func (uc *ListFilmsUseCase) Run(ctx context.Context, input ListFilmsInput) (*ListFilmsOutput, error) {
+	uc.logger.Debug("list films started", map[string]any{
+		"limit":  input.Limit,
+		"offset": input.Offset,
+	})
+
 	films, total, err := uc.repository.ListFilms(ctx, input.Limit, input.Offset)
 	if err != nil {
 		uc.logger.Error("list films failed", map[string]any{

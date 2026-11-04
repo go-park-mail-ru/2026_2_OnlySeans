@@ -60,8 +60,7 @@ func newTestRouterWithLogger(t *testing.T, appLogger logger.Logger) http.Handler
 		GetFilm:         getFilm,
 		ListCollections: listCollections,
 		GetCollection:   getCollection,
-		AppLogger:       appLogger,
-	})
+	}, appLogger)
 	require.NoError(t, err)
 
 	return router.NewRouter(
@@ -102,8 +101,7 @@ func newTestAuthHandler(t *testing.T, appLogger logger.Logger) *auth.Handler {
 		Logout:       logout,
 		Authenticate: authenticate,
 		GetUser:      getUser,
-		AppLogger:    appLogger,
-	})
+	}, appLogger)
 	require.NoError(t, err)
 
 	return handler
@@ -127,12 +125,11 @@ func newTestReviewsHandler(t *testing.T, films domain.FilmRepository, appLogger 
 	require.NoError(t, err)
 
 	handler, err := reviewsdelivery.NewHandler(reviewsdelivery.HandlerUseCases{
-		List:      list,
-		Create:    create,
-		Update:    update,
-		Delete:    del,
-		AppLogger: appLogger,
-	})
+		List:   list,
+		Create: create,
+		Update: update,
+		Delete: del,
+	}, appLogger)
 	require.NoError(t, err)
 
 	return handler

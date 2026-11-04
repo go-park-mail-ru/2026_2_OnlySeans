@@ -38,6 +38,8 @@ func NewRegisterUserUseCase(users domain.UserRepository, sessions domain.Session
 }
 
 func (uc *RegisterUserUseCase) Run(ctx context.Context, input RegisterUserInput) (*RegisterOutput, error) {
+	uc.logger.Debug("register started", nil)
+
 	if err := utils.ValidatePassword(input.Password); err != nil {
 		return nil, fmt.Errorf("%w: %v", domain.ErrInvalidPassword, err)
 	}
@@ -55,8 +57,13 @@ func (uc *RegisterUserUseCase) Run(ctx context.Context, input RegisterUserInput)
 		uc.logger.Error("password hashing failed", map[string]any{
 			"error": err,
 		})
+
 		return nil, fmt.Errorf("hash password: %w", err)
 	}
+
+	uc.logger.Debug("creating user", map[string]any{
+		"email": input.Email,
+	})
 
 	id, err := uc.users.Create(ctx, input.Email, input.Username, passwordHash)
 	if err != nil {

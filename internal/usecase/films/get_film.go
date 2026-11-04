@@ -31,6 +31,10 @@ func NewGetFilmUseCase(
 }
 
 func (uc *GetFilmUseCase) Run(ctx context.Context, input GetFilmInput) (*GetFilmOutput, error) {
+	uc.logger.Debug("get film started", map[string]any{
+		"film_id": input.FilmID,
+	})
+
 	film, err := uc.repository.GetFilmByID(ctx, input.FilmID)
 	if err != nil {
 		uc.logger.Error("get film failed", map[string]any{

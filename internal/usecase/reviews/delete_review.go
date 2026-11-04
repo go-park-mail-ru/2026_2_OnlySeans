@@ -31,6 +31,11 @@ func NewDeleteReviewUseCase(
 }
 
 func (uc *DeleteReviewUseCase) Run(ctx context.Context, input DeleteReviewInput) error {
+	uc.logger.Debug("delete review started", map[string]any{
+		"user_id":   input.UserID,
+		"review_id": input.ReviewID,
+	})
+
 	review, err := uc.reviews.GetByID(ctx, input.ReviewID)
 	if err != nil {
 		uc.logger.Error("get review for deletion failed", map[string]any{

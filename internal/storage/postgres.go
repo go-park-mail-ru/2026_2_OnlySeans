@@ -52,7 +52,5 @@ func Open(
 		return nil, fmt.Errorf("ping database: %w", err)
 	}
 
-	appLogger.Info("database connected", nil)
-
 	return db, nil
 }

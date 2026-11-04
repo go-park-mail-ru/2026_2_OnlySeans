@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 	"gopkg.in/yaml.v3"
 )
 
@@ -45,7 +46,7 @@ const (
 
 	defaultRedisURL = "redis://localhost:6379"
 
-	defaultLogLvl    = "info"
+	defaultLogLvl    = logger.LogLevelInfo
 	defaultLogFormat = "text"
 )
 
@@ -77,8 +78,9 @@ type Redis struct {
 }
 
 type LoggerConfig struct {
-	Level  string `yaml:"level"`
-	Format string `yaml:"format"`
+	Level  logger.LogLevelType `yaml:"level"`
+	Format string              `yaml:"format"`
+	File   string              `yaml:"file"`
 }
 
 func (s *Server) Addr() string {
@@ -117,6 +119,7 @@ func DefaultLogger() *LoggerConfig {
 	return &LoggerConfig{
 		Level:  defaultLogLvl,
 		Format: defaultLogFormat,
+		File:   "logs/app.log",
 	}
 }
 
@@ -192,7 +195,7 @@ func ParseLogger(raw []byte, lookupEnv func(string) (string, bool)) (*LoggerConf
 	}
 
 	if loggerLvl, ok := lookupEnv(EnvLogLevel); ok {
-		cfg.Level = loggerLvl
+		cfg.Level = logger.LogLevelType(loggerLvl)
 	}
 
 	if loggerFormat, ok := lookupEnv(EnvLogFormat); ok {

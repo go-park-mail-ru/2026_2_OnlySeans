@@ -14,17 +14,17 @@ type SlogLogger struct {
 	logger *slog.Logger
 }
 
-func NewLogger(w io.Writer, level, format string) (*SlogLogger, error) {
+func NewLogger(w io.Writer, level LogLevelType, format string) (*SlogLogger, error) {
 	var lvl slog.Level
 
-	switch strings.ToLower(strings.TrimSpace(level)) {
-	case "debug":
+	switch LogLevelType(strings.ToLower(strings.TrimSpace(string(level)))) {
+	case LogLevelDebug:
 		lvl = slog.LevelDebug
-	case "info":
+	case LogLevelInfo:
 		lvl = slog.LevelInfo
-	case "warn":
+	case LogLevelWarn:
 		lvl = slog.LevelWarn
-	case "error":
+	case LogLevelError:
 		lvl = slog.LevelError
 	default:
 		return nil, fmt.Errorf("invalid log level %q: want debug, info, warn or error", level)

@@ -14,6 +14,7 @@ import (
 	authdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
 	authservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/auth"
 	authusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/auth"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 )
 
 type registerRequest struct {
@@ -117,8 +118,7 @@ func newTestAuth(t *testing.T) (*authdelivery.Handler, *authservice.InMemoryUser
 		Logout:       logout,
 		Authenticate: authenticate,
 		GetUser:      getUser,
-		AppLogger:    appLogger,
-	})
+	}, appLogger)
 	require.NoError(t, err)
 
 	return h, users, sessions
@@ -192,8 +192,42 @@ func TestHandler_Login(t *testing.T) {
 }
 
 func TestNewHandler_NilDependencies(t *testing.T) {
-	h, err := authdelivery.NewHandler(authdelivery.HandlerUseCases{})
+	tests := []struct {
+		name    string
+		remove  func(*authdelivery.HandlerUseCases, *logger.Logger)
+		wantErr string
+	}{
+		{"all dependencies", nil, ""},
+		{"nil register", func(c *authdelivery.HandlerUseCases, _ *logger.Logger) { c.Register = nil }, "register use case is nil"},
+		{"nil login", func(c *authdelivery.HandlerUseCases, _ *logger.Logger) { c.Login = nil }, "login use case is nil"},
+		{"nil logout", func(c *authdelivery.HandlerUseCases, _ *logger.Logger) { c.Logout = nil }, "logout use case is nil"},
+		{"nil authenticate", func(c *authdelivery.HandlerUseCases, _ *logger.Logger) { c.Authenticate = nil }, "authenticate use case is nil"},
+		{"nil get user", func(c *authdelivery.HandlerUseCases, _ *logger.Logger) { c.GetUser = nil }, "get user use case is nil"},
+		{"nil logger", func(_ *authdelivery.HandlerUseCases, l *logger.Logger) { *l = nil }, "logger use case is nil"},
+	}
 
-	assert.Nil(t, h)
-	assert.EqualError(t, err, "register use case is nil")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cases := authdelivery.HandlerUseCases{
+				Register:     &authusecase.RegisterUserUseCase{},
+				Login:        &authusecase.LoginUserUseCase{},
+				Logout:       &authusecase.LogoutUserUseCase{},
+				Authenticate: &authusecase.AuthenticateUserUseCase{},
+				GetUser:      &authusecase.GetUserUseCase{},
+			}
+			appLogger := newTestLogger()
+			if tt.remove != nil {
+				tt.remove(&cases, &appLogger)
+			}
+
+			h, err := authdelivery.NewHandler(cases, appLogger)
+			if tt.wantErr != "" {
+				assert.Nil(t, h)
+				assert.EqualError(t, err, tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.NotNil(t, h)
+		})
+	}
 }

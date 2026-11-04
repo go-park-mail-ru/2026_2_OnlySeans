@@ -27,6 +27,8 @@ func NewLogoutUserUseCase(sessions domain.SessionStore, appLogger logger.Logger)
 }
 
 func (uc *LogoutUserUseCase) Run(ctx context.Context, input LogoutInput) error {
+	uc.logger.Debug("logout started", nil)
+
 	if err := uc.sessions.Delete(ctx, input.SessionID); err != nil {
 		uc.logger.Error("session deletion failed", map[string]any{
 			"error": err,

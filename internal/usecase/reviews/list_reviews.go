@@ -37,6 +37,12 @@ func NewListReviewsUseCase(
 }
 
 func (uc *ListReviewsUseCase) Run(ctx context.Context, input ListReviewsInput) (*ListReviewsOutput, error) {
+	uc.logger.Debug("list reviews started", map[string]any{
+		"film_id": input.FilmID,
+		"limit":   input.Limit,
+		"offset":  input.Offset,
+	})
+
 	if _, err := uc.films.GetFilmByID(ctx, input.FilmID); err != nil {
 		uc.logger.Error("get film for reviews failed", map[string]any{
 			"film_id": input.FilmID,

@@ -31,6 +31,11 @@ func NewUpdateReviewUseCase(
 }
 
 func (uc *UpdateReviewUseCase) Run(ctx context.Context, input UpdateReviewInput) (*ReviewOutput, error) {
+	uc.logger.Debug("update review started", map[string]any{
+		"user_id":   input.UserID,
+		"review_id": input.ReviewID,
+	})
+
 	changes, err := prepareReview(input.Review)
 	if err != nil {
 		return nil, err

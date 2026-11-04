@@ -178,8 +178,7 @@ func newTestRouter(t testing.TB, service filmsservice.Service) *mux.Router {
 		GetFilm:         getFilm,
 		ListCollections: listCollections,
 		GetCollection:   getCollection,
-		AppLogger:       newFilmsTestLogger(),
-	})
+	}, newFilmsTestLogger())
 	if err != nil {
 		t.Fatalf("NewHandler: %v", err)
 	}

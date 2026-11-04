@@ -31,10 +31,9 @@ type HandlerUseCases struct {
 	Logout       *usecase.LogoutUserUseCase
 	Authenticate *usecase.AuthenticateUserUseCase
 	GetUser      *usecase.GetUserUseCase
-	AppLogger    logger.Logger
 }
 
-func NewHandler(cases HandlerUseCases) (*Handler, error) {
+func NewHandler(cases HandlerUseCases, appLogger logger.Logger) (*Handler, error) {
 	if cases.Register == nil {
 		return nil, errors.New("register use case is nil")
 	}
@@ -51,7 +50,7 @@ func NewHandler(cases HandlerUseCases) (*Handler, error) {
 		return nil, errors.New("get user use case is nil")
 	}
 
-	if cases.AppLogger == nil {
+	if appLogger == nil {
 		return nil, errors.New("logger use case is nil")
 	}
 
@@ -61,7 +60,7 @@ func NewHandler(cases HandlerUseCases) (*Handler, error) {
 		logout:       cases.Logout,
 		authenticate: cases.Authenticate,
 		getUser:      cases.GetUser,
-		appLogger:    cases.AppLogger,
+		appLogger:    appLogger,
 	}, nil
 }
 
@@ -98,7 +97,6 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.appLogger.Info("user registered", map[string]any{"user_id": result.User.ID})
 	h.setSessionCookie(w, result.Session.ID, result.Session.ExpiresAt)
 	writeJSON(w, http.StatusCreated, toAuthResponse(result.User), h.appLogger)
 }
@@ -139,7 +137,6 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.appLogger.Info("user logged in", map[string]any{"user_id": result.User.ID})
 	h.setSessionCookie(w, result.Session.ID, result.Session.ExpiresAt)
 	writeJSON(w, http.StatusOK, toAuthResponse(result.User), h.appLogger)
 }
@@ -173,7 +170,6 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	h.appLogger.Info("user loggedd out", map[string]any{})
 	h.clearSessionCookie(w)
 	w.WriteHeader(http.StatusNoContent)
 }
