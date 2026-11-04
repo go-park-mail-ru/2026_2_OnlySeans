@@ -139,8 +139,7 @@ func newFlakyHandler(
 		Logout:       logout,
 		Authenticate: authenticate,
 		GetUser:      getUser,
-		AppLogger:    appLogger,
-	})
+	}, appLogger)
 	require.NoError(t, err)
 
 	return h, store

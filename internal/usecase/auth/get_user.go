@@ -29,6 +29,10 @@ func NewGetUserUseCase(users domain.UserRepository, appLogger logger.Logger) (*G
 }
 
 func (uc *GetUserUseCase) Run(ctx context.Context, input GetUserInput) (*GetUserOutput, error) {
+	uc.logger.Debug("get user started", map[string]any{
+		"user_id": input.UserID,
+	})
+
 	user, err := uc.users.GetUser(ctx, input.UserID)
 	if err != nil {
 		uc.logger.Error("get user failed", map[string]any{

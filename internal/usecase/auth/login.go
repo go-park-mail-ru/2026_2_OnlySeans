@@ -43,11 +43,21 @@ func NewLoginUserUseCase(users domain.UserRepository, sessions domain.SessionSto
 }
 
 func (uc *LoginUserUseCase) Run(ctx context.Context, input LoginUserInput) (*LoginOutput, error) {
+	uc.logger.Debug("login started", nil)
+
 	if err := utils.ValidateEmail(input.Email); err != nil {
+		uc.logger.Warn("login rejected", map[string]any{
+			"reason": "invalid email",
+		})
+
 		return nil, fmt.Errorf("%w: %v", domain.ErrInvalidEmail, err)
 	}
 
 	if input.Password == "" {
+		uc.logger.Warn("login rejected", map[string]any{
+			"reason": "empty password",
+		})
+
 		return nil, domain.ErrInvalidPassword
 	}
 

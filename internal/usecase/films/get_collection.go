@@ -32,6 +32,12 @@ func NewGetCollectionUseCase(
 }
 
 func (uc *GetCollectionUseCase) Run(ctx context.Context, input GetCollectionInput) (*GetCollectionOutput, error) {
+	uc.logger.Debug("get collection started", map[string]any{
+		"collection_id": input.CollectionID,
+		"limit":         input.Limit,
+		"offset":        input.Offset,
+	})
+
 	collection, err := uc.repository.GetCollectionByID(ctx, input.CollectionID)
 	if err != nil {
 		uc.logger.Error("get collection failed", map[string]any{

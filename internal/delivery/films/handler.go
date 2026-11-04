@@ -71,7 +71,6 @@ type HandlerUseCases struct {
 	GetFilm         *usecase.GetFilmUseCase
 	ListCollections *usecase.ListCollectionsUseCase
 	GetCollection   *usecase.GetCollectionUseCase
-	AppLogger       logger.Logger
 }
 
 type Handler struct {
@@ -82,7 +81,7 @@ type Handler struct {
 	appLogger       logger.Logger
 }
 
-func NewHandler(cases HandlerUseCases) (*Handler, error) {
+func NewHandler(cases HandlerUseCases, appLogger logger.Logger) (*Handler, error) {
 	if cases.ListFilms == nil {
 		return nil, errors.New("list films use case is nil")
 	}
@@ -95,7 +94,7 @@ func NewHandler(cases HandlerUseCases) (*Handler, error) {
 	if cases.GetCollection == nil {
 		return nil, errors.New("get collection use case is nil")
 	}
-	if cases.AppLogger == nil {
+	if appLogger == nil {
 		return nil, errors.New("logger use case is nil")
 	}
 	return &Handler{
@@ -103,7 +102,7 @@ func NewHandler(cases HandlerUseCases) (*Handler, error) {
 		getFilm:         cases.GetFilm,
 		listCollections: cases.ListCollections,
 		getCollection:   cases.GetCollection,
-		appLogger:       cases.AppLogger,
+		appLogger:       appLogger,
 	}, nil
 }
 
@@ -151,12 +150,6 @@ func (h *Handler) ListFilms(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.appLogger.Info("films listed", map[string]any{
-		"limit":  input.Limit,
-		"offset": input.Offset,
-		"total":  result.Total,
-	})
-
 	writeJSON(w, http.StatusOK, filmsPage{
 		Films:  toFilmCardResponseDTOs(result.Films),
 		Total:  result.Total,
@@ -179,10 +172,6 @@ func (h *Handler) GetFilm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.appLogger.Info("film retrieved", map[string]any{
-		"film_id": input.FilmID,
-	})
-
 	writeJSON(w, http.StatusOK, filmResponse{Film: toFilmResponseDTO(result.Film)}, h.appLogger)
 }
 
@@ -200,12 +189,6 @@ func (h *Handler) ListCollections(w http.ResponseWriter, r *http.Request) {
 		writeError(w, fmt.Errorf("list collections: %w", err), h.appLogger)
 		return
 	}
-
-	h.appLogger.Info("collections listed", map[string]any{
-		"limit":  input.Limit,
-		"offset": input.Offset,
-		"total":  result.Total,
-	})
 
 	writeJSON(w, http.StatusOK, collectionsPage{
 		Collections: toCollectionResponseDTOs(result.Collections),
@@ -234,13 +217,6 @@ func (h *Handler) GetCollection(w http.ResponseWriter, r *http.Request) {
 		writeError(w, err, h.appLogger)
 		return
 	}
-
-	h.appLogger.Info("collection retrieved", map[string]any{
-		"collection_id": input.CollectionID,
-		"limit":         input.Limit,
-		"offset":        input.Offset,
-		"total":         result.Total,
-	})
 
 	writeJSON(w, http.StatusOK, collectionPage{
 		Collection: toCollectionWithFilmsResponseDTO(result.Collection, result.Films),

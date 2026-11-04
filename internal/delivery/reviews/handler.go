@@ -103,11 +103,10 @@ var clientErrors = []struct {
 }
 
 type HandlerUseCases struct {
-	List      *usecase.ListReviewsUseCase
-	Create    *usecase.CreateReviewUseCase
-	Update    *usecase.UpdateReviewUseCase
-	Delete    *usecase.DeleteReviewUseCase
-	AppLogger logger.Logger
+	List   *usecase.ListReviewsUseCase
+	Create *usecase.CreateReviewUseCase
+	Update *usecase.UpdateReviewUseCase
+	Delete *usecase.DeleteReviewUseCase
 }
 
 type Handler struct {
@@ -115,7 +114,7 @@ type Handler struct {
 	appLogger logger.Logger
 }
 
-func NewHandler(cases HandlerUseCases) (*Handler, error) {
+func NewHandler(cases HandlerUseCases, appLogger logger.Logger) (*Handler, error) {
 	if cases.List == nil {
 		return nil, errors.New("list reviews use case is nil")
 	}
@@ -128,10 +127,10 @@ func NewHandler(cases HandlerUseCases) (*Handler, error) {
 	if cases.Delete == nil {
 		return nil, errors.New("delete review use case is nil")
 	}
-	if cases.AppLogger == nil {
-		return nil, errors.New("logger review use case is nil")
+	if appLogger == nil {
+		return nil, errors.New("logger is nil")
 	}
-	return &Handler{useCases: cases, appLogger: cases.AppLogger}, nil
+	return &Handler{useCases: cases, appLogger: appLogger}, nil
 }
 
 type reviewRequest struct {
@@ -162,13 +161,6 @@ func (h *Handler) ListByFilm(w http.ResponseWriter, r *http.Request) {
 		writeError(w, err, h.appLogger)
 		return
 	}
-
-	h.appLogger.Info("reviews listed", map[string]any{
-		"film_id": input.FilmID,
-		"limit":   input.Limit,
-		"offset":  input.Offset,
-		"total":   result.Total,
-	})
 
 	writeJSON(w, http.StatusOK, reviewsPage{
 		Reviews: toReviewResponseDTOs(result.Reviews),
@@ -206,12 +198,6 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.appLogger.Info("review created", map[string]any{
-		"user_id":   inputCreateReview.AuthorID,
-		"film_id":   inputCreateReview.FilmID,
-		"review_id": result.Review.ID,
-	})
-
 	writeJSON(w, http.StatusCreated, reviewResponse{Review: toReviewResponseDTO(result.Review)}, h.appLogger)
 }
 
@@ -243,11 +229,6 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.appLogger.Info("review updated", map[string]any{
-		"user_id":   inputUpdateReview.UserID,
-		"review_id": inputUpdateReview.ReviewID,
-	})
-
 	writeJSON(w, http.StatusOK, reviewResponse{Review: toReviewResponseDTO(result.Review)}, h.appLogger)
 }
 
@@ -272,11 +253,6 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 		writeError(w, err, h.appLogger)
 		return
 	}
-
-	h.appLogger.Info("review deleted", map[string]any{
-		"user_id":   input.UserID,
-		"review_id": input.ReviewID,
-	})
 
 	w.WriteHeader(http.StatusNoContent)
 }

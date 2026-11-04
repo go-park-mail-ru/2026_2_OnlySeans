@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -52,7 +53,17 @@ func Run(configPath, databaseConfigPath, redisConfigPath, loggerConfigPath strin
 		return fmt.Errorf("load logger config: %w", err)
 	}
 
-	appLogger, err := logger.NewLogger(os.Stdout, loggerCfg.Level, loggerCfg.Format)
+	if err := os.MkdirAll(filepath.Dir(loggerCfg.File), 0o755); err != nil {
+		return fmt.Errorf("create log dir: %w", err)
+	}
+
+	logFile, err := os.OpenFile(loggerCfg.File, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	if err != nil {
+		return fmt.Errorf("open log file: %w", err)
+	}
+	defer logFile.Close()
+
+	appLogger, err := logger.NewLogger(logFile, loggerCfg.Level, loggerCfg.Format)
 	if err != nil {
 		return fmt.Errorf("create logger: %w", err)
 	}
@@ -138,8 +149,7 @@ func Run(configPath, databaseConfigPath, redisConfigPath, loggerConfigPath strin
 		Logout:       logoutUC,
 		Authenticate: authenticateUC,
 		GetUser:      getUserUC,
-		AppLogger:    appLogger,
-	})
+	}, appLogger)
 	if err != nil {
 		return fmt.Errorf("create handler: %w", err)
 	}
@@ -149,8 +159,7 @@ func Run(configPath, databaseConfigPath, redisConfigPath, loggerConfigPath strin
 		GetFilm:         getFilmUC,
 		ListCollections: listCollectionsUC,
 		GetCollection:   getCollectionUC,
-		AppLogger:       appLogger,
-	})
+	}, appLogger)
 	if err != nil {
 		return fmt.Errorf("create films handler: %w", err)
 	}
@@ -176,12 +185,12 @@ func Run(configPath, databaseConfigPath, redisConfigPath, loggerConfigPath strin
 	}
 
 	reviewsHandler, err := reviewsdelivery.NewHandler(reviewsdelivery.HandlerUseCases{
-		List:      listReviewsUC,
-		Create:    createReviewUC,
-		Update:    updateReviewUC,
-		Delete:    deleteReviewUC,
-		AppLogger: appLogger,
-	})
+		List:   listReviewsUC,
+		Create: createReviewUC,
+		Update: updateReviewUC,
+		Delete: deleteReviewUC,
+	}, appLogger)
+
 	if err != nil {
 		return fmt.Errorf("create reviews handler: %w", err)
 	}

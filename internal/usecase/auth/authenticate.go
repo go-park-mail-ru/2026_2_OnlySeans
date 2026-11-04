@@ -30,6 +30,8 @@ func NewAuthenticateUserUseCase(sessions domain.SessionStore, appLogger logger.L
 }
 
 func (uc *AuthenticateUserUseCase) Run(ctx context.Context, input AuthenticateInput) (*AuthenticateOutput, error) {
+	uc.logger.Debug("authenticate started", nil)
+
 	session, err := uc.sessions.Get(ctx, input.SessionID)
 	if err != nil {
 		if errors.Is(err, domain.ErrSessionNotFound) {
@@ -53,7 +55,7 @@ func (uc *AuthenticateUserUseCase) Run(ctx context.Context, input AuthenticateIn
 
 	output := NewAuthenticateOutput(session.UserID)
 
-	uc.logger.Info("user authenticated", map[string]any{
+	uc.logger.Debug("user authenticated", map[string]any{
 		"user_id": session.UserID,
 	})
 
