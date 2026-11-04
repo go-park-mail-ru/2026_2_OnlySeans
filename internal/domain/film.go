@@ -2,6 +2,7 @@ package domain
 
 import (
 	"context"
+	"time"
 )
 
 type FilmID int64
@@ -33,6 +34,32 @@ type Film struct {
 	PosterURL     *string  `db:"poster_url"`
 	TrailerURL    *string  `db:"trailer_url"`
 	Genres        []Genre
+}
+
+const (
+	MinFilmRating int16 = 1
+	MaxFilmRating int16 = 10
+)
+
+type FilmRating struct {
+	AccountID UserID
+	FilmID    FilmID
+	Score     int16
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+type FilmRatingSummary struct {
+	FilmID       FilmID
+	AverageScore float64
+	Votes        int64
+}
+
+type FilmRatingRepository interface {
+	Set(ctx context.Context, accountID UserID, filmID FilmID, score int16) (FilmRating, error)
+	GetSummary(ctx context.Context, filmID FilmID) (FilmRatingSummary, error)
+	GetSummaries(ctx context.Context, filmIDs []FilmID) ([]FilmRatingSummary, error)
+	Delete(ctx context.Context, accountID UserID, filmID FilmID) error
 }
 
 type FilmRepository interface {

@@ -10,4 +10,7 @@ var (
 	ErrDuplicateCollectionFilm = errors.New("film is already in collection")
 	ErrNilCollectionsRepo      = errors.New("collections repository is nil")
 	ErrNilFilmsRepo            = errors.New("films repository is nil")
+	ErrInvalidFilmRating       = errors.New("film rating must be from 1 to 10")
+	ErrNilFilmRatingsRepo      = errors.New("film ratings repository is nil")
+	ErrRatingNotFound          = errors.New("rating not found")
 )

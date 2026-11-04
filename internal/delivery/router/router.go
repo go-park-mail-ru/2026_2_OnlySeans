@@ -7,11 +7,12 @@ import (
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/films"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/ratings"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/reviews"
 	staticassets "github.com/go-park-mail-ru/2026_2_OnlySeans/static"
 )
 
-func NewRouter(authHandler *auth.Handler, filmsHandler *films.Handler, reviewsHandler *reviews.Handler, allowedOrigin string) http.Handler {
+func NewRouter(authHandler *auth.Handler, filmsHandler *films.Handler, reviewsHandler *reviews.Handler, ratingsHandler *ratings.Handler, allowedOrigin string) http.Handler {
 	r := mux.NewRouter()
 
 	r.PathPrefix("/static/").Handler(
@@ -34,6 +35,11 @@ func NewRouter(authHandler *auth.Handler, filmsHandler *films.Handler, reviewsHa
 	r.HandleFunc("/api/films/{id}/reviews", RequireAuth(authHandler, reviewsHandler.Create)).Methods(http.MethodPost)
 	r.HandleFunc("/api/reviews/{id}", RequireAuth(authHandler, reviewsHandler.Update)).Methods(http.MethodPut)
 	r.HandleFunc("/api/reviews/{id}", RequireAuth(authHandler, reviewsHandler.Delete)).Methods(http.MethodDelete)
+
+	r.HandleFunc("/api/films/{id}/rating", ratingsHandler.Get).Methods(http.MethodGet)
+	r.HandleFunc("/api/films/{id}/rating", RequireAuth(authHandler, ratingsHandler.Set)).Methods(http.MethodPut)
+	r.HandleFunc("/api/films/{id}/rating", RequireAuth(authHandler, ratingsHandler.Delete)).Methods(http.MethodDelete)
+	r.HandleFunc("/api/collections/{id}/ratings", ratingsHandler.GetForCollection).Methods(http.MethodGet)
 
 	return withCORS(r, allowedOrigin)
 }

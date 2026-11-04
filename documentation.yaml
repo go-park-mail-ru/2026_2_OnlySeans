@@ -3,7 +3,7 @@ info:
   title: API OnlySeans
   version: 1.4.0
   description: |-
-    API OnlySeans: регистрация, вход, выход, проверка авторизации, фильмы, подборки фильмов и отзывы.
+    API OnlySeans: регистрация, вход, выход, проверка авторизации, фильмы, подборки, рейтинги и отзывы.
     Сессия хранится в cookie session_id. Данные пока лежат в памяти сервера.
 servers:
   - url: http://localhost:8080
@@ -12,6 +12,7 @@ tags:
   - name: Авторизация
   - name: Фильмы
   - name: Подборки
+  - name: Рейтинги
   - name: Отзывы
 security: []
 x-cors:
@@ -299,6 +300,154 @@ paths:
                 $ref: '#/components/schemas/CollectionResponse'
         '400':
           $ref: '#/components/responses/InvalidCollectionRequest'
+        '404':
+          $ref: '#/components/responses/CollectionNotFound'
+        '405':
+          $ref: '#/components/responses/RouteMethodNotAllowed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/films/{id}/rating:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: Числовой id фильма.
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+        example: 1
+    get:
+      tags:
+        - Рейтинги
+      operationId: getFilmRating
+      summary: Средняя оценка фильма
+      description: |-
+        Возвращает средний балл и число оценок. Вход не нужен.
+        Для фильма без оценок average_score равен 0, votes равен 0.
+        Id не число или не больше нуля — 400, фильм не найден — 404.
+      x-implementation-status: implemented
+      security: []
+      responses:
+        '200':
+          description: Сводка оценок.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FilmRatingSummaryResponse'
+        '400':
+          $ref: '#/components/responses/InvalidRatingRequest'
+        '404':
+          $ref: '#/components/responses/FilmNotFound'
+        '405':
+          $ref: '#/components/responses/RouteMethodNotAllowed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    put:
+      tags:
+        - Рейтинги
+      operationId: setFilmRating
+      summary: Поставить или изменить оценку
+      description: |-
+        Требует действующую сессию. Оценка автора берётся из сессии, передать account_id нельзя.
+        Оценка должна быть целым числом от 1 до 10. Повторный запрос изменяет оценку пользователя,
+        а триггер базы записывает новое значение в историю только при изменении балла.
+        Тело ограничено 1 МБ, неизвестные поля запрещены.
+      x-implementation-status: implemented
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FilmRatingInput'
+      responses:
+        '200':
+          description: Созданная или обновлённая оценка пользователя.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FilmRatingResponse'
+        '400':
+          $ref: '#/components/responses/InvalidRatingRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/FilmNotFound'
+        '405':
+          $ref: '#/components/responses/RouteMethodNotAllowed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      tags:
+        - Рейтинги
+      operationId: deleteFilmRating
+      summary: Удалить свою оценку
+      description: |-
+        Требует действующую сессию. Удаляет оценку текущего пользователя для указанного фильма.
+        При успехе возвращает 204 без тела. Если фильм или оценка пользователя не найдены — 404.
+        Средний рейтинг и количество голосов будут пересчитаны при следующем запросе,
+        так как вычисляются по оставшимся оценкам.
+      x-implementation-status: implemented
+      security:
+        - sessionCookie: []
+      responses:
+        '204':
+          description: Оценка удалена. Без тела.
+        '400':
+          $ref: '#/components/responses/InvalidRatingRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Фильм или личная оценка не найдены.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                filmNotFound:
+                  value:
+                    error: film not found
+                ratingNotFound:
+                  value:
+                    error: rating not found
+        '405':
+          $ref: '#/components/responses/RouteMethodNotAllowed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/collections/{id}/ratings:
+    get:
+      tags:
+        - Рейтинги
+      operationId: getCollectionFilmRatings
+      summary: Рейтинги фильмов подборки
+      description: |-
+        Возвращает средний балл и число оценок для каждого фильма подборки в порядке фильмов подборки.
+        Фильмы без оценок также включены: average_score равен 0, votes равен 0.
+        Все рейтинги загружаются одним агрегирующим запросом после получения списка фильмов.
+        Вход не нужен. Id не число или не больше нуля — 400, подборка не найдена — 404.
+      x-implementation-status: implemented
+      security: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Числовой id подборки.
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+          example: 2
+      responses:
+        '200':
+          description: Список сводок рейтингов фильмов подборки.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollectionRatingsResponse'
+        '400':
+          $ref: '#/components/responses/InvalidCollectionRatingsRequest'
         '404':
           $ref: '#/components/responses/CollectionNotFound'
         '405':
@@ -842,6 +991,101 @@ components:
         total: 4
         limit: 1
         offset: 0
+    FilmRatingInput:
+      type: object
+      additionalProperties: false
+      properties:
+        score:
+          type: integer
+          minimum: 1
+          maximum: 10
+          description: Оценка фильма от 1 до 10.
+      required:
+        - score
+      example:
+        score: 8
+    FilmRating:
+      type: object
+      properties:
+        film_id:
+          type: integer
+          format: int64
+        score:
+          type: integer
+          minimum: 1
+          maximum: 10
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - film_id
+        - score
+        - created_at
+        - updated_at
+    FilmRatingResponse:
+      type: object
+      properties:
+        rating:
+          $ref: '#/components/schemas/FilmRating'
+      required:
+        - rating
+      example:
+        rating:
+          film_id: 1
+          score: 8
+          created_at: '2026-10-19T14:02:11Z'
+          updated_at: '2026-10-19T14:02:11Z'
+    FilmRatingSummary:
+      type: object
+      properties:
+        film_id:
+          type: integer
+          format: int64
+        average_score:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 10
+        votes:
+          type: integer
+          format: int64
+          minimum: 0
+      required:
+        - film_id
+        - average_score
+        - votes
+    FilmRatingSummaryResponse:
+      type: object
+      properties:
+        rating:
+          $ref: '#/components/schemas/FilmRatingSummary'
+      required:
+        - rating
+      example:
+        rating:
+          film_id: 1
+          average_score: 8.4
+          votes: 17
+    CollectionRatingsResponse:
+      type: object
+      properties:
+        ratings:
+          type: array
+          items:
+            $ref: '#/components/schemas/FilmRatingSummary'
+      required:
+        - ratings
+      example:
+        ratings:
+          - film_id: 1
+            average_score: 8.4
+            votes: 17
+          - film_id: 2
+            average_score: 0
+            votes: 0
     ReviewInput:
       type: object
       additionalProperties: false
@@ -1019,6 +1263,33 @@ components:
             $ref: '#/components/schemas/Error'
           example:
             error: film id must be a positive integer
+    InvalidRatingRequest:
+      description: Неверный id фильма, тело запроса или оценка вне диапазона 1–10.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            invalidId:
+              summary: id не число или не больше нуля
+              value:
+                error: film id must be a positive integer
+            invalidBody:
+              summary: Тело невалидно или содержит неизвестные поля
+              value:
+                error: invalid request body
+            invalidScore:
+              summary: Оценка не входит в диапазон 1–10
+              value:
+                error: film rating must be from 1 to 10
+    InvalidCollectionRatingsRequest:
+      description: Id подборки не число или не больше нуля.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: collection id must be a positive integer
     InvalidCollectionRequest:
       description: Неверный id подборки, limit или offset.
       content:

@@ -2,7 +2,7 @@ package usecase
 
 import (
 	"context"
-	"fmt"
+	"errors"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 )
@@ -31,12 +31,22 @@ func (uc *CreateReviewUseCase) Run(ctx context.Context, input CreateReviewInput)
 	}
 
 	if _, err := uc.films.GetFilmByID(ctx, input.FilmID); err != nil {
-		return nil, fmt.Errorf("get film %d: %w", input.FilmID, err)
+		if errors.Is(err, domain.ErrFilmNotFound) {
+			return nil, domain.ErrFilmNotFound
+		}
+		return nil, err
 	}
 
 	created, err := uc.reviews.Create(ctx, input.AuthorID, input.FilmID, *review)
 	if err != nil {
-		return nil, fmt.Errorf("create review: %w", err)
+		switch {
+		case errors.Is(err, domain.ErrReviewExists):
+			return nil, domain.ErrReviewExists
+		case errors.Is(err, domain.ErrFilmNotFound):
+			return nil, domain.ErrFilmNotFound
+		default:
+			return nil, err
+		}
 	}
 	return NewReviewOutput(created), nil
 }
