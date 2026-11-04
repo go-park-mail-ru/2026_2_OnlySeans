@@ -78,19 +78,22 @@ func TestHandler_InvalidBody(t *testing.T) {
 	}
 }
 
+const validLoginBody = `{"email":"anna@example.com","password":"Password1"}`
+
 func TestHandler_ResponseHidesPassword(t *testing.T) {
 	h, users, _ := newTestAuth(t)
 
 	for _, step := range []struct {
 		name        string
+		body        string
 		handlerFunc http.HandlerFunc
 		wantStatus  int
 	}{
-		{"register", h.Register, http.StatusCreated},
-		{"login", h.Login, http.StatusOK},
+		{"register", validRegisterBody, h.Register, http.StatusCreated},
+		{"login", validLoginBody, h.Login, http.StatusOK},
 	} {
 		t.Run(step.name, func(t *testing.T) {
-			rec := rawRequest(step.handlerFunc, http.MethodPost, validRegisterBody)
+			rec := rawRequest(step.handlerFunc, http.MethodPost, step.body)
 			require.Equal(t, step.wantStatus, rec.Code)
 
 			body := rec.Body.String()
@@ -153,8 +156,8 @@ func TestHandler_SessionsAreIndependent(t *testing.T) {
 	ctx := context.Background()
 
 	registered := sessionCookie(t, rawRequest(h.Register, http.MethodPost, validRegisterBody))
-	phone := sessionCookie(t, rawRequest(h.Login, http.MethodPost, validRegisterBody))
-	laptop := sessionCookie(t, rawRequest(h.Login, http.MethodPost, validRegisterBody))
+	phone := sessionCookie(t, rawRequest(h.Login, http.MethodPost, validLoginBody))
+	laptop := sessionCookie(t, rawRequest(h.Login, http.MethodPost, validLoginBody))
 
 	assert.NotEqual(t, registered.Value, phone.Value)
 	assert.NotEqual(t, phone.Value, laptop.Value)

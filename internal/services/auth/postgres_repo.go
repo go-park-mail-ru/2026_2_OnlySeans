@@ -23,14 +23,16 @@ const (
 
 	// Вход
 	getUserByEmailQuery = `
-		SELECT id, email, username, password_hash
+		SELECT id, email, username, password_hash,
+ (SELECT code FROM role WHERE role.id = account.role_id) AS role_code
 		FROM account
 		WHERE email = $1 AND deleted_at IS NULL
 	`
 
 	// Авторизация
 	getUserByIDQuery = `
-		SELECT id, email, username, password_hash
+		SELECT id, email, username, password_hash,
+ (SELECT code FROM role WHERE role.id = account.role_id) AS role_code
 		FROM account
 		WHERE id = $1 AND deleted_at IS NULL
 	`
@@ -53,7 +55,7 @@ func (r *PostgresUserRepo) GetUser(ctx context.Context, id domain.UserID) (*doma
 	var user domain.User
 
 	err := r.db.QueryRowContext(ctx, getUserByIDQuery, id).
-		Scan(&user.ID, &user.Email, &user.Username, &user.PasswordHash)
+		Scan(&user.ID, &user.Email, &user.Username, &user.PasswordHash, &user.Role)
 
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, domain.ErrUserNotFound
@@ -75,7 +77,7 @@ func (r *PostgresUserRepo) GetByEmail(ctx context.Context, email string) (*domai
 	var user domain.User
 
 	err := r.db.QueryRowContext(ctx, getUserByEmailQuery, email).
-		Scan(&user.ID, &user.Email, &user.Username, &user.PasswordHash)
+		Scan(&user.ID, &user.Email, &user.Username, &user.PasswordHash, &user.Role)
 
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, domain.ErrUserNotFound

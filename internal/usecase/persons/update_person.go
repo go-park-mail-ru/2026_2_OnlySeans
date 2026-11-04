@@ -29,6 +29,10 @@ func NewUpdatePersonUseCase(persons domain.PersonRepository, appLogger logger.Lo
 }
 
 func (uc *UpdatePersonUseCase) Run(ctx context.Context, input UpdatePersonInput) (*PersonOutput, error) {
+	uc.logger.Debug("update person started", map[string]any{
+		"person_id": input.PersonID,
+	})
+
 	person, err := preparePerson(input.Person)
 	if err != nil {
 		return nil, err

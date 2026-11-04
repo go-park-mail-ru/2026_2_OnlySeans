@@ -29,6 +29,11 @@ func NewListPersonsUseCase(persons domain.PersonRepository, appLogger logger.Log
 }
 
 func (uc *ListPersonsUseCase) Run(ctx context.Context, input ListPersonsInput) (*ListPersonsOutput, error) {
+	uc.logger.Debug("list persons started", map[string]any{
+		"limit":  input.Limit,
+		"offset": input.Offset,
+	})
+
 	persons, total, err := uc.persons.List(
 		ctx,
 		input.Limit,
@@ -43,6 +48,12 @@ func (uc *ListPersonsUseCase) Run(ctx context.Context, input ListPersonsInput) (
 
 		return nil, fmt.Errorf("list persons: %w", err)
 	}
+
+	uc.logger.Info("persons listed", map[string]any{
+		"limit":  input.Limit,
+		"offset": input.Offset,
+		"total":  total,
+	})
 
 	return NewListPersonsOutput(persons, total), nil
 }

@@ -116,13 +116,12 @@ func newHandlerTest(t *testing.T, repo domain.PersonRepository) *persondelivery.
 	}
 
 	handler, err := persondelivery.NewHandler(persondelivery.HandlerUseCases{
-		Create:    create,
-		Get:       get,
-		List:      list,
-		Update:    update,
-		Delete:    deletePerson,
-		AppLogger: appLogger,
-	})
+		Create: create,
+		Get:    get,
+		List:   list,
+		Update: update,
+		Delete: deletePerson,
+	}, appLogger)
 	if err != nil {
 		t.Fatalf("failed to create handler: %v", err)
 	}

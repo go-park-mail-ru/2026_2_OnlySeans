@@ -37,9 +37,9 @@ const (
 		RETURNING id`
 
 	updatePersonQuery = `
-		UPDATE person
+		UPDATE person AS p
 		SET first_name = $2, last_name = $3, birth_date = $4
-		WHERE id = $1
+		WHERE p.id = $1
 		RETURNING ` + personColumns
 
 	deletePersonQuery = `

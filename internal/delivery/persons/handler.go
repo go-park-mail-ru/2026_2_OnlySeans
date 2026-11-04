@@ -1,10 +1,10 @@
 package persons
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/httprequest"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/httpresponse"
 	"net/http"
 	"strconv"
 	"strings"
@@ -22,29 +22,25 @@ const (
 	maxLimit     = 100
 
 	defaultOffset = 0
-	maxBodyBytes  = 1 << 20
 
 	idVar       = "id"
 	limitParam  = "limit"
 	offsetParam = "offset"
-
-	internalErrorMessage = "internal server error"
 )
 
 var (
 	ErrInvalidID     = errors.New("invalid person ID")
 	ErrInvalidLimit  = errors.New("invalid limit")
 	ErrInvalidOffset = errors.New("invalid offset")
-	ErrInvalidBody   = errors.New("invalid request body")
+	ErrInvalidBody   = httprequest.ErrInvalidBody
 )
 
 type HandlerUseCases struct {
-	Create    *personusecase.CreatePersonUseCase
-	Get       *personusecase.GetPersonUseCase
-	List      *personusecase.ListPersonsUseCase
-	Update    *personusecase.UpdatePersonUseCase
-	Delete    *personusecase.DeletePersonUseCase
-	AppLogger logger.Logger
+	Create *personusecase.CreatePersonUseCase
+	Get    *personusecase.GetPersonUseCase
+	List   *personusecase.ListPersonsUseCase
+	Update *personusecase.UpdatePersonUseCase
+	Delete *personusecase.DeletePersonUseCase
 }
 
 type Handler struct {
@@ -52,26 +48,36 @@ type Handler struct {
 	logger   logger.Logger
 }
 
-func NewHandler(useCases HandlerUseCases) (*Handler, error) {
-	if useCases.Create == nil ||
-		useCases.Get == nil ||
-		useCases.List == nil ||
-		useCases.Update == nil ||
-		useCases.Delete == nil ||
-		useCases.AppLogger == nil {
-		return nil, errors.New("person use cases must not be nil")
+func NewHandler(cases HandlerUseCases, appLogger logger.Logger) (*Handler, error) {
+	if cases.Create == nil {
+		return nil, errors.New("create person use case is nil")
+	}
+	if cases.Get == nil {
+		return nil, errors.New("get person use case is nil")
+	}
+	if cases.List == nil {
+		return nil, errors.New("list person use case is nil")
+	}
+	if cases.Update == nil {
+		return nil, errors.New("update person use case is nil")
+	}
+	if cases.Delete == nil {
+		return nil, errors.New("delete person use case is nil")
+	}
+	if appLogger == nil {
+		return nil, errors.New("logger is nil")
 	}
 
 	return &Handler{
-		useCases: useCases,
-		logger:   useCases.AppLogger,
+		useCases: cases,
+		logger:   appLogger,
 	}, nil
 }
 
 func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	limit, offset, err := pagination(r)
 	if err != nil {
-		writeError(w, err)
+		h.writeError(w, err)
 		return
 	}
 
@@ -80,7 +86,7 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		Offset: offset,
 	})
 	if err != nil {
-		writeError(w, err)
+		h.writeError(w, err)
 		return
 	}
 
@@ -91,19 +97,19 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		Offset:  offset,
 	}
 
-	writeJSON(w, http.StatusOK, response)
+	httpresponse.WriteJSON(w, http.StatusOK, response, h.logger)
 }
 
 func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r)
 	if err != nil {
-		writeError(w, err)
+		h.writeError(w, err)
 		return
 	}
 
 	result, err := h.useCases.Get.Run(r.Context(), id)
 	if err != nil {
-		writeError(w, err)
+		h.writeError(w, err)
 		return
 	}
 
@@ -111,7 +117,7 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 		Person: toPersonResponseDTO(result.Person),
 	}
 
-	writeJSON(w, http.StatusOK, response)
+	httpresponse.WriteJSON(w, http.StatusOK, response, h.logger)
 }
 
 type personRequest struct {
@@ -123,14 +129,14 @@ type personRequest struct {
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	var request personRequest
 
-	if err := decodeJSON(w, r, &request); err != nil {
-		writeError(w, err)
+	if err := httprequest.DecodeJSON(w, r, &request); err != nil {
+		h.writeError(w, err)
 		return
 	}
 
 	birthDate, err := parseBirthDate(request.BirthDate)
 	if err != nil {
-		writeError(w, err)
+		h.writeError(w, err)
 		return
 	}
 
@@ -142,7 +148,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		},
 	})
 	if err != nil {
-		writeError(w, err)
+		h.writeError(w, err)
 		return
 	}
 
@@ -150,26 +156,26 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		Person: toPersonResponseDTO(result.Person),
 	}
 
-	writeJSON(w, http.StatusCreated, response)
+	httpresponse.WriteJSON(w, http.StatusCreated, response, h.logger)
 }
 
 func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r)
 	if err != nil {
-		writeError(w, err)
+		h.writeError(w, err)
 		return
 	}
 
 	var request personRequest
 
-	if err := decodeJSON(w, r, &request); err != nil {
-		writeError(w, err)
+	if err := httprequest.DecodeJSON(w, r, &request); err != nil {
+		h.writeError(w, err)
 		return
 	}
 
 	birthDate, err := parseBirthDate(request.BirthDate)
 	if err != nil {
-		writeError(w, err)
+		h.writeError(w, err)
 		return
 	}
 
@@ -182,7 +188,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		},
 	})
 	if err != nil {
-		writeError(w, err)
+		h.writeError(w, err)
 		return
 	}
 
@@ -190,13 +196,13 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		Person: toPersonResponseDTO(result.Person),
 	}
 
-	writeJSON(w, http.StatusOK, response)
+	httpresponse.WriteJSON(w, http.StatusOK, response, h.logger)
 }
 
 func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r)
 	if err != nil {
-		writeError(w, err)
+		h.writeError(w, err)
 		return
 	}
 
@@ -204,7 +210,7 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 		PersonID: id,
 	})
 	if err != nil {
-		writeError(w, err)
+		h.writeError(w, err)
 		return
 	}
 
@@ -245,23 +251,6 @@ func pagination(r *http.Request) (int, int, error) {
 	return limit, offset, nil
 }
 
-func decodeJSON(w http.ResponseWriter, r *http.Request, destination any) error {
-	r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
-
-	decoder := json.NewDecoder(r.Body)
-	decoder.DisallowUnknownFields()
-
-	if err := decoder.Decode(destination); err != nil {
-		return fmt.Errorf("%w: %v", ErrInvalidBody, err)
-	}
-
-	if err := decoder.Decode(&struct{}{}); err != io.EOF {
-		return ErrInvalidBody
-	}
-
-	return nil
-}
-
 func parseBirthDate(value string) (*time.Time, error) {
 	if strings.TrimSpace(value) == "" {
 		return nil, nil
@@ -275,18 +264,9 @@ func parseBirthDate(value string) (*time.Time, error) {
 	return &date, nil
 }
 
-func writeJSON(w http.ResponseWriter, status int, data any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-
-	if err := json.NewEncoder(w).Encode(data); err != nil {
-		return
-	}
-}
-
-func writeError(w http.ResponseWriter, err error) {
+func (h *Handler) writeError(w http.ResponseWriter, err error) {
 	status := http.StatusInternalServerError
-	message := internalErrorMessage
+	message := httpresponse.InternalErrorMessage
 
 	switch {
 	case errors.Is(err, ErrInvalidID),
@@ -304,7 +284,5 @@ func writeError(w http.ResponseWriter, err error) {
 		message = err.Error()
 	}
 
-	writeJSON(w, status, errorResponse{
-		Error: message,
-	})
+	httpresponse.WriteError(w, status, message, h.logger)
 }

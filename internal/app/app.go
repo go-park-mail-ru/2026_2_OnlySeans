@@ -226,13 +226,12 @@ func Run(configPath, databaseConfigPath, redisConfigPath, loggerConfigPath strin
 	}
 
 	personsHandler, err := persondelivery.NewHandler(persondelivery.HandlerUseCases{
-		Create:    createPersonUC,
-		Get:       getPersonUC,
-		List:      listPersonsUC,
-		Update:    updatePersonUC,
-		Delete:    deletePersonUC,
-		AppLogger: appLogger,
-	})
+		Create: createPersonUC,
+		Get:    getPersonUC,
+		List:   listPersonsUC,
+		Update: updatePersonUC,
+		Delete: deletePersonUC,
+	}, appLogger)
 	if err != nil {
 		return fmt.Errorf("create persons handler: %w", err)
 	}

@@ -29,6 +29,7 @@ func NewCreatePersonUseCase(persons domain.PersonRepository, appLogger logger.Lo
 }
 
 func (uc *CreatePersonUseCase) Run(ctx context.Context, input CreatePersonInput) (*PersonOutput, error) {
+	uc.logger.Debug("create person started", nil)
 
 	person, err := preparePerson(input.Person)
 	if err != nil {

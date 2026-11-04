@@ -199,7 +199,7 @@ func TestRequireAuth(t *testing.T) {
 				return
 			}
 
-			assert.Equal(t, "application/json", rec.Header().Get("Content-Type"))
+			assert.Equal(t, "application/json; charset=utf-8", rec.Header().Get("Content-Type"))
 
 			var body map[string]string
 			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
@@ -305,13 +305,12 @@ func newTestPersonsHandler(t *testing.T, appLogger logger.Logger) *personsdelive
 	require.NoError(t, err)
 
 	handler, err := personsdelivery.NewHandler(personsdelivery.HandlerUseCases{
-		Create:    create,
-		Get:       get,
-		List:      list,
-		Update:    update,
-		Delete:    del,
-		AppLogger: appLogger,
-	})
+		Create: create,
+		Get:    get,
+		List:   list,
+		Update: update,
+		Delete: del,
+	}, appLogger)
 	require.NoError(t, err)
 
 	return handler

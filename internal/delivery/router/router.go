@@ -40,9 +40,9 @@ func NewRouter(authHandler *auth.Handler, filmsHandler *films.Handler, reviewsHa
 	r.HandleFunc("/api/persons", personsHandler.List).Methods(http.MethodGet)
 	r.HandleFunc("/api/persons/{id}", personsHandler.Get).Methods(http.MethodGet)
 
-	r.HandleFunc("/api/persons", RequireAuth(authHandler, personsHandler.Create)).Methods(http.MethodPost)
-	r.HandleFunc("/api/persons/{id}", RequireAuth(authHandler, personsHandler.Update)).Methods(http.MethodPut)
-	r.HandleFunc("/api/persons/{id}", RequireAuth(authHandler, personsHandler.Delete)).Methods(http.MethodDelete)
+	r.HandleFunc("/api/persons", RequireAuth(authHandler, RequireCatalogEditor(authHandler, personsHandler.Create))).Methods(http.MethodPost)
+	r.HandleFunc("/api/persons/{id}", RequireAuth(authHandler, RequireCatalogEditor(authHandler, personsHandler.Update))).Methods(http.MethodPut)
+	r.HandleFunc("/api/persons/{id}", RequireAuth(authHandler, RequireCatalogEditor(authHandler, personsHandler.Delete))).Methods(http.MethodDelete)
 
 	return withLogging(withRecover(withCORS(r, allowedOrigin), appLogger), appLogger)
 }

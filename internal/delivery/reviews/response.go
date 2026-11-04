@@ -28,10 +28,6 @@ type reviewsPage struct {
 	Offset  int                 `json:"offset"`
 }
 
-type errorResponse struct {
-	Error string `json:"error"`
-}
-
 func toReviewResponseDTO(review domain.Review) reviewResponseDTO {
 	return reviewResponseDTO{
 		ID:               review.ID,

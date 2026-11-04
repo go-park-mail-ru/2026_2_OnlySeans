@@ -29,6 +29,10 @@ func NewGetPersonUseCase(persons domain.PersonRepository, appLogger logger.Logge
 }
 
 func (uc *GetPersonUseCase) Run(ctx context.Context, id domain.PersonID) (*PersonOutput, error) {
+	uc.logger.Debug("get person started", map[string]any{
+		"person_id": id,
+	})
+
 	person, err := uc.persons.GetByID(ctx, id)
 	if err != nil {
 		uc.logger.Error("get person failed", map[string]any{
@@ -38,6 +42,10 @@ func (uc *GetPersonUseCase) Run(ctx context.Context, id domain.PersonID) (*Perso
 
 		return nil, fmt.Errorf("get person %d: %w", id, err)
 	}
+
+	uc.logger.Info("person retrieved", map[string]any{
+		"person_id": id,
+	})
 
 	return NewPersonOutput(person), nil
 }

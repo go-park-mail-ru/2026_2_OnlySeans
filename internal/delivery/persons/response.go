@@ -27,10 +27,6 @@ type personsPage struct {
 	Offset  int                 `json:"offset"`
 }
 
-type errorResponse struct {
-	Error string `json:"error"`
-}
-
 func toPersonResponseDTO(person domain.Person) personResponseDTO {
 	return personResponseDTO{
 		ID:        person.ID,

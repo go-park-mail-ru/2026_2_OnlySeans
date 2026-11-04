@@ -2,13 +2,13 @@ package router
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/httpresponse"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 )
@@ -28,9 +28,20 @@ func (w *responseWriter) WriteHeader(status int) {
 		return
 	}
 
+	if status >= 100 && status < 200 && status != http.StatusSwitchingProtocols {
+		w.ResponseWriter.WriteHeader(status)
+		return
+	}
 	w.status = status
 	w.wroteHeader = true
 	w.ResponseWriter.WriteHeader(status)
+}
+
+func (w *responseWriter) Write(data []byte) (int, error) {
+	if !w.wroteHeader {
+		w.WriteHeader(http.StatusOK)
+	}
+	return w.ResponseWriter.Write(data)
 }
 
 func (w *responseWriter) Unwrap() http.ResponseWriter {
@@ -77,9 +88,7 @@ func RequireAuth(authn Authenticator, next http.HandlerFunc) http.HandlerFunc {
 }
 
 func writeError(w http.ResponseWriter, status int, err error) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+	httpresponse.WriteError(w, status, err.Error(), nil)
 }
 
 func withLogging(next http.Handler, appLogger logger.Logger) http.Handler {
@@ -109,6 +118,10 @@ func withLogging(next http.Handler, appLogger logger.Logger) http.Handler {
 
 func withRecover(next http.Handler, appLogger logger.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		tracked, ok := w.(*responseWriter)
+		if !ok {
+			tracked = &responseWriter{ResponseWriter: w, status: http.StatusOK}
+		}
 		defer func() {
 			if rec := recover(); rec != nil {
 				appLogger.Error("panic recovered", map[string]any{
@@ -116,9 +129,40 @@ func withRecover(next http.Handler, appLogger logger.Logger) http.Handler {
 					"method": r.Method,
 					"path":   r.URL.Path,
 				})
-				writeError(w, http.StatusInternalServerError, domain.ErrInternal)
+				if !tracked.wroteHeader {
+					httpresponse.WriteError(tracked, http.StatusInternalServerError, httpresponse.InternalErrorMessage, appLogger)
+				}
 			}
 		}()
-		next.ServeHTTP(w, r)
+		next.ServeHTTP(tracked, r)
 	})
+}
+
+// CatalogEditor checks the current account role after session authentication.
+type CatalogEditor interface {
+	CanEditPersons(context.Context, domain.UserID) (bool, error)
+}
+
+func RequireCatalogEditor(checker CatalogEditor, next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, ok := auth.UserIDFromContext(r.Context())
+		if !ok {
+			writeError(w, http.StatusUnauthorized, domain.ErrUnauthorized)
+			return
+		}
+		allowed, err := checker.CanEditPersons(r.Context(), userID)
+		if err != nil {
+			if errors.Is(err, domain.ErrUserNotFound) {
+				writeError(w, http.StatusUnauthorized, domain.ErrUnauthorized)
+				return
+			}
+			writeError(w, http.StatusInternalServerError, domain.ErrInternal)
+			return
+		}
+		if !allowed {
+			writeError(w, http.StatusForbidden, domain.ErrForbidden)
+			return
+		}
+		next(w, r)
+	}
 }

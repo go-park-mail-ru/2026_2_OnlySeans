@@ -7,9 +7,22 @@ import (
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/utils"
 )
 
+type Role string
+
+const (
+	RoleReader Role = "reader"
+	RoleEditor Role = "editor"
+	RoleAdmin  Role = "admin"
+)
+
+func (role Role) CanEditPersons() bool {
+	return role == RoleAdmin || role == RoleEditor
+}
+
 type UserID int
 
 type User struct {
+	Role         Role
 	ID           UserID
 	Email        string
 	Username     string
@@ -28,6 +41,7 @@ func NewUser(email, username, passwordHash string) (*User, error) {
 	}
 
 	return &User{
+		Role:         RoleReader,
 		Email:        email,
 		Username:     username,
 		PasswordHash: passwordHash,
