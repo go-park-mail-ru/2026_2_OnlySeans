@@ -78,3 +78,8 @@ func preparePerson(in domain.PersonInput) (*domain.PersonInput, error) {
 
 	return &in, nil
 }
+
+// CreatePersonOutput contains the identifier assigned by the repository.
+type CreatePersonOutput struct {
+	ID domain.PersonID
+}

@@ -28,7 +28,7 @@ func NewCreatePersonUseCase(persons domain.PersonRepository, appLogger logger.Lo
 	}, nil
 }
 
-func (uc *CreatePersonUseCase) Run(ctx context.Context, input CreatePersonInput) (*PersonOutput, error) {
+func (uc *CreatePersonUseCase) Run(ctx context.Context, input CreatePersonInput) (*CreatePersonOutput, error) {
 	uc.logger.Debug("create person started", nil)
 
 	person, err := preparePerson(input.Person)
@@ -36,7 +36,7 @@ func (uc *CreatePersonUseCase) Run(ctx context.Context, input CreatePersonInput)
 		return nil, err
 	}
 
-	created, err := uc.persons.Create(ctx, *person)
+	id, err := uc.persons.Create(ctx, *person)
 	if err != nil {
 		uc.logger.Error("create person failed", map[string]any{
 			"error": err,
@@ -46,8 +46,8 @@ func (uc *CreatePersonUseCase) Run(ctx context.Context, input CreatePersonInput)
 	}
 
 	uc.logger.Info("person created", map[string]any{
-		"person_id": created.ID,
+		"person_id": id,
 	})
 
-	return NewPersonOutput(created), nil
+	return &CreatePersonOutput{ID: id}, nil
 }

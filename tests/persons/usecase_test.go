@@ -41,10 +41,13 @@ type fakePersonsRepository struct {
 func (r *fakePersonsRepository) Create(
 	ctx context.Context,
 	input domain.PersonInput,
-) (*domain.Person, error) {
+) (domain.PersonID, error) {
 	r.createCalls++
 	r.createInput = input
-	return r.person, r.err
+	if r.err != nil {
+		return 0, r.err
+	}
+	return r.person.ID, nil
 }
 
 func (r *fakePersonsRepository) GetByID(
@@ -179,9 +182,11 @@ func TestCreatePersonUseCase(t *testing.T) {
 					t.Fatal("expected result, got nil")
 				}
 
-				if result.Person.FirstName != tt.wantFirstName {
-					t.Errorf("expected first name %q, got %q",
-						tt.wantFirstName, result.Person.FirstName)
+				if result.ID != repo.person.ID {
+					t.Errorf("expected ID %d, got %d", repo.person.ID, result.ID)
+				}
+				if repo.getCalls != 0 {
+					t.Error("creation must not load the person")
 				}
 			}
 

@@ -26,7 +26,7 @@ func (l *handlerTestLogger) Error(string, map[string]any) {}
 
 // Тестовый репозиторий.
 type handlerTestRepository struct {
-	createFn func(context.Context, domain.PersonInput) (*domain.Person, error)
+	createFn func(context.Context, domain.PersonInput) (domain.PersonID, error)
 	getFn    func(context.Context, domain.PersonID) (*domain.Person, error)
 	listFn   func(context.Context, int, int) ([]domain.Person, int, error)
 	updateFn func(context.Context, domain.PersonID, domain.PersonInput) (*domain.Person, error)
@@ -36,11 +36,11 @@ type handlerTestRepository struct {
 func (r *handlerTestRepository) Create(
 	ctx context.Context,
 	input domain.PersonInput,
-) (*domain.Person, error) {
+) (domain.PersonID, error) {
 	if r.createFn != nil {
 		return r.createFn(ctx, input)
 	}
-	return nil, nil
+	return 0, nil
 }
 
 func (r *handlerTestRepository) GetByID(
@@ -116,11 +116,11 @@ func newHandlerTest(t *testing.T, repo domain.PersonRepository) *persondelivery.
 	}
 
 	handler, err := persondelivery.NewHandler(persondelivery.HandlerUseCases{
-		Create: create,
-		Get:    get,
-		List:   list,
-		Update: update,
-		Delete: deletePerson,
+		CreatePerson: create,
+		GetPerson:    get,
+		ListPersons:  list,
+		UpdatePerson: update,
+		DeletePerson: deletePerson,
 	}, appLogger)
 	if err != nil {
 		t.Fatalf("failed to create handler: %v", err)
@@ -187,7 +187,7 @@ func TestCreatePersonHandler(t *testing.T) {
 	tests := []struct {
 		name       string
 		body       string
-		createFn   func(context.Context, domain.PersonInput) (*domain.Person, error)
+		createFn   func(context.Context, domain.PersonInput) (domain.PersonID, error)
 		wantStatus int
 		wantBody   string
 	}{
@@ -198,11 +198,11 @@ func TestCreatePersonHandler(t *testing.T) {
 				"last_name": "Lovelace",
 				"birth_date": "1990-01-01"
 			}`,
-			createFn: func(_ context.Context, input domain.PersonInput) (*domain.Person, error) {
-				return newHandlerTestPerson(), nil
+			createFn: func(_ context.Context, input domain.PersonInput) (domain.PersonID, error) {
+				return 1, nil
 			},
 			wantStatus: http.StatusCreated,
-			wantBody:   `"first_name":"Ada"`,
+			wantBody:   `{"id":1}`,
 		},
 		{
 			name:       "invalid JSON",
@@ -241,8 +241,8 @@ func TestCreatePersonHandler(t *testing.T) {
 				"first_name": "Ada",
 				"last_name": "Lovelace"
 			}`,
-			createFn: func(_ context.Context, _ domain.PersonInput) (*domain.Person, error) {
-				return nil, repoErr
+			createFn: func(_ context.Context, _ domain.PersonInput) (domain.PersonID, error) {
+				return 0, repoErr
 			},
 			wantStatus: http.StatusInternalServerError,
 			wantBody:   "internal server error",
@@ -264,9 +264,14 @@ func TestCreatePersonHandler(t *testing.T) {
 			)
 			recorder := httptest.NewRecorder()
 
-			handler.Create(recorder, request)
+			handler.CreatePerson(recorder, request)
 
 			checkHandlerResponse(t, recorder, tt.wantStatus, tt.wantBody)
+			if tt.wantStatus == http.StatusCreated {
+				if strings.TrimSpace(recorder.Body.String()) != tt.wantBody {
+					t.Errorf("unexpected creation response: %s", recorder.Body.String())
+				}
+			}
 		})
 	}
 }
@@ -338,7 +343,7 @@ func TestGetPersonHandler(t *testing.T) {
 
 			recorder := httptest.NewRecorder()
 
-			handler.Get(recorder, request)
+			handler.GetPerson(recorder, request)
 
 			checkHandlerResponse(t, recorder, tt.wantStatus, tt.wantBody)
 		})
@@ -424,7 +429,7 @@ func TestListPersonsHandler(t *testing.T) {
 			)
 			recorder := httptest.NewRecorder()
 
-			handler.List(recorder, request)
+			handler.ListPersons(recorder, request)
 
 			checkHandlerResponse(t, recorder, tt.wantStatus, tt.wantBody)
 		})
@@ -524,7 +529,7 @@ func TestUpdatePersonHandler(t *testing.T) {
 
 			recorder := httptest.NewRecorder()
 
-			handler.Update(recorder, request)
+			handler.UpdatePerson(recorder, request)
 
 			checkHandlerResponse(t, recorder, tt.wantStatus, tt.wantBody)
 		})
@@ -592,7 +597,7 @@ func TestDeletePersonHandler(t *testing.T) {
 
 			recorder := httptest.NewRecorder()
 
-			handler.Delete(recorder, request)
+			handler.DeletePerson(recorder, request)
 
 			checkHandlerResponse(t, recorder, tt.wantStatus, tt.wantBody)
 		})

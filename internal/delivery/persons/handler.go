@@ -32,15 +32,14 @@ var (
 	ErrInvalidID     = errors.New("invalid person ID")
 	ErrInvalidLimit  = errors.New("invalid limit")
 	ErrInvalidOffset = errors.New("invalid offset")
-	ErrInvalidBody   = httprequest.ErrInvalidBody
 )
 
 type HandlerUseCases struct {
-	Create *personusecase.CreatePersonUseCase
-	Get    *personusecase.GetPersonUseCase
-	List   *personusecase.ListPersonsUseCase
-	Update *personusecase.UpdatePersonUseCase
-	Delete *personusecase.DeletePersonUseCase
+	CreatePerson *personusecase.CreatePersonUseCase
+	GetPerson    *personusecase.GetPersonUseCase
+	ListPersons  *personusecase.ListPersonsUseCase
+	UpdatePerson *personusecase.UpdatePersonUseCase
+	DeletePerson *personusecase.DeletePersonUseCase
 }
 
 type Handler struct {
@@ -49,19 +48,19 @@ type Handler struct {
 }
 
 func NewHandler(cases HandlerUseCases, appLogger logger.Logger) (*Handler, error) {
-	if cases.Create == nil {
+	if cases.CreatePerson == nil {
 		return nil, errors.New("create person use case is nil")
 	}
-	if cases.Get == nil {
+	if cases.GetPerson == nil {
 		return nil, errors.New("get person use case is nil")
 	}
-	if cases.List == nil {
+	if cases.ListPersons == nil {
 		return nil, errors.New("list person use case is nil")
 	}
-	if cases.Update == nil {
+	if cases.UpdatePerson == nil {
 		return nil, errors.New("update person use case is nil")
 	}
-	if cases.Delete == nil {
+	if cases.DeletePerson == nil {
 		return nil, errors.New("delete person use case is nil")
 	}
 	if appLogger == nil {
@@ -74,14 +73,14 @@ func NewHandler(cases HandlerUseCases, appLogger logger.Logger) (*Handler, error
 	}, nil
 }
 
-func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) ListPersons(w http.ResponseWriter, r *http.Request) {
 	limit, offset, err := pagination(r)
 	if err != nil {
 		h.writeError(w, err)
 		return
 	}
 
-	result, err := h.useCases.List.Run(r.Context(), personusecase.ListPersonsInput{
+	result, err := h.useCases.ListPersons.Run(r.Context(), personusecase.ListPersonsInput{
 		Limit:  limit,
 		Offset: offset,
 	})
@@ -100,14 +99,14 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	httpresponse.WriteJSON(w, http.StatusOK, response, h.logger)
 }
 
-func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) GetPerson(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r)
 	if err != nil {
 		h.writeError(w, err)
 		return
 	}
 
-	result, err := h.useCases.Get.Run(r.Context(), id)
+	result, err := h.useCases.GetPerson.Run(r.Context(), id)
 	if err != nil {
 		h.writeError(w, err)
 		return
@@ -126,7 +125,7 @@ type personRequest struct {
 	BirthDate string `json:"birth_date"`
 }
 
-func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) CreatePerson(w http.ResponseWriter, r *http.Request) {
 	var request personRequest
 
 	if err := httprequest.DecodeJSON(w, r, &request); err != nil {
@@ -140,7 +139,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := h.useCases.Create.Run(r.Context(), personusecase.CreatePersonInput{
+	result, err := h.useCases.CreatePerson.Run(r.Context(), personusecase.CreatePersonInput{
 		Person: domain.PersonInput{
 			FirstName: request.FirstName,
 			LastName:  request.LastName,
@@ -152,14 +151,12 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := personResponse{
-		Person: toPersonResponseDTO(result.Person),
-	}
+	response := createPersonResponse{ID: result.ID}
 
 	httpresponse.WriteJSON(w, http.StatusCreated, response, h.logger)
 }
 
-func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) UpdatePerson(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r)
 	if err != nil {
 		h.writeError(w, err)
@@ -179,7 +176,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := h.useCases.Update.Run(r.Context(), personusecase.UpdatePersonInput{
+	result, err := h.useCases.UpdatePerson.Run(r.Context(), personusecase.UpdatePersonInput{
 		PersonID: id,
 		Person: domain.PersonInput{
 			FirstName: request.FirstName,
@@ -199,14 +196,14 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	httpresponse.WriteJSON(w, http.StatusOK, response, h.logger)
 }
 
-func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) DeletePerson(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r)
 	if err != nil {
 		h.writeError(w, err)
 		return
 	}
 
-	err = h.useCases.Delete.Run(r.Context(), personusecase.DeletePersonInput{
+	err = h.useCases.DeletePerson.Run(r.Context(), personusecase.DeletePersonInput{
 		PersonID: id,
 	})
 	if err != nil {
@@ -272,7 +269,7 @@ func (h *Handler) writeError(w http.ResponseWriter, err error) {
 	case errors.Is(err, ErrInvalidID),
 		errors.Is(err, ErrInvalidLimit),
 		errors.Is(err, ErrInvalidOffset),
-		errors.Is(err, ErrInvalidBody),
+		errors.Is(err, httprequest.ErrInvalidBody),
 		errors.Is(err, domain.ErrInvalidFirstName),
 		errors.Is(err, domain.ErrInvalidLastName),
 		errors.Is(err, domain.ErrInvalidBirthDate):

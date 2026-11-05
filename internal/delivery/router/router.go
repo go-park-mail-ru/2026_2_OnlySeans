@@ -37,12 +37,12 @@ func NewRouter(authHandler *auth.Handler, filmsHandler *films.Handler, reviewsHa
 	r.HandleFunc("/api/reviews/{id}", RequireAuth(authHandler, reviewsHandler.Update)).Methods(http.MethodPut)
 	r.HandleFunc("/api/reviews/{id}", RequireAuth(authHandler, reviewsHandler.Delete)).Methods(http.MethodDelete)
 
-	r.HandleFunc("/api/persons", personsHandler.List).Methods(http.MethodGet)
-	r.HandleFunc("/api/persons/{id}", personsHandler.Get).Methods(http.MethodGet)
+	r.HandleFunc("/api/persons", personsHandler.ListPersons).Methods(http.MethodGet)
+	r.HandleFunc("/api/persons/{id}", personsHandler.GetPerson).Methods(http.MethodGet)
 
-	r.HandleFunc("/api/persons", RequireAuth(authHandler, RequireCatalogEditor(authHandler, personsHandler.Create))).Methods(http.MethodPost)
-	r.HandleFunc("/api/persons/{id}", RequireAuth(authHandler, RequireCatalogEditor(authHandler, personsHandler.Update))).Methods(http.MethodPut)
-	r.HandleFunc("/api/persons/{id}", RequireAuth(authHandler, RequireCatalogEditor(authHandler, personsHandler.Delete))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/persons", RequireAuth(authHandler, RequireCatalogEditor(authHandler, personsHandler.CreatePerson))).Methods(http.MethodPost)
+	r.HandleFunc("/api/persons/{id}", RequireAuth(authHandler, RequireCatalogEditor(authHandler, personsHandler.UpdatePerson))).Methods(http.MethodPut)
+	r.HandleFunc("/api/persons/{id}", RequireAuth(authHandler, RequireCatalogEditor(authHandler, personsHandler.DeletePerson))).Methods(http.MethodDelete)
 
 	return withLogging(withRecover(withCORS(r, allowedOrigin), appLogger), appLogger)
 }

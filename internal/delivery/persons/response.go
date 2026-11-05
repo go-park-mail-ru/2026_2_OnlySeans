@@ -48,3 +48,7 @@ func toPersonResponseDTOs(persons []domain.Person) []personResponseDTO {
 
 	return result
 }
+
+type createPersonResponse struct {
+	ID domain.PersonID `json:"id"`
+}

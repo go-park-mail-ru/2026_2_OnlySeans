@@ -28,10 +28,6 @@ func (w *responseWriter) WriteHeader(status int) {
 		return
 	}
 
-	if status >= 100 && status < 200 && status != http.StatusSwitchingProtocols {
-		w.ResponseWriter.WriteHeader(status)
-		return
-	}
 	w.status = status
 	w.wroteHeader = true
 	w.ResponseWriter.WriteHeader(status)

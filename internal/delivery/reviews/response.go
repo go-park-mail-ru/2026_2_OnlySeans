@@ -49,3 +49,7 @@ func toReviewResponseDTOs(reviews []domain.Review) []reviewResponseDTO {
 	}
 	return result
 }
+
+type createReviewResponse struct {
+	ID domain.ReviewID `json:"id"`
+}

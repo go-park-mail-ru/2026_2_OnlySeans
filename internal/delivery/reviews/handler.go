@@ -35,7 +35,6 @@ var (
 	ErrInvalidID     = errors.New("id must be a positive integer")
 	ErrInvalidLimit  = errors.New("invalid limit")
 	ErrInvalidOffset = errors.New("offset must be a non-negative integer")
-	ErrInvalidBody   = httprequest.ErrInvalidBody
 )
 
 var clientErrors = []struct {
@@ -59,9 +58,9 @@ var clientErrors = []struct {
 		message: ErrInvalidOffset.Error(),
 	},
 	{
-		err:     ErrInvalidBody,
+		err:     httprequest.ErrInvalidBody,
 		status:  http.StatusBadRequest,
-		message: ErrInvalidBody.Error(),
+		message: httprequest.ErrInvalidBody.Error(),
 	},
 	{
 		err:     domain.ErrInvalidTitle,
@@ -196,7 +195,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	httpresponse.WriteJSON(w, http.StatusCreated, reviewResponse{Review: toReviewResponseDTO(result.Review)}, h.appLogger)
+	httpresponse.WriteJSON(w, http.StatusCreated, createReviewResponse{ID: result.ID}, h.appLogger)
 }
 
 func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {

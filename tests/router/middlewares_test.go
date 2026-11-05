@@ -251,8 +251,8 @@ type fakePersonsRepo struct{}
 func (f *fakePersonsRepo) Create(
 	ctx context.Context,
 	input domain.PersonInput,
-) (*domain.Person, error) {
-	return nil, nil
+) (domain.PersonID, error) {
+	return 1, nil
 }
 
 func (f *fakePersonsRepo) GetByID(
@@ -305,11 +305,11 @@ func newTestPersonsHandler(t *testing.T, appLogger logger.Logger) *personsdelive
 	require.NoError(t, err)
 
 	handler, err := personsdelivery.NewHandler(personsdelivery.HandlerUseCases{
-		Create: create,
-		Get:    get,
-		List:   list,
-		Update: update,
-		Delete: del,
+		CreatePerson: create,
+		GetPerson:    get,
+		ListPersons:  list,
+		UpdatePerson: update,
+		DeletePerson: del,
 	}, appLogger)
 	require.NoError(t, err)
 

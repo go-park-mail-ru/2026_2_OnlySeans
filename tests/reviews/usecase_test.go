@@ -47,6 +47,7 @@ func (brokenFilms) ListFilms(context.Context, int, int) ([]domain.Film, int, err
 
 // reviewCases — четыре сценария отзывов над одним хранилищем.
 type reviewCases struct {
+	repo   domain.ReviewRepository
 	list   *usecase.ListReviewsUseCase
 	create *usecase.CreateReviewUseCase
 	update *usecase.UpdateReviewUseCase
@@ -68,7 +69,7 @@ func newReviewCases(t *testing.T, films domain.FilmRepository) reviewCases {
 	del, err := usecase.NewDeleteReviewUseCase(repo, appLogger)
 	require.NoError(t, err)
 
-	return reviewCases{list: list, create: create, update: update, delete: del}
+	return reviewCases{repo: repo, list: list, create: create, update: update, delete: del}
 }
 
 func (c reviewCases) createReview(author domain.UserID, film domain.FilmID, in domain.ReviewInput) (domain.Review, error) {
@@ -76,7 +77,11 @@ func (c reviewCases) createReview(author domain.UserID, film domain.FilmID, in d
 	if err != nil {
 		return domain.Review{}, err
 	}
-	return out.Review, nil
+	review, err := c.repo.GetByID(context.Background(), out.ID)
+	if err != nil {
+		return domain.Review{}, err
+	}
+	return *review, nil
 }
 
 func (c reviewCases) updateReview(user domain.UserID, id domain.ReviewID, in domain.ReviewInput) (domain.Review, error) {

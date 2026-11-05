@@ -151,7 +151,7 @@ func (s *PersonRepo) List(ctx context.Context, limit, offset int) ([]domain.Pers
 func (r *PersonRepo) Create(
 	ctx context.Context,
 	input domain.PersonInput,
-) (*domain.Person, error) {
+) (domain.PersonID, error) {
 	var id domain.PersonID
 
 	err := r.db.QueryRowContext(
@@ -165,10 +165,10 @@ func (r *PersonRepo) Create(
 		r.appLogger.Error("postgres create person failed", map[string]any{
 			"error": err,
 		})
-		return nil, fmt.Errorf("create person: %w", err)
+		return 0, fmt.Errorf("create person: %w", err)
 	}
 
-	return r.GetByID(ctx, id)
+	return id, nil
 }
 
 func (r *PersonRepo) Update(

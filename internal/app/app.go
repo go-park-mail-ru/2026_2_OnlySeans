@@ -72,7 +72,7 @@ func Run(configPath, databaseConfigPath, redisConfigPath, loggerConfigPath strin
 	}
 
 	var (
-		useRepo     domain.UserRepository
+		userRepo    domain.UserRepository
 		filmsRepo   domain.FilmsRepository
 		reviewsRepo domain.ReviewRepository
 		personsRepo domain.PersonRepository
@@ -86,7 +86,7 @@ func Run(configPath, databaseConfigPath, redisConfigPath, loggerConfigPath strin
 	appLogger.Info("database connected", nil)
 	defer db.Close()
 
-	useRepo = authservice.NewPostgresUserRepo(db, appLogger)
+	userRepo = authservice.NewPostgresUserRepo(db, appLogger)
 	filmsRepo = filmsservice.NewPostgresService(db, appLogger)
 	reviewsRepo = reviewsservice.NewPostgresReviewRepo(db, appLogger)
 	personsRepo = personservice.NewPersonRepo(db, appLogger)
@@ -103,12 +103,12 @@ func Run(configPath, databaseConfigPath, redisConfigPath, loggerConfigPath strin
 
 	passwordService := authservice.BcryptPasswordService{}
 
-	registerUC, err := authusecase.NewRegisterUserUseCase(useRepo, sessions, passwordService, appLogger)
+	registerUC, err := authusecase.NewRegisterUserUseCase(userRepo, sessions, passwordService, appLogger)
 	if err != nil {
 		return fmt.Errorf("can't create register use case: %w", err)
 	}
 
-	loginUC, err := authusecase.NewLoginUserUseCase(useRepo, sessions, passwordService, appLogger)
+	loginUC, err := authusecase.NewLoginUserUseCase(userRepo, sessions, passwordService, appLogger)
 	if err != nil {
 		return fmt.Errorf("can't create login use case: %w", err)
 	}
@@ -123,7 +123,7 @@ func Run(configPath, databaseConfigPath, redisConfigPath, loggerConfigPath strin
 		return fmt.Errorf("can't create authenticate use case: %w", err)
 	}
 
-	getUserUC, err := authusecase.NewGetUserUseCase(useRepo, appLogger)
+	getUserUC, err := authusecase.NewGetUserUseCase(userRepo, appLogger)
 	if err != nil {
 		return fmt.Errorf("can't create get user use case: %w", err)
 	}
@@ -226,11 +226,11 @@ func Run(configPath, databaseConfigPath, redisConfigPath, loggerConfigPath strin
 	}
 
 	personsHandler, err := persondelivery.NewHandler(persondelivery.HandlerUseCases{
-		Create: createPersonUC,
-		Get:    getPersonUC,
-		List:   listPersonsUC,
-		Update: updatePersonUC,
-		Delete: deletePersonUC,
+		CreatePerson: createPersonUC,
+		GetPerson:    getPersonUC,
+		ListPersons:  listPersonsUC,
+		UpdatePerson: updatePersonUC,
+		DeletePerson: deletePersonUC,
 	}, appLogger)
 	if err != nil {
 		return fmt.Errorf("create persons handler: %w", err)
