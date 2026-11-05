@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -177,6 +178,17 @@ func (h *Handler) Authenticate(ctx context.Context, sessionID string) (domain.Us
 	}
 
 	return userID.ID, nil
+}
+
+func (h *Handler) GetUserRole(ctx context.Context, userID domain.UserID) (domain.UserRole, error) {
+	user, err := h.getUser.Run(ctx, usecase.NewGetUserInput(userID))
+	if err != nil {
+		return "", fmt.Errorf("get user role: %w", err)
+	}
+	if user == nil {
+		return "", domain.ErrUserNotFound
+	}
+	return user.Role, nil
 }
 
 func (h *Handler) setSessionCookie(w http.ResponseWriter, sessionID string, expiresAt time.Time) {

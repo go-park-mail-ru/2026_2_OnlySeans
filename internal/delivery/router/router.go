@@ -25,6 +25,16 @@ func NewRouter(authHandler *auth.Handler, filmsHandler *films.Handler, reviewsHa
 	r.HandleFunc("/api/films", filmsHandler.ListFilms).Methods(http.MethodGet)
 	r.HandleFunc("/api/films/{id}", filmsHandler.GetFilm).Methods(http.MethodGet)
 
+	adminCreateFilm := RequireAdmin(authHandler, filmsHandler.CreateFilm)
+	authenticatedCreateFilm := RequireAuth(authHandler, adminCreateFilm)
+	r.HandleFunc("/api/films", authenticatedCreateFilm).Methods(http.MethodPost)
+	adminUpdateFilm := RequireAdmin(authHandler, filmsHandler.UpdateFilm)
+	authenticatedUpdateFilm := RequireAuth(authHandler, adminUpdateFilm)
+	r.HandleFunc("/api/films/{id}", authenticatedUpdateFilm).Methods(http.MethodPut)
+	adminDeleteFilm := RequireAdmin(authHandler, filmsHandler.DeleteFilm)
+	authenticatedDeleteFilm := RequireAuth(authHandler, adminDeleteFilm)
+	r.HandleFunc("/api/films/{id}", authenticatedDeleteFilm).Methods(http.MethodDelete)
+
 	r.HandleFunc("/api/collections", filmsHandler.ListCollections).Methods(http.MethodGet)
 	r.HandleFunc("/api/collections/{id}", filmsHandler.GetCollection).Methods(http.MethodGet)
 

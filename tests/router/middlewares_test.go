@@ -40,13 +40,23 @@ func newTestRouter(t *testing.T) http.Handler {
 	require.NoError(t, err)
 	getFilm, err := filmsusecase.NewGetFilmUseCase(filmsRepo)
 	require.NoError(t, err)
+	createFilm, err := filmsusecase.NewCreateFilmUseCase(filmsRepo)
+	require.NoError(t, err)
+	updateFilm, err := filmsusecase.NewUpdateFilmUseCase(filmsRepo)
+	require.NoError(t, err)
+	deleteFilm, err := filmsusecase.NewDeleteFilmUseCase(filmsRepo)
+	require.NoError(t, err)
 	listCollections, err := filmsusecase.NewListCollectionsUseCase(filmsRepo)
 	require.NoError(t, err)
 	getCollection, err := filmsusecase.NewGetCollectionUseCase(filmsRepo)
 	require.NoError(t, err)
+
 	filmsHandler, err := films.NewHandler(films.HandlerUseCases{
 		ListFilms:       listFilms,
 		GetFilm:         getFilm,
+		CreateFilm:      createFilm,
+		UpdateFilm:      updateFilm,
+		DeleteFilm:      deleteFilm,
 		ListCollections: listCollections,
 		GetCollection:   getCollection,
 	})

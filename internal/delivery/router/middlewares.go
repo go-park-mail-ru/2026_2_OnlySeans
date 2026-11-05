@@ -15,6 +15,10 @@ type Authenticator interface {
 	Authenticate(ctx context.Context, sessionID string) (domain.UserID, error)
 }
 
+type RoleGetter interface {
+	GetUserRole(ctx context.Context, userID domain.UserID) (domain.UserRole, error)
+}
+
 var (
 	ErrCrossOrigin = errors.New("cross-origin request blocked")
 )
@@ -105,6 +109,32 @@ func RequireAuth(authn Authenticator, next http.HandlerFunc) http.HandlerFunc {
 		}
 
 		next(w, r.WithContext(auth.ContextWithUserID(r.Context(), userID)))
+	}
+}
+
+// разрешает выполнение обработчика только админу
+func RequireAdmin(roles RoleGetter, next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, ok := auth.UserIDFromContext(r.Context())
+		if !ok {
+			writeError(w, http.StatusUnauthorized, domain.ErrUnauthorized)
+			return
+		}
+
+		role, err := roles.GetUserRole(r.Context(), userID)
+		if err != nil {
+			if errors.Is(err, domain.ErrUserNotFound) {
+				writeError(w, http.StatusUnauthorized, domain.ErrUnauthorized)
+				return
+			}
+			writeError(w, http.StatusInternalServerError, domain.ErrInternal)
+			return
+		}
+		if role != domain.UserRoleAdmin {
+			writeError(w, http.StatusForbidden, domain.ErrForbidden)
+			return
+		}
+		next(w, r)
 	}
 }
 
