@@ -1,0 +1,6 @@
+DROP TABLE IF EXISTS account;
+DROP TABLE IF EXISTS role_permission;
+DROP TABLE IF EXISTS permission;
+DROP TABLE IF EXISTS role;
+DROP FUNCTION IF EXISTS set_updated_at();
+DROP EXTENSION IF EXISTS btree_gist;

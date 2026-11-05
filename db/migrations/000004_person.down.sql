@@ -1,0 +1,3 @@
+DROP TABLE IF EXISTS film_person;
+DROP TABLE IF EXISTS role_type;
+DROP TABLE IF EXISTS person;
