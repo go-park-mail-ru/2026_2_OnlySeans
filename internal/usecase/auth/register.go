@@ -104,6 +104,8 @@ func (uc *RegisterUserUseCase) Run(ctx context.Context, input RegisterUserInput)
 		NewSessionDTO(session.ID, session.ExpiresAt),
 	)
 
+	output.User.AvatarFilename = createdUser.AvatarFilename
+
 	uc.logger.Info("user registered", map[string]any{
 		"user_id": createdUser.ID,
 	})

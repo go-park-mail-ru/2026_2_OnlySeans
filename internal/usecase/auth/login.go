@@ -107,6 +107,8 @@ func (uc *LoginUserUseCase) Run(ctx context.Context, input LoginUserInput) (*Log
 		NewSessionDTO(session.ID, session.ExpiresAt),
 	)
 
+	output.User.AvatarFilename = user.AvatarFilename
+
 	uc.logger.Info("user logged in", map[string]any{
 		"user_id": user.ID,
 	})

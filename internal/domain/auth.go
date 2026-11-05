@@ -22,11 +22,12 @@ func (role Role) CanEditPersons() bool {
 type UserID int
 
 type User struct {
-	Role         Role
-	ID           UserID
-	Email        string
-	Username     string
-	PasswordHash string
+	Role           Role
+	ID             UserID
+	Email          string
+	Username       string
+	PasswordHash   string
+	AvatarFilename *string
 }
 
 func NewUser(email, username, passwordHash string) (*User, error) {

@@ -69,3 +69,15 @@ func (r *InMemoryUserRepo) GetUser(_ context.Context, id domain.UserID) (*domain
 
 	return user, nil
 }
+
+func (r *InMemoryUserRepo) SaveAvatar(_ context.Context, id domain.UserID, file domain.AvatarFile) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	user, ok := r.byID[int(id)]
+	if !ok {
+		return domain.ErrUserNotFound
+	}
+	filename := file.Filename
+	user.AvatarFilename = &filename
+	return nil
+}

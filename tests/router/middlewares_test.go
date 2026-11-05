@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
+	filesdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/files"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/films"
 	personsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/persons"
 	reviewsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/reviews"
@@ -20,6 +21,7 @@ import (
 	filmsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/films"
 	reviewsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/reviews"
 	authusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/auth"
+	filesusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/files"
 	filmsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/films"
 	personusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/persons"
 	reviewsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/reviews"
@@ -37,8 +39,13 @@ func newTestRouter(t *testing.T) http.Handler {
 
 func newTestRouterWithLogger(t *testing.T, appLogger logger.Logger) http.Handler {
 	t.Helper()
+	return newTestRouterWithAvatarStorage(t, appLogger, &routerAvatarStorage{})
+}
 
-	authHandler := newTestAuthHandler(t, appLogger)
+func newTestRouterWithAvatarStorage(t *testing.T, appLogger logger.Logger, storage filesusecase.AvatarStorage) http.Handler {
+	t.Helper()
+
+	authHandler, users := newTestAuthHandlerWithUsers(t, appLogger)
 
 	filmsRepo, err := filmsservice.NewSeededService()
 	require.NoError(t, err)
@@ -63,17 +70,31 @@ func newTestRouterWithLogger(t *testing.T, appLogger logger.Logger) http.Handler
 	}, appLogger)
 	require.NoError(t, err)
 
+	uploadAvatar, err := filesusecase.NewUploadAvatarUseCase(storage, users)
+	require.NoError(t, err)
+	getAvatarURL, err := filesusecase.NewGetAvatarURLUseCase(&routerAvatarURLStorage{})
+	require.NoError(t, err)
+	filesHandler, err := filesdelivery.NewHandler(uploadAvatar, getAvatarURL, appLogger)
+	require.NoError(t, err)
+
 	return router.NewRouter(
 		authHandler,
 		filmsHandler,
 		newTestReviewsHandler(t, filmsRepo, appLogger),
 		newTestPersonsHandler(t, appLogger),
+		filesHandler,
 		testOrigin,
 		appLogger,
 	)
 }
 
 func newTestAuthHandler(t *testing.T, appLogger logger.Logger) *auth.Handler {
+	t.Helper()
+	handler, _ := newTestAuthHandlerWithUsers(t, appLogger)
+	return handler
+}
+
+func newTestAuthHandlerWithUsers(t *testing.T, appLogger logger.Logger) (*auth.Handler, *authservice.InMemoryUserRepo) {
 	t.Helper()
 
 	users := authservice.NewInMemoryUserRepo()
@@ -104,7 +125,7 @@ func newTestAuthHandler(t *testing.T, appLogger logger.Logger) *auth.Handler {
 	}, appLogger)
 	require.NoError(t, err)
 
-	return handler
+	return handler, users
 }
 
 func newTestReviewsHandler(t *testing.T, films domain.FilmRepository, appLogger logger.Logger) *reviewsdelivery.Handler {

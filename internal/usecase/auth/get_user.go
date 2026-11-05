@@ -51,6 +51,7 @@ func (uc *GetUserUseCase) Run(ctx context.Context, input GetUserInput) (*GetUser
 
 	output := NewGetUserOutput(user.ID, user.Email, user.Username)
 	output.Role = user.Role
+	output.AvatarFilename = user.AvatarFilename
 
 	uc.logger.Info("user retrieved", map[string]any{
 		"user_id": user.ID,

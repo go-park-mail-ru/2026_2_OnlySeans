@@ -221,7 +221,9 @@ func (h *Handler) Authorised(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	httpresponse.WriteJSON(w, http.StatusOK, toAuthResponse(usecase.NewUserDTO(user.ID, user.Email, user.Username)), h.appLogger)
+	userDTO := usecase.NewUserDTO(user.ID, user.Email, user.Username)
+	userDTO.AvatarFilename = user.AvatarFilename
+	httpresponse.WriteJSON(w, http.StatusOK, toAuthResponse(userDTO), h.appLogger)
 }
 
 func (h *Handler) CanEditPersons(ctx context.Context, userID domain.UserID) (bool, error) {

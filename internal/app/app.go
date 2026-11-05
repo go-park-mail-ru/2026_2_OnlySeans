@@ -11,19 +11,24 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/config"
 	authdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
+	filesdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/files"
 	filmsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/films"
 	persondelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/persons"
 	reviewsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/reviews"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/router"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	authservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/auth"
+	filesservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/files"
 	filmsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/films"
 	personservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/persons"
 	reviewsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/reviews"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/storage"
 	authusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/auth"
+	filesusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/files"
 	filmsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/films"
 	personusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/persons"
 	reviewsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/reviews"
@@ -31,7 +36,9 @@ import (
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/redis"
 )
 
-func Run(configPath, databaseConfigPath, redisConfigPath, loggerConfigPath string) error {
+const s3BucketCheckTimeout = 5 * time.Second
+
+func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerConfigPath string) error {
 	cfg, err := config.Load(configPath)
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
@@ -49,6 +56,11 @@ func Run(configPath, databaseConfigPath, redisConfigPath, loggerConfigPath strin
 	redisCfg, err := config.LoadRedis(redisConfigPath)
 	if err != nil {
 		return fmt.Errorf("load redis config: %w", err)
+	}
+
+	s3Cfg, err := config.LoadS3(s3ConfigPath)
+	if err != nil {
+		return fmt.Errorf("load s3 config: %w", err)
 	}
 
 	loggerCfg, err := config.LoadLogger(loggerConfigPath)
@@ -71,6 +83,29 @@ func Run(configPath, databaseConfigPath, redisConfigPath, loggerConfigPath strin
 		return fmt.Errorf("create logger: %w", err)
 	}
 
+	s3Client, err := storage.NewS3Client(*s3Cfg)
+	if err != nil {
+		return fmt.Errorf("create s3 client: %w", err)
+	}
+
+	s3Ctx, cancelS3 := context.WithTimeout(context.Background(), s3BucketCheckTimeout)
+
+	_, err = s3Client.HeadBucket(s3Ctx, &s3.HeadBucketInput{
+		Bucket: aws.String(s3Cfg.Bucket),
+	})
+	cancelS3()
+
+	if err != nil {
+		return fmt.Errorf("check s3 bucket: %w", err)
+	}
+
+	appLogger.Info("s3 bucket available", map[string]any{"bucket": s3Cfg.Bucket})
+
+	avatarStorage, err := filesservice.NewS3Storage(s3Client, s3Cfg.Bucket, s3Cfg.PublicEndpoint)
+	if err != nil {
+		return fmt.Errorf("create avatar storage: %w", err)
+	}
+
 	var (
 		userRepo    domain.UserRepository
 		filmsRepo   domain.FilmsRepository
@@ -85,6 +120,23 @@ func Run(configPath, databaseConfigPath, redisConfigPath, loggerConfigPath strin
 
 	appLogger.Info("database connected", nil)
 	defer db.Close()
+
+	avatarRepo, err := filesservice.NewPostgresAvatarRepo(db)
+	if err != nil {
+		return fmt.Errorf("create avatar repository: %w", err)
+	}
+	uploadAvatarUC, err := filesusecase.NewUploadAvatarUseCase(avatarStorage, avatarRepo)
+	if err != nil {
+		return fmt.Errorf("create upload avatar use case: %w", err)
+	}
+	getAvatarURLUC, err := filesusecase.NewGetAvatarURLUseCase(avatarStorage)
+	if err != nil {
+		return fmt.Errorf("create get avatar URL use case: %w", err)
+	}
+	filesHandler, err := filesdelivery.NewHandler(uploadAvatarUC, getAvatarURLUC, appLogger)
+	if err != nil {
+		return fmt.Errorf("create files handler: %w", err)
+	}
 
 	userRepo = authservice.NewPostgresUserRepo(db, appLogger)
 	filmsRepo = filmsservice.NewPostgresService(db, appLogger)
@@ -241,6 +293,7 @@ func Run(configPath, databaseConfigPath, redisConfigPath, loggerConfigPath strin
 		filmsHandler,
 		reviewsHandler,
 		personsHandler,
+		filesHandler,
 		cfg.Server.AllowedOrigin,
 		appLogger,
 	)
