@@ -1,9 +1,10 @@
 package reviews
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/httprequest"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/httpresponse"
 	"net/http"
 	"strconv"
 
@@ -20,7 +21,6 @@ const (
 	minLimit      = 1
 	maxLimit      = 100
 	defaultOffset = 0
-	maxBodyBytes  = 1 << 20
 	decimalBase   = 10
 	int64Bits     = 64
 )
@@ -31,13 +31,10 @@ const (
 	idVar       = "id"
 )
 
-const internalErrorMessage = "internal server error"
-
 var (
 	ErrInvalidID     = errors.New("id must be a positive integer")
 	ErrInvalidLimit  = errors.New("invalid limit")
 	ErrInvalidOffset = errors.New("offset must be a non-negative integer")
-	ErrInvalidBody   = errors.New("invalid request body")
 )
 
 var clientErrors = []struct {
@@ -61,9 +58,9 @@ var clientErrors = []struct {
 		message: ErrInvalidOffset.Error(),
 	},
 	{
-		err:     ErrInvalidBody,
+		err:     httprequest.ErrInvalidBody,
 		status:  http.StatusBadRequest,
-		message: ErrInvalidBody.Error(),
+		message: httprequest.ErrInvalidBody.Error(),
 	},
 	{
 		err:     domain.ErrInvalidTitle,
@@ -162,7 +159,7 @@ func (h *Handler) ListByFilm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, reviewsPage{
+	httpresponse.WriteJSON(w, http.StatusOK, reviewsPage{
 		Reviews: toReviewResponseDTOs(result.Reviews),
 		Total:   result.Total,
 		Limit:   limit,
@@ -198,7 +195,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusCreated, reviewResponse{Review: toReviewResponseDTO(result.Review)}, h.appLogger)
+	httpresponse.WriteJSON(w, http.StatusCreated, createReviewResponse{ID: result.ID}, h.appLogger)
 }
 
 func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
@@ -229,7 +226,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, reviewResponse{Review: toReviewResponseDTO(result.Review)}, h.appLogger)
+	httpresponse.WriteJSON(w, http.StatusOK, reviewResponse{Review: toReviewResponseDTO(result.Review)}, h.appLogger)
 }
 
 func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
@@ -259,13 +256,9 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 
 // читает тело не больше 1 МБ и не пропускает неизвестные поля
 func decodeReview(w http.ResponseWriter, r *http.Request) (domain.ReviewInput, error) {
-	r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
-	decoder := json.NewDecoder(r.Body)
-	decoder.DisallowUnknownFields()
-
 	var req reviewRequest
-	if err := decoder.Decode(&req); err != nil {
-		return domain.ReviewInput{}, ErrInvalidBody
+	if err := httprequest.DecodeJSON(w, r, &req); err != nil {
+		return domain.ReviewInput{}, err
 	}
 	return domain.ReviewInput{
 		Title:            req.Title,
@@ -303,22 +296,14 @@ func queryInt(r *http.Request, key string, fallback int) (int, bool) {
 	return value, err == nil
 }
 
-func writeJSON(w http.ResponseWriter, status int, body any, appLogger logger.Logger) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(body); err != nil {
-		appLogger.Error("write response failed", map[string]any{"error": err})
-	}
-}
-
 func writeError(w http.ResponseWriter, err error, appLogger logger.Logger) {
 	for _, known := range clientErrors {
 		if errors.Is(err, known.err) {
-			writeJSON(w, known.status, errorResponse{Error: known.message}, appLogger)
+			httpresponse.WriteError(w, known.status, known.message, appLogger)
 			return
 		}
 	}
 
 	appLogger.Error("unexpected error", map[string]any{"error": err})
-	writeJSON(w, http.StatusInternalServerError, errorResponse{Error: internalErrorMessage}, appLogger)
+	httpresponse.WriteError(w, http.StatusInternalServerError, httpresponse.InternalErrorMessage, appLogger)
 }

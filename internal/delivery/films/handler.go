@@ -1,9 +1,9 @@
 package films
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/httpresponse"
 	"net/http"
 	"strconv"
 
@@ -26,8 +26,6 @@ const (
 	offsetParam = "offset"
 	idVar       = "id"
 )
-
-const internalErrorMessage = "internal server error"
 
 var (
 	ErrInvalidLimit        = errors.New("invalid limit")
@@ -131,10 +129,6 @@ type collectionPage struct {
 	Offset     int                            `json:"offset"`
 }
 
-type errorResponse struct {
-	Error string `json:"error"`
-}
-
 func (h *Handler) ListFilms(w http.ResponseWriter, r *http.Request) {
 	limit, offset, err := pagination(r)
 	if err != nil {
@@ -150,7 +144,7 @@ func (h *Handler) ListFilms(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, filmsPage{
+	httpresponse.WriteJSON(w, http.StatusOK, filmsPage{
 		Films:  toFilmCardResponseDTOs(result.Films),
 		Total:  result.Total,
 		Limit:  limit,
@@ -172,7 +166,7 @@ func (h *Handler) GetFilm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, filmResponse{Film: toFilmResponseDTO(result.Film)}, h.appLogger)
+	httpresponse.WriteJSON(w, http.StatusOK, filmResponse{Film: toFilmResponseDTO(result.Film)}, h.appLogger)
 }
 
 func (h *Handler) ListCollections(w http.ResponseWriter, r *http.Request) {
@@ -190,7 +184,7 @@ func (h *Handler) ListCollections(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, collectionsPage{
+	httpresponse.WriteJSON(w, http.StatusOK, collectionsPage{
 		Collections: toCollectionResponseDTOs(result.Collections),
 		Total:       result.Total,
 		Limit:       limit,
@@ -218,7 +212,7 @@ func (h *Handler) GetCollection(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, collectionPage{
+	httpresponse.WriteJSON(w, http.StatusOK, collectionPage{
 		Collection: toCollectionWithFilmsResponseDTO(result.Collection, result.Films),
 		Total:      result.Total,
 		Limit:      limit,
@@ -252,14 +246,6 @@ func queryInt(r *http.Request, key string, fallback int) (int, bool) {
 	return value, err == nil
 }
 
-func writeJSON(w http.ResponseWriter, status int, body any, appLogger logger.Logger) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(body); err != nil {
-		appLogger.Error("write response failed", map[string]any{"error": err})
-	}
-}
-
 func writeError(w http.ResponseWriter, err error, appLogger logger.Logger) {
 	for _, known := range clientErrors {
 		if errors.Is(err, known.err) {
@@ -267,11 +253,11 @@ func writeError(w http.ResponseWriter, err error, appLogger logger.Logger) {
 			if known.status == http.StatusBadRequest {
 				msg = err.Error()
 			}
-			writeJSON(w, known.status, errorResponse{Error: msg}, appLogger)
+			httpresponse.WriteError(w, known.status, msg, appLogger)
 			return
 		}
 	}
 
 	appLogger.Error("unexpected error", map[string]any{"error": err})
-	writeJSON(w, http.StatusInternalServerError, errorResponse{Error: internalErrorMessage}, appLogger)
+	httpresponse.WriteError(w, http.StatusInternalServerError, httpresponse.InternalErrorMessage, appLogger)
 }

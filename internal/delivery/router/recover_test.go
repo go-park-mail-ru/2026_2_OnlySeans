@@ -83,7 +83,7 @@ func TestWithRecover(t *testing.T) {
 				return
 			}
 
-			assert.Equal(t, "application/json", rec.Header().Get("Content-Type"))
+			assert.Equal(t, "application/json; charset=utf-8", rec.Header().Get("Content-Type"))
 			var body map[string]string
 			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
 			assert.Equal(t, domain.ErrInternal.Error(), body["error"], "детали паники не должны утекать клиенту")
@@ -178,6 +178,58 @@ func TestWithLogging_Level(t *testing.T) {
 			assert.Equal(t, tt.wantLevel, spy.entries[0].level)
 			assert.Equal(t, "request handled", spy.entries[0].msg)
 			assert.Equal(t, tt.status, spy.entries[0].fields["status"])
+		})
+	}
+}
+
+func TestRecoveryAfterResponseStarted(t *testing.T) {
+	tests := []struct {
+		name       string
+		handler    http.HandlerFunc
+		wantStatus int
+		wantBody   string
+	}{
+		{
+			name: "implicit status before panic",
+			handler: func(w http.ResponseWriter, _ *http.Request) {
+				_, _ = w.Write([]byte("partial"))
+				panic("boom")
+			},
+			wantStatus: http.StatusOK,
+			wantBody:   "partial",
+		},
+		{
+			name: "explicit status before panic",
+			handler: func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(http.StatusAccepted)
+				panic("boom")
+			},
+			wantStatus: http.StatusAccepted,
+			wantBody:   "",
+		},
+		{
+			name: "later status cannot replace implicit status",
+			handler: func(w http.ResponseWriter, _ *http.Request) {
+				_, _ = w.Write([]byte("ok"))
+				w.WriteHeader(http.StatusInternalServerError)
+			},
+			wantStatus: http.StatusOK,
+			wantBody:   "ok",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			spy := &recoverSpyLogger{}
+			handler := withLogging(withRecover(tt.handler, spy), spy)
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
+			require.Equal(t, tt.wantStatus, rec.Code)
+			require.Equal(t, tt.wantBody, rec.Body.String())
+			last := spy.entries[len(spy.entries)-1]
+			require.Equal(t, tt.wantStatus, last.fields["status"])
+			if tt.name != "later status cannot replace implicit status" {
+				require.Equal(t, "panic recovered", spy.entries[0].msg)
+			}
 		})
 	}
 }

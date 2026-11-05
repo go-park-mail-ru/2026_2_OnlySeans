@@ -7,12 +7,13 @@ import (
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/films"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/persons"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/reviews"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 	staticassets "github.com/go-park-mail-ru/2026_2_OnlySeans/static"
 )
 
-func NewRouter(authHandler *auth.Handler, filmsHandler *films.Handler, reviewsHandler *reviews.Handler, allowedOrigin string, appLogger logger.Logger) http.Handler {
+func NewRouter(authHandler *auth.Handler, filmsHandler *films.Handler, reviewsHandler *reviews.Handler, personsHandler *persons.Handler, allowedOrigin string, appLogger logger.Logger) http.Handler {
 	r := mux.NewRouter()
 
 	r.PathPrefix("/static/").Handler(
@@ -35,6 +36,13 @@ func NewRouter(authHandler *auth.Handler, filmsHandler *films.Handler, reviewsHa
 	r.HandleFunc("/api/films/{id}/reviews", RequireAuth(authHandler, reviewsHandler.Create)).Methods(http.MethodPost)
 	r.HandleFunc("/api/reviews/{id}", RequireAuth(authHandler, reviewsHandler.Update)).Methods(http.MethodPut)
 	r.HandleFunc("/api/reviews/{id}", RequireAuth(authHandler, reviewsHandler.Delete)).Methods(http.MethodDelete)
+
+	r.HandleFunc("/api/persons", personsHandler.ListPersons).Methods(http.MethodGet)
+	r.HandleFunc("/api/persons/{id}", personsHandler.GetPerson).Methods(http.MethodGet)
+
+	r.HandleFunc("/api/persons", RequireAuth(authHandler, RequireCatalogEditor(authHandler, personsHandler.CreatePerson))).Methods(http.MethodPost)
+	r.HandleFunc("/api/persons/{id}", RequireAuth(authHandler, RequireCatalogEditor(authHandler, personsHandler.UpdatePerson))).Methods(http.MethodPut)
+	r.HandleFunc("/api/persons/{id}", RequireAuth(authHandler, RequireCatalogEditor(authHandler, personsHandler.DeletePerson))).Methods(http.MethodDelete)
 
 	return withLogging(withRecover(withCORS(r, allowedOrigin), appLogger), appLogger)
 }

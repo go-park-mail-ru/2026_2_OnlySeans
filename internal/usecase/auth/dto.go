@@ -91,6 +91,7 @@ func NewGetUserInput(userID domain.UserID) GetUserInput {
 }
 
 type GetUserOutput struct {
+	Role     domain.Role
 	ID       domain.UserID
 	Email    string
 	Username string
