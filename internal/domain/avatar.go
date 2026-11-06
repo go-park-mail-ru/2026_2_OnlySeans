@@ -2,7 +2,6 @@ package domain
 
 import (
 	"context"
-	"errors"
 )
 
 type AvatarFile struct {
@@ -12,8 +11,7 @@ type AvatarFile struct {
 }
 
 type AvatarRepository interface {
+	GetAvatar(ctx context.Context, userID UserID) (*AvatarFile, error)
+	DeleteAvatar(ctx context.Context, userID UserID) error
 	SaveAvatar(ctx context.Context, userID UserID, file AvatarFile) error
 }
-
-// A failed commit can have an unknown outcome. Keep its S3 object until reconciled.
-var ErrAvatarCommitUnknown = errors.New("avatar transaction commit outcome is unknown")

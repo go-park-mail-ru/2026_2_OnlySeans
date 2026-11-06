@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"strings"
 	"sync"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
@@ -11,6 +12,7 @@ type InMemoryUserRepo struct {
 	mu      sync.Mutex
 	byEmail map[string]*domain.User
 	byID    map[int]*domain.User
+	avatars map[domain.UserID]domain.AvatarFile
 	nextID  int
 }
 
@@ -18,6 +20,7 @@ func NewInMemoryUserRepo() *InMemoryUserRepo {
 	return &InMemoryUserRepo{
 		byEmail: make(map[string]*domain.User),
 		byID:    make(map[int]*domain.User),
+		avatars: make(map[domain.UserID]domain.AvatarFile),
 		nextID:  1,
 	}
 }
@@ -77,7 +80,33 @@ func (r *InMemoryUserRepo) SaveAvatar(_ context.Context, id domain.UserID, file 
 	if !ok {
 		return domain.ErrUserNotFound
 	}
+	r.avatars[id] = file
 	filename := file.Filename
 	user.AvatarFilename = &filename
+	return nil
+}
+
+func (r *InMemoryUserRepo) GetAvatar(_ context.Context, id domain.UserID) (*domain.AvatarFile, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if _, ok := r.byID[int(id)]; !ok {
+		return nil, domain.ErrUserNotFound
+	}
+	file, ok := r.avatars[id]
+	if !ok || strings.TrimSpace(file.Filename) == "" {
+		return nil, domain.ErrFileNotFound
+	}
+	return &file, nil
+}
+
+func (r *InMemoryUserRepo) DeleteAvatar(_ context.Context, id domain.UserID) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	user, ok := r.byID[int(id)]
+	if !ok {
+		return domain.ErrUserNotFound
+	}
+	user.AvatarFilename = nil
+	delete(r.avatars, id)
 	return nil
 }

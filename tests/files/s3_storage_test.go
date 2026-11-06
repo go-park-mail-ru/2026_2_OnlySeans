@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials"
@@ -61,7 +62,7 @@ func TestS3StorageUpload(t *testing.T) {
 				options.UsePathStyle = true
 				options.RetryMaxAttempts = 1
 			})
-			storage, err := files.NewS3Storage(client, "avatars", "")
+			storage, err := files.NewS3Storage(client, "avatars", "", 15*time.Minute)
 			require.NoError(t, err)
 			err = storage.Upload(t.Context(), "test.jpg", "image/jpeg", bytes.NewReader(contents))
 			if tt.wantErr {
@@ -115,7 +116,7 @@ func TestS3StorageGetURL(t *testing.T) {
 				options.RetryMaxAttempts = 1
 			})
 			// Internal checks use the test server; links use the browser-facing endpoint.
-			storage, err := files.NewS3Storage(client, "avatars", "https://media.example.com")
+			storage, err := files.NewS3Storage(client, "avatars", "https://media.example.com", 2*time.Minute)
 			require.NoError(t, err)
 			link, err := storage.GetURL(t.Context(), key)
 			if tt.wantErr {
@@ -134,7 +135,7 @@ func TestS3StorageGetURL(t *testing.T) {
 			require.Equal(t, "https", parsed.Scheme)
 			require.Equal(t, "media.example.com", parsed.Host)
 			require.Equal(t, "/avatars/"+key, parsed.Path)
-			require.Equal(t, "900", parsed.Query().Get("X-Amz-Expires"))
+			require.Equal(t, "120", parsed.Query().Get("X-Amz-Expires"))
 			require.NotEmpty(t, parsed.Query().Get("X-Amz-Signature"))
 		})
 	}

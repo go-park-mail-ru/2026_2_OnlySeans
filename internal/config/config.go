@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net"
 	"os"
 	"strconv"
@@ -32,6 +33,11 @@ const (
 )
 
 const (
+	MinAvatarURLLifetime = time.Second
+	MaxAvatarURLLifetime = 7 * 24 * time.Hour
+)
+
+const (
 	MinPort = 1
 	MaxPort = 65535
 )
@@ -56,9 +62,11 @@ const (
 	defaultLogLvl    = logger.LogLevelInfo
 	defaultLogFormat = "text"
 
-	defaultEndpoint = "http://localhost:9000"
-	defaultRegion   = "us-east-1"
-	defaultBucket   = "avatars"
+	defaultAvatarURLLifetime    = 15 * time.Minute
+	defaultMaxAvatarSize        = 5 << 20
+	defaultMaxAvatarDimension   = 4096
+	defaultBucketCheckTimeout   = 5 * time.Second
+	defaultAvatarCleanupTimeout = 5 * time.Second
 )
 
 type Config struct {
@@ -89,12 +97,17 @@ type Redis struct {
 }
 
 type S3 struct {
-	Endpoint       string `yaml:"endpoint"`
-	PublicEndpoint string `yaml:"public_endpoint"`
-	Region         string `yaml:"region"`
-	Bucket         string `yaml:"bucket"`
-	AccessKey      string `yaml:"access_key"`
-	SecretKey      string `yaml:"secret_key"`
+	Endpoint             string        `yaml:"endpoint"`
+	PublicEndpoint       string        `yaml:"public_endpoint"`
+	Region               string        `yaml:"region"`
+	Bucket               string        `yaml:"bucket"`
+	AccessKey            string        `yaml:"access_key"`
+	SecretKey            string        `yaml:"secret_key"`
+	AvatarURLLifetime    time.Duration `yaml:"avatar_url_lifetime"`
+	MaxAvatarSize        int64         `yaml:"max_avatar_size"`
+	MaxAvatarDimension   int           `yaml:"max_avatar_dimension"`
+	BucketCheckTimeout   time.Duration `yaml:"bucket_check_timeout"`
+	AvatarCleanupTimeout time.Duration `yaml:"avatar_cleanup_timeout"`
 }
 
 type LoggerConfig struct {
@@ -137,9 +150,11 @@ func DefaultRedis() *Redis {
 
 func DefaultS3() *S3 {
 	return &S3{
-		Endpoint: defaultEndpoint,
-		Region:   defaultRegion,
-		Bucket:   defaultBucket,
+		AvatarURLLifetime:    defaultAvatarURLLifetime,
+		MaxAvatarSize:        defaultMaxAvatarSize,
+		MaxAvatarDimension:   defaultMaxAvatarDimension,
+		BucketCheckTimeout:   defaultBucketCheckTimeout,
+		AvatarCleanupTimeout: defaultAvatarCleanupTimeout,
 	}
 }
 
@@ -334,6 +349,21 @@ func (s *S3) Validate() error {
 		return errors.New("s3.secret_key is required")
 	}
 
+	if s.AvatarURLLifetime < MinAvatarURLLifetime || s.AvatarURLLifetime > MaxAvatarURLLifetime {
+		return errors.New("s3.avatar_url_lifetime must be between 1s and 168h")
+	}
+	if s.MaxAvatarSize <= 0 || s.MaxAvatarSize > math.MaxInt64-(1<<20) {
+		return errors.New("s3.max_avatar_size must be positive and leave room for multipart overhead")
+	}
+	if s.MaxAvatarDimension <= 0 {
+		return errors.New("s3.max_avatar_dimension must be positive")
+	}
+	if s.BucketCheckTimeout <= 0 {
+		return errors.New("s3.bucket_check_timeout must be positive")
+	}
+	if s.AvatarCleanupTimeout <= 0 {
+		return errors.New("s3.avatar_cleanup_timeout must be positive")
+	}
 	return nil
 }
 

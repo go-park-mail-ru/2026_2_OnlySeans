@@ -46,7 +46,7 @@ func TestUploadAvatar(t *testing.T) {
 	var pngData, jpegData, wideData bytes.Buffer
 	require.NoError(t, png.Encode(&pngData, image.NewRGBA(image.Rect(0, 0, 2, 2))))
 	require.NoError(t, jpeg.Encode(&jpegData, image.NewRGBA(image.Rect(0, 0, 2, 2)), nil))
-	require.NoError(t, png.Encode(&wideData, image.NewRGBA(image.Rect(0, 0, fileusecase.MaxAvatarDimension+1, 1))))
+	require.NoError(t, png.Encode(&wideData, image.NewRGBA(image.Rect(0, 0, testMaxAvatarDimension+1, 1))))
 	storageErr := errors.New("private storage failure")
 	tests := []struct {
 		name          string
@@ -108,12 +108,12 @@ func TestUploadAvatar(t *testing.T) {
 		},
 		{
 			name: "file exceeds limit",
-			data: bytes.Repeat([]byte("a"), fileusecase.MaxAvatarSize+1), field: "avatar", copies: 1,
+			data: bytes.Repeat([]byte("a"), testMaxAvatarSize+1), field: "avatar", copies: 1,
 			wantStatus: http.StatusRequestEntityTooLarge,
 		},
 		{
 			name: "request exceeds limit",
-			data: bytes.Repeat([]byte("a"), fileusecase.MaxAvatarSize+(1<<20)), field: "avatar", copies: 1,
+			data: bytes.Repeat([]byte("a"), testMaxAvatarSize+(1<<20)), field: "avatar", copies: 1,
 			wantStatus: http.StatusRequestEntityTooLarge,
 		},
 		{
@@ -130,13 +130,13 @@ func TestUploadAvatar(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			storage := &avatarStorage{err: tt.storageErr}
-			uc, err := fileusecase.NewUploadAvatarUseCase(storage, &avatarMetadataRepo{})
+			uc, err := fileusecase.NewUploadAvatarUseCase(storage, &avatarMetadataRepo{}, testAvatarOptions())
 			require.NoError(t, err)
 			appLogger, err := logger.NewLogger(io.Discard, logger.LogLevelInfo, "text")
 			require.NoError(t, err)
 			urlUC, err := fileusecase.NewGetAvatarURLUseCase(&avatarURLStorage{})
 			require.NoError(t, err)
-			handler, err := filesdelivery.NewHandler(uc, urlUC, appLogger)
+			handler, err := filesdelivery.NewHandler(uc, urlUC, testAccountAvatar(t, &avatarURLStorage{}), appLogger)
 			require.NoError(t, err)
 
 			var body bytes.Buffer
@@ -239,14 +239,14 @@ func TestGetAvatarURL(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			upload, err := fileusecase.NewUploadAvatarUseCase(&avatarStorage{}, &avatarMetadataRepo{})
+			upload, err := fileusecase.NewUploadAvatarUseCase(&avatarStorage{}, &avatarMetadataRepo{}, testAvatarOptions())
 			require.NoError(t, err)
 			storage := &avatarURLStorage{url: "https://media.example/avatar.png?signature=test", err: tt.err}
 			getURL, err := fileusecase.NewGetAvatarURLUseCase(storage)
 			require.NoError(t, err)
 			appLogger, err := logger.NewLogger(io.Discard, logger.LogLevelInfo, "text")
 			require.NoError(t, err)
-			handler, err := filesdelivery.NewHandler(upload, getURL, appLogger)
+			handler, err := filesdelivery.NewHandler(upload, getURL, testAccountAvatar(t, &avatarURLStorage{}), appLogger)
 			require.NoError(t, err)
 			req := httptest.NewRequest(http.MethodGet, "/api/avatars/test", nil)
 			req = mux.SetURLVars(req, map[string]string{"filename": tt.filename})
@@ -273,4 +273,59 @@ type avatarMetadataRepo struct{}
 
 func (*avatarMetadataRepo) SaveAvatar(context.Context, domain.UserID, domain.AvatarFile) error {
 	return nil
+}
+
+func TestAccountAvatarHandlers(t *testing.T) {
+	tests := []struct {
+		name       string
+		method     string
+		userID     domain.UserID
+		repoErr    error
+		wantStatus int
+	}{
+		{name: "get own avatar", method: http.MethodGet, userID: 7, wantStatus: http.StatusOK},
+		{name: "get without session", method: http.MethodGet, wantStatus: http.StatusUnauthorized},
+		{name: "get missing avatar", method: http.MethodGet, userID: 7, repoErr: domain.ErrFileNotFound, wantStatus: http.StatusNotFound},
+		{name: "delete own avatar", method: http.MethodDelete, userID: 7, wantStatus: http.StatusNoContent},
+		{name: "delete without session", method: http.MethodDelete, wantStatus: http.StatusUnauthorized},
+		{name: "delete unknown user", method: http.MethodDelete, userID: 7, repoErr: domain.ErrUserNotFound, wantStatus: http.StatusUnauthorized},
+		{name: "private error hidden", method: http.MethodDelete, userID: 7, repoErr: errors.New("private database error"), wantStatus: http.StatusInternalServerError},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := &accountAvatarStub{file: &domain.AvatarFile{Filename: "avatar.png"}, err: tt.repoErr}
+			storage := &avatarURLStorage{url: "https://example.com/avatar"}
+			account, err := fileusecase.NewAccountAvatarUseCase(repo, storage)
+			require.NoError(t, err)
+			upload, err := fileusecase.NewUploadAvatarUseCase(&avatarStorage{}, &avatarMetadataRepo{}, testAvatarOptions())
+			require.NoError(t, err)
+			getURL, err := fileusecase.NewGetAvatarURLUseCase(storage)
+			require.NoError(t, err)
+			appLogger, err := logger.NewLogger(io.Discard, logger.LogLevelInfo, "text")
+			require.NoError(t, err)
+			handler, err := filesdelivery.NewHandler(upload, getURL, account, appLogger)
+			require.NoError(t, err)
+			req := httptest.NewRequest(tt.method, "/api/me/avatar", nil)
+			if tt.userID > 0 {
+				req = req.WithContext(authdelivery.ContextWithUserID(req.Context(), tt.userID))
+			}
+			rec := httptest.NewRecorder()
+			if tt.method == http.MethodGet {
+				handler.GetMyAvatarURL(rec, req)
+			} else {
+				handler.DeleteMyAvatar(rec, req)
+			}
+			require.Equal(t, tt.wantStatus, rec.Code)
+			require.NotContains(t, rec.Body.String(), "private database error")
+			if tt.wantStatus == http.StatusNoContent {
+				require.Empty(t, rec.Body.String())
+			}
+			if tt.wantStatus == http.StatusOK {
+				require.Equal(t, "no-store", rec.Header().Get("Cache-Control"))
+			}
+			if tt.userID > 0 {
+				require.Equal(t, tt.userID, repo.userID)
+			}
+		})
+	}
 }

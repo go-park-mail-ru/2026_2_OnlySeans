@@ -11,18 +11,18 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/config"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 )
 
-const AvatarURLLifetime = 15 * time.Minute
-
 type S3Storage struct {
-	client    *s3.Client
-	bucket    string
-	presigner *s3.PresignClient
+	client      *s3.Client
+	bucket      string
+	presigner   *s3.PresignClient
+	urlLifetime time.Duration
 }
 
-func NewS3Storage(client *s3.Client, bucket, publicEndpoint string) (*S3Storage, error) {
+func NewS3Storage(client *s3.Client, bucket, publicEndpoint string, urlLifetime time.Duration) (*S3Storage, error) {
 	if client == nil {
 		return nil, errors.New("s3 client is nil")
 	}
@@ -30,9 +30,14 @@ func NewS3Storage(client *s3.Client, bucket, publicEndpoint string) (*S3Storage,
 		return nil, errors.New("s3 bucket is required")
 	}
 
+	if urlLifetime < config.MinAvatarURLLifetime || urlLifetime > config.MaxAvatarURLLifetime {
+		return nil, errors.New("avatar URL lifetime must be between 1s and 168h")
+	}
+
 	return &S3Storage{
-		client: client,
-		bucket: bucket,
+		urlLifetime: urlLifetime,
+		client:      client,
+		bucket:      bucket,
 		presigner: s3.NewPresignClient(client, func(options *s3.PresignOptions) {
 			if publicEndpoint != "" {
 				options.ClientOptions = append(options.ClientOptions, func(clientOptions *s3.Options) {
@@ -74,7 +79,7 @@ func (s *S3Storage) GetURL(ctx context.Context, key string) (string, error) {
 		Bucket: aws.String(s.bucket),
 		Key:    aws.String(key),
 	}, func(options *s3.PresignOptions) {
-		options.Expires = AvatarURLLifetime
+		options.Expires = s.urlLifetime
 	})
 	if err != nil {
 		return "", fmt.Errorf("sign avatar URL: %w", err)

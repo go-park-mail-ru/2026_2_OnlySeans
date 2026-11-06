@@ -24,6 +24,8 @@ func NewRouter(authHandler *auth.Handler, filmsHandler *films.Handler, reviewsHa
 	r.HandleFunc("/api/register", authHandler.Register).Methods(http.MethodPost)
 	r.HandleFunc("/api/login", authHandler.Login).Methods(http.MethodPost)
 	r.HandleFunc("/api/logout", RequireAuth(authHandler, authHandler.Logout)).Methods(http.MethodPost)
+	r.HandleFunc("/api/me/avatar", RequireAuth(authHandler, filesHandler.GetMyAvatarURL)).Methods(http.MethodGet)
+	r.HandleFunc("/api/me/avatar", RequireAuth(authHandler, filesHandler.DeleteMyAvatar)).Methods(http.MethodDelete)
 	r.HandleFunc("/api/avatars", RequireAuth(authHandler, filesHandler.UploadAvatar)).Methods(http.MethodPost)
 	r.HandleFunc("/api/avatars/{filename}", filesHandler.GetAvatarURL).Methods(http.MethodGet)
 

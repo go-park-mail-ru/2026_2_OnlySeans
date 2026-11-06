@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"image"
 	"io"
+	"math"
 	"time"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
@@ -17,12 +18,13 @@ import (
 	_ "image/png"
 )
 
-const (
-	MaxAvatarSize         = 5 << 20
-	MaxAvatarDimension    = 4096
-	AvatarNameRandomBytes = 16
-	avatarCleanupTimeout  = 5 * time.Second
-)
+const AvatarNameRandomBytes = 16
+
+type UploadAvatarOptions struct {
+	MaxSize        int64
+	MaxDimension   int
+	CleanupTimeout time.Duration
+}
 
 var (
 	ErrAvatarMissing            = errors.New("avatar file is required")
@@ -52,22 +54,35 @@ type AvatarStorage interface {
 	) error
 }
 
-type UploadAvatarUseCase struct {
-	storage AvatarStorage
-	avatars domain.AvatarRepository
+type AvatarWriter interface {
+	SaveAvatar(ctx context.Context, userID domain.UserID, file domain.AvatarFile) error
 }
 
-func NewUploadAvatarUseCase(storage AvatarStorage, avatars domain.AvatarRepository) (*UploadAvatarUseCase, error) {
+type UploadAvatarUseCase struct {
+	storage AvatarStorage
+	avatars AvatarWriter
+	options UploadAvatarOptions
+}
+
+func NewUploadAvatarUseCase(storage AvatarStorage, avatars AvatarWriter, options UploadAvatarOptions) (*UploadAvatarUseCase, error) {
 	if storage == nil {
 		return nil, errors.New("avatar storage is nil")
 	}
 	if avatars == nil {
 		return nil, errors.New("avatar repository is nil")
 	}
+	if options.MaxSize <= 0 || options.MaxSize > math.MaxInt64-(1<<20) || options.MaxDimension <= 0 || options.CleanupTimeout <= 0 {
+		return nil, errors.New("avatar limits and cleanup timeout must be positive and size must leave room for multipart overhead")
+	}
 	return &UploadAvatarUseCase{
+		options: options,
 		storage: storage,
 		avatars: avatars,
 	}, nil
+}
+
+func (uc *UploadAvatarUseCase) MaxSize() int64 {
+	return uc.options.MaxSize
 }
 
 func (uc *UploadAvatarUseCase) Run(ctx context.Context, input UploadAvatarInput) (*UploadAvatarOutput, error) {
@@ -80,14 +95,14 @@ func (uc *UploadAvatarUseCase) Run(ctx context.Context, input UploadAvatarInput)
 	if input.Size <= 0 {
 		return nil, ErrInvalidAvatarSize
 	}
-	if input.Size > MaxAvatarSize {
+	if input.Size > uc.options.MaxSize {
 		return nil, ErrAvatarTooLarge
 	}
 	if _, err := input.Body.Seek(0, io.SeekStart); err != nil {
 		return nil, fmt.Errorf("rewind avatar: %w", err)
 	}
 
-	data, err := io.ReadAll(io.LimitReader(input.Body, MaxAvatarSize+1))
+	data, err := io.ReadAll(io.LimitReader(input.Body, uc.options.MaxSize+1))
 	if err != nil {
 		return nil, fmt.Errorf("read avatar: %w", err)
 	}
@@ -96,7 +111,7 @@ func (uc *UploadAvatarUseCase) Run(ctx context.Context, input UploadAvatarInput)
 		return nil, ErrInvalidAvatarSize
 	}
 
-	if len(data) > MaxAvatarSize {
+	if int64(len(data)) > uc.options.MaxSize {
 		return nil, ErrAvatarTooLarge
 	}
 
@@ -109,8 +124,8 @@ func (uc *UploadAvatarUseCase) Run(ctx context.Context, input UploadAvatarInput)
 		return nil, ErrInvalidAvatarImage
 	}
 
-	if imageConfig.Width > MaxAvatarDimension ||
-		imageConfig.Height > MaxAvatarDimension {
+	if imageConfig.Width > uc.options.MaxDimension ||
+		imageConfig.Height > uc.options.MaxDimension {
 		return nil, ErrAvatarDimensionsTooLarge
 	}
 
@@ -148,9 +163,8 @@ func (uc *UploadAvatarUseCase) Run(ctx context.Context, input UploadAvatarInput)
 		Size:        int64(len(data)),
 	})
 	if err != nil {
-		// Never delete a possibly committed avatar after an ambiguous commit failure.
 		if !errors.Is(err, domain.ErrAvatarCommitUnknown) {
-			cleanupCtx, cancel := context.WithTimeout(context.Background(), avatarCleanupTimeout)
+			cleanupCtx, cancel := context.WithTimeout(context.Background(), uc.options.CleanupTimeout)
 			cleanupErr := uc.storage.Delete(cleanupCtx, filename)
 			cancel()
 			if cleanupErr != nil {

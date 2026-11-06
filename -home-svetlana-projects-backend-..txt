@@ -1,0 +1,1 @@
+/home/svetlana/projects/backend/.env

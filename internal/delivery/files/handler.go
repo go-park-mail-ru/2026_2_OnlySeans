@@ -13,9 +13,8 @@ import (
 )
 
 const (
-	multipartOverhead    = 1 << 20
-	maxUploadRequestSize = fileusecase.MaxAvatarSize + multipartOverhead
-	avatarFieldName      = "avatar"
+	multipartOverhead = 1 << 20
+	avatarFieldName   = "avatar"
 )
 
 type uploadAvatarResponse struct {
@@ -23,12 +22,16 @@ type uploadAvatarResponse struct {
 }
 
 type Handler struct {
-	uploadAvatar *fileusecase.UploadAvatarUseCase
-	getAvatarURL *fileusecase.GetAvatarURLUseCase
-	logger       logger.Logger
+	uploadAvatar  *fileusecase.UploadAvatarUseCase
+	getAvatarURL  *fileusecase.GetAvatarURLUseCase
+	logger        logger.Logger
+	accountAvatar *fileusecase.AccountAvatarUseCase
 }
 
-func NewHandler(uploadAvatar *fileusecase.UploadAvatarUseCase, getAvatarURL *fileusecase.GetAvatarURLUseCase, appLogger logger.Logger) (*Handler, error) {
+func NewHandler(uploadAvatar *fileusecase.UploadAvatarUseCase, getAvatarURL *fileusecase.GetAvatarURLUseCase, accountAvatar *fileusecase.AccountAvatarUseCase, appLogger logger.Logger) (*Handler, error) {
+	if accountAvatar == nil {
+		return nil, errors.New("account avatar use case is nil")
+	}
 	if uploadAvatar == nil {
 		return nil, errors.New("upload avatar use case is nil")
 	}
@@ -40,9 +43,10 @@ func NewHandler(uploadAvatar *fileusecase.UploadAvatarUseCase, getAvatarURL *fil
 	}
 
 	return &Handler{
-		uploadAvatar: uploadAvatar,
-		getAvatarURL: getAvatarURL,
-		logger:       appLogger,
+		accountAvatar: accountAvatar,
+		uploadAvatar:  uploadAvatar,
+		getAvatarURL:  getAvatarURL,
+		logger:        appLogger,
 	}, nil
 }
 
@@ -74,6 +78,7 @@ func (h *Handler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 		httpresponse.WriteError(w, http.StatusUnauthorized, domain.ErrUnauthorized.Error(), h.logger)
 		return
 	}
+	maxUploadRequestSize := h.uploadAvatar.MaxSize() + multipartOverhead
 	r.Body = http.MaxBytesReader(w, r.Body, maxUploadRequestSize)
 	err := r.ParseMultipartForm(maxUploadRequestSize)
 	if r.MultipartForm != nil {
@@ -128,6 +133,46 @@ func (h *Handler) writeUploadError(w http.ResponseWriter, err error) {
 		httpresponse.WriteError(w, http.StatusBadRequest, err.Error(), h.logger)
 	default:
 		h.logger.Error("upload avatar failed", map[string]any{"error": err})
+		httpresponse.WriteError(w, http.StatusInternalServerError, httpresponse.InternalErrorMessage, h.logger)
+	}
+}
+
+func (h *Handler) GetMyAvatarURL(w http.ResponseWriter, r *http.Request) {
+	userID, ok := authdelivery.UserIDFromContext(r.Context())
+	if !ok || userID <= 0 {
+		h.writeAccountAvatarError(w, domain.ErrUnauthorized)
+		return
+	}
+	url, err := h.accountAvatar.GetURL(r.Context(), userID)
+	if err != nil {
+		h.writeAccountAvatarError(w, err)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	httpresponse.WriteJSON(w, http.StatusOK, avatarURLResponse{URL: url}, h.logger)
+}
+
+func (h *Handler) DeleteMyAvatar(w http.ResponseWriter, r *http.Request) {
+	userID, ok := authdelivery.UserIDFromContext(r.Context())
+	if !ok || userID <= 0 {
+		h.writeAccountAvatarError(w, domain.ErrUnauthorized)
+		return
+	}
+	if err := h.accountAvatar.Delete(r.Context(), userID); err != nil {
+		h.writeAccountAvatarError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) writeAccountAvatarError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, domain.ErrUnauthorized), errors.Is(err, domain.ErrUserNotFound):
+		httpresponse.WriteError(w, http.StatusUnauthorized, domain.ErrUnauthorized.Error(), h.logger)
+	case errors.Is(err, domain.ErrFileNotFound):
+		httpresponse.WriteError(w, http.StatusNotFound, domain.ErrFileNotFound.Error(), h.logger)
+	default:
+		h.logger.Error("account avatar operation failed", map[string]any{"error": err})
 		httpresponse.WriteError(w, http.StatusInternalServerError, httpresponse.InternalErrorMessage, h.logger)
 	}
 }

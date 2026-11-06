@@ -22,8 +22,8 @@ func (role Role) CanEditPersons() bool {
 type UserID int
 
 type User struct {
-	Role           Role
 	ID             UserID
+	Role           Role
 	Email          string
 	Username       string
 	PasswordHash   string

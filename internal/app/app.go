@@ -36,8 +36,6 @@ import (
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/redis"
 )
 
-const s3BucketCheckTimeout = 5 * time.Second
-
 func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerConfigPath string) error {
 	cfg, err := config.Load(configPath)
 	if err != nil {
@@ -88,7 +86,7 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 		return fmt.Errorf("create s3 client: %w", err)
 	}
 
-	s3Ctx, cancelS3 := context.WithTimeout(context.Background(), s3BucketCheckTimeout)
+	s3Ctx, cancelS3 := context.WithTimeout(context.Background(), s3Cfg.BucketCheckTimeout)
 
 	_, err = s3Client.HeadBucket(s3Ctx, &s3.HeadBucketInput{
 		Bucket: aws.String(s3Cfg.Bucket),
@@ -101,7 +99,7 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 
 	appLogger.Info("s3 bucket available", map[string]any{"bucket": s3Cfg.Bucket})
 
-	avatarStorage, err := filesservice.NewS3Storage(s3Client, s3Cfg.Bucket, s3Cfg.PublicEndpoint)
+	avatarStorage, err := filesservice.NewS3Storage(s3Client, s3Cfg.Bucket, s3Cfg.PublicEndpoint, s3Cfg.AvatarURLLifetime)
 	if err != nil {
 		return fmt.Errorf("create avatar storage: %w", err)
 	}
@@ -125,7 +123,11 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 	if err != nil {
 		return fmt.Errorf("create avatar repository: %w", err)
 	}
-	uploadAvatarUC, err := filesusecase.NewUploadAvatarUseCase(avatarStorage, avatarRepo)
+	uploadAvatarUC, err := filesusecase.NewUploadAvatarUseCase(avatarStorage, avatarRepo, filesusecase.UploadAvatarOptions{
+		MaxSize:        s3Cfg.MaxAvatarSize,
+		MaxDimension:   s3Cfg.MaxAvatarDimension,
+		CleanupTimeout: s3Cfg.AvatarCleanupTimeout,
+	})
 	if err != nil {
 		return fmt.Errorf("create upload avatar use case: %w", err)
 	}
@@ -133,7 +135,11 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 	if err != nil {
 		return fmt.Errorf("create get avatar URL use case: %w", err)
 	}
-	filesHandler, err := filesdelivery.NewHandler(uploadAvatarUC, getAvatarURLUC, appLogger)
+	accountAvatarUC, err := filesusecase.NewAccountAvatarUseCase(avatarRepo, avatarStorage)
+	if err != nil {
+		return fmt.Errorf("create account avatar use case: %w", err)
+	}
+	filesHandler, err := filesdelivery.NewHandler(uploadAvatarUC, getAvatarURLUC, accountAvatarUC, appLogger)
 	if err != nil {
 		return fmt.Errorf("create files handler: %w", err)
 	}

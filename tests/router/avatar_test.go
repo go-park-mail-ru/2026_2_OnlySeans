@@ -128,6 +128,27 @@ func TestAvatarUploadRoute(t *testing.T) {
 				}
 				require.NoError(t, json.Unmarshal(profileRec.Body.Bytes(), &profile))
 				require.Equal(t, response.Filename, profile.User.AvatarFilename)
+				getOwn := httptest.NewRequest(http.MethodGet, "/api/me/avatar", nil)
+				getOwn.AddCookie(cookie)
+				ownResponse := httptest.NewRecorder()
+				handler.ServeHTTP(ownResponse, getOwn)
+				require.Equal(t, http.StatusOK, ownResponse.Code)
+				require.Contains(t, ownResponse.Body.String(), response.Filename)
+				for range 2 {
+					deleteReq := httptest.NewRequest(http.MethodDelete, "/api/me/avatar", nil)
+					deleteReq.AddCookie(cookie)
+					deleteRec := httptest.NewRecorder()
+					handler.ServeHTTP(deleteRec, deleteReq)
+					require.Equal(t, http.StatusNoContent, deleteRec.Code)
+					require.Empty(t, deleteRec.Body.String())
+				}
+				missingResponse := httptest.NewRecorder()
+				handler.ServeHTTP(missingResponse, getOwn)
+				require.Equal(t, http.StatusNotFound, missingResponse.Code)
+				profileAfter := httptest.NewRecorder()
+				handler.ServeHTTP(profileAfter, profileReq)
+				require.Equal(t, http.StatusOK, profileAfter.Code)
+				require.NotContains(t, profileAfter.Body.String(), "avatar_filename")
 
 			}
 		})
@@ -151,3 +172,38 @@ func TestAvatarURLRoute(t *testing.T) {
 }
 
 func (s *routerAvatarStorage) Delete(context.Context, string) error { return nil }
+
+func TestOwnAvatarRequiresSession(t *testing.T) {
+	tests := []struct{ name, method, session string }{
+		{
+			name:   "GET without session",
+			method: http.MethodGet,
+		},
+		{
+			name:   "DELETE without session",
+			method: http.MethodDelete,
+		},
+		{
+			name:    "GET invalid session",
+			method:  http.MethodGet,
+			session: "invalid",
+		},
+		{
+			name:    "DELETE invalid session",
+			method:  http.MethodDelete,
+			session: "invalid",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			handler := newTestRouter(t)
+			req := httptest.NewRequest(tt.method, "/api/me/avatar", nil)
+			if tt.session != "" {
+				req.AddCookie(&http.Cookie{Name: auth.SessionCookieName, Value: tt.session})
+			}
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, req)
+			require.Equal(t, http.StatusUnauthorized, rec.Code)
+		})
+	}
+}

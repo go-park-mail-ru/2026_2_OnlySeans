@@ -53,3 +53,49 @@ func (r *PostgresAvatarRepo) SaveAvatar(ctx context.Context, userID domain.UserI
 	}
 	return nil
 }
+
+var _ domain.AvatarRepository = (*PostgresAvatarRepo)(nil)
+
+func (r *PostgresAvatarRepo) GetAvatar(ctx context.Context, userID domain.UserID) (*domain.AvatarFile, error) {
+	var filename, contentType sql.NullString
+	var size sql.NullInt64
+	err := r.db.QueryRowContext(ctx, `
+  SELECT f.storage_key, f.mime_type, f.size_bytes
+  FROM account AS a
+  LEFT JOIN file AS f ON f.id = a.avatar_file_id
+  WHERE a.id = $1 AND a.deleted_at IS NULL
+ `, userID).Scan(&filename, &contentType, &size)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, domain.ErrUserNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get account avatar: %w", err)
+	}
+	if !filename.Valid {
+		return nil, domain.ErrFileNotFound
+	}
+	return &domain.AvatarFile{Filename: filename.String, ContentType: contentType.String, Size: size.Int64}, nil
+}
+
+func (r *PostgresAvatarRepo) DeleteAvatar(ctx context.Context, userID domain.UserID) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin avatar deletion: %w", err)
+	}
+	defer tx.Rollback()
+	var accountID domain.UserID
+	err = tx.QueryRowContext(ctx, `SELECT id FROM account WHERE id = $1 AND deleted_at IS NULL FOR UPDATE`, userID).Scan(&accountID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return domain.ErrUserNotFound
+	}
+	if err != nil {
+		return fmt.Errorf("lock avatar account: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE account SET avatar_file_id = NULL WHERE id = $1`, userID); err != nil {
+		return fmt.Errorf("detach account avatar: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit avatar deletion: %w", err)
+	}
+	return nil
+}

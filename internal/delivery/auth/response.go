@@ -16,10 +16,10 @@ type loginRequest struct {
 }
 
 type userResponse struct {
-	AvatarFilename *string `json:"avatar_filename,omitempty"`
 	ID             int     `json:"id"`
 	Email          string  `json:"email"`
 	Username       string  `json:"username"`
+	AvatarFilename *string `json:"avatar_filename,omitempty"`
 }
 
 type authResponse struct {
@@ -38,9 +38,9 @@ func toAuthResponse(user usecase.UserDTO) authResponse {
 	return authResponse{
 		User: userResponse{
 			ID:             int(user.ID),
-			AvatarFilename: user.AvatarFilename,
 			Email:          user.Email,
 			Username:       user.Username,
+			AvatarFilename: user.AvatarFilename,
 		},
 	}
 }

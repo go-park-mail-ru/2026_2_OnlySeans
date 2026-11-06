@@ -45,6 +45,52 @@ x-rate-limits:
   description: |-
     Лимитов запросов пока нет. Сервер не возвращает 429 и Retry-After.
 paths:
+  /api/me/avatar:
+    get:
+      tags:
+        - Файлы
+      operationId: getMyAvatarURL
+      summary: Получить ссылку на свою текущую аватарку
+      description: |-
+        Идентификатор аккаунта берётся из сессии. Текущий ключ файла читается из PostgreSQL,
+        затем создаётся подписанная ссылка. Срок ссылки задаётся в s3.avatar_url_lifetime.
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Временная ссылка на текущую аватарку.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+              example: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AvatarURLResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/AvatarNotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      tags:
+        - Файлы
+      operationId: deleteMyAvatar
+      summary: Удалить свою аватарку
+      description: |-
+        Убирает привязку аватарки у пользователя из сессии. Повторное удаление возвращает 204.
+        Физический файл в S3 и его метаданные сохраняются. Фоновая очистка не реализована.
+      security:
+        - sessionCookie: []
+      responses:
+        '204':
+          description: Привязка удалена или аватарка уже отсутствовала. Тело ответа пустое.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /api/avatars/{filename}:
     get:
       tags:
