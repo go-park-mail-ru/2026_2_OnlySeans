@@ -29,6 +29,6 @@ func (uc *GetUserUseCase) Run(ctx context.Context, input GetUserInput) (*GetUser
 		return nil, domain.ErrUserNotFound
 	}
 
-	output := NewGetUserOutput(user.ID, user.Email, user.Username)
+	output := NewGetUserOutput(user.ID, user.Email, user.Username, user.Role)
 	return &output, nil
 }

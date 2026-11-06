@@ -8,13 +8,20 @@ import (
 )
 
 type UserID int
+type UserRole string
 
 type User struct {
 	ID           UserID
+	Role         UserRole
 	Email        string
 	Username     string
 	PasswordHash string
 }
+
+const (
+	UserRoleReader UserRole = "reader"
+	UserRoleAdmin  UserRole = "admin"
+)
 
 func NewUser(email, username, passwordHash string) (*User, error) {
 	if err := utils.ValidateEmail(email); err != nil {

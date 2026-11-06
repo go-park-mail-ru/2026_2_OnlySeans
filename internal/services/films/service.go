@@ -31,6 +31,7 @@ type InMemoryService struct {
 	filmIDs         []domain.FilmID
 	collections     []domain.Collection
 	collectionFilms map[domain.CollectionID][]domain.FilmID
+	nextFilmID      domain.FilmID
 }
 
 func NewInMemoryService() *InMemoryService {
@@ -51,6 +52,77 @@ func (s *InMemoryService) AddFilm(film domain.Film) error {
 
 	s.filmIDs = slices.Insert(s.filmIDs, pos, film.ID)
 	s.films[film.ID] = cloneFilm(film)
+	if film.ID >= s.nextFilmID {
+		s.nextFilmID = film.ID + 1
+	}
+	return nil
+}
+
+// сохраняем новый фильм в памяти
+func (s *InMemoryService) CreateFilm(_ context.Context, input domain.CreateFilmInput) (domain.FilmID, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	id := s.nextFilmID
+	if id == 0 {
+		id = 1
+	}
+	s.nextFilmID = id + 1
+
+	film := domain.Film{
+		ID:            id,
+		Title:         input.Title,
+		OriginalTitle: input.OriginalTitle,
+		FilmType:      input.FilmType,
+		ReleaseYear:   input.ReleaseYear,
+		DurationMin:   input.DurationMin,
+		AgeLimit:      input.AgeLimit,
+		Description:   input.Description,
+	}
+
+	s.films[id] = film
+	s.filmIDs = append(s.filmIDs, id)
+	return id, nil
+}
+
+func (s *InMemoryService) UpdateFilm(_ context.Context, id domain.FilmID, input domain.CreateFilmInput) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	film, ok := s.films[id]
+	if !ok {
+		return domain.ErrFilmNotFound
+	}
+
+	film.Title = input.Title
+	film.OriginalTitle = input.OriginalTitle
+	film.FilmType = input.FilmType
+	film.ReleaseYear = input.ReleaseYear
+	film.DurationMin = input.DurationMin
+	film.AgeLimit = input.AgeLimit
+	film.Description = input.Description
+
+	s.films[id] = film
+	return nil
+}
+
+func (s *InMemoryService) DeleteFilm(_ context.Context, id domain.FilmID) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if _, ok := s.films[id]; !ok {
+		return domain.ErrFilmNotFound
+	}
+
+	delete(s.films, id)
+	if index := slices.Index(s.filmIDs, id); index >= 0 {
+		s.filmIDs = slices.Delete(s.filmIDs, index, index+1)
+	}
+	for collectionID, filmIDs := range s.collectionFilms {
+		if index := slices.Index(filmIDs, id); index >= 0 {
+			s.collectionFilms[collectionID] = slices.Delete(filmIDs, index, index+1)
+		}
+	}
+
 	return nil
 }
 

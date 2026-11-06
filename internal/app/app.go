@@ -96,6 +96,19 @@ func Run(configPath, databaseConfigPath string) error {
 		return fmt.Errorf("create get film use case: %w", err)
 	}
 
+	createFilmUC, err := filmsusecase.NewCreateFilmUseCase(filmsRepo)
+	if err != nil {
+		return fmt.Errorf("create film use case: %w", err)
+	}
+	updateFilmUC, err := filmsusecase.NewUpdateFilmUseCase(filmsRepo)
+	if err != nil {
+		return fmt.Errorf("create update film use case: %w", err)
+	}
+	deleteFilmUC, err := filmsusecase.NewDeleteFilmUseCase(filmsRepo)
+	if err != nil {
+		return fmt.Errorf("create delete film use case: %w", err)
+	}
+
 	listCollectionsUC, err := filmsusecase.NewListCollectionsUseCase(filmsRepo)
 	if err != nil {
 		return fmt.Errorf("create list collections use case: %w", err)
@@ -120,6 +133,9 @@ func Run(configPath, databaseConfigPath string) error {
 	filmsHandler, err := filmsdelivery.NewHandler(filmsdelivery.HandlerUseCases{
 		ListFilms:       listFilmsUC,
 		GetFilm:         getFilmUC,
+		CreateFilm:      createFilmUC,
+		UpdateFilm:      updateFilmUC,
+		DeleteFilm:      deleteFilmUC,
 		ListCollections: listCollectionsUC,
 		GetCollection:   getCollectionUC,
 	})

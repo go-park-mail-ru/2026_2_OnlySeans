@@ -15,10 +15,11 @@ import (
 )
 
 const (
-	defaultLimit  = 20
-	minLimit      = 1
-	maxLimit      = 100
-	defaultOffset = 0
+	defaultLimit            = 20
+	maxFilmRequestBodyBytes = 1 << 20
+	minLimit                = 1
+	maxLimit                = 100
+	defaultOffset           = 0
 )
 
 const (
@@ -64,11 +65,18 @@ var clientErrors = []struct {
 		err:    domain.ErrCollectionNotFound,
 		status: http.StatusNotFound,
 	},
+	{
+		err:    domain.ErrInvalidFilmInput,
+		status: http.StatusBadRequest,
+	},
 }
 
 type HandlerUseCases struct {
 	ListFilms       *usecase.ListFilmsUseCase
 	GetFilm         *usecase.GetFilmUseCase
+	CreateFilm      *usecase.CreateFilmUseCase
+	UpdateFilm      *usecase.UpdateFilmUseCase
+	DeleteFilm      *usecase.DeleteFilmUseCase
 	ListCollections *usecase.ListCollectionsUseCase
 	GetCollection   *usecase.GetCollectionUseCase
 }
@@ -76,6 +84,9 @@ type HandlerUseCases struct {
 type Handler struct {
 	listFilms       *usecase.ListFilmsUseCase
 	getFilm         *usecase.GetFilmUseCase
+	createFilm      *usecase.CreateFilmUseCase
+	updateFilm      *usecase.UpdateFilmUseCase
+	deleteFilm      *usecase.DeleteFilmUseCase
 	listCollections *usecase.ListCollectionsUseCase
 	getCollection   *usecase.GetCollectionUseCase
 }
@@ -93,9 +104,21 @@ func NewHandler(cases HandlerUseCases) (*Handler, error) {
 	if cases.GetCollection == nil {
 		return nil, errors.New("get collection use case is nil")
 	}
+	if cases.CreateFilm == nil {
+		return nil, errors.New("create film use case is nil")
+	}
+	if cases.UpdateFilm == nil {
+		return nil, errors.New("update film use case is nil")
+	}
+	if cases.DeleteFilm == nil {
+		return nil, errors.New("delete film use case is nil")
+	}
 	return &Handler{
 		listFilms:       cases.ListFilms,
 		getFilm:         cases.GetFilm,
+		createFilm:      cases.CreateFilm,
+		updateFilm:      cases.UpdateFilm,
+		deleteFilm:      cases.DeleteFilm,
 		listCollections: cases.ListCollections,
 		getCollection:   cases.GetCollection,
 	}, nil
@@ -167,6 +190,60 @@ func (h *Handler) GetFilm(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, filmResponse{Film: toFilmResponseDTO(result.Film)})
+}
+
+func (h *Handler) CreateFilm(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxFilmRequestBodyBytes)
+	input, err := decodeCreateFilm(r)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+
+	id, err := h.createFilm.Run(r.Context(), input)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusCreated, createFilmResponse{ID: id})
+}
+
+func (h *Handler) UpdateFilm(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(r)
+	if !ok {
+		writeError(w, ErrInvalidFilmID)
+		return
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, maxFilmRequestBodyBytes)
+	input, err := decodeCreateFilm(r)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+
+	if err := h.updateFilm.Run(r.Context(), domain.FilmID(id), input); err != nil {
+		writeError(w, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) DeleteFilm(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(r)
+	if !ok {
+		writeError(w, ErrInvalidFilmID)
+		return
+	}
+
+	if err := h.deleteFilm.Run(r.Context(), domain.FilmID(id)); err != nil {
+		writeError(w, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *Handler) ListCollections(w http.ResponseWriter, r *http.Request) {
@@ -253,6 +330,11 @@ func writeJSON(w http.ResponseWriter, status int, body any) {
 }
 
 func writeError(w http.ResponseWriter, err error) {
+	var sizeErr *http.MaxBytesError
+	if errors.As(err, &sizeErr) {
+		writeJSON(w, http.StatusRequestEntityTooLarge, errorResponse{Error: "request body exceeds 1 MiB"})
+		return
+	}
 	for _, known := range clientErrors {
 		if errors.Is(err, known.err) {
 			msg := known.err.Error()

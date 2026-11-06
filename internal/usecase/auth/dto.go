@@ -94,13 +94,15 @@ type GetUserOutput struct {
 	ID       domain.UserID
 	Email    string
 	Username string
+	Role     domain.UserRole
 }
 
-func NewGetUserOutput(id domain.UserID, email, username string) GetUserOutput {
+func NewGetUserOutput(id domain.UserID, email, username string, role domain.UserRole) GetUserOutput {
 	return GetUserOutput{
 		ID:       id,
 		Email:    email,
 		Username: username,
+		Role:     role,
 	}
 }
 

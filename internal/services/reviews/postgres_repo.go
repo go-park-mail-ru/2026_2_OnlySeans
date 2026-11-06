@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	reviewColumns = `id, account_id, film_id, title, content, contains_spoilers, created_at, updated_at` //список колонок отзыва
+	reviewColumns = `id, account_id, film_id, title, content, contains_spoilers, created_at, updated_at` //список колонок отзыва звездочку
 
 	createReviewQuery = `
 		INSERT INTO review (account_id, film_id, title, content, contains_spoilers)
@@ -22,13 +22,11 @@ const (
 		RETURNING ` + reviewColumns
 
 	getReviewQuery = `
-		SELECT ` + reviewColumns +
-		` FROM review
+		SELECT * FROM review
 		WHERE id = $1 AND deleted_at IS NULL`
 
 	listReviewsQuery = `
-		SELECT ` + reviewColumns +
-		`
+		SELECT *
 			FROM review
 			WHERE film_id = $1 AND deleted_at IS NULL
 			ORDER BY id DESC

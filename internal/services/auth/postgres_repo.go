@@ -29,9 +29,10 @@ const (
 
 	//аворизация
 	getUserByIDQuery = `
-			SELECT id, email, username, password_hash
-			FROM account
-			WHERE id = $1 AND deleted_at IS NULL
+			SELECT a.id, a.email, a.username, a.password_hash, r.code
+			FROM account AS a
+			JOIN role AS r ON r.id = a.role_id
+			WHERE a.id = $1 AND a.deleted_at IS NULL
 		`
 )
 
@@ -46,7 +47,7 @@ func NewPostgresUserRepo(db *sql.DB) domain.UserRepository {
 // после входа
 func (r *PostgresUserRepo) GetUser(ctx context.Context, id domain.UserID) (*domain.User, error) {
 	var user domain.User
-	err := r.db.QueryRowContext(ctx, getUserByIDQuery, id).Scan(&user.ID, &user.Email, &user.Username, &user.PasswordHash)
+	err := r.db.QueryRowContext(ctx, getUserByIDQuery, id).Scan(&user.ID, &user.Email, &user.Username, &user.PasswordHash, &user.Role)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, domain.ErrUserNotFound
 	}

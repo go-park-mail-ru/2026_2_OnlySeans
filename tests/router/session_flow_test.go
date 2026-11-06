@@ -27,7 +27,7 @@ func TestRequireAuth_SessionFlow(t *testing.T) {
 	require.NotEmpty(t, cookie.Value)
 	require.True(t, cookie.HttpOnly, "кука должна быть HttpOnly")
 
-	protected := router.RequireAuth(h, func(w http.ResponseWriter, r *http.Request) {
+	protected := router.RequireAuth(h)(func(w http.ResponseWriter, r *http.Request) {
 		if _, ok := auth.UserIDFromContext(r.Context()); !ok {
 			w.WriteHeader(http.StatusInternalServerError) // мидлварь не положила ID
 			return

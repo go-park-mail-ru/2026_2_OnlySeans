@@ -10,4 +10,5 @@ var (
 	ErrDuplicateCollectionFilm = errors.New("film is already in collection")
 	ErrNilCollectionsRepo      = errors.New("collections repository is nil")
 	ErrNilFilmsRepo            = errors.New("films repository is nil")
+	ErrInvalidFilmInput        = errors.New("invalid film input")
 )
