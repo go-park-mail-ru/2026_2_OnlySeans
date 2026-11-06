@@ -116,6 +116,18 @@ type brokenService struct {
 	failCollectionFilms bool
 }
 
+func (brokenService) CreateFilm(context.Context, domain.CreateFilmInput) (domain.FilmID, error) {
+	return 0, errStorage
+}
+
+func (brokenService) UpdateFilm(context.Context, domain.FilmID, domain.CreateFilmInput) error {
+	return errStorage
+}
+
+func (brokenService) DeleteFilm(context.Context, domain.FilmID) error {
+	return errStorage
+}
+
 func (b brokenService) ListFilms(context.Context, int, int) ([]domain.Film, int, error) {
 	return nil, 0, errStorage
 }
@@ -163,6 +175,21 @@ func newTestRouter(t testing.TB, service filmsservice.Service) *mux.Router {
 		t.Fatalf("NewGetFilmUseCase: %v", err)
 	}
 
+	createFilm, err := filmsusecase.NewCreateFilmUseCase(service)
+	if err != nil {
+		t.Fatalf("NewCreateFilmUseCase: %v", err)
+	}
+
+	updateFilm, err := filmsusecase.NewUpdateFilmUseCase(service)
+	if err != nil {
+		t.Fatalf("NewUpdateFilmUseCase: %v", err)
+	}
+
+	deleteFilm, err := filmsusecase.NewDeleteFilmUseCase(service)
+	if err != nil {
+		t.Fatalf("NewDeleteFilmUseCase: %v", err)
+	}
+
 	listCollections, err := filmsusecase.NewListCollectionsUseCase(service, newFilmsTestLogger())
 	if err != nil {
 		t.Fatalf("NewListCollectionsUseCase: %v", err)
@@ -176,6 +203,9 @@ func newTestRouter(t testing.TB, service filmsservice.Service) *mux.Router {
 	h, err := films.NewHandler(films.HandlerUseCases{
 		ListFilms:       listFilms,
 		GetFilm:         getFilm,
+		CreateFilm:      createFilm,
+		UpdateFilm:      updateFilm,
+		DeleteFilm:      deleteFilm,
 		ListCollections: listCollections,
 		GetCollection:   getCollection,
 	}, newFilmsTestLogger())

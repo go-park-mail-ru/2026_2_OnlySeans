@@ -17,6 +17,15 @@ type Authenticator interface {
 	Authenticate(ctx context.Context, sessionID string) (domain.UserID, error)
 }
 
+type Middleware func(http.HandlerFunc) http.HandlerFunc
+
+func WrapMiddlewares(handler http.HandlerFunc, middlewares []Middleware) http.HandlerFunc {
+	for i := len(middlewares) - 1; i >= 0; i-- {
+		handler = middlewares[i](handler)
+	}
+	return handler
+}
+
 type responseWriter struct {
 	http.ResponseWriter
 	status      int
@@ -43,12 +52,16 @@ func (w *responseWriter) Write(data []byte) (int, error) {
 func (w *responseWriter) Unwrap() http.ResponseWriter {
 	return w.ResponseWriter
 }
-func withCORS(next http.Handler, allowedOrigin string) http.Handler {
+func withCORS(next http.Handler, allowedOrigins []string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("Origin") == allowedOrigin {
-			w.Header().Set("Access-Control-Allow-Origin", allowedOrigin)
-			w.Header().Set("Access-Control-Allow-Credentials", "true")
-			w.Header().Set("Vary", "Origin")
+		w.Header().Add("Vary", "Origin")
+		origin := r.Header.Get("Origin")
+		for _, allowedOrigin := range allowedOrigins {
+			if origin == allowedOrigin {
+				w.Header().Set("Access-Control-Allow-Origin", origin)
+				w.Header().Set("Access-Control-Allow-Credentials", "true")
+				break
+			}
 		}
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
@@ -61,26 +74,58 @@ func withCORS(next http.Handler, allowedOrigin string) http.Handler {
 	})
 }
 
-func RequireAuth(authn Authenticator, next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		cookie, err := r.Cookie(auth.SessionCookieName)
-		if err != nil {
-			writeError(w, http.StatusUnauthorized, domain.ErrUnauthorized)
-			return
-		}
+func withSecurityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'")
+		w.Header().Set("X-Frame-Options", "DENY")
+		next.ServeHTTP(w, r)
+	})
+}
 
-		userID, err := authn.Authenticate(r.Context(), cookie.Value)
-		if err != nil {
-			if errors.Is(err, domain.ErrUnauthorized) {
+func RequireAuth(authn Authenticator) Middleware {
+	return func(next http.HandlerFunc) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			cookie, err := r.Cookie(auth.SessionCookieName)
+			if err != nil {
 				writeError(w, http.StatusUnauthorized, domain.ErrUnauthorized)
 				return
 			}
-			writeError(w, http.StatusInternalServerError, domain.ErrInternal)
-			return
-		}
 
-		next(w, r.WithContext(auth.ContextWithUserID(r.Context(), userID)))
+			userID, err := authn.Authenticate(r.Context(), cookie.Value)
+			if err != nil {
+				if errors.Is(err, domain.ErrUnauthorized) {
+					writeError(w, http.StatusUnauthorized, domain.ErrUnauthorized)
+					return
+				}
+				writeError(w, http.StatusInternalServerError, domain.ErrInternal)
+				return
+			}
+
+			next(w, r.WithContext(auth.ContextWithUserID(r.Context(), userID)))
+		}
 	}
+}
+
+type csrfMiddleware struct {
+	protection *http.CrossOriginProtection
+}
+
+func newCSRFMiddleware(allowedOrigins []string) (*csrfMiddleware, error) {
+	protection := http.NewCrossOriginProtection()
+	for _, origin := range allowedOrigins {
+		if err := protection.AddTrustedOrigin(origin); err != nil {
+			return nil, fmt.Errorf("add trusted origin %q: %w", origin, err)
+		}
+	}
+	protection.SetDenyHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		writeError(w, http.StatusForbidden, domain.ErrForbidden)
+	}))
+	return &csrfMiddleware{protection: protection}, nil
+}
+
+func (m *csrfMiddleware) withCSRF(next http.Handler) http.Handler {
+	return m.protection.Handler(next)
 }
 
 func writeError(w http.ResponseWriter, status int, err error) {
@@ -143,26 +188,28 @@ type CatalogEditor interface {
 	CanEditPersons(context.Context, domain.UserID) (bool, error)
 }
 
-func RequireCatalogEditor(checker CatalogEditor, next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		userID, ok := auth.UserIDFromContext(r.Context())
-		if !ok {
-			writeError(w, http.StatusUnauthorized, domain.ErrUnauthorized)
-			return
-		}
-		allowed, err := checker.CanEditPersons(r.Context(), userID)
-		if err != nil {
-			if errors.Is(err, domain.ErrUserNotFound) {
+func RequireCatalogEditor(checker CatalogEditor) Middleware {
+	return func(next http.HandlerFunc) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			userID, ok := auth.UserIDFromContext(r.Context())
+			if !ok {
 				writeError(w, http.StatusUnauthorized, domain.ErrUnauthorized)
 				return
 			}
-			writeError(w, http.StatusInternalServerError, domain.ErrInternal)
-			return
+			allowed, err := checker.CanEditPersons(r.Context(), userID)
+			if err != nil {
+				if errors.Is(err, domain.ErrUserNotFound) {
+					writeError(w, http.StatusUnauthorized, domain.ErrUnauthorized)
+					return
+				}
+				writeError(w, http.StatusInternalServerError, domain.ErrInternal)
+				return
+			}
+			if !allowed {
+				writeError(w, http.StatusForbidden, domain.ErrForbidden)
+				return
+			}
+			next(w, r)
 		}
-		if !allowed {
-			writeError(w, http.StatusForbidden, domain.ErrForbidden)
-			return
-		}
-		next(w, r)
 	}
 }

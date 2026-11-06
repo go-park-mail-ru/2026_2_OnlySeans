@@ -144,6 +144,21 @@ func Run(configPath, databaseConfigPath, redisConfigPath, loggerConfigPath strin
 		return fmt.Errorf("create get film use case: %w", err)
 	}
 
+	createFilmUC, err := filmsusecase.NewCreateFilmUseCase(filmsRepo)
+	if err != nil {
+		return fmt.Errorf("create film use case: %w", err)
+	}
+
+	updateFilmUC, err := filmsusecase.NewUpdateFilmUseCase(filmsRepo)
+	if err != nil {
+		return fmt.Errorf("create update film use case: %w", err)
+	}
+
+	deleteFilmUC, err := filmsusecase.NewDeleteFilmUseCase(filmsRepo)
+	if err != nil {
+		return fmt.Errorf("create delete film use case: %w", err)
+	}
+
 	listCollectionsUC, err := filmsusecase.NewListCollectionsUseCase(filmsRepo, appLogger)
 	if err != nil {
 		return fmt.Errorf("create list collections use case: %w", err)
@@ -168,6 +183,9 @@ func Run(configPath, databaseConfigPath, redisConfigPath, loggerConfigPath strin
 	filmsHandler, err := filmsdelivery.NewHandler(filmsdelivery.HandlerUseCases{
 		ListFilms:       listFilmsUC,
 		GetFilm:         getFilmUC,
+		CreateFilm:      createFilmUC,
+		UpdateFilm:      updateFilmUC,
+		DeleteFilm:      deleteFilmUC,
 		ListCollections: listCollectionsUC,
 		GetCollection:   getCollectionUC,
 	}, appLogger)
@@ -272,15 +290,18 @@ func Run(configPath, databaseConfigPath, redisConfigPath, loggerConfigPath strin
 		return fmt.Errorf("create ratings handler: %w", err)
 	}
 
-	httpHandler := router.NewRouter(
+	httpHandler, err := router.NewRouter(
 		authHandler,
 		filmsHandler,
 		reviewsHandler,
 		personsHandler,
 		ratingsHandler,
-		cfg.Server.AllowedOrigin,
+		cfg.Server.AllowedOrigins,
 		appLogger,
 	)
+	if err != nil {
+		return fmt.Errorf("create router: %w", err)
+	}
 
 	server := &http.Server{
 		Addr:         cfg.Server.Addr(),

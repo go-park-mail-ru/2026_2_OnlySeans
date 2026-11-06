@@ -47,6 +47,10 @@ type collectionWithFilmsResponseDTO struct {
 	Films       []filmCardResponseDTO `json:"films"`
 }
 
+type createFilmResponse struct {
+	ID entities.FilmID `json:"id"`
+}
+
 func toFilmResponseDTO(film entities.Film) filmResponseDTO {
 	return filmResponseDTO{
 		ID:            film.ID,

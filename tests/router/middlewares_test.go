@@ -52,6 +52,15 @@ func newTestRouterWithLogger(t *testing.T, appLogger logger.Logger) http.Handler
 	getFilm, err := filmsusecase.NewGetFilmUseCase(filmsRepo, appLogger)
 	require.NoError(t, err)
 
+	createFilm, err := filmsusecase.NewCreateFilmUseCase(filmsRepo)
+	require.NoError(t, err)
+
+	updateFilm, err := filmsusecase.NewUpdateFilmUseCase(filmsRepo)
+	require.NoError(t, err)
+
+	deleteFilm, err := filmsusecase.NewDeleteFilmUseCase(filmsRepo)
+	require.NoError(t, err)
+
 	listCollections, err := filmsusecase.NewListCollectionsUseCase(filmsRepo, appLogger)
 	require.NoError(t, err)
 
@@ -61,20 +70,25 @@ func newTestRouterWithLogger(t *testing.T, appLogger logger.Logger) http.Handler
 	filmsHandler, err := films.NewHandler(films.HandlerUseCases{
 		ListFilms:       listFilms,
 		GetFilm:         getFilm,
+		CreateFilm:      createFilm,
+		UpdateFilm:      updateFilm,
+		DeleteFilm:      deleteFilm,
 		ListCollections: listCollections,
 		GetCollection:   getCollection,
 	}, appLogger)
 	require.NoError(t, err)
 
-	return router.NewRouter(
+	handler, err := router.NewRouter(
 		authHandler,
 		filmsHandler,
 		newTestReviewsHandler(t, filmsRepo, appLogger),
 		newTestPersonsHandler(t, appLogger),
 		newTestRatingsHandler(t, filmsRepo, appLogger),
-		testOrigin,
+		[]string{testOrigin},
 		appLogger,
 	)
+	require.NoError(t, err)
+	return handler
 }
 
 func TestFilmRatingRoutes(t *testing.T) {
@@ -225,7 +239,7 @@ func TestRequireAuth(t *testing.T) {
 			var gotID domain.UserID
 			var gotOK bool
 
-			handler := router.RequireAuth(authn, func(w http.ResponseWriter, r *http.Request) {
+			handler := router.RequireAuth(authn)(func(w http.ResponseWriter, r *http.Request) {
 				nextCalled = true
 				gotID, gotOK = auth.UserIDFromContext(r.Context())
 				w.WriteHeader(http.StatusOK)

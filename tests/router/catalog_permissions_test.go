@@ -42,7 +42,7 @@ func TestRequireCatalogEditor(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			called := false
-			handler := router.RequireCatalogEditor(catalogPermissionStub{role: tt.role, err: tt.err}, func(w http.ResponseWriter, _ *http.Request) {
+			handler := router.RequireCatalogEditor(catalogPermissionStub{role: tt.role, err: tt.err})(func(w http.ResponseWriter, _ *http.Request) {
 				called = true
 				w.WriteHeader(http.StatusNoContent)
 			})

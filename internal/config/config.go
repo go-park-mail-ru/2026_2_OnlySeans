@@ -57,7 +57,7 @@ type Config struct {
 type Server struct {
 	Host            string        `yaml:"host"`
 	Port            int           `yaml:"port"`
-	AllowedOrigin   string        `yaml:"allowed_origin"`
+	AllowedOrigins  []string      `yaml:"allowed_origins"`
 	ReadTimeout     time.Duration `yaml:"read_timeout"`
 	WriteTimeout    time.Duration `yaml:"write_timeout"`
 	IdleTimeout     time.Duration `yaml:"idle_timeout"`
@@ -92,7 +92,7 @@ func Default() *Config {
 		Server: Server{
 			Host:            defaultHost,
 			Port:            defaultPort,
-			AllowedOrigin:   defaultAllowedOrigin,
+			AllowedOrigins:  []string{defaultAllowedOrigin},
 			ReadTimeout:     defaultReadTimeout,
 			WriteTimeout:    defaultWriteTimeout,
 			IdleTimeout:     defaultIdleTimeout,
@@ -266,8 +266,20 @@ func (c *Config) Validate() error {
 		errs = append(errs, errors.New("server.host is required"))
 	}
 
-	if strings.TrimSpace(c.Server.AllowedOrigin) == "" {
-		errs = append(errs, errors.New("server.allowed_origin is required"))
+	if len(c.Server.AllowedOrigins) == 0 {
+		errs = append(
+			errs,
+			errors.New("server.allowed_origins must not be empty"),
+		)
+	}
+
+	for i, origin := range c.Server.AllowedOrigins {
+		if strings.TrimSpace(origin) == "" {
+			errs = append(
+				errs,
+				fmt.Errorf("server.allowed_origins[%d] must not be empty", i),
+			)
+		}
 	}
 
 	if c.Server.Port < MinPort || c.Server.Port > MaxPort {
