@@ -266,7 +266,7 @@ func Run(configPath, databaseConfigPath, redisConfigPath, loggerConfigPath strin
 		GetRating:               getFilmRatingUC,
 		GetRatingsForCollection: getCollectionRatingsUC,
 		DeleteRating:            deleteFilmRatingUC,
-	})
+	}, appLogger)
 	if err != nil {
 		return fmt.Errorf("create ratings handler: %w", err)
 	}

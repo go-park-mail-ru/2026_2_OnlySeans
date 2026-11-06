@@ -71,7 +71,7 @@ func newTestRouterWithLogger(t *testing.T, appLogger logger.Logger) http.Handler
 		filmsHandler,
 		newTestReviewsHandler(t, filmsRepo, appLogger),
 		newTestPersonsHandler(t, appLogger),
-		newTestRatingsHandler(t, filmsRepo),
+		newTestRatingsHandler(t, filmsRepo, appLogger),
 		testOrigin,
 		appLogger,
 	)
@@ -101,7 +101,7 @@ func TestFilmRatingRoutes(t *testing.T) {
 	require.Equal(t, http.StatusUnauthorized, deleteRec.Code, deleteRec.Body.String())
 }
 
-func newTestRatingsHandler(t *testing.T, films domain.FilmsRepository) *ratingsdelivery.Handler {
+func newTestRatingsHandler(t *testing.T, films domain.FilmsRepository, appLogger logger.Logger) *ratingsdelivery.Handler {
 	t.Helper()
 
 	repo := ratingsservice.NewInMemoryRepo()
@@ -119,7 +119,7 @@ func newTestRatingsHandler(t *testing.T, films domain.FilmsRepository) *ratingsd
 		GetRating:               get,
 		GetRatingsForCollection: getForCollection,
 		DeleteRating:            deleteRating,
-	})
+	}, appLogger)
 	require.NoError(t, err)
 	return handler
 }

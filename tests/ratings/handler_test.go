@@ -2,6 +2,7 @@ package ratings_test
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -17,6 +18,7 @@ import (
 	filmsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/films"
 	ratingsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/ratings"
 	ratingsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/ratings"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 )
 
 func newRatingsRouter(t *testing.T) http.Handler {
@@ -33,12 +35,14 @@ func newRatingsRouter(t *testing.T) http.Handler {
 	require.NoError(t, err)
 	deleteRating, err := ratingsusecase.NewDeleteFilmRatingUseCase(repo, films)
 	require.NoError(t, err)
+	appLogger, err := logger.NewLogger(io.Discard, logger.LogLevelInfo, "text")
+	require.NoError(t, err)
 	handler, err := ratingsdelivery.NewHandler(ratingsdelivery.HandlerUseCases{
 		SetRating:               set,
 		GetRating:               get,
 		GetRatingsForCollection: getForCollection,
 		DeleteRating:            deleteRating,
-	})
+	}, appLogger)
 	require.NoError(t, err)
 
 	r := mux.NewRouter()
