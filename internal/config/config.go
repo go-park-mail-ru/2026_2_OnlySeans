@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 	"gopkg.in/yaml.v3"
 )
 
@@ -18,6 +19,9 @@ const (
 	EnvServerHost  = "SERVER_HOST"
 	EnvServerPort  = "SERVER_PORT"
 	EnvDatabaseURL = "DATABASE_URL"
+	EnvRedisURL    = "REDIS_URL"
+	EnvLogLevel    = "LOG_LEVEL"
+	EnvLogFormat   = "LOG_FORMAT"
 )
 
 const (
@@ -39,6 +43,11 @@ const (
 	defaultMaxIdleConns    = 5                //сколько из них откытыми прозапас когда запросов нет
 	defaultConnMaxLifetime = 30 * time.Minute //через сколько пересоздавать соединение чтобы зависшие не копились
 	defaultConnectTimeout  = 5 * time.Second  //сколько ждать продключения при запуске
+
+	defaultRedisURL = "redis://localhost:6379"
+
+	defaultLogLvl    = logger.LogLevelInfo
+	defaultLogFormat = "text"
 )
 
 type Config struct {
@@ -62,6 +71,16 @@ type Database struct {
 	MaxIdleConns    int           `yaml:"max_idle_conns"`
 	ConnMaxLifetime time.Duration `yaml:"conn_max_lifetime"`
 	ConnectTimeout  time.Duration `yaml:"connect_timeout"`
+}
+
+type Redis struct {
+	URL string `yaml:"url"`
+}
+
+type LoggerConfig struct {
+	Level  logger.LogLevelType `yaml:"level"`
+	Format string              `yaml:"format"`
+	File   string              `yaml:"file"`
 }
 
 func (s *Server) Addr() string {
@@ -92,21 +111,39 @@ func DefaultDatabase() *Database {
 	}
 }
 
-func Load(path string) (*Config, error) {
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("read config: %w", err)
+func DefaultRedis() *Redis {
+	return &Redis{URL: defaultRedisURL}
+}
+
+func DefaultLogger() *LoggerConfig {
+	return &LoggerConfig{
+		Level:  defaultLogLvl,
+		Format: defaultLogFormat,
+		File:   "logs/app.log",
 	}
-	return Parse(raw, os.LookupEnv)
+}
+
+func Load(path string) (*Config, error) {
+	return loadFile(path, "config", Parse)
+}
+
+func LoadDatabase(path string) (*Database, error) {
+	return loadFile(path, "database config", ParseDatabase)
+}
+
+func LoadRedis(path string) (*Redis, error) {
+	return loadFile(path, "redis config", ParseRedis)
+}
+
+func LoadLogger(path string) (*LoggerConfig, error) {
+	return loadFile(path, "logger config", ParseLogger)
 }
 
 func Parse(raw []byte, lookupEnv func(string) (string, bool)) (*Config, error) {
 	cfg := Default()
 
-	decoder := yaml.NewDecoder(bytes.NewReader(raw))
-	decoder.KnownFields(true)
-	if err := decoder.Decode(cfg); err != nil && !errors.Is(err, io.EOF) {
-		return nil, fmt.Errorf("parse config: %w", err)
+	if err := decodeStrict(raw, cfg, "config"); err != nil {
+		return nil, err
 	}
 
 	if err := cfg.applyEnv(lookupEnv); err != nil {
@@ -118,21 +155,11 @@ func Parse(raw []byte, lookupEnv func(string) (string, bool)) (*Config, error) {
 	return cfg, nil
 }
 
-func LoadDatabase(path string) (*Database, error) {
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("read database config: %w", err)
-	}
-	return ParseDatabase(raw, os.LookupEnv)
-}
-
 func ParseDatabase(raw []byte, lookupEnv func(string) (string, bool)) (*Database, error) {
 	cfg := DefaultDatabase()
 
-	decoder := yaml.NewDecoder(bytes.NewReader(raw))
-	decoder.KnownFields(true)
-	if err := decoder.Decode(cfg); err != nil && !errors.Is(err, io.EOF) {
-		return nil, fmt.Errorf("parse database config: %w", err)
+	if err := decodeStrict(raw, cfg, "database config"); err != nil {
+		return nil, err
 	}
 
 	if dbURL, ok := lookupEnv(EnvDatabaseURL); ok {
@@ -141,6 +168,40 @@ func ParseDatabase(raw []byte, lookupEnv func(string) (string, bool)) (*Database
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
+	return cfg, nil
+}
+
+func ParseRedis(raw []byte, lookupEnv func(string) (string, bool)) (*Redis, error) {
+	cfg := DefaultRedis()
+
+	if err := decodeStrict(raw, cfg, "redis config"); err != nil {
+		return nil, err
+	}
+
+	if redisURL, ok := lookupEnv(EnvRedisURL); ok {
+		cfg.URL = redisURL
+	}
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+	return cfg, nil
+}
+
+func ParseLogger(raw []byte, lookupEnv func(string) (string, bool)) (*LoggerConfig, error) {
+	cfg := DefaultLogger()
+
+	if err := decodeStrict(raw, cfg, "logger config"); err != nil {
+		return nil, err
+	}
+
+	if loggerLvl, ok := lookupEnv(EnvLogLevel); ok {
+		cfg.Level = logger.LogLevelType(loggerLvl)
+	}
+
+	if loggerFormat, ok := lookupEnv(EnvLogFormat); ok {
+		cfg.Format = loggerFormat
+	}
+
 	return cfg, nil
 }
 
@@ -175,6 +236,13 @@ func (d *Database) Validate() error {
 		}
 	}
 	return errors.Join(errs...)
+}
+
+func (r *Redis) Validate() error {
+	if strings.TrimSpace(r.URL) == "" {
+		return errors.New("redis.url is required")
+	}
+	return nil
 }
 
 func (c *Config) applyEnv(lookupEnv func(string) (string, bool)) error {
@@ -250,4 +318,24 @@ func (c *Config) Validate() error {
 	}
 
 	return errors.Join(errs...)
+}
+
+func loadFile[T any](
+	path, name string,
+	parse func(raw []byte, lookupEnv func(string) (string, bool)) (*T, error),
+) (*T, error) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", name, err)
+	}
+	return parse(raw, os.LookupEnv)
+}
+
+func decodeStrict(raw []byte, dst any, name string) error {
+	decoder := yaml.NewDecoder(bytes.NewReader(raw))
+	decoder.KnownFields(true)
+	if err := decoder.Decode(dst); err != nil && !errors.Is(err, io.EOF) {
+		return fmt.Errorf("parse %s: %w", name, err)
+	}
+	return nil
 }

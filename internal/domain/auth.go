@@ -4,24 +4,30 @@ import (
 	"context"
 	"time"
 
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/pkg/utils"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/utils"
 )
 
+type Role string
+
+const (
+	RoleReader Role = "reader"
+	RoleEditor Role = "editor"
+	RoleAdmin  Role = "admin"
+)
+
+func (role Role) CanEditPersons() bool {
+	return role == RoleAdmin || role == RoleEditor
+}
+
 type UserID int
-type UserRole string
 
 type User struct {
+	Role         Role
 	ID           UserID
-	Role         UserRole
 	Email        string
 	Username     string
 	PasswordHash string
 }
-
-const (
-	UserRoleReader UserRole = "reader"
-	UserRoleAdmin  UserRole = "admin"
-)
 
 func NewUser(email, username, passwordHash string) (*User, error) {
 	if err := utils.ValidateEmail(email); err != nil {
@@ -35,6 +41,7 @@ func NewUser(email, username, passwordHash string) (*User, error) {
 	}
 
 	return &User{
+		Role:         RoleReader,
 		Email:        email,
 		Username:     username,
 		PasswordHash: passwordHash,

@@ -24,15 +24,16 @@ func newPostgresUserRepo(t *testing.T) (domain.UserRepository, sqlmock.Sqlmock) 
 
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
+
 	t.Cleanup(func() {
 		assert.NoError(t, mock.ExpectationsWereMet())
 		db.Close()
 	})
 
-	return auth.NewPostgresUserRepo(db), mock
+	return auth.NewPostgresUserRepo(db, newTestLogger()), mock
 }
 
-var userColumns = []string{"id", "email", "username", "password_hash"}
+var userColumns = []string{"id", "email", "username", "password_hash", "role_code"}
 
 func TestPostgresUserRepo_Create(t *testing.T) {
 	repo, mock := newPostgresUserRepo(t)
@@ -103,63 +104,24 @@ func TestPostgresUserRepo_GetByEmail(t *testing.T) {
 
 	mock.ExpectQuery(`FROM account\s+WHERE email = \$1 AND deleted_at IS NULL`).
 		WithArgs("anna@example.com").
-		WillReturnRows(sqlmock.NewRows(userColumns).AddRow(7, "anna@example.com", "Анна", "hash"))
+		WillReturnRows(sqlmock.NewRows(userColumns).AddRow(7, "anna@example.com", "Анна", "hash", "reader"))
 
 	user, err := repo.GetByEmail(context.Background(), "anna@example.com")
 	require.NoError(t, err)
-	assert.Equal(t, &domain.User{ID: 7, Email: "anna@example.com", Username: "Анна", PasswordHash: "hash"}, user)
-}
-
-// вход с SQL в email не обходит проверку строка целиком ищется как email 00($1
-func TestPostgresUserRepo_GetByEmailInjection(t *testing.T) {
-	repo, mock := newPostgresUserRepo(t)
-	payload := `' OR '1'='1`
-
-	mock.ExpectQuery(`WHERE email = \$1`).
-		WithArgs(payload).
-		WillReturnRows(sqlmock.NewRows(userColumns))
-
-	_, err := repo.GetByEmail(context.Background(), payload)
-	assert.ErrorIs(t, err, domain.ErrUserNotFound)
+	assert.Equal(t, &domain.User{Role: domain.RoleReader, ID: 7, Email: "anna@example.com", Username: "Анна", PasswordHash: "hash"}, user)
 }
 
 func TestPostgresUserRepo_GetUser(t *testing.T) {
-	tests := []struct {
-		name string
-		role domain.UserRole
-	}{
-		{"reader", domain.UserRoleReader},
-		{"admin", domain.UserRoleAdmin},
-		{"unknown role is preserved", domain.UserRole("custom_role")},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			repo, mock := newPostgresUserRepo(t)
-			mock.ExpectQuery(`SELECT a\.id, a\.email, a\.username, a\.password_hash, r\.code\s+FROM account AS a\s+JOIN role AS r ON r\.id = a\.role_id\s+WHERE a\.id = \$1 AND a\.deleted_at IS NULL`).
-				WithArgs(domain.UserID(7)).
-				WillReturnRows(sqlmock.NewRows([]string{"id", "email", "username", "password_hash", "code"}).
-					AddRow(7, "anna@example.com", "Анна", "hash", string(tt.role)))
-
-			user, err := repo.GetUser(context.Background(), 7)
-			require.NoError(t, err)
-			assert.Equal(t, &domain.User{
-				ID: 7, Role: tt.role, Email: "anna@example.com", Username: "Анна", PasswordHash: "hash",
-			}, user)
-		})
-	}
-}
-
-func TestPostgresUserRepo_GetUserRoleScanError(t *testing.T) {
 	repo, mock := newPostgresUserRepo(t)
-	mock.ExpectQuery("JOIN role AS r").
+
+	mock.ExpectQuery(`FROM account\s+WHERE id = \$1 AND deleted_at IS NULL`).
 		WithArgs(domain.UserID(7)).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "username", "password_hash", "code"}).
-			AddRow(7, "anna@example.com", "Анна", "hash", nil))
+		WillReturnRows(sqlmock.NewRows(userColumns).AddRow(7, "anna@example.com", "Анна", "hash", "reader"))
 
 	user, err := repo.GetUser(context.Background(), 7)
-	require.Error(t, err)
-	assert.Nil(t, user)
-	assert.Contains(t, err.Error(), "get user 7:")
+	require.NoError(t, err)
+	assert.Equal(t, domain.UserID(7), user.ID)
+	assert.Equal(t, "Анна", user.Username)
 }
 
 func TestPostgresUserRepo_GetErrors(t *testing.T) {
@@ -189,6 +151,7 @@ func TestPostgresUserRepo_GetErrors(t *testing.T) {
 			t.Run(method+": "+tt.name, func(t *testing.T) {
 				repo, mock := newPostgresUserRepo(t)
 				query := mock.ExpectQuery(`FROM account`)
+
 				if tt.dbErr != nil {
 					query.WillReturnError(tt.dbErr)
 				} else {

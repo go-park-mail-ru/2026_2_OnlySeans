@@ -32,7 +32,7 @@ func (r *InMemoryUserRepo) Create(_ context.Context, email, username, passwordHa
 
 	id := domain.UserID(r.nextID)
 	stored := &domain.User{
-		Role:         domain.UserRoleReader,
+		Role:         domain.RoleReader,
 		ID:           id,
 		Email:        email,
 		Username:     username,

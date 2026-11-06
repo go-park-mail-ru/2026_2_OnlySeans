@@ -3,7 +3,7 @@ package domain
 import (
 	"errors"
 
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/pkg/utils"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/utils"
 )
 
 var (
@@ -24,4 +24,5 @@ var (
 	ErrInvalidSessionStoe    = errors.New("invalid session store")
 	ErrInvalidPasswordVer    = errors.New("Invalid passworf verifyer")
 	ErrInvalidPasswordHasher = errors.New("Invalid passworf hasher")
+	ErrInvalidAppLogger      = errors.New("logger is required")
 )

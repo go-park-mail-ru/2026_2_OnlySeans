@@ -13,7 +13,21 @@ import (
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	reviews "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/reviews"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 )
+
+type reviewsTestLogger struct{}
+
+func (l *reviewsTestLogger) Info(string, map[string]any)  {}
+func (l *reviewsTestLogger) Debug(string, map[string]any) {}
+func (l *reviewsTestLogger) Warn(string, map[string]any)  {}
+func (l *reviewsTestLogger) Error(string, map[string]any) {}
+
+var _ logger.Logger = (*reviewsTestLogger)(nil)
+
+func newReviewsTestLogger() logger.Logger {
+	return &reviewsTestLogger{}
+}
 
 var reviewColumns = []string{"id", "account_id", "film_id", "title", "content",
 	"contains_spoilers", "created_at", "updated_at"}
@@ -30,7 +44,7 @@ func newPostgresReviewRepo(t *testing.T) (domain.ReviewRepository, sqlmock.Sqlmo
 		db.Close()
 	})
 
-	return reviews.NewPostgresReviewRepo(db), mock
+	return reviews.NewPostgresReviewRepo(db, newReviewsTestLogger()), mock
 }
 
 func reviewRows(reviewsToReturn ...domain.Review) *sqlmock.Rows {

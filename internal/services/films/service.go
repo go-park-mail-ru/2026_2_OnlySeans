@@ -18,6 +18,9 @@ var (
 )
 
 type Service interface {
+	CreateFilm(ctx context.Context, input domain.CreateFilmInput) (domain.FilmID, error)
+	UpdateFilm(ctx context.Context, id domain.FilmID, input domain.CreateFilmInput) error
+	DeleteFilm(ctx context.Context, id domain.FilmID) error
 	ListFilms(ctx context.Context, limit, offset int) ([]domain.Film, int, error)
 	GetFilmByID(ctx context.Context, id domain.FilmID) (domain.Film, error)
 	ListCollections(ctx context.Context, limit, offset int) ([]domain.Collection, int, error)

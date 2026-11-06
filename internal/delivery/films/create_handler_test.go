@@ -90,9 +90,9 @@ func TestCreateFilmHandler(t *testing.T) {
 					assert.Equal(t, "Space", *repo.input.Description)
 				}
 			} else {
-				var body errorResponse
+				var body map[string]string
 				require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
-				assert.Contains(t, body.Error, tt.message)
+				assert.Contains(t, body["error"], tt.message)
 				assert.NotContains(t, rec.Body.String(), "private database credentials")
 			}
 		})

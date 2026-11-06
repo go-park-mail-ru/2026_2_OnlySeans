@@ -19,7 +19,7 @@ func TestHandler_RequireAdmin(t *testing.T) {
 	tests := []struct {
 		name       string
 		withUserID bool
-		role       domain.UserRole
+		role       domain.Role
 		getUserErr error
 		wantStatus int
 		wantError  string
@@ -28,8 +28,8 @@ func TestHandler_RequireAdmin(t *testing.T) {
 		{"without user ID", false, "", nil, http.StatusUnauthorized, domain.ErrUnauthorized.Error(), false},
 		{"user not found", true, "", nil, http.StatusUnauthorized, domain.ErrUnauthorized.Error(), false},
 		{"role lookup failure", true, "", errors.New("database unavailable"), http.StatusInternalServerError, domain.ErrInternal.Error(), false},
-		{"reader is forbidden", true, domain.UserRoleReader, nil, http.StatusForbidden, domain.ErrForbidden.Error(), false},
-		{"admin is allowed", true, domain.UserRoleAdmin, nil, http.StatusOK, "", true},
+		{"reader is forbidden", true, domain.RoleReader, nil, http.StatusForbidden, domain.ErrForbidden.Error(), false},
+		{"admin is allowed", true, domain.RoleAdmin, nil, http.StatusOK, "", true},
 	}
 
 	for _, tt := range tests {

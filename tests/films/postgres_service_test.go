@@ -38,12 +38,13 @@ func newPostgresService(t *testing.T) (domain.FilmsRepository, sqlmock.Sqlmock) 
 
 	db, mock, err := sqlmock.New(sqlmock.ValueConverterOption(int64SliceConverter{}))
 	require.NoError(t, err)
+
 	t.Cleanup(func() {
 		assert.NoError(t, mock.ExpectationsWereMet())
 		db.Close()
 	})
 
-	return films.NewPostgresService(db), mock
+	return films.NewPostgresService(db, newFilmsTestLogger()), mock
 }
 
 var (
