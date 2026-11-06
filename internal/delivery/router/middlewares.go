@@ -11,12 +11,17 @@ import (
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 )
 
-type Authenticator interface {
-	Authenticate(ctx context.Context, sessionID string) (domain.UserID, error)
+type Middleware func(http.HandlerFunc) http.HandlerFunc
+
+func WrapMiddlewares(handler http.HandlerFunc, middlewares []Middleware) http.HandlerFunc {
+	for i := len(middlewares) - 1; i >= 0; i-- {
+		handler = middlewares[i](handler)
+	}
+	return handler
 }
 
-type RoleGetter interface {
-	GetUserRole(ctx context.Context, userID domain.UserID) (domain.UserRole, error)
+type Authenticator interface {
+	Authenticate(ctx context.Context, sessionID string) (domain.UserID, error)
 }
 
 var (
@@ -90,52 +95,29 @@ func (m *csrfMiddleware) withCSRF(next http.Handler) http.Handler {
 
 }
 
-func RequireAuth(authn Authenticator, next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		cookie, err := r.Cookie(auth.SessionCookieName)
-		if err != nil {
-			writeError(w, http.StatusUnauthorized, domain.ErrUnauthorized)
-			return
-		}
-
-		userID, err := authn.Authenticate(r.Context(), cookie.Value)
-		if err != nil {
-			if errors.Is(err, domain.ErrUnauthorized) {
+func RequireAuth(authn Authenticator) Middleware {
+	return func(next http.HandlerFunc) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			cookie, err := r.Cookie(auth.SessionCookieName)
+			if err != nil {
 				writeError(w, http.StatusUnauthorized, domain.ErrUnauthorized)
 				return
 			}
-			writeError(w, http.StatusInternalServerError, domain.ErrInternal)
-			return
-		}
 
-		next(w, r.WithContext(auth.ContextWithUserID(r.Context(), userID)))
-	}
-}
-
-// разрешает выполнение обработчика только админу
-func RequireAdmin(roles RoleGetter, next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		userID, ok := auth.UserIDFromContext(r.Context())
-		if !ok {
-			writeError(w, http.StatusUnauthorized, domain.ErrUnauthorized)
-			return
-		}
-
-		role, err := roles.GetUserRole(r.Context(), userID)
-		if err != nil {
-			if errors.Is(err, domain.ErrUserNotFound) {
-				writeError(w, http.StatusUnauthorized, domain.ErrUnauthorized)
+			userID, err := authn.Authenticate(r.Context(), cookie.Value)
+			if err != nil {
+				if errors.Is(err, domain.ErrUnauthorized) {
+					writeError(w, http.StatusUnauthorized, domain.ErrUnauthorized)
+					return
+				}
+				writeError(w, http.StatusInternalServerError, domain.ErrInternal)
 				return
 			}
-			writeError(w, http.StatusInternalServerError, domain.ErrInternal)
-			return
+
+			next(w, r.WithContext(auth.ContextWithUserID(r.Context(), userID)))
 		}
-		if role != domain.UserRoleAdmin {
-			writeError(w, http.StatusForbidden, domain.ErrForbidden)
-			return
-		}
-		next(w, r)
 	}
+
 }
 
 func writeError(w http.ResponseWriter, status int, err error) {

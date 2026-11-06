@@ -180,7 +180,7 @@ func (h *Handler) Authenticate(ctx context.Context, sessionID string) (domain.Us
 	return userID.ID, nil
 }
 
-func (h *Handler) GetUserRole(ctx context.Context, userID domain.UserID) (domain.UserRole, error) {
+func (h *Handler) getUserRole(ctx context.Context, userID domain.UserID) (domain.UserRole, error) {
 	user, err := h.getUser.Run(ctx, usecase.NewGetUserInput(userID))
 	if err != nil {
 		return "", fmt.Errorf("get user role: %w", err)
@@ -189,6 +189,33 @@ func (h *Handler) GetUserRole(ctx context.Context, userID domain.UserID) (domain
 		return "", domain.ErrUserNotFound
 	}
 	return user.Role, nil
+}
+
+// разрешает выполнение обработчика только админу
+func (h *Handler) RequireAdmin(next http.HandlerFunc) http.HandlerFunc {
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, ok := UserIDFromContext(r.Context())
+		if !ok {
+			writeError(w, http.StatusUnauthorized, domain.ErrUnauthorized.Error())
+			return
+		}
+
+		role, err := h.getUserRole(r.Context(), userID)
+		if err != nil {
+			if errors.Is(err, domain.ErrUserNotFound) {
+				writeError(w, http.StatusUnauthorized, domain.ErrUnauthorized.Error())
+				return
+			}
+			writeError(w, http.StatusInternalServerError, domain.ErrInternal.Error())
+			return
+		}
+		if role != domain.UserRoleAdmin {
+			writeError(w, http.StatusForbidden, domain.ErrForbidden.Error())
+			return
+		}
+		next(w, r)
+	}
 }
 
 func (h *Handler) setSessionCookie(w http.ResponseWriter, sessionID string, expiresAt time.Time) {

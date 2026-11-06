@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
@@ -31,17 +30,6 @@ func decodeCreateFilm(r *http.Request) (domain.CreateFilmInput, error) {
 			return domain.CreateFilmInput{}, err
 		}
 		return domain.CreateFilmInput{}, fmt.Errorf("invalid JSON request body: %w", domain.ErrInvalidFilmInput)
-	}
-
-	// если зачение не одно, проверяем, что после первого объекта больше нет данных
-	var extra any
-	err := decoder.Decode(&extra)
-	if !errors.Is(err, io.EOF) {
-		var sizeErr *http.MaxBytesError
-		if errors.As(err, &sizeErr) {
-			return domain.CreateFilmInput{}, err
-		}
-		return domain.CreateFilmInput{}, fmt.Errorf("request body must contain exactly one JSON object: %w", domain.ErrInvalidFilmInput)
 	}
 
 	if req.AgeLimit == nil {

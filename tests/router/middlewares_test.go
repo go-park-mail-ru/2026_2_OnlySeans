@@ -198,7 +198,7 @@ func TestRequireAuth(t *testing.T) {
 			nextCalled := false
 			var gotID domain.UserID
 			var gotOK bool
-			handler := router.RequireAuth(authn, func(w http.ResponseWriter, r *http.Request) {
+			handler := router.RequireAuth(authn)(func(w http.ResponseWriter, r *http.Request) {
 				nextCalled = true
 				gotID, gotOK = auth.UserIDFromContext(r.Context())
 				w.WriteHeader(http.StatusOK)

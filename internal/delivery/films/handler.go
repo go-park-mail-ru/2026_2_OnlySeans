@@ -15,11 +15,11 @@ import (
 )
 
 const (
-	defaultLimit           = 20
-	maxCreateFilmBodyBytes = 1 << 20 // 1 MB
-	minLimit               = 1
-	maxLimit               = 100
-	defaultOffset          = 0
+	defaultLimit            = 20
+	maxFilmRequestBodyBytes = 1 << 20
+	minLimit                = 1
+	maxLimit                = 100
+	defaultOffset           = 0
 )
 
 const (
@@ -193,7 +193,7 @@ func (h *Handler) GetFilm(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) CreateFilm(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, maxCreateFilmBodyBytes)
+	r.Body = http.MaxBytesReader(w, r.Body, maxFilmRequestBodyBytes)
 	input, err := decodeCreateFilm(r)
 	if err != nil {
 		writeError(w, err)
@@ -216,7 +216,7 @@ func (h *Handler) UpdateFilm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	r.Body = http.MaxBytesReader(w, r.Body, maxCreateFilmBodyBytes)
+	r.Body = http.MaxBytesReader(w, r.Body, maxFilmRequestBodyBytes)
 	input, err := decodeCreateFilm(r)
 	if err != nil {
 		writeError(w, err)

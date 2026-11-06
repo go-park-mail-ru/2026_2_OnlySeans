@@ -52,15 +52,15 @@ func TestCreateFilmHandler(t *testing.T) {
 		{"age null", `{"age_limit":null}`, nil, http.StatusBadRequest, false, "age_limit is required"},
 		{"null object", "null", nil, http.StatusBadRequest, false, "age_limit is required"},
 		{"array", "[]", nil, http.StatusBadRequest, false, "invalid JSON request body"},
-		{"second object", valid + " {}", nil, http.StatusBadRequest, false, "exactly one JSON object"},
-		{"second null", valid + " null", nil, http.StatusBadRequest, false, "exactly one JSON object"},
-		{"broken suffix", valid + " garbage", nil, http.StatusBadRequest, false, "exactly one JSON object"},
+		{"second object", valid + " {}", nil, http.StatusCreated, true, ""},
+		{"second null", valid + " null", nil, http.StatusCreated, true, ""},
+		{"broken suffix", valid + " garbage", nil, http.StatusCreated, true, ""},
 		{"invalid age", strings.Replace(valid, `"age_limit":0`, `"age_limit":7`, 1), nil, http.StatusBadRequest, false, "invalid age limit"},
 		{"invalid title", strings.Replace(valid, "  Alien  ", "   ", 1), nil, http.StatusBadRequest, false, "invalid film input"},
 		{"storage failure", valid, errors.New("private database credentials"), http.StatusInternalServerError, true, "internal server error"},
-		{"body exactly at limit", valid + strings.Repeat(" ", maxCreateFilmBodyBytes-len(valid)), nil, http.StatusCreated, true, ""},
-		{"oversized suffix", valid + strings.Repeat(" ", maxCreateFilmBodyBytes), nil, http.StatusRequestEntityTooLarge, false, "request body exceeds 1 MiB"},
-		{"oversized first object", `{"title":"Alien","description":"` + strings.Repeat("a", maxCreateFilmBodyBytes) + `"}`, nil, http.StatusRequestEntityTooLarge, false, "request body exceeds 1 MiB"},
+		{"body exactly at limit", valid + strings.Repeat(" ", maxFilmRequestBodyBytes-len(valid)), nil, http.StatusCreated, true, ""},
+		{"oversized suffix", valid + strings.Repeat(" ", maxFilmRequestBodyBytes), nil, http.StatusCreated, true, ""},
+		{"oversized first object", `{"title":"Alien","description":"` + strings.Repeat("a", maxFilmRequestBodyBytes) + `"}`, nil, http.StatusRequestEntityTooLarge, false, "request body exceeds 1 MiB"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

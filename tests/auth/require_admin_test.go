@@ -1,43 +1,32 @@
-package router_test
+package auth_test
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/router"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
+	authservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/auth"
 )
 
-type fakeRoleGetter struct {
-	role      domain.UserRole
-	err       error
-	gotUserID domain.UserID
-}
-
-func (s *fakeRoleGetter) GetUserRole(_ context.Context, userID domain.UserID) (domain.UserRole, error) {
-	s.gotUserID = userID
-	return s.role, s.err
-}
-
-func TestRequireAdmin(t *testing.T) {
+func TestHandler_RequireAdmin(t *testing.T) {
 	tests := []struct {
 		name       string
 		withUserID bool
 		role       domain.UserRole
-		roleErr    error
+		getUserErr error
 		wantStatus int
 		wantError  string
 		wantNext   bool
 	}{
 		{"without user ID", false, "", nil, http.StatusUnauthorized, domain.ErrUnauthorized.Error(), false},
-		{"user not found", true, "", domain.ErrUserNotFound, http.StatusUnauthorized, domain.ErrUnauthorized.Error(), false},
+		{"user not found", true, "", nil, http.StatusUnauthorized, domain.ErrUnauthorized.Error(), false},
 		{"role lookup failure", true, "", errors.New("database unavailable"), http.StatusInternalServerError, domain.ErrInternal.Error(), false},
 		{"reader is forbidden", true, domain.UserRoleReader, nil, http.StatusForbidden, domain.ErrForbidden.Error(), false},
 		{"admin is allowed", true, domain.UserRoleAdmin, nil, http.StatusOK, "", true},
@@ -45,28 +34,43 @@ func TestRequireAdmin(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			roles := &fakeRoleGetter{role: tt.role, err: tt.roleErr}
+			var handler *auth.Handler
+			ctx := t.Context()
+
+			switch {
+			case tt.getUserErr != nil:
+				handler, _ = newFlakyHandler(t, flakyRepo{getUserErr: tt.getUserErr}, flakyStore{})
+				ctx = auth.ContextWithUserID(ctx, 42)
+			case tt.withUserID && tt.role == "":
+				handler = newTestHandler(t)
+				ctx = auth.ContextWithUserID(ctx, 42)
+			case tt.withUserID:
+				var usersID domain.UserID
+				var users *authservice.InMemoryUserRepo
+				handler, users, _ = newTestAuth(t)
+				usersID, err := users.Create(ctx, "admin@example.com", "admin", "hash")
+				require.NoError(t, err)
+				user, err := users.GetUser(ctx, usersID)
+				require.NoError(t, err)
+				user.Role = tt.role
+				ctx = auth.ContextWithUserID(ctx, usersID)
+			default:
+				handler = newTestHandler(t)
+			}
+
 			nextCalled := false
-			handler := router.RequireAdmin(roles, func(w http.ResponseWriter, _ *http.Request) {
+			protected := handler.RequireAdmin(func(w http.ResponseWriter, _ *http.Request) {
 				nextCalled = true
 				w.WriteHeader(http.StatusOK)
 			})
 
-			ctx := context.Background()
-			if tt.withUserID {
-				ctx = auth.ContextWithUserID(ctx, 42)
-			}
 			req := httptest.NewRequest(http.MethodPost, "/api/films", nil).WithContext(ctx)
 			rec := httptest.NewRecorder()
 
-			handler(rec, req)
+			protected(rec, req)
 
 			assert.Equal(t, tt.wantStatus, rec.Code)
 			assert.Equal(t, tt.wantNext, nextCalled, "next handler call")
-			if tt.withUserID {
-				assert.Equal(t, domain.UserID(42), roles.gotUserID)
-			}
-
 			if tt.wantError == "" {
 				return
 			}
