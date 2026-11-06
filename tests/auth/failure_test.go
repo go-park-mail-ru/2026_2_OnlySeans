@@ -24,17 +24,25 @@ type flakyRepo struct {
 	getUserErr error
 }
 
-func (r flakyRepo) Create(ctx context.Context, email, username, passwordHash string) (domain.UserID, error) {
+func (r flakyRepo) Create(
+	ctx context.Context,
+	email, username, passwordHash string,
+) (domain.UserID, error) {
 	if r.createErr != nil {
 		return 0, r.createErr
 	}
+
 	return r.InMemoryUserRepo.Create(ctx, email, username, passwordHash)
 }
 
-func (r flakyRepo) GetUser(ctx context.Context, id domain.UserID) (*domain.User, error) {
+func (r flakyRepo) GetUser(
+	ctx context.Context,
+	id domain.UserID,
+) (*domain.User, error) {
 	if r.getUserErr != nil {
 		return nil, r.getUserErr
 	}
+
 	return r.InMemoryUserRepo.GetUser(ctx, id)
 }
 
@@ -45,43 +53,84 @@ type flakyStore struct {
 	deleteErr error
 }
 
-func (s flakyStore) Create(ctx context.Context, userID domain.UserID) (*domain.Session, error) {
+func (s flakyStore) Create(
+	ctx context.Context,
+	userID domain.UserID,
+) (*domain.Session, error) {
 	if s.createErr != nil {
 		return nil, s.createErr
 	}
+
 	return s.InMemorySessionStore.Create(ctx, userID)
 }
 
-func (s flakyStore) Get(ctx context.Context, sessionID string) (*domain.Session, error) {
+func (s flakyStore) Get(
+	ctx context.Context,
+	sessionID string,
+) (*domain.Session, error) {
 	if s.getErr != nil {
 		return nil, s.getErr
 	}
+
 	return s.InMemorySessionStore.Get(ctx, sessionID)
 }
 
-func (s flakyStore) Delete(ctx context.Context, sessionID string) error {
+func (s flakyStore) Delete(
+	ctx context.Context,
+	sessionID string,
+) error {
 	if s.deleteErr != nil {
 		return s.deleteErr
 	}
+
 	return s.InMemorySessionStore.Delete(ctx, sessionID)
 }
 
-func newFlakyHandler(t *testing.T, repo flakyRepo, store flakyStore) (*authdelivery.Handler, flakyStore) {
+func newFlakyHandler(
+	t *testing.T,
+	repo flakyRepo,
+	store flakyStore,
+) (*authdelivery.Handler, flakyStore) {
 	t.Helper()
 
 	repo.InMemoryUserRepo = authservice.NewInMemoryUserRepo()
 	store.InMemorySessionStore = authservice.NewInMemorySessionStore(time.Hour)
 
 	passwordService := authservice.BcryptPasswordService{}
-	register, err := authusecase.NewRegisterUserUseCase(repo, store, passwordService)
+	appLogger := newTestLogger()
+
+	register, err := authusecase.NewRegisterUserUseCase(
+		repo,
+		store,
+		passwordService,
+		appLogger,
+	)
 	require.NoError(t, err)
-	login, err := authusecase.NewLoginUserUseCase(repo, store, passwordService)
+
+	login, err := authusecase.NewLoginUserUseCase(
+		repo,
+		store,
+		passwordService,
+		appLogger,
+	)
 	require.NoError(t, err)
-	logout, err := authusecase.NewLogoutUserUseCase(store)
+
+	logout, err := authusecase.NewLogoutUserUseCase(
+		store,
+		appLogger,
+	)
 	require.NoError(t, err)
-	authenticate, err := authusecase.NewAuthenticateUserUseCase(store)
+
+	authenticate, err := authusecase.NewAuthenticateUserUseCase(
+		store,
+		appLogger,
+	)
 	require.NoError(t, err)
-	getUser, err := authusecase.NewGetUserUseCase(repo)
+
+	getUser, err := authusecase.NewGetUserUseCase(
+		repo,
+		appLogger,
+	)
 	require.NoError(t, err)
 
 	h, err := authdelivery.NewHandler(authdelivery.HandlerUseCases{
@@ -90,8 +139,9 @@ func newFlakyHandler(t *testing.T, repo flakyRepo, store flakyStore) (*authdeliv
 		Logout:       logout,
 		Authenticate: authenticate,
 		GetUser:      getUser,
-	})
+	}, appLogger)
 	require.NoError(t, err)
+
 	return h, store
 }
 
@@ -101,9 +151,21 @@ func TestHandler_Register_StorageFailures(t *testing.T) {
 		repo  flakyRepo
 		store flakyStore
 	}{
-		{"репозиторий не создал пользователя", flakyRepo{createErr: errBoom}, flakyStore{}},
-		{"репозиторий не вернул пользователя", flakyRepo{getUserErr: errBoom}, flakyStore{}},
-		{"хранилище не создало сессию", flakyRepo{}, flakyStore{createErr: errBoom}},
+		{
+			name:  "репозиторий не создал пользователя",
+			repo:  flakyRepo{createErr: errBoom},
+			store: flakyStore{},
+		},
+		{
+			name:  "репозиторий не вернул пользователя",
+			repo:  flakyRepo{getUserErr: errBoom},
+			store: flakyStore{},
+		},
+		{
+			name:  "хранилище не создало сессию",
+			repo:  flakyRepo{},
+			store: flakyStore{createErr: errBoom},
+		},
 	}
 
 	for _, tt := range tests {
@@ -120,8 +182,16 @@ func TestHandler_Register_StorageFailures(t *testing.T) {
 }
 
 func TestHandler_Logout_StorageFailure(t *testing.T) {
-	h, _ := newFlakyHandler(t, flakyRepo{}, flakyStore{deleteErr: errBoom})
-	cookie := &http.Cookie{Name: authdelivery.SessionCookieName, Value: "sid"}
+	h, _ := newFlakyHandler(
+		t,
+		flakyRepo{},
+		flakyStore{deleteErr: errBoom},
+	)
+
+	cookie := &http.Cookie{
+		Name:  authdelivery.SessionCookieName,
+		Value: "sid",
+	}
 
 	rec := rawRequest(h.Logout, http.MethodPost, "", cookie)
 
@@ -136,19 +206,40 @@ func TestHandler_Authenticate(t *testing.T) {
 		getErr  error
 		wantErr error
 	}{
-		{"сессия найдена", nil, nil},
-		{"сессия не найдена", domain.ErrSessionNotFound, domain.ErrUnauthorized},
-		{"сбой хранилища скрыт", errBoom, domain.ErrInternal},
+		{
+			name:    "сессия найдена",
+			getErr:  nil,
+			wantErr: nil,
+		},
+		{
+			name:    "сессия не найдена",
+			getErr:  domain.ErrSessionNotFound,
+			wantErr: domain.ErrUnauthorized,
+		},
+		{
+			name:    "сбой хранилища скрыт",
+			getErr:  errBoom,
+			wantErr: domain.ErrInternal,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h, store := newFlakyHandler(t, flakyRepo{}, flakyStore{getErr: tt.getErr})
+			h, store := newFlakyHandler(
+				t,
+				flakyRepo{},
+				flakyStore{getErr: tt.getErr},
+			)
 
 			sid := "sid"
+
 			if tt.getErr == nil {
-				session, err := store.InMemorySessionStore.Create(context.Background(), 7)
+				session, err := store.InMemorySessionStore.Create(
+					context.Background(),
+					7,
+				)
 				require.NoError(t, err)
+
 				sid = session.ID
 			}
 
@@ -159,6 +250,7 @@ func TestHandler_Authenticate(t *testing.T) {
 				assert.Equal(t, tt.wantErr, err)
 				return
 			}
+
 			require.NoError(t, err)
 			assert.Equal(t, domain.UserID(7), userID)
 		})

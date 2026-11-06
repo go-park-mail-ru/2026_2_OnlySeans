@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 	"gopkg.in/yaml.v3"
 )
 
@@ -19,6 +20,8 @@ const (
 	EnvServerPort  = "SERVER_PORT"
 	EnvDatabaseURL = "DATABASE_URL"
 	EnvRedisURL    = "REDIS_URL"
+	EnvLogLevel    = "LOG_LEVEL"
+	EnvLogFormat   = "LOG_FORMAT"
 )
 
 const (
@@ -42,6 +45,9 @@ const (
 	defaultConnectTimeout  = 5 * time.Second  //сколько ждать продключения при запуске
 
 	defaultRedisURL = "redis://localhost:6379"
+
+	defaultLogLvl    = logger.LogLevelInfo
+	defaultLogFormat = "text"
 )
 
 type Config struct {
@@ -69,6 +75,12 @@ type Database struct {
 
 type Redis struct {
 	URL string `yaml:"url"`
+}
+
+type LoggerConfig struct {
+	Level  logger.LogLevelType `yaml:"level"`
+	Format string              `yaml:"format"`
+	File   string              `yaml:"file"`
 }
 
 func (s *Server) Addr() string {
@@ -103,6 +115,14 @@ func DefaultRedis() *Redis {
 	return &Redis{URL: defaultRedisURL}
 }
 
+func DefaultLogger() *LoggerConfig {
+	return &LoggerConfig{
+		Level:  defaultLogLvl,
+		Format: defaultLogFormat,
+		File:   "logs/app.log",
+	}
+}
+
 func Load(path string) (*Config, error) {
 	return loadFile(path, "config", Parse)
 }
@@ -113,6 +133,10 @@ func LoadDatabase(path string) (*Database, error) {
 
 func LoadRedis(path string) (*Redis, error) {
 	return loadFile(path, "redis config", ParseRedis)
+}
+
+func LoadLogger(path string) (*LoggerConfig, error) {
+	return loadFile(path, "logger config", ParseLogger)
 }
 
 func Parse(raw []byte, lookupEnv func(string) (string, bool)) (*Config, error) {
@@ -160,6 +184,24 @@ func ParseRedis(raw []byte, lookupEnv func(string) (string, bool)) (*Redis, erro
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
+	return cfg, nil
+}
+
+func ParseLogger(raw []byte, lookupEnv func(string) (string, bool)) (*LoggerConfig, error) {
+	cfg := DefaultLogger()
+
+	if err := decodeStrict(raw, cfg, "logger config"); err != nil {
+		return nil, err
+	}
+
+	if loggerLvl, ok := lookupEnv(EnvLogLevel); ok {
+		cfg.Level = logger.LogLevelType(loggerLvl)
+	}
+
+	if loggerFormat, ok := lookupEnv(EnvLogFormat); ok {
+		cfg.Format = loggerFormat
+	}
+
 	return cfg, nil
 }
 

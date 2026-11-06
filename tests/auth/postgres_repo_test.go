@@ -24,15 +24,16 @@ func newPostgresUserRepo(t *testing.T) (domain.UserRepository, sqlmock.Sqlmock) 
 
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
+
 	t.Cleanup(func() {
 		assert.NoError(t, mock.ExpectationsWereMet())
 		db.Close()
 	})
 
-	return auth.NewPostgresUserRepo(db), mock
+	return auth.NewPostgresUserRepo(db, newTestLogger()), mock
 }
 
-var userColumns = []string{"id", "email", "username", "password_hash"}
+var userColumns = []string{"id", "email", "username", "password_hash", "role_code"}
 
 func TestPostgresUserRepo_Create(t *testing.T) {
 	repo, mock := newPostgresUserRepo(t)
@@ -103,11 +104,11 @@ func TestPostgresUserRepo_GetByEmail(t *testing.T) {
 
 	mock.ExpectQuery(`FROM account\s+WHERE email = \$1 AND deleted_at IS NULL`).
 		WithArgs("anna@example.com").
-		WillReturnRows(sqlmock.NewRows(userColumns).AddRow(7, "anna@example.com", "Анна", "hash"))
+		WillReturnRows(sqlmock.NewRows(userColumns).AddRow(7, "anna@example.com", "Анна", "hash", "reader"))
 
 	user, err := repo.GetByEmail(context.Background(), "anna@example.com")
 	require.NoError(t, err)
-	assert.Equal(t, &domain.User{ID: 7, Email: "anna@example.com", Username: "Анна", PasswordHash: "hash"}, user)
+	assert.Equal(t, &domain.User{Role: domain.RoleReader, ID: 7, Email: "anna@example.com", Username: "Анна", PasswordHash: "hash"}, user)
 }
 
 func TestPostgresUserRepo_GetUser(t *testing.T) {
@@ -115,7 +116,7 @@ func TestPostgresUserRepo_GetUser(t *testing.T) {
 
 	mock.ExpectQuery(`FROM account\s+WHERE id = \$1 AND deleted_at IS NULL`).
 		WithArgs(domain.UserID(7)).
-		WillReturnRows(sqlmock.NewRows(userColumns).AddRow(7, "anna@example.com", "Анна", "hash"))
+		WillReturnRows(sqlmock.NewRows(userColumns).AddRow(7, "anna@example.com", "Анна", "hash", "reader"))
 
 	user, err := repo.GetUser(context.Background(), 7)
 	require.NoError(t, err)
@@ -150,6 +151,7 @@ func TestPostgresUserRepo_GetErrors(t *testing.T) {
 			t.Run(method+": "+tt.name, func(t *testing.T) {
 				repo, mock := newPostgresUserRepo(t)
 				query := mock.ExpectQuery(`FROM account`)
+
 				if tt.dbErr != nil {
 					query.WillReturnError(tt.dbErr)
 				} else {

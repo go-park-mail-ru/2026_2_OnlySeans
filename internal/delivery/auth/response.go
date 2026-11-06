@@ -25,10 +25,6 @@ type authResponse struct {
 	User userResponse `json:"user"`
 }
 
-type errorResponse struct {
-	Error string `json:"error"`
-}
-
 func toRegisterUserInput(request registerRequest) usecase.RegisterUserInput {
 	return usecase.NewRegisterUserInput(request.Email, request.Username, request.Password)
 }

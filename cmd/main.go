@@ -11,15 +11,17 @@ const (
 	defaultConfigPath         = "configs/config.yaml"
 	defaultDatabaseConfigPath = "configs/database.yaml"
 	defaultRedisConfigPath    = "configs/redis.yaml"
+	defaultLoggerConfigPath   = "configs/logger.yaml"
 )
 
 func main() {
 	configPath := flag.String("config", defaultConfigPath, "path to config file")
 	databaseConfigPath := flag.String("database-config", defaultDatabaseConfigPath, "path to database config file")
 	redisConfigPath := flag.String("redis-config", defaultRedisConfigPath, "path to redis config file")
+	loggerConfigPath := flag.String("logger-config", defaultLoggerConfigPath, "path to logger config file")
 	flag.Parse()
 
-	if err := app.Run(*configPath, *databaseConfigPath, *redisConfigPath); err != nil {
+	if err := app.Run(*configPath, *databaseConfigPath, *redisConfigPath, *loggerConfigPath); err != nil {
 		log.Fatal(err)
 	}
 }

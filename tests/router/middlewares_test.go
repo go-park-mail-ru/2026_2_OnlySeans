@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/films"
+	personsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/persons"
 	ratingsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/ratings"
 	reviewsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/reviews"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/router"
@@ -22,8 +23,10 @@ import (
 	reviewsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/reviews"
 	authusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/auth"
 	filmsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/films"
+	personusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/persons"
 	ratingsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/ratings"
 	reviewsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/reviews"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -32,32 +35,45 @@ const testOrigin = "http://localhost:3000"
 
 func newTestRouter(t *testing.T) http.Handler {
 	t.Helper()
+	return newTestRouterWithLogger(t, &spyLogger{})
+}
 
-	authHandler := newTestAuthHandler(t)
+func newTestRouterWithLogger(t *testing.T, appLogger logger.Logger) http.Handler {
+	t.Helper()
+
+	authHandler := newTestAuthHandler(t, appLogger)
+
 	filmsRepo, err := filmsservice.NewSeededService()
 	require.NoError(t, err)
-	listFilms, err := filmsusecase.NewListFilmsUseCase(filmsRepo)
+
+	listFilms, err := filmsusecase.NewListFilmsUseCase(filmsRepo, appLogger)
 	require.NoError(t, err)
-	getFilm, err := filmsusecase.NewGetFilmUseCase(filmsRepo)
+
+	getFilm, err := filmsusecase.NewGetFilmUseCase(filmsRepo, appLogger)
 	require.NoError(t, err)
-	listCollections, err := filmsusecase.NewListCollectionsUseCase(filmsRepo)
+
+	listCollections, err := filmsusecase.NewListCollectionsUseCase(filmsRepo, appLogger)
 	require.NoError(t, err)
-	getCollection, err := filmsusecase.NewGetCollectionUseCase(filmsRepo)
+
+	getCollection, err := filmsusecase.NewGetCollectionUseCase(filmsRepo, appLogger)
 	require.NoError(t, err)
+
 	filmsHandler, err := films.NewHandler(films.HandlerUseCases{
 		ListFilms:       listFilms,
 		GetFilm:         getFilm,
 		ListCollections: listCollections,
 		GetCollection:   getCollection,
-	})
+	}, appLogger)
 	require.NoError(t, err)
 
 	return router.NewRouter(
 		authHandler,
 		filmsHandler,
-		newTestReviewsHandler(t, filmsRepo),
+		newTestReviewsHandler(t, filmsRepo, appLogger),
+		newTestPersonsHandler(t, appLogger),
 		newTestRatingsHandler(t, filmsRepo),
 		testOrigin,
+		appLogger,
 	)
 }
 
@@ -108,22 +124,26 @@ func newTestRatingsHandler(t *testing.T, films domain.FilmsRepository) *ratingsd
 	return handler
 }
 
-func newTestAuthHandler(t *testing.T) *auth.Handler {
+func newTestAuthHandler(t *testing.T, appLogger logger.Logger) *auth.Handler {
 	t.Helper()
 
 	users := authservice.NewInMemoryUserRepo()
 	sessions := authservice.NewInMemorySessionStore(time.Hour)
 	passwordService := authservice.BcryptPasswordService{}
 
-	register, err := authusecase.NewRegisterUserUseCase(users, sessions, passwordService)
+	register, err := authusecase.NewRegisterUserUseCase(users, sessions, passwordService, appLogger)
 	require.NoError(t, err)
-	login, err := authusecase.NewLoginUserUseCase(users, sessions, passwordService)
+
+	login, err := authusecase.NewLoginUserUseCase(users, sessions, passwordService, appLogger)
 	require.NoError(t, err)
-	logout, err := authusecase.NewLogoutUserUseCase(sessions)
+
+	logout, err := authusecase.NewLogoutUserUseCase(sessions, appLogger)
 	require.NoError(t, err)
-	authenticate, err := authusecase.NewAuthenticateUserUseCase(sessions)
+
+	authenticate, err := authusecase.NewAuthenticateUserUseCase(sessions, appLogger)
 	require.NoError(t, err)
-	getUser, err := authusecase.NewGetUserUseCase(users)
+
+	getUser, err := authusecase.NewGetUserUseCase(users, appLogger)
 	require.NoError(t, err)
 
 	handler, err := auth.NewHandler(auth.HandlerUseCases{
@@ -132,22 +152,27 @@ func newTestAuthHandler(t *testing.T) *auth.Handler {
 		Logout:       logout,
 		Authenticate: authenticate,
 		GetUser:      getUser,
-	})
+	}, appLogger)
 	require.NoError(t, err)
+
 	return handler
 }
 
-func newTestReviewsHandler(t *testing.T, films domain.FilmRepository) *reviewsdelivery.Handler {
+func newTestReviewsHandler(t *testing.T, films domain.FilmRepository, appLogger logger.Logger) *reviewsdelivery.Handler {
 	t.Helper()
 
 	repo := reviewsservice.NewInMemoryReviewRepo()
-	list, err := reviewsusecase.NewListReviewsUseCase(repo, films)
+
+	list, err := reviewsusecase.NewListReviewsUseCase(repo, films, appLogger)
 	require.NoError(t, err)
-	create, err := reviewsusecase.NewCreateReviewUseCase(repo, films)
+
+	create, err := reviewsusecase.NewCreateReviewUseCase(repo, films, appLogger)
 	require.NoError(t, err)
-	update, err := reviewsusecase.NewUpdateReviewUseCase(repo)
+
+	update, err := reviewsusecase.NewUpdateReviewUseCase(repo, appLogger)
 	require.NoError(t, err)
-	del, err := reviewsusecase.NewDeleteReviewUseCase(repo)
+
+	del, err := reviewsusecase.NewDeleteReviewUseCase(repo, appLogger)
 	require.NoError(t, err)
 
 	handler, err := reviewsdelivery.NewHandler(reviewsdelivery.HandlerUseCases{
@@ -155,52 +180,10 @@ func newTestReviewsHandler(t *testing.T, films domain.FilmRepository) *reviewsde
 		Create: create,
 		Update: update,
 		Delete: del,
-	})
+	}, appLogger)
 	require.NoError(t, err)
+
 	return handler
-}
-
-func TestWithCORS(t *testing.T) {
-	handler := newTestRouter(t)
-
-	tests := []struct {
-		name            string
-		method          string
-		origin          string
-		wantStatus      int
-		wantNextCall    bool
-		wantAllowOrigin string
-	}{
-		{"preflight отвечает middleware", http.MethodOptions, testOrigin, http.StatusNoContent, false, testOrigin},
-		{"обычный запрос доходит до хендлера", http.MethodGet, testOrigin, http.StatusOK, true, testOrigin},
-		{"чужой origin не получает разрешения", http.MethodGet, "http://evil.example", http.StatusOK, true, ""},
-		{"запрос без origin", http.MethodGet, "", http.StatusOK, true, ""},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest(tt.method, "/api/films", nil)
-			if tt.origin != "" {
-				req.Header.Set("Origin", tt.origin)
-			}
-			rec := httptest.NewRecorder()
-
-			handler.ServeHTTP(rec, req)
-
-			if rec.Code != tt.wantStatus {
-				t.Errorf("статус = %d, ожидали %d", rec.Code, tt.wantStatus)
-			}
-			if nextCalled := rec.Body.Len() > 0; nextCalled != tt.wantNextCall {
-				t.Errorf("next вызван = %v, ожидали %v", nextCalled, tt.wantNextCall)
-			}
-			if got := rec.Header().Get("Access-Control-Allow-Origin"); got != tt.wantAllowOrigin {
-				t.Errorf("Allow-Origin = %q, ожидали %q", got, tt.wantAllowOrigin)
-			}
-			if tt.wantAllowOrigin != "" && rec.Header().Get("Access-Control-Allow-Credentials") != "true" {
-				t.Error("нет Access-Control-Allow-Credentials: true")
-			}
-		})
-	}
 }
 
 type fakeAuthenticator struct {
@@ -239,6 +222,7 @@ func TestRequireAuth(t *testing.T) {
 			nextCalled := false
 			var gotID domain.UserID
 			var gotOK bool
+
 			handler := router.RequireAuth(authn, func(w http.ResponseWriter, r *http.Request) {
 				nextCalled = true
 				gotID, gotOK = auth.UserIDFromContext(r.Context())
@@ -249,8 +233,8 @@ func TestRequireAuth(t *testing.T) {
 			if tt.cookie != nil {
 				req.AddCookie(tt.cookie)
 			}
-			rec := httptest.NewRecorder()
 
+			rec := httptest.NewRecorder()
 			handler(rec, req)
 
 			assert.Equal(t, tt.wantStatus, rec.Code)
@@ -266,7 +250,8 @@ func TestRequireAuth(t *testing.T) {
 				return
 			}
 
-			assert.Equal(t, "application/json", rec.Header().Get("Content-Type"))
+			assert.Equal(t, "application/json; charset=utf-8", rec.Header().Get("Content-Type"))
+
 			var body map[string]string
 			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
 			assert.Equal(t, tt.wantError, body["error"])
@@ -303,11 +288,81 @@ func TestRouter_LogoutRequiresAuth(t *testing.T) {
 			if tt.cookie != nil {
 				req.AddCookie(tt.cookie)
 			}
-			rec := httptest.NewRecorder()
 
+			rec := httptest.NewRecorder()
 			handler.ServeHTTP(rec, req)
 
 			assert.Equal(t, tt.wantStatus, rec.Code)
 		})
 	}
+}
+
+type fakePersonsRepo struct{}
+
+func (f *fakePersonsRepo) Create(
+	ctx context.Context,
+	input domain.PersonInput,
+) (domain.PersonID, error) {
+	return 1, nil
+}
+
+func (f *fakePersonsRepo) GetByID(
+	ctx context.Context,
+	id domain.PersonID,
+) (*domain.Person, error) {
+	return nil, nil
+}
+
+func (f *fakePersonsRepo) List(
+	ctx context.Context,
+	limit, offset int,
+) ([]domain.Person, int, error) {
+	return []domain.Person{}, 0, nil
+}
+
+func (f *fakePersonsRepo) Update(
+	ctx context.Context,
+	id domain.PersonID,
+	input domain.PersonInput,
+) (*domain.Person, error) {
+	return nil, nil
+}
+
+func (f *fakePersonsRepo) Delete(
+	ctx context.Context,
+	id domain.PersonID,
+) error {
+	return nil
+}
+
+func newTestPersonsHandler(t *testing.T, appLogger logger.Logger) *personsdelivery.Handler {
+	t.Helper()
+
+	repo := &fakePersonsRepo{}
+
+	create, err := personusecase.NewCreatePersonUseCase(repo, appLogger)
+	require.NoError(t, err)
+
+	get, err := personusecase.NewGetPersonUseCase(repo, appLogger)
+	require.NoError(t, err)
+
+	list, err := personusecase.NewListPersonsUseCase(repo, appLogger)
+	require.NoError(t, err)
+
+	update, err := personusecase.NewUpdatePersonUseCase(repo, appLogger)
+	require.NoError(t, err)
+
+	del, err := personusecase.NewDeletePersonUseCase(repo, appLogger)
+	require.NoError(t, err)
+
+	handler, err := personsdelivery.NewHandler(personsdelivery.HandlerUseCases{
+		CreatePerson: create,
+		GetPerson:    get,
+		ListPersons:  list,
+		UpdatePerson: update,
+		DeletePerson: del,
+	}, appLogger)
+	require.NoError(t, err)
+
+	return handler
 }

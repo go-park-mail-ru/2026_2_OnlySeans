@@ -71,3 +71,7 @@ func prepareReview(in domain.ReviewInput) (*domain.ReviewInput, error) {
 	}
 	return &in, nil
 }
+
+type CreateReviewOutput struct {
+	ID domain.ReviewID
+}

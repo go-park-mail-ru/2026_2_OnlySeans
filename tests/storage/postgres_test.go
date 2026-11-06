@@ -12,7 +12,21 @@ import (
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/config"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/storage"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 )
+
+type storageTestLogger struct{}
+
+func (l *storageTestLogger) Info(string, map[string]any)  {}
+func (l *storageTestLogger) Debug(string, map[string]any) {}
+func (l *storageTestLogger) Warn(string, map[string]any)  {}
+func (l *storageTestLogger) Error(string, map[string]any) {}
+
+var _ logger.Logger = (*storageTestLogger)(nil)
+
+func newStorageTestLogger() logger.Logger {
+	return &storageTestLogger{}
+}
 
 // testDatabaseURLEnv задаёт адрес настоящей базы для проверки успешного подключения.
 // Без неё тест подключения пропускается, остальные проверки работают без базы.
@@ -40,15 +54,22 @@ func closedPort(t *testing.T) string {
 }
 
 func TestOpen_InvalidURL(t *testing.T) {
-	db, err := storage.Open(context.Background(), databaseConfig("postgres://user@host:not-a-port/db"))
+	db, err := storage.Open(
+		context.Background(),
+		databaseConfig("postgres://user@host:not-a-port/db"),
+		newStorageTestLogger(),
+	)
 	require.Error(t, err)
 	assert.Nil(t, db)
 }
 
 func TestOpen_DatabaseUnavailable(t *testing.T) {
 	start := time.Now()
-	db, err := storage.Open(context.Background(),
-		databaseConfig("postgres://user:secret@"+closedPort(t)+"/kinopoisk?sslmode=disable"))
+	db, err := storage.Open(
+		context.Background(),
+		databaseConfig("postgres://user:secret@"+closedPort(t)+"/kinopoisk?sslmode=disable"),
+		newStorageTestLogger(),
+	)
 
 	require.Error(t, err)
 	assert.Nil(t, db)
@@ -62,6 +83,7 @@ func TestOpen_RespectsConnectTimeout(t *testing.T) {
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 	t.Cleanup(func() { listener.Close() })
+
 	go func() {
 		for {
 			conn, err := listener.Accept()
@@ -76,7 +98,7 @@ func TestOpen_RespectsConnectTimeout(t *testing.T) {
 	cfg.ConnectTimeout = 300 * time.Millisecond
 
 	start := time.Now()
-	_, err = storage.Open(context.Background(), cfg)
+	_, err = storage.Open(context.Background(), cfg, newStorageTestLogger())
 	require.Error(t, err)
 	assert.Less(t, time.Since(start), 5*time.Second)
 }
@@ -87,7 +109,7 @@ func TestOpen_RealDatabase(t *testing.T) {
 		t.Skipf("set %s to run against a real PostgreSQL", testDatabaseURLEnv)
 	}
 
-	db, err := storage.Open(context.Background(), databaseConfig(url))
+	db, err := storage.Open(context.Background(), databaseConfig(url), newStorageTestLogger())
 	require.NoError(t, err)
 	t.Cleanup(func() { db.Close() })
 

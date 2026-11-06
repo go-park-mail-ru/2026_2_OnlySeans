@@ -1,10 +1,9 @@
 package films
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/httpresponse"
 	"net/http"
 	"strconv"
 
@@ -12,6 +11,7 @@ import (
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	usecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/films"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 )
 
 const (
@@ -26,8 +26,6 @@ const (
 	offsetParam = "offset"
 	idVar       = "id"
 )
-
-const internalErrorMessage = "internal server error"
 
 var (
 	ErrInvalidLimit        = errors.New("invalid limit")
@@ -78,9 +76,10 @@ type Handler struct {
 	getFilm         *usecase.GetFilmUseCase
 	listCollections *usecase.ListCollectionsUseCase
 	getCollection   *usecase.GetCollectionUseCase
+	appLogger       logger.Logger
 }
 
-func NewHandler(cases HandlerUseCases) (*Handler, error) {
+func NewHandler(cases HandlerUseCases, appLogger logger.Logger) (*Handler, error) {
 	if cases.ListFilms == nil {
 		return nil, errors.New("list films use case is nil")
 	}
@@ -93,11 +92,15 @@ func NewHandler(cases HandlerUseCases) (*Handler, error) {
 	if cases.GetCollection == nil {
 		return nil, errors.New("get collection use case is nil")
 	}
+	if appLogger == nil {
+		return nil, errors.New("logger use case is nil")
+	}
 	return &Handler{
 		listFilms:       cases.ListFilms,
 		getFilm:         cases.GetFilm,
 		listCollections: cases.ListCollections,
 		getCollection:   cases.GetCollection,
+		appLogger:       appLogger,
 	}, nil
 }
 
@@ -126,14 +129,10 @@ type collectionPage struct {
 	Offset     int                            `json:"offset"`
 }
 
-type errorResponse struct {
-	Error string `json:"error"`
-}
-
 func (h *Handler) ListFilms(w http.ResponseWriter, r *http.Request) {
 	limit, offset, err := pagination(r)
 	if err != nil {
-		writeError(w, err)
+		writeError(w, err, h.appLogger)
 		return
 	}
 
@@ -141,38 +140,39 @@ func (h *Handler) ListFilms(w http.ResponseWriter, r *http.Request) {
 
 	result, err := h.listFilms.Run(r.Context(), input)
 	if err != nil {
-		writeError(w, err)
+		writeError(w, err, h.appLogger)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, filmsPage{
+	httpresponse.WriteJSON(w, http.StatusOK, filmsPage{
 		Films:  toFilmCardResponseDTOs(result.Films),
 		Total:  result.Total,
 		Limit:  limit,
 		Offset: offset,
-	})
+	}, h.appLogger)
 }
 
 func (h *Handler) GetFilm(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(r)
 	if !ok {
-		writeError(w, ErrInvalidFilmID)
+		writeError(w, ErrInvalidFilmID, h.appLogger)
 		return
 	}
 
-	result, err := h.getFilm.Run(r.Context(), usecase.NewGetFilmInput(domain.FilmID(id)))
+	input := usecase.NewGetFilmInput(domain.FilmID(id))
+	result, err := h.getFilm.Run(r.Context(), input)
 	if err != nil {
-		writeError(w, fmt.Errorf("get film %d: %w", id, err))
+		writeError(w, fmt.Errorf("get film %d: %w", id, err), h.appLogger)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, filmResponse{Film: toFilmResponseDTO(result.Film)})
+	httpresponse.WriteJSON(w, http.StatusOK, filmResponse{Film: toFilmResponseDTO(result.Film)}, h.appLogger)
 }
 
 func (h *Handler) ListCollections(w http.ResponseWriter, r *http.Request) {
 	limit, offset, err := pagination(r)
 	if err != nil {
-		writeError(w, err)
+		writeError(w, err, h.appLogger)
 		return
 	}
 
@@ -180,42 +180,44 @@ func (h *Handler) ListCollections(w http.ResponseWriter, r *http.Request) {
 
 	result, err := h.listCollections.Run(r.Context(), input)
 	if err != nil {
-		writeError(w, fmt.Errorf("list collections: %w", err))
+		writeError(w, fmt.Errorf("list collections: %w", err), h.appLogger)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, collectionsPage{
+	httpresponse.WriteJSON(w, http.StatusOK, collectionsPage{
 		Collections: toCollectionResponseDTOs(result.Collections),
 		Total:       result.Total,
 		Limit:       limit,
 		Offset:      offset,
-	})
+	}, h.appLogger)
 }
 
 func (h *Handler) GetCollection(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(r)
 	if !ok {
-		writeError(w, ErrInvalidCollectionID)
+		writeError(w, ErrInvalidCollectionID, h.appLogger)
 		return
 	}
 	limit, offset, err := pagination(r)
 	if err != nil {
-		writeError(w, err)
+		writeError(w, err, h.appLogger)
 		return
 	}
 
-	result, err := h.getCollection.Run(r.Context(), usecase.NewGetCollectionInput(domain.CollectionID(id), limit, offset))
+	input := usecase.NewGetCollectionInput(domain.CollectionID(id), limit, offset)
+
+	result, err := h.getCollection.Run(r.Context(), input)
 	if err != nil {
-		writeError(w, err)
+		writeError(w, err, h.appLogger)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, collectionPage{
+	httpresponse.WriteJSON(w, http.StatusOK, collectionPage{
 		Collection: toCollectionWithFilmsResponseDTO(result.Collection, result.Films),
 		Total:      result.Total,
 		Limit:      limit,
 		Offset:     offset,
-	})
+	}, h.appLogger)
 }
 
 func pagination(r *http.Request) (limit, offset int, err error) {
@@ -244,26 +246,18 @@ func queryInt(r *http.Request, key string, fallback int) (int, bool) {
 	return value, err == nil
 }
 
-func writeJSON(w http.ResponseWriter, status int, body any) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(body); err != nil {
-		log.Printf("films: write response: %v", err)
-	}
-}
-
-func writeError(w http.ResponseWriter, err error) {
+func writeError(w http.ResponseWriter, err error, appLogger logger.Logger) {
 	for _, known := range clientErrors {
 		if errors.Is(err, known.err) {
 			msg := known.err.Error()
 			if known.status == http.StatusBadRequest {
 				msg = err.Error()
 			}
-			writeJSON(w, known.status, errorResponse{Error: msg})
+			httpresponse.WriteError(w, known.status, msg, appLogger)
 			return
 		}
 	}
 
-	log.Printf("films: %v", err)
-	writeJSON(w, http.StatusInternalServerError, errorResponse{Error: internalErrorMessage})
+	appLogger.Error("unexpected error", map[string]any{"error": err})
+	httpresponse.WriteError(w, http.StatusInternalServerError, httpresponse.InternalErrorMessage, appLogger)
 }

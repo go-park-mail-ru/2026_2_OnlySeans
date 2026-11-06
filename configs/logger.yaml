@@ -1,0 +1,3 @@
+level: "info"
+format: "text"
+file: "logs/app.log"
