@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 	"unicode/utf8"
 )
 
@@ -118,6 +119,41 @@ type FilmUpdater interface {
 
 type FilmDeleter interface {
 	DeleteFilm(ctx context.Context, id FilmID) error
+}
+
+const (
+	MinFilmRating int = 1
+	MaxFilmRating int = 10
+)
+
+type FilmRating struct {
+	AccountID UserID
+	FilmID    FilmID
+	Score     int
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+type FilmRatingSummary struct {
+	FilmID       FilmID
+	AverageScore float64
+	Votes        int64
+}
+
+type FilmRatingRepository interface {
+	SetFilmRating(ctx context.Context, accountID UserID, filmID FilmID, score int) (FilmRating, error)
+	GetFilmRatingSummary(ctx context.Context, filmID FilmID) (FilmRatingSummary, error)
+	GetFilmRatingsSummaries(ctx context.Context, filmIDs []FilmID) ([]FilmRatingSummary, error)
+	DeleteFilmRating(ctx context.Context, accountID UserID, filmID FilmID) error
+}
+
+type CollectionFilmRatingRepository interface {
+	GetCollectionFilmRatingSummaries(ctx context.Context, collectionID CollectionID, limit, offset int) ([]FilmRatingSummary, int, error)
+}
+
+type FilmRatingCollectionRepository interface {
+	FilmRatingRepository
+	CollectionFilmRatingRepository
 }
 
 type FilmRepository interface {

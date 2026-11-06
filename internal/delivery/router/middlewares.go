@@ -135,6 +135,10 @@ func writeError(w http.ResponseWriter, status int, err error) {
 func withLogging(next http.Handler, appLogger logger.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
+		appLogger.Debug("request started", map[string]any{
+			"method": r.Method,
+			"path":   r.URL.Path,
+		})
 
 		wrapped := &responseWriter{ResponseWriter: w, status: http.StatusOK}
 		next.ServeHTTP(wrapped, r)

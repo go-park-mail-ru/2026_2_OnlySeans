@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
@@ -53,6 +54,9 @@ func (uc *CreateReviewUseCase) Run(ctx context.Context, input CreateReviewInput)
 			"film_id": input.FilmID,
 			"error":   err,
 		})
+		if errors.Is(err, domain.ErrFilmNotFound) {
+			return nil, domain.ErrFilmNotFound
+		}
 		return nil, fmt.Errorf("get film %d: %w", input.FilmID, err)
 	}
 

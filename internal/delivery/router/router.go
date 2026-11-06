@@ -8,12 +8,21 @@ import (
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/films"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/persons"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/ratings"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/reviews"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 	staticassets "github.com/go-park-mail-ru/2026_2_OnlySeans/static"
 )
 
-func NewRouter(authHandler *auth.Handler, filmsHandler *films.Handler, reviewsHandler *reviews.Handler, personsHandler *persons.Handler, allowedOrigins []string, appLogger logger.Logger) (http.Handler, error) {
+func NewRouter(
+	authHandler *auth.Handler,
+	filmsHandler *films.Handler,
+	reviewsHandler *reviews.Handler,
+	personsHandler *persons.Handler,
+	ratingsHandler *ratings.Handler,
+	allowedOrigins []string,
+	appLogger logger.Logger,
+) (http.Handler, error) {
 	r := mux.NewRouter()
 	authenticatedMiddlewares := []Middleware{RequireAuth(authHandler)}
 	adminMiddlewares := []Middleware{RequireAuth(authHandler), authHandler.RequireAdmin}
@@ -43,9 +52,13 @@ func NewRouter(authHandler *auth.Handler, filmsHandler *films.Handler, reviewsHa
 	r.HandleFunc("/api/reviews/{id}", WrapMiddlewares(reviewsHandler.Update, authenticatedMiddlewares)).Methods(http.MethodPut)
 	r.HandleFunc("/api/reviews/{id}", WrapMiddlewares(reviewsHandler.Delete, authenticatedMiddlewares)).Methods(http.MethodDelete)
 
+	r.HandleFunc("/api/films/{id}/rating", ratingsHandler.GetFilmRating).Methods(http.MethodGet)
+	r.HandleFunc("/api/films/{id}/rating", WrapMiddlewares(ratingsHandler.SetFilmRating, authenticatedMiddlewares)).Methods(http.MethodPut)
+	r.HandleFunc("/api/films/{id}/rating", WrapMiddlewares(ratingsHandler.DeleteFilmRating, authenticatedMiddlewares)).Methods(http.MethodDelete)
+	r.HandleFunc("/api/collections/{id}/ratings", ratingsHandler.GetRatingsForCollection).Methods(http.MethodGet)
+
 	r.HandleFunc("/api/persons", personsHandler.ListPersons).Methods(http.MethodGet)
 	r.HandleFunc("/api/persons/{id}", personsHandler.GetPerson).Methods(http.MethodGet)
-
 	r.HandleFunc("/api/persons", WrapMiddlewares(personsHandler.CreatePerson, catalogEditorMiddlewares)).Methods(http.MethodPost)
 	r.HandleFunc("/api/persons/{id}", WrapMiddlewares(personsHandler.UpdatePerson, catalogEditorMiddlewares)).Methods(http.MethodPut)
 	r.HandleFunc("/api/persons/{id}", WrapMiddlewares(personsHandler.DeletePerson, catalogEditorMiddlewares)).Methods(http.MethodDelete)

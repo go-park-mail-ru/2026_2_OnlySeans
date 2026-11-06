@@ -13,15 +13,18 @@ import (
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/films"
 	personsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/persons"
+	ratingsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/ratings"
 	reviewsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/reviews"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/router"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	authservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/auth"
 	filmsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/films"
+	ratingsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/ratings"
 	reviewsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/reviews"
 	authusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/auth"
 	filmsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/films"
 	personusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/persons"
+	ratingsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/ratings"
 	reviewsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/reviews"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 	"github.com/stretchr/testify/assert"
@@ -80,9 +83,59 @@ func newTestRouterWithLogger(t *testing.T, appLogger logger.Logger) http.Handler
 		filmsHandler,
 		newTestReviewsHandler(t, filmsRepo, appLogger),
 		newTestPersonsHandler(t, appLogger),
+		newTestRatingsHandler(t, filmsRepo, appLogger),
 		[]string{testOrigin},
 		appLogger,
 	)
+	require.NoError(t, err)
+	return handler
+}
+
+func TestFilmRatingRoutes(t *testing.T) {
+	handler := newTestRouter(t)
+
+	collectionReq := httptest.NewRequest(http.MethodGet, "/api/collections/1/ratings", nil)
+	collectionRec := httptest.NewRecorder()
+	handler.ServeHTTP(collectionRec, collectionReq)
+	require.Equal(t, http.StatusOK, collectionRec.Code, collectionRec.Body.String())
+
+	getReq := httptest.NewRequest(http.MethodGet, "/api/films/1/rating", nil)
+	getRec := httptest.NewRecorder()
+	handler.ServeHTTP(getRec, getReq)
+	require.Equal(t, http.StatusOK, getRec.Code, getRec.Body.String())
+
+	putReq := httptest.NewRequest(http.MethodPut, "/api/films/1/rating", strings.NewReader(`{"score":8}`))
+	putRec := httptest.NewRecorder()
+	handler.ServeHTTP(putRec, putReq)
+	require.Equal(t, http.StatusUnauthorized, putRec.Code, putRec.Body.String())
+
+	deleteReq := httptest.NewRequest(http.MethodDelete, "/api/films/1/rating", nil)
+	deleteRec := httptest.NewRecorder()
+	handler.ServeHTTP(deleteRec, deleteReq)
+	require.Equal(t, http.StatusUnauthorized, deleteRec.Code, deleteRec.Body.String())
+}
+
+func newTestRatingsHandler(t *testing.T, films domain.FilmsRepository, appLogger logger.Logger) *ratingsdelivery.Handler {
+	t.Helper()
+
+	repo := ratingsservice.NewInMemoryRepo()
+	collectionRatingsRepo, err := ratingsservice.NewInMemoryCollectionRatingRepository(repo, films)
+	require.NoError(t, err)
+	set, err := ratingsusecase.NewSetFilmRatingUseCase(repo, films, appLogger)
+	require.NoError(t, err)
+	get, err := ratingsusecase.NewGetFilmRatingUseCase(repo, films, appLogger)
+	require.NoError(t, err)
+	getForCollection, err := ratingsusecase.NewGetCollectionRatingsUseCase(collectionRatingsRepo, appLogger)
+	require.NoError(t, err)
+	deleteRating, err := ratingsusecase.NewDeleteFilmRatingUseCase(repo, films, appLogger)
+	require.NoError(t, err)
+
+	handler, err := ratingsdelivery.NewHandler(ratingsdelivery.HandlerUseCases{
+		SetRating:               set,
+		GetRating:               get,
+		GetRatingsForCollection: getForCollection,
+		DeleteRating:            deleteRating,
+	}, appLogger)
 	require.NoError(t, err)
 	return handler
 }
