@@ -92,7 +92,8 @@ func Run(configPath, databaseConfigPath, redisConfigPath, loggerConfigPath strin
 
 	userRepo = authservice.NewPostgresUserRepo(db, appLogger)
 	filmsRepo = filmsservice.NewPostgresService(db, appLogger)
-	ratingsRepo = ratingsservice.NewPostgresRepo(db)
+	postgresRatingsRepo := ratingsservice.NewPostgresRepo(db, appLogger)
+	ratingsRepo = postgresRatingsRepo
 	reviewsRepo = reviewsservice.NewPostgresReviewRepo(db, appLogger)
 	personsRepo = personservice.NewPersonRepo(db, appLogger)
 
@@ -241,22 +242,22 @@ func Run(configPath, databaseConfigPath, redisConfigPath, loggerConfigPath strin
 		return fmt.Errorf("create persons handler: %w", err)
 	}
 
-	setFilmRatingUC, err := ratingsusecase.NewSetFilmRatingUseCase(ratingsRepo, filmsRepo)
+	setFilmRatingUC, err := ratingsusecase.NewSetFilmRatingUseCase(ratingsRepo, filmsRepo, appLogger)
 	if err != nil {
 		return fmt.Errorf("create set film rating use case: %w", err)
 	}
 
-	getFilmRatingUC, err := ratingsusecase.NewGetFilmRatingUseCase(ratingsRepo, filmsRepo)
+	getFilmRatingUC, err := ratingsusecase.NewGetFilmRatingUseCase(ratingsRepo, filmsRepo, appLogger)
 	if err != nil {
 		return fmt.Errorf("create get film rating use case: %w", err)
 	}
 
-	getCollectionRatingsUC, err := ratingsusecase.NewGetCollectionRatingsUseCase(ratingsRepo, filmsRepo)
+	getCollectionRatingsUC, err := ratingsusecase.NewGetCollectionRatingsUseCase(postgresRatingsRepo, appLogger)
 	if err != nil {
 		return fmt.Errorf("create get collection ratings use case: %w", err)
 	}
 
-	deleteFilmRatingUC, err := ratingsusecase.NewDeleteFilmRatingUseCase(ratingsRepo, filmsRepo)
+	deleteFilmRatingUC, err := ratingsusecase.NewDeleteFilmRatingUseCase(ratingsRepo, filmsRepo, appLogger)
 	if err != nil {
 		return fmt.Errorf("create delete film rating use case: %w", err)
 	}

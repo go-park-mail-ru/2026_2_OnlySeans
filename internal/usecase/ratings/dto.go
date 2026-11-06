@@ -5,19 +5,22 @@ import "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 type SetFilmRatingInput struct {
 	AccountID domain.UserID
 	FilmID    domain.FilmID
-	Score     int16
+	Score     int
 }
 
-func NewSetFilmRatingInput(accountID domain.UserID, filmID domain.FilmID, score int16) SetFilmRatingInput {
-	return SetFilmRatingInput{AccountID: accountID, FilmID: filmID, Score: score}
+func NewSetFilmRatingInput(accountID domain.UserID, filmID domain.FilmID, score int) *SetFilmRatingInput {
+	return &SetFilmRatingInput{
+		AccountID: accountID,
+		FilmID:    filmID,
+		Score:     score}
 }
 
 type GetFilmRatingInput struct {
 	FilmID domain.FilmID
 }
 
-func NewGetFilmRatingInput(filmID domain.FilmID) GetFilmRatingInput {
-	return GetFilmRatingInput{FilmID: filmID}
+func NewGetFilmRatingInput(filmID domain.FilmID) *GetFilmRatingInput {
+	return &GetFilmRatingInput{FilmID: filmID}
 }
 
 type SetFilmRatingOutput struct {
@@ -38,18 +41,21 @@ func NewGetFilmRatingOutput(summary domain.FilmRatingSummary) *GetFilmRatingOutp
 
 type GetCollectionRatingsInput struct {
 	CollectionID domain.CollectionID
+	Limit        int
+	Offset       int
 }
 
-func NewGetCollectionRatingsInput(collectionID domain.CollectionID) GetCollectionRatingsInput {
-	return GetCollectionRatingsInput{CollectionID: collectionID}
+func NewGetCollectionRatingsInput(collectionID domain.CollectionID, limit, offset int) *GetCollectionRatingsInput {
+	return &GetCollectionRatingsInput{CollectionID: collectionID, Limit: limit, Offset: offset}
 }
 
 type GetCollectionRatingsOutput struct {
 	Ratings []domain.FilmRatingSummary
+	Total   int
 }
 
-func NewGetCollectionRatingsOutput(ratings []domain.FilmRatingSummary) *GetCollectionRatingsOutput {
-	return &GetCollectionRatingsOutput{Ratings: ratings}
+func NewGetCollectionRatingsOutput(ratings []domain.FilmRatingSummary, total int) *GetCollectionRatingsOutput {
+	return &GetCollectionRatingsOutput{Ratings: ratings, Total: total}
 }
 
 type DeleteFilmRatingInput struct {
@@ -57,6 +63,6 @@ type DeleteFilmRatingInput struct {
 	FilmID    domain.FilmID
 }
 
-func NewDeleteFilmRatingInput(accountID domain.UserID, filmID domain.FilmID) DeleteFilmRatingInput {
-	return DeleteFilmRatingInput{AccountID: accountID, FilmID: filmID}
+func NewDeleteFilmRatingInput(accountID domain.UserID, filmID domain.FilmID) *DeleteFilmRatingInput {
+	return &DeleteFilmRatingInput{AccountID: accountID, FilmID: filmID}
 }

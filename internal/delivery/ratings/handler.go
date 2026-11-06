@@ -21,11 +21,19 @@ const (
 	idVar          = "id"
 	maxBodyBytes   = 1 << 20
 	internalErrMsg = "internal server error"
+	defaultLimit   = 20
+	minLimit       = 1
+	maxLimit       = 100
+	defaultOffset  = 0
+	limitParam     = "limit"
+	offsetParam    = "offset"
 )
 
 var (
 	ErrInvalidFilmID       = errors.New("film id must be a positive integer")
 	ErrInvalidCollectionID = errors.New("collection id must be a positive integer")
+	ErrInvalidLimit        = errors.New("invalid limit")
+	ErrInvalidOffset       = errors.New("offset must be a non-negative integer")
 	ErrInvalidBody         = errors.New("invalid request body")
 )
 
@@ -37,11 +45,8 @@ type HandlerUseCases struct {
 }
 
 type Handler struct {
-	setRating               *usecase.SetFilmRatingUseCase
-	getRating               *usecase.GetFilmRatingUseCase
-	getRatingsForCollection *usecase.GetCollectionRatingsUseCase
-	deleteRating            *usecase.DeleteFilmRatingUseCase
-	appLogger               logger.Logger
+	useCases  HandlerUseCases
+	appLogger logger.Logger
 }
 
 func NewHandler(cases HandlerUseCases, appLogger logger.Logger) (*Handler, error) {
@@ -61,19 +66,12 @@ func NewHandler(cases HandlerUseCases, appLogger logger.Logger) (*Handler, error
 		return nil, errors.New("logger is nil")
 	}
 	return &Handler{
-		setRating:               cases.SetRating,
-		getRating:               cases.GetRating,
-		getRatingsForCollection: cases.GetRatingsForCollection,
-		deleteRating:            cases.DeleteRating,
-		appLogger:               appLogger,
+		useCases:  cases,
+		appLogger: appLogger,
 	}, nil
 }
 
-type setFilmRatingRequest struct {
-	Score *int16 `json:"score"`
-}
-
-func (h *Handler) Set(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) SetFilmRating(w http.ResponseWriter, r *http.Request) {
 	filmID, ok := pathID(r)
 	if !ok {
 		writeError(w, ErrInvalidFilmID, h.appLogger)
@@ -91,7 +89,7 @@ func (h *Handler) Set(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := h.setRating.Run(r.Context(), usecase.NewSetFilmRatingInput(accountID, domain.FilmID(filmID), score))
+	result, err := h.useCases.SetRating.Run(r.Context(), *usecase.NewSetFilmRatingInput(accountID, domain.FilmID(filmID), score))
 	if err != nil {
 		writeError(w, fmt.Errorf("set rating for film %d: %w", filmID, err), h.appLogger)
 		return
@@ -99,14 +97,14 @@ func (h *Handler) Set(w http.ResponseWriter, r *http.Request) {
 	httpresponse.WriteJSON(w, http.StatusOK, ratingResponse{Rating: toFilmRatingResponseDTO(result.Rating)}, h.appLogger)
 }
 
-func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) GetFilmRating(w http.ResponseWriter, r *http.Request) {
 	filmID, ok := pathID(r)
 	if !ok {
 		writeError(w, ErrInvalidFilmID, h.appLogger)
 		return
 	}
 
-	result, err := h.getRating.Run(r.Context(), usecase.NewGetFilmRatingInput(domain.FilmID(filmID)))
+	result, err := h.useCases.GetRating.Run(r.Context(), *usecase.NewGetFilmRatingInput(domain.FilmID(filmID)))
 	if err != nil {
 		writeError(w, fmt.Errorf("get rating for film %d: %w", filmID, err), h.appLogger)
 		return
@@ -114,24 +112,32 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 	httpresponse.WriteJSON(w, http.StatusOK, ratingSummaryResponse{Rating: toFilmRatingSummaryResponseDTO(result.Summary)}, h.appLogger)
 }
 
-func (h *Handler) GetForCollection(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) GetRatingsForCollection(w http.ResponseWriter, r *http.Request) {
 	collectionID, ok := pathID(r)
 	if !ok {
 		writeError(w, ErrInvalidCollectionID, h.appLogger)
 		return
 	}
+	limit, offset, err := pagination(r)
+	if err != nil {
+		writeError(w, err, h.appLogger)
+		return
+	}
 
-	result, err := h.getRatingsForCollection.Run(r.Context(), usecase.NewGetCollectionRatingsInput(domain.CollectionID(collectionID)))
+	result, err := h.useCases.GetRatingsForCollection.Run(r.Context(), *usecase.NewGetCollectionRatingsInput(domain.CollectionID(collectionID), limit, offset))
 	if err != nil {
 		writeError(w, fmt.Errorf("get ratings for collection %d: %w", collectionID, err), h.appLogger)
 		return
 	}
 	httpresponse.WriteJSON(w, http.StatusOK, collectionRatingsResponse{
 		Ratings: toFilmRatingSummaryResponseDTOs(result.Ratings),
+		Total:   result.Total,
+		Limit:   limit,
+		Offset:  offset,
 	}, h.appLogger)
 }
 
-func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) DeleteFilmRating(w http.ResponseWriter, r *http.Request) {
 	filmID, ok := pathID(r)
 	if !ok {
 		writeError(w, ErrInvalidFilmID, h.appLogger)
@@ -144,14 +150,14 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.deleteRating.Run(r.Context(), usecase.NewDeleteFilmRatingInput(accountID, domain.FilmID(filmID))); err != nil {
+	if err := h.useCases.DeleteRating.Run(r.Context(), *usecase.NewDeleteFilmRatingInput(accountID, domain.FilmID(filmID))); err != nil {
 		writeError(w, fmt.Errorf("delete rating for film %d: %w", filmID, err), h.appLogger)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func decodeScore(w http.ResponseWriter, r *http.Request) (int16, error) {
+func decodeScore(w http.ResponseWriter, r *http.Request) (int, error) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
@@ -172,16 +178,39 @@ func pathID(r *http.Request) (int64, bool) {
 	return id, err == nil && id > 0
 }
 
+func pagination(r *http.Request) (limit, offset int, err error) {
+	limit, ok := queryInt(r, limitParam, defaultLimit)
+	if !ok || limit < minLimit || limit > maxLimit {
+		return 0, 0, fmt.Errorf("%w: must be an integer from %d to %d", ErrInvalidLimit, minLimit, maxLimit)
+	}
+	offset, ok = queryInt(r, offsetParam, defaultOffset)
+	if !ok || offset < 0 {
+		return 0, 0, ErrInvalidOffset
+	}
+	return limit, offset, nil
+}
+
+func queryInt(r *http.Request, key string, fallback int) (int, bool) {
+	raw := r.URL.Query().Get(key)
+	if raw == "" {
+		return fallback, true
+	}
+	value, err := strconv.Atoi(raw)
+	return value, err == nil
+}
+
 func writeError(w http.ResponseWriter, err error, appLogger logger.Logger) {
 	switch {
 	case errors.Is(err, ErrInvalidFilmID):
 		httpresponse.WriteError(w, http.StatusBadRequest, ErrInvalidFilmID.Error(), appLogger)
 	case errors.Is(err, ErrInvalidCollectionID):
 		httpresponse.WriteError(w, http.StatusBadRequest, ErrInvalidCollectionID.Error(), appLogger)
+	case errors.Is(err, ErrInvalidLimit), errors.Is(err, ErrInvalidOffset):
+		httpresponse.WriteError(w, http.StatusBadRequest, err.Error(), appLogger)
 	case errors.Is(err, ErrInvalidBody):
 		httpresponse.WriteError(w, http.StatusBadRequest, ErrInvalidBody.Error(), appLogger)
 	case errors.Is(err, domain.ErrInvalidFilmRating):
-		httpresponse.WriteError(w, http.StatusBadRequest, domain.ErrInvalidFilmRating.Error(), appLogger)
+		httpresponse.WriteError(w, http.StatusBadRequest, err.Error(), appLogger)
 	case errors.Is(err, domain.ErrUnauthorized):
 		httpresponse.WriteError(w, http.StatusUnauthorized, domain.ErrUnauthorized.Error(), appLogger)
 	case errors.Is(err, domain.ErrFilmNotFound):

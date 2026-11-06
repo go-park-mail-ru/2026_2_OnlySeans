@@ -6,9 +6,13 @@ import (
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 )
 
+type setFilmRatingRequest struct {
+	Score *int `json:"score"`
+}
+
 type filmRatingResponseDTO struct {
 	FilmID    domain.FilmID `json:"film_id"`
-	Score     int16         `json:"score"`
+	Score     int           `json:"score"`
 	CreatedAt time.Time     `json:"created_at"`
 	UpdatedAt time.Time     `json:"updated_at"`
 }
@@ -29,6 +33,9 @@ type ratingSummaryResponse struct {
 
 type collectionRatingsResponse struct {
 	Ratings []filmRatingSummaryResponseDTO `json:"ratings"`
+	Total   int                            `json:"total"`
+	Limit   int                            `json:"limit"`
+	Offset  int                            `json:"offset"`
 }
 
 type errorResponse struct {

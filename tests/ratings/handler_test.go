@@ -26,16 +26,18 @@ func newRatingsRouter(t *testing.T) http.Handler {
 
 	films, err := filmsservice.NewSeededService()
 	require.NoError(t, err)
+	appLogger, err := logger.NewLogger(io.Discard, logger.LogLevelDebug, "text")
+	require.NoError(t, err)
 	repo := ratingsservice.NewInMemoryRepo()
-	set, err := ratingsusecase.NewSetFilmRatingUseCase(repo, films)
+	collectionRatingsRepo, err := ratingsservice.NewInMemoryCollectionRatingRepository(repo, films)
 	require.NoError(t, err)
-	get, err := ratingsusecase.NewGetFilmRatingUseCase(repo, films)
+	set, err := ratingsusecase.NewSetFilmRatingUseCase(repo, films, appLogger)
 	require.NoError(t, err)
-	getForCollection, err := ratingsusecase.NewGetCollectionRatingsUseCase(repo, films)
+	get, err := ratingsusecase.NewGetFilmRatingUseCase(repo, films, appLogger)
 	require.NoError(t, err)
-	deleteRating, err := ratingsusecase.NewDeleteFilmRatingUseCase(repo, films)
+	getForCollection, err := ratingsusecase.NewGetCollectionRatingsUseCase(collectionRatingsRepo, appLogger)
 	require.NoError(t, err)
-	appLogger, err := logger.NewLogger(io.Discard, logger.LogLevelInfo, "text")
+	deleteRating, err := ratingsusecase.NewDeleteFilmRatingUseCase(repo, films, appLogger)
 	require.NoError(t, err)
 	handler, err := ratingsdelivery.NewHandler(ratingsdelivery.HandlerUseCases{
 		SetRating:               set,
@@ -46,10 +48,10 @@ func newRatingsRouter(t *testing.T) http.Handler {
 	require.NoError(t, err)
 
 	r := mux.NewRouter()
-	r.HandleFunc("/api/films/{id}/rating", handler.Get).Methods(http.MethodGet)
-	r.HandleFunc("/api/films/{id}/rating", handler.Set).Methods(http.MethodPut)
-	r.HandleFunc("/api/films/{id}/rating", handler.Delete).Methods(http.MethodDelete)
-	r.HandleFunc("/api/collections/{id}/ratings", handler.GetForCollection).Methods(http.MethodGet)
+	r.HandleFunc("/api/films/{id}/rating", handler.GetFilmRating).Methods(http.MethodGet)
+	r.HandleFunc("/api/films/{id}/rating", handler.SetFilmRating).Methods(http.MethodPut)
+	r.HandleFunc("/api/films/{id}/rating", handler.DeleteFilmRating).Methods(http.MethodDelete)
+	r.HandleFunc("/api/collections/{id}/ratings", handler.GetRatingsForCollection).Methods(http.MethodGet)
 	return r
 }
 
@@ -71,12 +73,12 @@ func TestRatingHandler_SetAndGet(t *testing.T) {
 	var setResponse struct {
 		Rating struct {
 			FilmID domain.FilmID `json:"film_id"`
-			Score  int16         `json:"score"`
+			Score  int           `json:"score"`
 		} `json:"rating"`
 	}
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &setResponse))
 	require.Equal(t, domain.FilmID(1), setResponse.Rating.FilmID)
-	require.Equal(t, int16(8), setResponse.Rating.Score)
+	require.Equal(t, 8, setResponse.Rating.Score)
 
 	rec = ratingRequest(handler, http.MethodGet, "/api/films/1/rating", "", 0)
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
@@ -122,6 +124,9 @@ func TestRatingHandler_RejectsInvalidRequests(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			rec := ratingRequest(handler, http.MethodPut, tt.path, tt.body, tt.userID)
 			require.Equal(t, tt.status, rec.Code, rec.Body.String())
+			if tt.name == "score too small" || tt.name == "score too large" {
+				require.Contains(t, rec.Body.String(), "invalid film rating: must be from 1 to 10")
+			}
 		})
 	}
 }
@@ -151,7 +156,7 @@ func TestRatingHandler_GetCollectionRatings(t *testing.T) {
 		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 	}
 
-	rec := ratingRequest(handler, http.MethodGet, "/api/collections/1/ratings", "", 0)
+	rec := ratingRequest(handler, http.MethodGet, "/api/collections/1/ratings?limit=2&offset=0", "", 0)
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 	var response struct {
 		Ratings []struct {
@@ -159,18 +164,30 @@ func TestRatingHandler_GetCollectionRatings(t *testing.T) {
 			AverageScore float64       `json:"average_score"`
 			Votes        int64         `json:"votes"`
 		} `json:"ratings"`
+		Total  int `json:"total"`
+		Limit  int `json:"limit"`
+		Offset int `json:"offset"`
 	}
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
-	require.Len(t, response.Ratings, 6)
+	require.Len(t, response.Ratings, 2)
+	require.Equal(t, 6, response.Total)
+	require.Equal(t, 2, response.Limit)
+	require.Zero(t, response.Offset)
 	require.Equal(t, domain.FilmID(1), response.Ratings[0].FilmID)
 	require.Equal(t, float64(8.5), response.Ratings[0].AverageScore)
 	require.Equal(t, int64(2), response.Ratings[0].Votes)
 	require.Equal(t, domain.FilmID(2), response.Ratings[1].FilmID)
 	require.Equal(t, float64(6), response.Ratings[1].AverageScore)
 	require.Equal(t, int64(1), response.Ratings[1].Votes)
-	require.Equal(t, domain.FilmID(3), response.Ratings[2].FilmID)
-	require.Equal(t, float64(0), response.Ratings[2].AverageScore)
-	require.Equal(t, int64(0), response.Ratings[2].Votes)
+
+	rec = ratingRequest(handler, http.MethodGet, "/api/collections/1/ratings?limit=2&offset=2", "", 0)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
+	require.Len(t, response.Ratings, 2)
+	require.Equal(t, domain.FilmID(3), response.Ratings[0].FilmID)
+	require.Equal(t, domain.FilmID(4), response.Ratings[1].FilmID)
+	require.Equal(t, 6, response.Total)
+	require.Equal(t, 2, response.Offset)
 }
 
 func TestRatingHandler_GetCollectionRatingsErrors(t *testing.T) {
@@ -186,6 +203,19 @@ func TestRatingHandler_GetCollectionRatingsErrors(t *testing.T) {
 	for _, tt := range tests {
 		rec := ratingRequest(handler, http.MethodGet, tt.path, "", 0)
 		require.Equal(t, tt.status, rec.Code, rec.Body.String())
+	}
+
+	for _, tt := range []struct {
+		query string
+	}{
+		{query: "limit=0"},
+		{query: "limit=101"},
+		{query: "limit=abc"},
+		{query: "offset=-1"},
+		{query: "offset=abc"},
+	} {
+		rec := ratingRequest(handler, http.MethodGet, "/api/collections/1/ratings?"+tt.query, "", 0)
+		require.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
 	}
 }
 

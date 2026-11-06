@@ -38,10 +38,10 @@ func NewRouter(authHandler *auth.Handler, filmsHandler *films.Handler, reviewsHa
 	r.HandleFunc("/api/reviews/{id}", RequireAuth(authHandler, reviewsHandler.Update)).Methods(http.MethodPut)
 	r.HandleFunc("/api/reviews/{id}", RequireAuth(authHandler, reviewsHandler.Delete)).Methods(http.MethodDelete)
 
-	r.HandleFunc("/api/films/{id}/rating", ratingsHandler.Get).Methods(http.MethodGet)
-	r.HandleFunc("/api/films/{id}/rating", RequireAuth(authHandler, ratingsHandler.Set)).Methods(http.MethodPut)
-	r.HandleFunc("/api/films/{id}/rating", RequireAuth(authHandler, ratingsHandler.Delete)).Methods(http.MethodDelete)
-	r.HandleFunc("/api/collections/{id}/ratings", ratingsHandler.GetForCollection).Methods(http.MethodGet)
+	r.HandleFunc("/api/films/{id}/rating", ratingsHandler.GetFilmRating).Methods(http.MethodGet)
+	r.HandleFunc("/api/films/{id}/rating", RequireAuth(authHandler, ratingsHandler.SetFilmRating)).Methods(http.MethodPut)
+	r.HandleFunc("/api/films/{id}/rating", RequireAuth(authHandler, ratingsHandler.DeleteFilmRating)).Methods(http.MethodDelete)
+	r.HandleFunc("/api/collections/{id}/ratings", ratingsHandler.GetRatingsForCollection).Methods(http.MethodGet)
 
 	r.HandleFunc("/api/persons", personsHandler.ListPersons).Methods(http.MethodGet)
 	r.HandleFunc("/api/persons/{id}", personsHandler.GetPerson).Methods(http.MethodGet)

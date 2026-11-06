@@ -2,51 +2,51 @@ package usecase
 
 import (
 	"context"
-	"errors"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 )
 
-const collectionRatingsPageSize = 100
-
 type GetCollectionRatingsUseCase struct {
-	ratings     domain.FilmRatingRepository
-	collections domain.CollectionRepository
+	repository domain.CollectionFilmRatingRepository
+	logger     logger.Logger
 }
 
-func NewGetCollectionRatingsUseCase(ratings domain.FilmRatingRepository, collections domain.CollectionRepository) (*GetCollectionRatingsUseCase, error) {
-	if ratings == nil {
-		return nil, domain.ErrNilFilmRatingsRepo
+func NewGetCollectionRatingsUseCase(repository domain.CollectionFilmRatingRepository, appLogger logger.Logger) (*GetCollectionRatingsUseCase, error) {
+	if repository == nil {
+		return nil, domain.ErrNilCollectionRatingRepo
 	}
-	if collections == nil {
-		return nil, domain.ErrNilCollectionsRepo
+	if appLogger == nil {
+		return nil, domain.ErrInvalidAppLogger
 	}
-	return &GetCollectionRatingsUseCase{ratings: ratings, collections: collections}, nil
+	return &GetCollectionRatingsUseCase{
+		repository: repository,
+		logger:     appLogger,
+	}, nil
 }
 
 func (uc *GetCollectionRatingsUseCase) Run(ctx context.Context, input GetCollectionRatingsInput) (*GetCollectionRatingsOutput, error) {
-	filmIDs := make([]domain.FilmID, 0)
-	for offset := 0; ; {
-		films, _, err := uc.collections.ListCollectionFilms(ctx, input.CollectionID, collectionRatingsPageSize, offset)
-		if err != nil {
-			if errors.Is(err, domain.ErrCollectionNotFound) {
-				return nil, domain.ErrCollectionNotFound
-			}
-			return nil, err
-		}
-
-		for _, film := range films {
-			filmIDs = append(filmIDs, film.ID)
-		}
-		if len(films) < collectionRatingsPageSize {
-			break
-		}
-		offset += len(films)
+	fields := map[string]any{
+		"collection_id": input.CollectionID,
+		"limit":         input.Limit,
+		"offset":        input.Offset,
 	}
-
-	ratings, err := uc.ratings.GetSummaries(ctx, filmIDs)
+	uc.logger.Debug("get collection ratings started", fields)
+	uc.logger.Debug("loading collection film rating summaries", fields)
+	ratings, total, err := uc.repository.GetCollectionFilmRatingSummaries(ctx, input.CollectionID, input.Limit, input.Offset)
 	if err != nil {
+		uc.logger.Debug("loading collection film rating summaries failed", map[string]any{
+			"collection_id": input.CollectionID,
+			"error":         err,
+		})
 		return nil, err
 	}
-	return NewGetCollectionRatingsOutput(ratings), nil
+	uc.logger.Debug("collection film rating summaries loaded", map[string]any{
+		"collection_id": input.CollectionID,
+		"count":         len(ratings),
+		"total":         total,
+		"limit":         input.Limit,
+		"offset":        input.Offset,
+	})
+	return NewGetCollectionRatingsOutput(ratings, total), nil
 }

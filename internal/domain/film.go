@@ -37,14 +37,14 @@ type Film struct {
 }
 
 const (
-	MinFilmRating int16 = 1
-	MaxFilmRating int16 = 10
+	MinFilmRating int = 1
+	MaxFilmRating int = 10
 )
 
 type FilmRating struct {
 	AccountID UserID
 	FilmID    FilmID
-	Score     int16
+	Score     int
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
@@ -56,10 +56,19 @@ type FilmRatingSummary struct {
 }
 
 type FilmRatingRepository interface {
-	Set(ctx context.Context, accountID UserID, filmID FilmID, score int16) (FilmRating, error)
-	GetSummary(ctx context.Context, filmID FilmID) (FilmRatingSummary, error)
-	GetSummaries(ctx context.Context, filmIDs []FilmID) ([]FilmRatingSummary, error)
-	Delete(ctx context.Context, accountID UserID, filmID FilmID) error
+	SetFilmRating(ctx context.Context, accountID UserID, filmID FilmID, score int) (FilmRating, error)
+	GetFilmRatingSummary(ctx context.Context, filmID FilmID) (FilmRatingSummary, error)
+	GetFilmRatingsSummaries(ctx context.Context, filmIDs []FilmID) ([]FilmRatingSummary, error)
+	DeleteFilmRating(ctx context.Context, accountID UserID, filmID FilmID) error
+}
+
+type CollectionFilmRatingRepository interface {
+	GetCollectionFilmRatingSummaries(ctx context.Context, collectionID CollectionID, limit, offset int) ([]FilmRatingSummary, int, error)
+}
+
+type FilmRatingCollectionRepository interface {
+	FilmRatingRepository
+	CollectionFilmRatingRepository
 }
 
 type FilmRepository interface {

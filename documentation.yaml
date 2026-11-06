@@ -425,8 +425,9 @@ paths:
       description: |-
         Возвращает средний балл и число оценок для каждого фильма подборки в порядке фильмов подборки.
         Фильмы без оценок также включены: average_score равен 0, votes равен 0.
-        Все рейтинги загружаются одним агрегирующим запросом после получения списка фильмов.
-        Вход не нужен. Id не число или не больше нуля — 400, подборка не найдена — 404.
+        Результат постраничный; total содержит общее число фильмов подборки.
+        Фильмы и сводки рейтингов выбираются одним SQL-запросом.
+        Id не число или не больше нуля — 400, параметры пагинации некорректны — 400, подборка не найдена — 404.
       x-implementation-status: implemented
       security: []
       parameters:
@@ -439,6 +440,25 @@ paths:
             format: int64
             minimum: 1
           example: 2
+        - name: limit
+          in: query
+          required: false
+          description: Размер страницы (по умолчанию 20).
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          example: 20
+        - name: offset
+          in: query
+          required: false
+          description: Смещение от начала списка (по умолчанию 0).
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          example: 0
       responses:
         '200':
           description: Список сводок рейтингов фильмов подборки.
@@ -1076,8 +1096,20 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/FilmRatingSummary'
+        total:
+          type: integer
+          description: Общее число фильмов в подборке.
+        limit:
+          type: integer
+          description: Размер страницы.
+        offset:
+          type: integer
+          description: Смещение страницы.
       required:
         - ratings
+        - total
+        - limit
+        - offset
       example:
         ratings:
           - film_id: 1
@@ -1086,6 +1118,9 @@ components:
           - film_id: 2
             average_score: 0
             votes: 0
+        total: 6
+        limit: 20
+        offset: 0
     ReviewInput:
       type: object
       additionalProperties: false
@@ -1291,15 +1326,23 @@ components:
             invalidScore:
               summary: Оценка не входит в диапазон 1–10
               value:
-                error: film rating must be from 1 to 10
+                error: "invalid film rating: must be from 1 to 10"
     InvalidCollectionRatingsRequest:
-      description: Id подборки не число или не больше нуля.
+      description: Некорректный id подборки, limit или offset.
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
-          example:
-            error: collection id must be a positive integer
+          examples:
+            invalidId:
+              value:
+                error: collection id must be a positive integer
+            invalidLimit:
+              value:
+                error: "invalid limit: must be an integer from 1 to 100"
+            invalidOffset:
+              value:
+                error: offset must be a non-negative integer
     InvalidCollectionRequest:
       description: Неверный id подборки, limit или offset.
       content:

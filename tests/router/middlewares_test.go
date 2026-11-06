@@ -105,13 +105,15 @@ func newTestRatingsHandler(t *testing.T, films domain.FilmsRepository, appLogger
 	t.Helper()
 
 	repo := ratingsservice.NewInMemoryRepo()
-	set, err := ratingsusecase.NewSetFilmRatingUseCase(repo, films)
+	collectionRatingsRepo, err := ratingsservice.NewInMemoryCollectionRatingRepository(repo, films)
 	require.NoError(t, err)
-	get, err := ratingsusecase.NewGetFilmRatingUseCase(repo, films)
+	set, err := ratingsusecase.NewSetFilmRatingUseCase(repo, films, appLogger)
 	require.NoError(t, err)
-	getForCollection, err := ratingsusecase.NewGetCollectionRatingsUseCase(repo, films)
+	get, err := ratingsusecase.NewGetFilmRatingUseCase(repo, films, appLogger)
 	require.NoError(t, err)
-	deleteRating, err := ratingsusecase.NewDeleteFilmRatingUseCase(repo, films)
+	getForCollection, err := ratingsusecase.NewGetCollectionRatingsUseCase(collectionRatingsRepo, appLogger)
+	require.NoError(t, err)
+	deleteRating, err := ratingsusecase.NewDeleteFilmRatingUseCase(repo, films, appLogger)
 	require.NoError(t, err)
 
 	handler, err := ratingsdelivery.NewHandler(ratingsdelivery.HandlerUseCases{

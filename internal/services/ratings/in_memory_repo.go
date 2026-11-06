@@ -23,7 +23,7 @@ func NewInMemoryRepo() *InMemoryRepo {
 	return &InMemoryRepo{ratings: make(map[ratingKey]domain.FilmRating)}
 }
 
-func (r *InMemoryRepo) Set(_ context.Context, accountID domain.UserID, filmID domain.FilmID, score int16) (domain.FilmRating, error) {
+func (r *InMemoryRepo) SetFilmRating(_ context.Context, accountID domain.UserID, filmID domain.FilmID, score int) (domain.FilmRating, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -41,7 +41,7 @@ func (r *InMemoryRepo) Set(_ context.Context, accountID domain.UserID, filmID do
 	return rating, nil
 }
 
-func (r *InMemoryRepo) GetSummary(_ context.Context, filmID domain.FilmID) (domain.FilmRatingSummary, error) {
+func (r *InMemoryRepo) GetFilmRatingSummary(_ context.Context, filmID domain.FilmID) (domain.FilmRatingSummary, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -59,10 +59,10 @@ func (r *InMemoryRepo) GetSummary(_ context.Context, filmID domain.FilmID) (doma
 	return summary, nil
 }
 
-func (r *InMemoryRepo) GetSummaries(ctx context.Context, filmIDs []domain.FilmID) ([]domain.FilmRatingSummary, error) {
+func (r *InMemoryRepo) GetFilmRatingsSummaries(ctx context.Context, filmIDs []domain.FilmID) ([]domain.FilmRatingSummary, error) {
 	summaries := make([]domain.FilmRatingSummary, 0, len(filmIDs))
 	for _, filmID := range filmIDs {
-		summary, err := r.GetSummary(ctx, filmID)
+		summary, err := r.GetFilmRatingSummary(ctx, filmID)
 		if err != nil {
 			return nil, err
 		}
@@ -71,7 +71,7 @@ func (r *InMemoryRepo) GetSummaries(ctx context.Context, filmIDs []domain.FilmID
 	return summaries, nil
 }
 
-func (r *InMemoryRepo) Delete(_ context.Context, accountID domain.UserID, filmID domain.FilmID) error {
+func (r *InMemoryRepo) DeleteFilmRating(_ context.Context, accountID domain.UserID, filmID domain.FilmID) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
