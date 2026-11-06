@@ -181,7 +181,7 @@ func Run(configPath, databaseConfigPath, redisConfigPath, loggerConfigPath strin
 
 	createReviewUC, err := reviewsusecase.NewCreateReviewUseCase(reviewsRepo, filmsRepo, appLogger)
 	if err != nil {
-		return fmt.Errorf("сreate review use case: %w", err)
+		return fmt.Errorf("create review use case: %w", err)
 	}
 
 	updateReviewUC, err := reviewsusecase.NewUpdateReviewUseCase(reviewsRepo, appLogger)
@@ -274,8 +274,9 @@ func Run(configPath, databaseConfigPath, redisConfigPath, loggerConfigPath strin
 	httpHandler := router.NewRouter(
 		authHandler,
 		filmsHandler,
-		reviewsHandler, ratingsHandler,
+		reviewsHandler,
 		personsHandler,
+		ratingsHandler,
 		cfg.Server.AllowedOrigin,
 		appLogger,
 	)
