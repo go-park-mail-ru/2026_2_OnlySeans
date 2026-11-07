@@ -174,6 +174,44 @@ func (h *Handler) Authenticate(ctx context.Context, sessionID string) (domain.Us
 	return userID.ID, nil
 }
 
+func (h *Handler) getUserRole(ctx context.Context, userID domain.UserID) (domain.Role, error) {
+	user, err := h.getUser.Run(ctx, usecase.NewGetUserInput(userID))
+	if err != nil {
+		return "", err
+	}
+	if user == nil {
+		return "", domain.ErrUserNotFound
+	}
+	return user.Role, nil
+}
+
+func (h *Handler) RequireAdmin(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, ok := UserIDFromContext(r.Context())
+		if !ok {
+			httpresponse.WriteError(w, http.StatusUnauthorized, domain.ErrUnauthorized.Error(), h.appLogger)
+			return
+		}
+
+		role, err := h.getUserRole(r.Context(), userID)
+		if err != nil {
+			if errors.Is(err, domain.ErrUserNotFound) {
+				httpresponse.WriteError(w, http.StatusUnauthorized, domain.ErrUnauthorized.Error(), h.appLogger)
+				return
+			}
+			h.appLogger.Error("get user role failed", map[string]any{"error": err})
+			httpresponse.WriteError(w, http.StatusInternalServerError, domain.ErrInternal.Error(), h.appLogger)
+			return
+		}
+		if role != domain.RoleAdmin {
+			httpresponse.WriteError(w, http.StatusForbidden, domain.ErrForbidden.Error(), h.appLogger)
+			return
+		}
+
+		next(w, r)
+	}
+}
+
 func (h *Handler) setSessionCookie(w http.ResponseWriter, sessionID string, expiresAt time.Time) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     SessionCookieName,

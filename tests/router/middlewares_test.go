@@ -14,16 +14,19 @@ import (
 	filesdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/files"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/films"
 	personsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/persons"
+	ratingsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/ratings"
 	reviewsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/reviews"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/router"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	authservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/auth"
 	filmsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/films"
+	ratingsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/ratings"
 	reviewsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/reviews"
 	authusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/auth"
 	filesusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/files"
 	filmsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/films"
 	personusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/persons"
+	ratingsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/ratings"
 	reviewsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/reviews"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 	"github.com/stretchr/testify/assert"
@@ -56,6 +59,15 @@ func newTestRouterWithAvatarStorage(t *testing.T, appLogger logger.Logger, stora
 	getFilm, err := filmsusecase.NewGetFilmUseCase(filmsRepo, appLogger)
 	require.NoError(t, err)
 
+	createFilm, err := filmsusecase.NewCreateFilmUseCase(filmsRepo)
+	require.NoError(t, err)
+
+	updateFilm, err := filmsusecase.NewUpdateFilmUseCase(filmsRepo)
+	require.NoError(t, err)
+
+	deleteFilm, err := filmsusecase.NewDeleteFilmUseCase(filmsRepo)
+	require.NoError(t, err)
+
 	listCollections, err := filmsusecase.NewListCollectionsUseCase(filmsRepo, appLogger)
 	require.NoError(t, err)
 
@@ -65,33 +77,108 @@ func newTestRouterWithAvatarStorage(t *testing.T, appLogger logger.Logger, stora
 	filmsHandler, err := films.NewHandler(films.HandlerUseCases{
 		ListFilms:       listFilms,
 		GetFilm:         getFilm,
+		CreateFilm:      createFilm,
+		UpdateFilm:      updateFilm,
+		DeleteFilm:      deleteFilm,
 		ListCollections: listCollections,
 		GetCollection:   getCollection,
 	}, appLogger)
 	require.NoError(t, err)
 
-	uploadAvatar, err := filesusecase.NewUploadAvatarUseCase(storage, users, filesusecase.UploadAvatarOptions{
-		MaxSize:        5 << 20,
-		MaxDimension:   4096,
-		CleanupTimeout: 5 * time.Second,
-	}, appLogger)
+	uploadAvatar, err := filesusecase.NewUploadAvatarUseCase(
+      storage,
+      users,
+      filesusecase.UploadAvatarOptions{
+        MaxSize:        5 << 20,
+        MaxDimension:   4096,
+        CleanupTimeout: 5 * time.Second,
+      },
+      appLogger,
+    )
+    require.NoError(t, err)
+
+    getAvatarURL, err := filesusecase.NewGetAvatarURLUseCase(
+      &routerAvatarURLStorage{},
+      appLogger,
+    )
+    require.NoError(t, err)
+
+    accountAvatar, err := filesusecase.NewAccountAvatarUseCase(
+      users,
+      &routerAvatarURLStorage{},
+      appLogger,
+    )
+    require.NoError(t, err)
+
+    filesHandler, err := filesdelivery.NewHandler(
+      uploadAvatar,
+      getAvatarURL,
+      accountAvatar,
+      appLogger,
+    )
+    require.NoError(t, err)
+
+    handler, err := router.NewRouter(
+      authHandler,
+      filmsHandler,
+      newTestReviewsHandler(t, filmsRepo, appLogger),
+      newTestPersonsHandler(t, appLogger),
+      filesHandler,
+      newTestRatingsHandler(t, filmsRepo, appLogger),
+      []string{testOrigin},
+      appLogger,
+    )
+    require.NoError(t, err)
+    return handler
+}
+
+func TestFilmRatingRoutes(t *testing.T) {
+	handler := newTestRouter(t)
+
+	collectionReq := httptest.NewRequest(http.MethodGet, "/api/collections/1/ratings", nil)
+	collectionRec := httptest.NewRecorder()
+	handler.ServeHTTP(collectionRec, collectionReq)
+	require.Equal(t, http.StatusOK, collectionRec.Code, collectionRec.Body.String())
+
+	getReq := httptest.NewRequest(http.MethodGet, "/api/films/1/rating", nil)
+	getRec := httptest.NewRecorder()
+	handler.ServeHTTP(getRec, getReq)
+	require.Equal(t, http.StatusOK, getRec.Code, getRec.Body.String())
+
+	putReq := httptest.NewRequest(http.MethodPut, "/api/films/1/rating", strings.NewReader(`{"score":8}`))
+	putRec := httptest.NewRecorder()
+	handler.ServeHTTP(putRec, putReq)
+	require.Equal(t, http.StatusUnauthorized, putRec.Code, putRec.Body.String())
+
+	deleteReq := httptest.NewRequest(http.MethodDelete, "/api/films/1/rating", nil)
+	deleteRec := httptest.NewRecorder()
+	handler.ServeHTTP(deleteRec, deleteReq)
+	require.Equal(t, http.StatusUnauthorized, deleteRec.Code, deleteRec.Body.String())
+}
+
+func newTestRatingsHandler(t *testing.T, films domain.FilmsRepository, appLogger logger.Logger) *ratingsdelivery.Handler {
+	t.Helper()
+
+	repo := ratingsservice.NewInMemoryRepo()
+	collectionRatingsRepo, err := ratingsservice.NewInMemoryCollectionRatingRepository(repo, films)
 	require.NoError(t, err)
-	getAvatarURL, err := filesusecase.NewGetAvatarURLUseCase(&routerAvatarURLStorage{}, appLogger)
+	set, err := ratingsusecase.NewSetFilmRatingUseCase(repo, films, appLogger)
 	require.NoError(t, err)
-	accountAvatar, err := filesusecase.NewAccountAvatarUseCase(users, &routerAvatarURLStorage{}, appLogger)
+	get, err := ratingsusecase.NewGetFilmRatingUseCase(repo, films, appLogger)
 	require.NoError(t, err)
-	filesHandler, err := filesdelivery.NewHandler(uploadAvatar, getAvatarURL, accountAvatar, appLogger)
+	getForCollection, err := ratingsusecase.NewGetCollectionRatingsUseCase(collectionRatingsRepo, appLogger)
+	require.NoError(t, err)
+	deleteRating, err := ratingsusecase.NewDeleteFilmRatingUseCase(repo, films, appLogger)
 	require.NoError(t, err)
 
-	return router.NewRouter(
-		authHandler,
-		filmsHandler,
-		newTestReviewsHandler(t, filmsRepo, appLogger),
-		newTestPersonsHandler(t, appLogger),
-		filesHandler,
-		testOrigin,
-		appLogger,
-	)
+	handler, err := ratingsdelivery.NewHandler(ratingsdelivery.HandlerUseCases{
+		SetRating:               set,
+		GetRating:               get,
+		GetRatingsForCollection: getForCollection,
+		DeleteRating:            deleteRating,
+	}, appLogger)
+	require.NoError(t, err)
+	return handler
 }
 
 func newTestAuthHandler(t *testing.T, appLogger logger.Logger) *auth.Handler {
@@ -199,7 +286,7 @@ func TestRequireAuth(t *testing.T) {
 			var gotID domain.UserID
 			var gotOK bool
 
-			handler := router.RequireAuth(authn, func(w http.ResponseWriter, r *http.Request) {
+			handler := router.RequireAuth(authn)(func(w http.ResponseWriter, r *http.Request) {
 				nextCalled = true
 				gotID, gotOK = auth.UserIDFromContext(r.Context())
 				w.WriteHeader(http.StatusOK)

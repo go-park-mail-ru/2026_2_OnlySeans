@@ -113,14 +113,14 @@ func TestWithLogging_WithRecover(t *testing.T) {
 			"после паники логируется 500",
 			func(http.ResponseWriter, *http.Request) { panic("boom") },
 			http.StatusInternalServerError,
-			[]string{"panic recovered", "request handled"},
+			[]string{"request started", "panic recovered", "request handled"},
 			"error",
 		},
 		{
-			"без паники логируется только запрос",
+			"без паники логируется начало и завершение запроса",
 			func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusCreated) },
 			http.StatusCreated,
-			[]string{"request handled"},
+			[]string{"request started", "request handled"},
 			"info",
 		},
 	}
@@ -174,10 +174,12 @@ func TestWithLogging_Level(t *testing.T) {
 
 			handler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/", nil))
 
-			require.Len(t, spy.entries, 1)
-			assert.Equal(t, tt.wantLevel, spy.entries[0].level)
-			assert.Equal(t, "request handled", spy.entries[0].msg)
-			assert.Equal(t, tt.status, spy.entries[0].fields["status"])
+			require.Len(t, spy.entries, 2)
+			assert.Equal(t, "debug", spy.entries[0].level)
+			assert.Equal(t, "request started", spy.entries[0].msg)
+			assert.Equal(t, tt.wantLevel, spy.entries[1].level)
+			assert.Equal(t, "request handled", spy.entries[1].msg)
+			assert.Equal(t, tt.status, spy.entries[1].fields["status"])
 		})
 	}
 }
@@ -228,7 +230,7 @@ func TestRecoveryAfterResponseStarted(t *testing.T) {
 			last := spy.entries[len(spy.entries)-1]
 			require.Equal(t, tt.wantStatus, last.fields["status"])
 			if tt.name != "later status cannot replace implicit status" {
-				require.Equal(t, "panic recovered", spy.entries[0].msg)
+				require.Equal(t, "panic recovered", spy.entries[1].msg)
 			}
 		})
 	}
