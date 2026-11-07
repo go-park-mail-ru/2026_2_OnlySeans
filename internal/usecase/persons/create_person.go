@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/logging"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 )
 
@@ -33,14 +34,13 @@ func (uc *CreatePersonUseCase) Run(ctx context.Context, input CreatePersonInput)
 
 	person, err := preparePerson(input.Person)
 	if err != nil {
+		logging.Validation(uc.logger, "create person rejected: invalid input", err, nil)
 		return nil, err
 	}
 
 	id, err := uc.persons.Create(ctx, *person)
 	if err != nil {
-		uc.logger.Error("create person failed", map[string]any{
-			"error": err,
-		})
+		logging.Failure(uc.logger, "create person failed", err, map[string]any{})
 
 		return nil, fmt.Errorf("create person: %w", err)
 	}

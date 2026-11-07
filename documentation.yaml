@@ -1,10 +1,13 @@
 openapi: 3.0.3
 info:
   title: API OnlySeans
-  version: 1.4.0
+  version: 1.5.0
   description: |-
-    API OnlySeans: регистрация, вход, выход, проверка авторизации, фильмы, подборки, рейтинги и отзывы.
-    Сессия хранится в cookie session_id. Данные пока лежат в памяти сервера.
+    API OnlySeans: регистрация, вход, выход, профиль, фильмы, подборки, отзывы, CRUD персон и аватары.
+    Основные данные и связи аватаров с аккаунтами хранятся в PostgreSQL, сессии — в Redis.
+    Загружаемые аватары хранятся в S3-совместимом RustFS. Сессия передаётся в cookie session_id.
+    JSON-ответы имеют Content-Type application/json; charset=utf-8. Неожиданные ошибки возвращают
+    безопасное сообщение internal server error; технические подробности остаются в логах.
 servers:
   - url: http://localhost:8080
 tags:
@@ -14,9 +17,11 @@ tags:
   - name: Подборки
   - name: Рейтинги
   - name: Отзывы
+  - name: Персоны
+  - name: Файлы
 security: []
 x-cors:
-  allowed-origin: http://localhost:3000
+  allowed-origin: http://localhost:8000
   allow-credentials: true
   allow-methods:
     - GET
@@ -28,7 +33,8 @@ x-cors:
     - Content-Type
   description: |-
     Разрешённый Origin берётся из server.allowed_origin в configs/config.yaml
-    (по умолчанию http://localhost:3000). Сравнение строгое: localhost и 127.0.0.1 — разные Origin.
+    (в текущем файле http://localhost:8000; значение по умолчанию в коде http://localhost:3000).
+    Сравнение строгое: localhost и 127.0.0.1 — разные Origin.
     Если Origin совпал, сервер добавляет Access-Control-Allow-Origin,
     Access-Control-Allow-Credentials: true и Vary: Origin.
     OPTIONS всегда возвращает 204 до роутера, даже для неизвестного пути или другого Origin.
@@ -39,6 +45,173 @@ x-rate-limits:
   description: |-
     Лимитов запросов пока нет. Сервер не возвращает 429 и Retry-After.
 paths:
+  /api/me/avatar:
+    get:
+      tags:
+        - Файлы
+      operationId: getMyAvatarURL
+      summary: Получить ссылку на свою текущую аватарку
+      description: |-
+        Идентификатор аккаунта берётся из сессии. Текущий ключ файла читается из PostgreSQL,
+        затем создаётся подписанная ссылка. Срок ссылки задаётся в s3.avatar_url_lifetime.
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Временная ссылка на текущую аватарку.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+              example: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AvatarURLResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/AvatarNotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    put:
+      tags:
+        - Файлы
+      operationId: updateMyAvatar
+      summary: Обновить свою аватарку
+      description: |-
+        Принимает один JPEG или PNG в multipart-поле avatar. Использует ID пользователя из сессии.
+        Загружает новый файл в RustFS и заменяет привязку аватарки в PostgreSQL.
+        Если аватарка ещё не назначена, устанавливает её. Возвращает 200 и новое имя файла.
+        Ограничения совпадают с POST /api/avatars. Старый объект и его метаданные сохраняются.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - avatar
+              properties:
+                avatar:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Новая аватарка назначена текущему пользователю.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadAvatarResponse'
+        '400':
+          $ref: '#/components/responses/InvalidAvatarUpload'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '413':
+          $ref: '#/components/responses/AvatarTooLarge'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      tags:
+        - Файлы
+      operationId: deleteMyAvatar
+      summary: Удалить свою аватарку
+      description: |-
+        Убирает привязку аватарки у пользователя из сессии. Повторное удаление возвращает 204.
+        Физический файл в S3 и его метаданные сохраняются. Фоновая очистка не реализована.
+      security:
+        - sessionCookie: []
+      responses:
+        '204':
+          description: Привязка удалена или аватарка уже отсутствовала. Тело ответа пустое.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/avatars/{filename}:
+    get:
+      tags:
+        - Файлы
+      operationId: getAvatarURL
+      summary: Получить ссылку на аватар
+      description: |-
+        Проверяет существование файла и возвращает подписанную ссылку на чтение, действующую 15 минут.
+        Принимает имя, полученное при загрузке аватара. Доступно без сессии.
+      security: []
+      parameters:
+        - name: filename
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[0-9a-f]{32}\.(jpg|png)$'
+      responses:
+        '200':
+          description: Временная ссылка на файл.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+              example: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AvatarURLResponse'
+        '400':
+          $ref: '#/components/responses/InvalidAvatarFilename'
+        '404':
+          $ref: '#/components/responses/AvatarNotFound'
+        '405':
+          $ref: '#/components/responses/RouteMethodNotAllowed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/avatars:
+    post:
+      tags:
+        - Файлы
+      operationId: uploadAvatar
+      summary: Загрузить аватар
+      description: |-
+        Требует действующую сессию. Принимает один файл в поле avatar.
+        Разрешены JPEG и PNG размером до 5 МиБ и не более 4096 пикселей на сторону.
+        Лимит всего multipart-запроса — 6 МиБ с учётом служебных данных.
+        Повреждённые изображения отклоняются, исходное имя заменяется случайным именем.
+        Другая учётная запись не может быть выбрана полем запроса: используется только ID из сессии.
+        Возвращает сгенерированное имя сохранённого файла и назначает его аватаром текущего пользователя.
+        ID пользователя берётся из сессии. Данные файла и связь с аккаунтом сохраняются в PostgreSQL.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - avatar
+              properties:
+                avatar:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Файл сохранён.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadAvatarResponse'
+        '400':
+          $ref: '#/components/responses/InvalidAvatarUpload'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '413':
+          $ref: '#/components/responses/AvatarTooLarge'
+        '405':
+          $ref: '#/components/responses/RouteMethodNotAllowed'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /api/register:
     post:
       tags:
@@ -47,8 +220,9 @@ paths:
       summary: Регистрация
       description: |-
         Создаёт пользователя и сразу открывает сессию. Подтверждать почту не нужно.
-        Порядок проверок: email, username, password, затем уникальность email.
-        Неизвестные JSON-поля игнорируются. Content-Type не проверяется.
+        Проверяются пароль, email, имя пользователя, затем ограничения уникальности в БД.
+        Тело — один JSON-объект до 1 МиБ. Неизвестные поля, null и лишние значения запрещены.
+        Content-Type запроса отдельно не проверяется. Новому пользователю назначается роль reader.
         Пользователь в ответе нужен фронтенду, чтобы сразу показать имя без отдельного запроса.
       x-implementation-status: implemented
       security: []
@@ -73,7 +247,7 @@ paths:
         '405':
           $ref: '#/components/responses/RouteMethodNotAllowed'
         '409':
-          $ref: '#/components/responses/EmailConflict'
+          $ref: '#/components/responses/AccountConflict'
         '500':
           $ref: '#/components/responses/InternalError'
   /api/login:
@@ -86,7 +260,7 @@ paths:
         Проверяет формат email, непустой пароль и bcrypt-хеш. Каждый вход создаёт новую сессию,
         старые сессии пользователя остаются действующими.
         Для неизвестной почты и неверного пароля ответ одинаковый: 401.
-        Неизвестные поля игнорируются.
+        Тело — один JSON-объект до 1 МиБ. Неизвестные поля, null и лишние значения запрещены.
       x-implementation-status: implemented
       security: []
       requestBody:
@@ -154,6 +328,8 @@ paths:
         Возвращает 200 и данные пользователя, если cookie session_id содержит действующую сессию,
         и 401, если пользователь не авторизован. Нужна фронтенду, чтобы при загрузке страницы
         понять, вошёл ли пользователь. Запрос отправляется с credentials: include.
+        Если аватар назначен, user.avatar_filename содержит имя файла. Поле отсутствует без аватара.
+        Актуальную временную ссылку на изображение получают через GET /api/avatars/{filename}.
       x-implementation-status: implemented
       security:
         - sessionCookie: []
@@ -631,6 +807,151 @@ paths:
           $ref: '#/components/responses/RouteMethodNotAllowed'
         '500':
           $ref: '#/components/responses/InternalError'
+  /api/persons:
+    get:
+      tags:
+        - Персоны
+      operationId: listPersons
+      summary: Получить список персон
+      description: Возвращает страницу персон по возрастанию ID. Доступно без сессии.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: Страница персон. Пустой список возвращается как [], не null.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonsResponse'
+        '400':
+          $ref: '#/components/responses/InvalidPersonsRequest'
+        '405':
+          $ref: '#/components/responses/RouteMethodNotAllowed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags:
+        - Персоны
+      operationId: createPerson
+      summary: Создать персону
+      description: |-
+        Доступно пользователям с действующей сессией и ролью admin или editor.
+        Принимает один JSON-объект размером до 1 МиБ, неизвестные поля запрещены.
+        Возвращает только ID созданной персоны. Карточка доступна через GET /api/persons/{id}.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PersonInput'
+      responses:
+        '201':
+          description: Персона создана.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreatePersonResponse'
+        '400':
+          $ref: '#/components/responses/InvalidPersonInput'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/CatalogForbidden'
+        '405':
+          $ref: '#/components/responses/RouteMethodNotAllowed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/persons/{id}:
+    parameters:
+      - $ref: '#/components/parameters/PersonID'
+    get:
+      tags:
+        - Персоны
+      operationId: getPerson
+      summary: Получить карточку персоны
+      security: []
+      responses:
+        '200':
+          description: Карточка персоны.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonResponse'
+        '400':
+          $ref: '#/components/responses/InvalidPersonID'
+        '404':
+          $ref: '#/components/responses/PersonNotFound'
+        '405':
+          $ref: '#/components/responses/RouteMethodNotAllowed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    put:
+      tags:
+        - Персоны
+      operationId: updatePerson
+      summary: Изменить персону
+      description: |-
+        Доступно пользователям с действующей сессией и ролью admin или editor.
+        Полностью задаёт редактируемые поля: first_name и last_name обязательны.
+        Отсутствующая, пустая или null-дата birth_date очищает дату рождения.
+        Неизвестные JSON-поля и дополнительные значения после первого объекта запрещены.
+        Возвращает обновлённую карточку персоны.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PersonInput'
+      responses:
+        '200':
+          description: Обновлённая карточка персоны.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonResponse'
+        '400':
+          $ref: '#/components/responses/InvalidPersonInput'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/CatalogForbidden'
+        '404':
+          $ref: '#/components/responses/PersonNotFound'
+        '405':
+          $ref: '#/components/responses/RouteMethodNotAllowed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      tags:
+        - Персоны
+      operationId: deletePerson
+      summary: Удалить персону
+      description: |-
+        Доступно пользователям с действующей сессией и ролью admin или editor.
+        Выполняет физическое удаление. Повторное удаление отсутствующей персоны возвращает 404.
+      security:
+        - sessionCookie: []
+      responses:
+        '204':
+          description: Персона удалена. Тело ответа отсутствует.
+        '400':
+          $ref: '#/components/responses/InvalidPersonID'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/CatalogForbidden'
+        '404':
+          $ref: '#/components/responses/PersonNotFound'
+        '405':
+          $ref: '#/components/responses/RouteMethodNotAllowed'
+        '500':
+          $ref: '#/components/responses/InternalError'
 components:
   securitySchemes:
     sessionCookie:
@@ -650,6 +971,15 @@ components:
       example: session_id=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa; Path=/;
         Expires=Fri, 02 Oct 2026 09:00:00 GMT; HttpOnly; SameSite=Lax
   parameters:
+    PersonID:
+      name: id
+      in: path
+      required: true
+      description: Положительный числовой ID персоны.
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
     Limit:
       name: limit
       in: query
@@ -670,8 +1000,139 @@ components:
         minimum: 0
         default: 0
   schemas:
+    PersonInput:
+      type: object
+      additionalProperties: false
+      required:
+        - first_name
+        - last_name
+      properties:
+        first_name:
+          type: string
+          minLength: 1
+          maxLength: 128
+          description: Имя. Пробелы по краям обрезаются, длина считается в символах.
+        last_name:
+          type: string
+          minLength: 1
+          maxLength: 128
+          description: Фамилия. Пробелы по краям обрезаются, длина считается в символах.
+        birth_date:
+          type: string
+          nullable: true
+          description: |-
+            Необязательная дата в формате YYYY-MM-DD, например 1990-01-02.
+            Отсутствующее поле, null или пустая строка означают отсутствие даты.
+            Текущая реализация принимает дату строго после 1800-01-01 и не в будущем.
+      example:
+        first_name: Анна
+        last_name: Иванова
+        birth_date: '1990-01-02'
+    Person:
+      type: object
+      required:
+        - id
+        - first_name
+        - last_name
+        - birth_date
+        - photo_id
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+        first_name:
+          type: string
+        last_name:
+          type: string
+        birth_date:
+          type: string
+          format: date-time
+          nullable: true
+          description: В ответе дата сериализуется как time.Time, включая время и часовой пояс.
+        photo_id:
+          type: string
+          nullable: true
+          description: Несмотря на имя поля, содержит адрес фотографии (внешний или /static/...), а не числовой ID.
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      example:
+        id: 123
+        first_name: Анна
+        last_name: Иванова
+        birth_date: '1990-01-02T00:00:00Z'
+        photo_id: null
+        created_at: '2026-11-05T12:00:00Z'
+        updated_at: '2026-11-05T12:00:00Z'
+    CreatePersonResponse:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+      example:
+        id: 123
+    PersonResponse:
+      type: object
+      required:
+        - person
+      properties:
+        person:
+          $ref: '#/components/schemas/Person'
+    PersonsResponse:
+      type: object
+      required:
+        - persons
+        - total
+        - limit
+        - offset
+      properties:
+        persons:
+          type: array
+          items:
+            $ref: '#/components/schemas/Person'
+        total:
+          type: integer
+          minimum: 0
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100
+        offset:
+          type: integer
+          minimum: 0
+    UploadAvatarResponse:
+      type: object
+      required:
+        - filename
+      properties:
+        filename:
+          type: string
+          pattern: '^[0-9a-f]{32}\.(jpg|png)$'
+          description: Имя сохранённого аватара, совпадает с avatar_filename в профиле.
+      example:
+        filename: 8c6c028589154f0a8d2bc0a0a31cd084.png
+    AvatarURLResponse:
+      type: object
+      required:
+        - url
+      properties:
+        url:
+          type: string
+          format: uri
+          description: Подписанная ссылка на чтение объекта из S3. Действует 15 минут.
     Registration:
       type: object
+      additionalProperties: false
       properties:
         email:
           type: string
@@ -679,19 +1140,19 @@ components:
             исходная строка.
         username:
           type: string
-          description: От 2 до 32 Unicode-символов после удаления пробелов по краям. Сохраняется исходная
-            строка.
+          description: От 2 до 32 символов после обрезки пробелов по краям. Допускаются Unicode-буквы, ASCII-цифры, пробельные символы, дефис и подчёркивание.
           x-trimmed-min-length: 2
           x-trimmed-max-length: 32
         password:
           type: string
           writeOnly: true
           description: |-
-            Минимум 8 байт UTF-8, одна заглавная буква и одна цифра по Unicode-классам.
-            Пароль не меняется. Если он прошёл валидацию, но длиннее 72 байт, bcrypt вернёт
-            ошибку и сервер ответит 500.
-          x-min-utf8-bytes: 8
-          x-bcrypt-max-utf8-bytes: 72
+            От 8 до 32 символов. Только латинские буквы, цифры и разрешённые спецсимволы.
+            Обязательны хотя бы одна заглавная латинская буква и одна цифра.
+            Пробелы и Unicode-символы не допускаются, пароль не обрезается.
+          minLength: 8
+          maxLength: 32
+          x-allowed-special-characters: '!@#$%^&*()-_=+[]{};:,.?/'
       required:
         - email
         - username
@@ -702,6 +1163,7 @@ components:
         password: Password1
     Credentials:
       type: object
+      additionalProperties: false
       properties:
         email:
           type: string
@@ -726,6 +1188,9 @@ components:
           type: string
         username:
           type: string
+        avatar_filename:
+          type: string
+          description: Имя текущего аватара. Отсутствует, если аватар не назначен. Для получения ссылки используется GET /api/avatars/{filename}.
       required:
         - id
         - email
@@ -1267,14 +1732,19 @@ components:
             $ref: '#/components/schemas/Error'
           example:
             error: invalid email or password
-    EmailConflict:
-      description: Эта строка email уже зарегистрирована.
+    AccountConflict:
+      description: Email или имя пользователя уже заняты.
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
-          example:
-            error: user with this email already exists
+          examples:
+            emailTaken:
+              value:
+                error: user with this email already exists
+            usernameTaken:
+              value:
+                error: user with this username already exists
     InternalError:
       description: Ошибка сервера. Подробности клиенту не отдаются, они пишутся в журнал сервера.
       content:
@@ -1460,3 +1930,75 @@ components:
             $ref: '#/components/schemas/Error'
           example:
             error: review already exists
+    InvalidPersonsRequest:
+      description: Некорректная пагинация списка персон. limit от 1 до 100, offset неотрицательный.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: 'invalid limit'
+    InvalidPersonID:
+      description: ID персоны не является положительным целым числом.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: 'invalid person ID'
+    InvalidPersonInput:
+      description: Некорректный JSON, ID, имя, фамилия или дата рождения. Превышение лимита JSON-тела также возвращает 400.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: 'first_name is invalid: too short, minimum 1 characters'
+    CatalogForbidden:
+      description: Роль пользователя не разрешает изменение каталога. Доступ имеют admin и editor.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: 'forbidden'
+    PersonNotFound:
+      description: Персона с таким ID не найдена.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: 'person not found'
+    InvalidAvatarFilename:
+      description: Некорректное имя аватара. Требуются 32 строчные hex-цифры и расширение .jpg или .png.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: 'invalid avatar filename'
+    AvatarNotFound:
+      description: Объект аватара отсутствует в S3.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: 'file not found'
+    InvalidAvatarUpload:
+      description: Нет единственного файла avatar, неверен multipart или нарушены требования к изображению.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: 'avatar must be a valid JPEG or PNG image'
+    AvatarTooLarge:
+      description: Файл больше 5 МиБ либо multipart-запрос больше 6 МиБ.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: 'avatar file is too large'

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/logging"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 )
 
@@ -38,10 +39,9 @@ func (uc *ListFilmsUseCase) Run(ctx context.Context, input ListFilmsInput) (*Lis
 
 	films, total, err := uc.repository.ListFilms(ctx, input.Limit, input.Offset)
 	if err != nil {
-		uc.logger.Error("list films failed", map[string]any{
+		logging.Failure(uc.logger, "list films failed", err, map[string]any{
 			"limit":  input.Limit,
 			"offset": input.Offset,
-			"error":  err,
 		})
 		return nil, fmt.Errorf("list films: %w", err)
 	}

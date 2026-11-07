@@ -5,14 +5,12 @@ package persons_test
 import (
 	"context"
 	"database/sql"
-	"io"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	personsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/persons"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/stretchr/testify/require"
 )
@@ -40,9 +38,7 @@ func TestPostgresPersonRepoUpdate(t *testing.T) {
 		_, err := db.ExecContext(ctx, query)
 		require.NoError(t, err)
 	}
-	appLogger, err := logger.NewLogger(io.Discard, logger.LogLevelInfo, "text")
-	require.NoError(t, err)
-	repo := personsservice.NewPersonRepo(db, appLogger)
+	repo := personsservice.NewPersonRepo(db)
 	birthDate := time.Date(1990, time.January, 2, 0, 0, 0, 0, time.UTC)
 	tests := []struct {
 		name    string

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net"
 	"os"
 	"strconv"
@@ -22,6 +23,18 @@ const (
 	EnvRedisURL    = "REDIS_URL"
 	EnvLogLevel    = "LOG_LEVEL"
 	EnvLogFormat   = "LOG_FORMAT"
+
+	EnvS3Endpoint       = "S3_ENDPOINT"
+	EnvS3PublicEndpoint = "S3_PUBLIC_ENDPOINT"
+	EnvS3Region         = "S3_REGION"
+	EnvS3Bucket         = "S3_BUCKET"
+	EnvS3AccessKey      = "RUSTFS_ACCESS_KEY"
+	EnvS3SecretKey      = "RUSTFS_SECRET_KEY"
+)
+
+const (
+	MinAvatarURLLifetime = time.Second
+	MaxAvatarURLLifetime = 7 * 24 * time.Hour
 )
 
 const (
@@ -48,6 +61,12 @@ const (
 
 	defaultLogLvl    = logger.LogLevelInfo
 	defaultLogFormat = "text"
+
+	defaultAvatarURLLifetime    = 15 * time.Minute
+	defaultMaxAvatarSize        = 5 << 20
+	defaultMaxAvatarDimension   = 4096
+	defaultBucketCheckTimeout   = 5 * time.Second
+	defaultAvatarCleanupTimeout = 5 * time.Second
 )
 
 type Config struct {
@@ -75,6 +94,20 @@ type Database struct {
 
 type Redis struct {
 	URL string `yaml:"url"`
+}
+
+type S3 struct {
+	Endpoint             string        `yaml:"endpoint"`
+	PublicEndpoint       string        `yaml:"public_endpoint"`
+	Region               string        `yaml:"region"`
+	Bucket               string        `yaml:"bucket"`
+	AccessKey            string        `yaml:"access_key"`
+	SecretKey            string        `yaml:"secret_key"`
+	AvatarURLLifetime    time.Duration `yaml:"avatar_url_lifetime"`
+	MaxAvatarSize        int64         `yaml:"max_avatar_size"`
+	MaxAvatarDimension   int           `yaml:"max_avatar_dimension"`
+	BucketCheckTimeout   time.Duration `yaml:"bucket_check_timeout"`
+	AvatarCleanupTimeout time.Duration `yaml:"avatar_cleanup_timeout"`
 }
 
 type LoggerConfig struct {
@@ -115,6 +148,16 @@ func DefaultRedis() *Redis {
 	return &Redis{URL: defaultRedisURL}
 }
 
+func DefaultS3() *S3 {
+	return &S3{
+		AvatarURLLifetime:    defaultAvatarURLLifetime,
+		MaxAvatarSize:        defaultMaxAvatarSize,
+		MaxAvatarDimension:   defaultMaxAvatarDimension,
+		BucketCheckTimeout:   defaultBucketCheckTimeout,
+		AvatarCleanupTimeout: defaultAvatarCleanupTimeout,
+	}
+}
+
 func DefaultLogger() *LoggerConfig {
 	return &LoggerConfig{
 		Level:  defaultLogLvl,
@@ -133,6 +176,10 @@ func LoadDatabase(path string) (*Database, error) {
 
 func LoadRedis(path string) (*Redis, error) {
 	return loadFile(path, "redis config", ParseRedis)
+}
+
+func LoadS3(path string) (*S3, error) {
+	return loadFile(path, "s3 config", ParseS3)
 }
 
 func LoadLogger(path string) (*LoggerConfig, error) {
@@ -181,6 +228,42 @@ func ParseRedis(raw []byte, lookupEnv func(string) (string, bool)) (*Redis, erro
 	if redisURL, ok := lookupEnv(EnvRedisURL); ok {
 		cfg.URL = redisURL
 	}
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+	return cfg, nil
+}
+
+func ParseS3(raw []byte, lookupEnv func(string) (string, bool)) (*S3, error) {
+	cfg := DefaultS3()
+
+	if err := decodeStrict(raw, cfg, "s3 config"); err != nil {
+		return nil, err
+	}
+
+	if s3Endpoint, ok := lookupEnv(EnvS3Endpoint); ok {
+		cfg.Endpoint = s3Endpoint
+	}
+	if publicEndpoint, ok := lookupEnv(EnvS3PublicEndpoint); ok {
+		cfg.PublicEndpoint = publicEndpoint
+	}
+
+	if region, ok := lookupEnv(EnvS3Region); ok {
+		cfg.Region = region
+	}
+
+	if bucket, ok := lookupEnv(EnvS3Bucket); ok {
+		cfg.Bucket = bucket
+	}
+
+	if accessKey, ok := lookupEnv(EnvS3AccessKey); ok {
+		cfg.AccessKey = accessKey
+	}
+
+	if secretKey, ok := lookupEnv(EnvS3SecretKey); ok {
+		cfg.SecretKey = secretKey
+	}
+
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
@@ -241,6 +324,45 @@ func (d *Database) Validate() error {
 func (r *Redis) Validate() error {
 	if strings.TrimSpace(r.URL) == "" {
 		return errors.New("redis.url is required")
+	}
+	return nil
+}
+
+func (s *S3) Validate() error {
+	if strings.TrimSpace(s.Endpoint) == "" {
+		return errors.New("s3.endpoint is required")
+	}
+
+	if strings.TrimSpace(s.Region) == "" {
+		return errors.New("s3.region is required")
+	}
+
+	if strings.TrimSpace(s.Bucket) == "" {
+		return errors.New("s3.bucket is required")
+	}
+
+	if strings.TrimSpace(s.AccessKey) == "" {
+		return errors.New("s3.access_key is required")
+	}
+
+	if strings.TrimSpace(s.SecretKey) == "" {
+		return errors.New("s3.secret_key is required")
+	}
+
+	if s.AvatarURLLifetime < MinAvatarURLLifetime || s.AvatarURLLifetime > MaxAvatarURLLifetime {
+		return errors.New("s3.avatar_url_lifetime must be between 1s and 168h")
+	}
+	if s.MaxAvatarSize <= 0 || s.MaxAvatarSize > math.MaxInt64-(1<<20) {
+		return errors.New("s3.max_avatar_size must be positive and leave room for multipart overhead")
+	}
+	if s.MaxAvatarDimension <= 0 {
+		return errors.New("s3.max_avatar_dimension must be positive")
+	}
+	if s.BucketCheckTimeout <= 0 {
+		return errors.New("s3.bucket_check_timeout must be positive")
+	}
+	if s.AvatarCleanupTimeout <= 0 {
+		return errors.New("s3.avatar_cleanup_timeout must be positive")
 	}
 	return nil
 }

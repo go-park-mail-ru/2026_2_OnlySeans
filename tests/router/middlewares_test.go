@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
+	filesdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/files"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/films"
 	personsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/persons"
 	ratingsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/ratings"
@@ -22,6 +23,7 @@ import (
 	ratingsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/ratings"
 	reviewsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/reviews"
 	authusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/auth"
+	filesusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/files"
 	filmsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/films"
 	personusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/persons"
 	ratingsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/ratings"
@@ -40,8 +42,13 @@ func newTestRouter(t *testing.T) http.Handler {
 
 func newTestRouterWithLogger(t *testing.T, appLogger logger.Logger) http.Handler {
 	t.Helper()
+	return newTestRouterWithAvatarStorage(t, appLogger, &routerAvatarStorage{})
+}
 
-	authHandler := newTestAuthHandler(t, appLogger)
+func newTestRouterWithAvatarStorage(t *testing.T, appLogger logger.Logger, storage filesusecase.AvatarStorage) http.Handler {
+	t.Helper()
+
+	authHandler, users := newTestAuthHandlerWithUsers(t, appLogger)
 
 	filmsRepo, err := filmsservice.NewSeededService()
 	require.NoError(t, err)
@@ -78,17 +85,51 @@ func newTestRouterWithLogger(t *testing.T, appLogger logger.Logger) http.Handler
 	}, appLogger)
 	require.NoError(t, err)
 
-	handler, err := router.NewRouter(
-		authHandler,
-		filmsHandler,
-		newTestReviewsHandler(t, filmsRepo, appLogger),
-		newTestPersonsHandler(t, appLogger),
-		newTestRatingsHandler(t, filmsRepo, appLogger),
-		[]string{testOrigin},
-		appLogger,
-	)
-	require.NoError(t, err)
-	return handler
+	uploadAvatar, err := filesusecase.NewUploadAvatarUseCase(
+      storage,
+      users,
+      filesusecase.UploadAvatarOptions{
+        MaxSize:        5 << 20,
+        MaxDimension:   4096,
+        CleanupTimeout: 5 * time.Second,
+      },
+      appLogger,
+    )
+    require.NoError(t, err)
+
+    getAvatarURL, err := filesusecase.NewGetAvatarURLUseCase(
+      &routerAvatarURLStorage{},
+      appLogger,
+    )
+    require.NoError(t, err)
+
+    accountAvatar, err := filesusecase.NewAccountAvatarUseCase(
+      users,
+      &routerAvatarURLStorage{},
+      appLogger,
+    )
+    require.NoError(t, err)
+
+    filesHandler, err := filesdelivery.NewHandler(
+      uploadAvatar,
+      getAvatarURL,
+      accountAvatar,
+      appLogger,
+    )
+    require.NoError(t, err)
+
+    handler, err := router.NewRouter(
+      authHandler,
+      filmsHandler,
+      newTestReviewsHandler(t, filmsRepo, appLogger),
+      newTestPersonsHandler(t, appLogger),
+      filesHandler,
+      newTestRatingsHandler(t, filmsRepo, appLogger),
+      []string{testOrigin},
+      appLogger,
+    )
+    require.NoError(t, err)
+    return handler
 }
 
 func TestFilmRatingRoutes(t *testing.T) {
@@ -142,6 +183,12 @@ func newTestRatingsHandler(t *testing.T, films domain.FilmsRepository, appLogger
 
 func newTestAuthHandler(t *testing.T, appLogger logger.Logger) *auth.Handler {
 	t.Helper()
+	handler, _ := newTestAuthHandlerWithUsers(t, appLogger)
+	return handler
+}
+
+func newTestAuthHandlerWithUsers(t *testing.T, appLogger logger.Logger) (*auth.Handler, *authservice.InMemoryUserRepo) {
+	t.Helper()
 
 	users := authservice.NewInMemoryUserRepo()
 	sessions := authservice.NewInMemorySessionStore(time.Hour)
@@ -171,7 +218,7 @@ func newTestAuthHandler(t *testing.T, appLogger logger.Logger) *auth.Handler {
 	}, appLogger)
 	require.NoError(t, err)
 
-	return handler
+	return handler, users
 }
 
 func newTestReviewsHandler(t *testing.T, films domain.FilmRepository, appLogger logger.Logger) *reviewsdelivery.Handler {

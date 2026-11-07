@@ -10,7 +10,6 @@ import (
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/storage"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 )
 
 const (
@@ -24,7 +23,8 @@ const (
 	// Вход
 	getUserByEmailQuery = `
 		SELECT id, email, username, password_hash,
- (SELECT code FROM role WHERE role.id = account.role_id) AS role_code
+ (SELECT code FROM role WHERE role.id = account.role_id) AS role_code,
+ (SELECT storage_key FROM file WHERE file.id = account.avatar_file_id) AS avatar_filename
 		FROM account
 		WHERE email = $1 AND deleted_at IS NULL
 	`
@@ -32,21 +32,20 @@ const (
 	// Авторизация
 	getUserByIDQuery = `
 		SELECT id, email, username, password_hash,
- (SELECT code FROM role WHERE role.id = account.role_id) AS role_code
+ (SELECT code FROM role WHERE role.id = account.role_id) AS role_code,
+ (SELECT storage_key FROM file WHERE file.id = account.avatar_file_id) AS avatar_filename
 		FROM account
 		WHERE id = $1 AND deleted_at IS NULL
 	`
 )
 
 type PostgresUserRepo struct {
-	db        *sql.DB
-	appLogger logger.Logger
+	db *sql.DB
 }
 
-func NewPostgresUserRepo(db *sql.DB, appLogger logger.Logger) domain.UserRepository {
+func NewPostgresUserRepo(db *sql.DB) domain.UserRepository {
 	return &PostgresUserRepo{
-		db:        db,
-		appLogger: appLogger,
+		db: db,
 	}
 }
 
@@ -55,17 +54,13 @@ func (r *PostgresUserRepo) GetUser(ctx context.Context, id domain.UserID) (*doma
 	var user domain.User
 
 	err := r.db.QueryRowContext(ctx, getUserByIDQuery, id).
-		Scan(&user.ID, &user.Email, &user.Username, &user.PasswordHash, &user.Role)
+		Scan(&user.ID, &user.Email, &user.Username, &user.PasswordHash, &user.Role, &user.AvatarFilename)
 
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, domain.ErrUserNotFound
 	}
 
 	if err != nil {
-		r.appLogger.Error("postgres get user failed", map[string]any{
-			"user_id": id,
-			"error":   err,
-		})
 		return nil, fmt.Errorf("get user %d: %w", id, err)
 	}
 
@@ -77,16 +72,13 @@ func (r *PostgresUserRepo) GetByEmail(ctx context.Context, email string) (*domai
 	var user domain.User
 
 	err := r.db.QueryRowContext(ctx, getUserByEmailQuery, email).
-		Scan(&user.ID, &user.Email, &user.Username, &user.PasswordHash, &user.Role)
+		Scan(&user.ID, &user.Email, &user.Username, &user.PasswordHash, &user.Role, &user.AvatarFilename)
 
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, domain.ErrUserNotFound
 	}
 
 	if err != nil {
-		r.appLogger.Error("postgres get user by email failed", map[string]any{
-			"error": err,
-		})
 		return nil, fmt.Errorf("get user by email: %w", err)
 	}
 
@@ -109,10 +101,6 @@ func (r *PostgresUserRepo) Create(ctx context.Context, email, username, password
 		}
 		return 0, domain.ErrUserExists
 	}
-
-	r.appLogger.Error("postgres create user failed", map[string]any{
-		"error": err,
-	})
 
 	return 0, fmt.Errorf("create user: %w", err)
 }

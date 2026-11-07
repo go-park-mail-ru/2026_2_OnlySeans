@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 )
 
 const MaxBodyBytes = 1 << 20
@@ -40,4 +42,17 @@ func DecodeJSON(w http.ResponseWriter, r *http.Request, destination any) error {
 	}
 
 	return nil
+}
+
+func LogRejected(appLogger logger.Logger, r *http.Request, field string, err error) {
+	reason := err.Error()
+	if errors.Is(err, ErrInvalidBody) {
+		reason = ErrInvalidBody.Error()
+	}
+	appLogger.Warn("request rejected", map[string]any{
+		"method": r.Method,
+		"path":   r.URL.Path,
+		"field":  field,
+		"reason": reason,
+	})
 }

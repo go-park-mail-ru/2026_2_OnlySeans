@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/logging"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 )
 
@@ -39,17 +40,13 @@ func (uc *AuthenticateUserUseCase) Run(ctx context.Context, input AuthenticateIn
 			return nil, domain.ErrUnauthorized
 		}
 
-		uc.logger.Error("get session failed", map[string]any{
-			"error": err,
-		})
+		logging.Failure(uc.logger, "get session failed", err, map[string]any{})
 		return nil, fmt.Errorf("get session: %w", err)
 	}
 
 	if session == nil {
 		err := fmt.Errorf("store returned nil session")
-		uc.logger.Error("get session failed", map[string]any{
-			"error": err,
-		})
+		logging.Failure(uc.logger, "get session failed", err, map[string]any{})
 		return nil, fmt.Errorf("get session: %w", err)
 	}
 

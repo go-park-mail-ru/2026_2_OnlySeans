@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/logging"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 )
 
@@ -37,9 +38,8 @@ func (uc *GetFilmUseCase) Run(ctx context.Context, input GetFilmInput) (*GetFilm
 
 	film, err := uc.repository.GetFilmByID(ctx, input.FilmID)
 	if err != nil {
-		uc.logger.Error("get film failed", map[string]any{
+		logging.Failure(uc.logger, "get film failed", err, map[string]any{
 			"film_id": input.FilmID,
-			"error":   err,
 		})
 		return nil, fmt.Errorf("get film %d: %w", input.FilmID, err)
 	}

@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/logging"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 )
 
@@ -30,9 +31,7 @@ func (uc *LogoutUserUseCase) Run(ctx context.Context, input LogoutInput) error {
 	uc.logger.Debug("logout started", nil)
 
 	if err := uc.sessions.Delete(ctx, input.SessionID); err != nil {
-		uc.logger.Error("session deletion failed", map[string]any{
-			"error": err,
-		})
+		logging.Failure(uc.logger, "session deletion failed", err, map[string]any{})
 
 		return fmt.Errorf("delete session: %w", err)
 	}

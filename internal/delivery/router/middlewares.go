@@ -188,27 +188,54 @@ type CatalogEditor interface {
 	CanEditPersons(context.Context, domain.UserID) (bool, error)
 }
 
-func RequireCatalogEditor(checker CatalogEditor) Middleware {
+func RequireCatalogEditor(checker CatalogEditor, appLogger logger.Logger) Middleware {
 	return func(next http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
 			userID, ok := auth.UserIDFromContext(r.Context())
 			if !ok {
+				appLogger.Warn(
+					"catalog modification rejected: missing user context",
+					map[string]any{
+						"method": r.Method,
+						"path":   r.URL.Path,
+					},
+				)
 				writeError(w, http.StatusUnauthorized, domain.ErrUnauthorized)
 				return
 			}
+
 			allowed, err := checker.CanEditPersons(r.Context(), userID)
 			if err != nil {
 				if errors.Is(err, domain.ErrUserNotFound) {
+					appLogger.Warn(
+						"catalog modification rejected: user not found",
+						map[string]any{
+							"user_id": userID,
+							"method":  r.Method,
+							"path":    r.URL.Path,
+						},
+					)
 					writeError(w, http.StatusUnauthorized, domain.ErrUnauthorized)
 					return
 				}
+
 				writeError(w, http.StatusInternalServerError, domain.ErrInternal)
 				return
 			}
+
 			if !allowed {
+				appLogger.Warn(
+					"catalog modification forbidden",
+					map[string]any{
+						"user_id": userID,
+						"method":  r.Method,
+						"path":    r.URL.Path,
+					},
+				)
 				writeError(w, http.StatusForbidden, domain.ErrForbidden)
 				return
 			}
+
 			next(w, r)
 		}
 	}

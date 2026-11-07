@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/logging"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/utils"
 )
@@ -64,40 +65,35 @@ func (uc *LoginUserUseCase) Run(ctx context.Context, input LoginUserInput) (*Log
 	user, err := uc.users.GetByEmail(ctx, input.Email)
 	if err != nil {
 		if errors.Is(err, domain.ErrUserNotFound) {
-			uc.logger.Warn("login rejected", nil)
+			uc.logger.Warn("login rejected", map[string]any{"reason": "invalid credentials"})
 			return nil, domain.ErrInvalidCredentials
 		}
 
-		uc.logger.Error("get user by email failed", map[string]any{
-			"error": err,
-		})
+		logging.Failure(uc.logger, "get user by email failed", err, map[string]any{})
 
 		return nil, fmt.Errorf("get user by email: %w", err)
 	}
 
 	if user == nil {
-		uc.logger.Warn("login rejected", nil)
+		uc.logger.Warn("login rejected", map[string]any{"reason": "invalid credentials"})
 		return nil, domain.ErrInvalidCredentials
 	}
 
 	if err := uc.verifier.Verify(input.Password, user.PasswordHash); err != nil {
 		if errors.Is(err, ErrPasswordMismatch) {
-			uc.logger.Warn("login rejected", nil)
+			uc.logger.Warn("login rejected", map[string]any{"reason": "invalid credentials"})
 			return nil, domain.ErrInvalidCredentials
 		}
 
-		uc.logger.Error("password verification failed", map[string]any{
-			"error": err,
-		})
+		logging.Failure(uc.logger, "password verification failed", err, map[string]any{})
 
 		return nil, fmt.Errorf("verify password: %w", err)
 	}
 
 	session, err := uc.sessions.Create(ctx, user.ID)
 	if err != nil {
-		uc.logger.Error("session creation failed", map[string]any{
+		logging.Failure(uc.logger, "session creation failed", err, map[string]any{
 			"user_id": user.ID,
-			"error":   err,
 		})
 		return nil, fmt.Errorf("create session: %w", err)
 	}
@@ -106,6 +102,8 @@ func (uc *LoginUserUseCase) Run(ctx context.Context, input LoginUserInput) (*Log
 		NewUserDTO(user.ID, user.Email, user.Username),
 		NewSessionDTO(session.ID, session.ExpiresAt),
 	)
+
+	output.User.AvatarFilename = user.AvatarFilename
 
 	uc.logger.Info("user logged in", map[string]any{
 		"user_id": user.ID,

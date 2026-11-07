@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 )
 
 const (
@@ -97,14 +96,12 @@ const (
 )
 
 type PostgresService struct {
-	db        *sql.DB
-	appLogger logger.Logger
+	db *sql.DB
 }
 
-func NewPostgresService(db *sql.DB, appLogger logger.Logger) domain.FilmsRepository {
+func NewPostgresService(db *sql.DB) domain.FilmsRepository {
 	return &PostgresService{
-		db:        db,
-		appLogger: appLogger,
+		db: db,
 	}
 }
 
@@ -147,9 +144,6 @@ func (s *PostgresService) attachGenres(ctx context.Context, films []domain.Film)
 
 	rows, err := s.db.QueryContext(ctx, filmGenresQuery, ids)
 	if err != nil {
-		s.appLogger.Error("postgres load genres failed", map[string]any{
-			"error": err,
-		})
 		return fmt.Errorf("load genres: %w", err)
 	}
 	defer rows.Close()
@@ -159,10 +153,6 @@ func (s *PostgresService) attachGenres(ctx context.Context, films []domain.Film)
 		var genre domain.Genre
 
 		if err := rows.Scan(&filmID, &genre.ID, &genre.Name, &genre.Slug); err != nil {
-			s.appLogger.Error("postgres scan genre failed", map[string]any{
-				"film_id": filmID,
-				"error":   err,
-			})
 			return fmt.Errorf("scan genre: %w", err)
 		}
 
@@ -171,9 +161,6 @@ func (s *PostgresService) attachGenres(ctx context.Context, films []domain.Film)
 	}
 
 	if err := rows.Err(); err != nil {
-		s.appLogger.Error("postgres load genres failed", map[string]any{
-			"error": err,
-		})
 		return fmt.Errorf("load genres: %w", err)
 	}
 
@@ -188,20 +175,12 @@ func (s *PostgresService) GetFilmByID(ctx context.Context, id domain.FilmID) (do
 	}
 
 	if err != nil {
-		s.appLogger.Error("postgres get film failed", map[string]any{
-			"film_id": id,
-			"error":   err,
-		})
 		return domain.Film{}, fmt.Errorf("get film %d: %w", id, err)
 	}
 
 	films := []domain.Film{film}
 
 	if err := s.attachGenres(ctx, films); err != nil {
-		s.appLogger.Error("postgres attach film genres failed", map[string]any{
-			"film_id": id,
-			"error":   err,
-		})
 		return domain.Film{}, err
 	}
 
@@ -265,19 +244,11 @@ func (s *PostgresService) ListFilms(ctx context.Context, limit, offset int) ([]d
 	var total int
 
 	if err := s.db.QueryRowContext(ctx, countFilmsQuery).Scan(&total); err != nil {
-		s.appLogger.Error("postgres count films failed", map[string]any{
-			"error": err,
-		})
 		return nil, 0, fmt.Errorf("count films: %w", err)
 	}
 
 	rows, err := s.db.QueryContext(ctx, listFilmsQuery, limit, offset)
 	if err != nil {
-		s.appLogger.Error("postgres list films failed", map[string]any{
-			"limit":  limit,
-			"offset": offset,
-			"error":  err,
-		})
 		return nil, 0, fmt.Errorf("list films: %w", err)
 	}
 	defer rows.Close()
@@ -287,9 +258,6 @@ func (s *PostgresService) ListFilms(ctx context.Context, limit, offset int) ([]d
 	for rows.Next() {
 		film, err := scanFilm(rows)
 		if err != nil {
-			s.appLogger.Error("postgres scan film failed", map[string]any{
-				"error": err,
-			})
 			return nil, 0, fmt.Errorf("scan film: %w", err)
 		}
 
@@ -297,16 +265,10 @@ func (s *PostgresService) ListFilms(ctx context.Context, limit, offset int) ([]d
 	}
 
 	if err := rows.Err(); err != nil {
-		s.appLogger.Error("postgres list films failed", map[string]any{
-			"error": err,
-		})
 		return nil, 0, fmt.Errorf("list films: %w", err)
 	}
 
 	if err := s.attachGenres(ctx, list); err != nil {
-		s.appLogger.Error("postgres attach film genres failed", map[string]any{
-			"error": err,
-		})
 		return nil, 0, err
 	}
 
@@ -335,10 +297,6 @@ func (s *PostgresService) GetCollectionByID(ctx context.Context, id domain.Colle
 	}
 
 	if err != nil {
-		s.appLogger.Error("postgres get collection failed", map[string]any{
-			"collection_id": id,
-			"error":         err,
-		})
 		return domain.Collection{}, fmt.Errorf("get collection %d: %w", id, err)
 	}
 
@@ -349,19 +307,11 @@ func (s *PostgresService) ListCollections(ctx context.Context, limit, offset int
 	var total int
 
 	if err := s.db.QueryRowContext(ctx, countCollectionsQuery).Scan(&total); err != nil {
-		s.appLogger.Error("postgres count collections failed", map[string]any{
-			"error": err,
-		})
 		return nil, 0, fmt.Errorf("count collections: %w", err)
 	}
 
 	rows, err := s.db.QueryContext(ctx, listCollectionsQuery, limit, offset)
 	if err != nil {
-		s.appLogger.Error("postgres list collections failed", map[string]any{
-			"limit":  limit,
-			"offset": offset,
-			"error":  err,
-		})
 		return nil, 0, fmt.Errorf("list collections: %w", err)
 	}
 	defer rows.Close()
@@ -371,9 +321,6 @@ func (s *PostgresService) ListCollections(ctx context.Context, limit, offset int
 	for rows.Next() {
 		collection, err := scanCollection(rows)
 		if err != nil {
-			s.appLogger.Error("postgres scan collection failed", map[string]any{
-				"error": err,
-			})
 			return nil, 0, fmt.Errorf("scan collection: %w", err)
 		}
 
@@ -381,9 +328,6 @@ func (s *PostgresService) ListCollections(ctx context.Context, limit, offset int
 	}
 
 	if err := rows.Err(); err != nil {
-		s.appLogger.Error("postgres list collections failed", map[string]any{
-			"error": err,
-		})
 		return nil, 0, fmt.Errorf("list collection: %w", err)
 	}
 
@@ -398,21 +342,11 @@ func (s *PostgresService) ListCollectionFilms(ctx context.Context, collectionID 
 	var total int
 
 	if err := s.db.QueryRowContext(ctx, countCollectionFilmsQuery, collectionID).Scan(&total); err != nil {
-		s.appLogger.Error("postgres count collection films failed", map[string]any{
-			"collection_id": collectionID,
-			"error":         err,
-		})
 		return nil, 0, fmt.Errorf("count collection films: %w", err)
 	}
 
 	rows, err := s.db.QueryContext(ctx, listCollectionFilmsQuery, collectionID, limit, offset)
 	if err != nil {
-		s.appLogger.Error("postgres list collection films failed", map[string]any{
-			"collection_id": collectionID,
-			"limit":         limit,
-			"offset":        offset,
-			"error":         err,
-		})
 		return nil, 0, fmt.Errorf("list collection films: %w", err)
 	}
 	defer rows.Close()
@@ -422,10 +356,6 @@ func (s *PostgresService) ListCollectionFilms(ctx context.Context, collectionID 
 	for rows.Next() {
 		film, err := scanFilm(rows)
 		if err != nil {
-			s.appLogger.Error("postgres scan collection film failed", map[string]any{
-				"collection_id": collectionID,
-				"error":         err,
-			})
 			return nil, 0, fmt.Errorf("scan film: %w", err)
 		}
 
@@ -433,18 +363,10 @@ func (s *PostgresService) ListCollectionFilms(ctx context.Context, collectionID 
 	}
 
 	if err := rows.Err(); err != nil {
-		s.appLogger.Error("postgres list collection films failed", map[string]any{
-			"collection_id": collectionID,
-			"error":         err,
-		})
 		return nil, 0, fmt.Errorf("list collection films: %w", err)
 	}
 
 	if err := s.attachGenres(ctx, list); err != nil {
-		s.appLogger.Error("postgres attach collection film genres failed", map[string]any{
-			"collection_id": collectionID,
-			"error":         err,
-		})
 		return nil, 0, err
 	}
 

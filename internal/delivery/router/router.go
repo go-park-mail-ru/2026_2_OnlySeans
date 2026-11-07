@@ -6,12 +6,12 @@ import (
 	"github.com/gorilla/mux"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/files"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/films"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/persons"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/ratings"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/reviews"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
-	staticassets "github.com/go-park-mail-ru/2026_2_OnlySeans/static"
 )
 
 func NewRouter(
@@ -19,6 +19,7 @@ func NewRouter(
 	filmsHandler *films.Handler,
 	reviewsHandler *reviews.Handler,
 	personsHandler *persons.Handler,
+  filesHandler *files.Handler,
 	ratingsHandler *ratings.Handler,
 	allowedOrigins []string,
 	appLogger logger.Logger,
@@ -26,15 +27,16 @@ func NewRouter(
 	r := mux.NewRouter()
 	authenticatedMiddlewares := []Middleware{RequireAuth(authHandler)}
 	adminMiddlewares := []Middleware{RequireAuth(authHandler), authHandler.RequireAdmin}
-	catalogEditorMiddlewares := []Middleware{RequireAuth(authHandler), RequireCatalogEditor(authHandler)}
-
-	r.PathPrefix("/static/").Handler(
-		http.StripPrefix("/static", http.FileServer(http.FS(staticassets.Files))),
-	)
+	catalogEditorMiddlewares := []Middleware{RequireAuth(authHandler), RequireCatalogEditor(authHandler, appLogger)}
 
 	r.HandleFunc("/api/register", authHandler.Register).Methods(http.MethodPost)
 	r.HandleFunc("/api/login", authHandler.Login).Methods(http.MethodPost)
 	r.HandleFunc("/api/logout", WrapMiddlewares(authHandler.Logout, authenticatedMiddlewares)).Methods(http.MethodPost)
+  r.HandleFunc("/api/me/avatar", WrapMiddlewares(filesHandler.GetMyAvatarURL, authenticatedMiddlewares)).Methods(http.MethodGet)
+  r.HandleFunc("/api/me/avatar", WrapMiddlewares(filesHandler.UpdateMyAvatar, authenticatedMiddlewares)).Methods(http.MethodPut)
+  r.HandleFunc("/api/me/avatar", WrapMiddlewares(filesHandler.DeleteMyAvatar, authenticatedMiddlewares)).Methods(http.MethodDelete)
+  r.HandleFunc("/api/avatars", WrapMiddlewares(filesHandler.UploadAvatar, authenticatedMiddlewares)).Methods(http.MethodPost)
+  r.HandleFunc("/api/avatars/{filename}", filesHandler.GetAvatarURL).Methods(http.MethodGet)
 
 	r.HandleFunc("/api/films", filmsHandler.ListFilms).Methods(http.MethodGet)
 	r.HandleFunc("/api/films/{id}", filmsHandler.GetFilm).Methods(http.MethodGet)

@@ -31,6 +31,27 @@ services:
       retries: 5
     restart: always
 
+  rustfs:
+    image: rustfs/rustfs:1.0.4
+    container_name: rustfs
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY}
+      RUSTFS_CONSOLE_ENABLE: "true"
+    command: ["/data"]
+    volumes:
+      - rustfs-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
   backend:
     image: onlyseans_backend
     build:
@@ -40,6 +61,15 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      rustfs:
+        condition: service_healthy
+    environment:
+      S3_ENDPOINT: "http://rustfs:9000"
+      S3_PUBLIC_ENDPOINT: "http://localhost:9000"
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY}
+      DATABASE_URL: "postgres://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}?sslmode=disable"
+      REDIS_URL: "redis://redis:6379"
     ports:
       - "8080:8080"
     volumes:
@@ -49,3 +79,4 @@ services:
 volumes:
   db_data:
   redis_data:
+  rustfs-data:

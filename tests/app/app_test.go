@@ -3,6 +3,8 @@ package app_test
 import (
 	"fmt"
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
@@ -37,28 +39,41 @@ func writeConfig(t *testing.T, name, raw string) string {
 	return path
 }
 
-// пути к четырём конфигам, которые принимает Run
+// пути к пяти конфигам, которые принимает Run
 type configPaths struct {
 	server   string
 	database string
 	redis    string
+	s3       string
 	logger   string
 }
 
-// newConfigPaths создаёт рабочие конфиги. Пустой файл даёт значения по умолчанию.
+// newConfigPaths создаёт рабочие конфиги и тестовое S3-хранилище.
 func newConfigPaths(t *testing.T) configPaths {
 	t.Helper()
+
+	// S3 startup checks use a local server, not RustFS or real credentials.
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(server.Close)
+	t.Setenv(config.EnvS3Endpoint, server.URL)
+	t.Setenv(config.EnvS3Region, "us-east-1")
+	t.Setenv(config.EnvS3Bucket, "avatars")
+	t.Setenv(config.EnvS3AccessKey, "test-access-key")
+	t.Setenv(config.EnvS3SecretKey, "test-secret-key")
 
 	return configPaths{
 		server:   writeConfig(t, "config.yaml", validServerConfig),
 		database: writeConfig(t, "database.yaml", ""),
 		redis:    writeConfig(t, "redis.yaml", ""),
-		logger:   writeConfig(t, "logger.yaml", ""),
+		s3:       writeConfig(t, "s3.yaml", ""),
+		logger:   writeConfig(t, "logger.yaml", fmt.Sprintf("file: %q\n", filepath.Join(t.TempDir(), "app.log"))),
 	}
 }
 
 func (p configPaths) run() error {
-	return app.Run(p.server, p.database, p.redis, p.logger)
+	return app.Run(p.server, p.database, p.redis, p.s3, p.logger)
 }
 
 // runWithTimeout не даёт тесту зависнуть, если Run не возвращается
@@ -125,6 +140,7 @@ func TestRun_MissingConfigFiles(t *testing.T) {
 		{"нет основного конфига", func(p *configPaths, m string) { p.server = m }, "read config"},
 		{"нет конфига базы", func(p *configPaths, m string) { p.database = m }, "read database config"},
 		{"нет конфига redis", func(p *configPaths, m string) { p.redis = m }, "read redis config"},
+		{"нет конфига S3", func(p *configPaths, m string) { p.s3 = m }, "read s3 config"},
 		{"нет конфига логгера", func(p *configPaths, m string) { p.logger = m }, "read logger config"},
 	}
 
@@ -224,4 +240,43 @@ func TestRun_PortInUse(t *testing.T) {
 	err = runWithTimeout(t, p)
 
 	require.ErrorContains(t, err, "address already in use")
+}
+
+func TestRun_S3BucketCheck(t *testing.T) {
+	tests := []struct {
+		name    string
+		status  int
+		wantErr string
+	}{
+		{
+			name:    "bucket available, startup proceeds to database",
+			status:  http.StatusOK,
+			wantErr: "open database",
+		},
+		{
+			name:    "bucket missing",
+			status:  http.StatusNotFound,
+			wantErr: "check s3 bucket",
+		},
+		{
+			name:    "access denied",
+			status:  http.StatusForbidden,
+			wantErr: "check s3 bucket",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv(config.EnvDatabaseURL, dummyDatabaseURL)
+			p := newConfigPaths(t)
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodHead || r.URL.Path != "/avatars" {
+					t.Errorf("unexpected S3 request: %s %s", r.Method, r.URL.Path)
+				}
+				w.WriteHeader(tt.status)
+			}))
+			defer server.Close()
+			t.Setenv(config.EnvS3Endpoint, server.URL)
+			require.ErrorContains(t, runWithTimeout(t, p), tt.wantErr)
+		})
+	}
 }

@@ -11,8 +11,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/config"
 	authdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
+	filesdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/files"
 	filmsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/films"
 	persondelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/persons"
 	ratingsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/ratings"
@@ -20,12 +23,14 @@ import (
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/router"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	authservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/auth"
+	filesservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/files"
 	filmsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/films"
 	personservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/persons"
 	ratingsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/ratings"
 	reviewsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/reviews"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/storage"
 	authusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/auth"
+	filesusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/files"
 	filmsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/films"
 	personusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/persons"
 	ratingsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/ratings"
@@ -34,7 +39,7 @@ import (
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/redis"
 )
 
-func Run(configPath, databaseConfigPath, redisConfigPath, loggerConfigPath string) error {
+func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerConfigPath string) error {
 	cfg, err := config.Load(configPath)
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
@@ -52,6 +57,11 @@ func Run(configPath, databaseConfigPath, redisConfigPath, loggerConfigPath strin
 	redisCfg, err := config.LoadRedis(redisConfigPath)
 	if err != nil {
 		return fmt.Errorf("load redis config: %w", err)
+	}
+
+	s3Cfg, err := config.LoadS3(s3ConfigPath)
+	if err != nil {
+		return fmt.Errorf("load s3 config: %w", err)
 	}
 
 	loggerCfg, err := config.LoadLogger(loggerConfigPath)
@@ -74,6 +84,32 @@ func Run(configPath, databaseConfigPath, redisConfigPath, loggerConfigPath strin
 		return fmt.Errorf("create logger: %w", err)
 	}
 
+	s3Client, err := storage.NewS3Client(*s3Cfg)
+	if err != nil {
+		appLogger.Error("create s3 client failed", map[string]any{"error": err})
+		return fmt.Errorf("create s3 client: %w", err)
+	}
+
+	s3Ctx, cancelS3 := context.WithTimeout(context.Background(), s3Cfg.BucketCheckTimeout)
+
+	_, err = s3Client.HeadBucket(s3Ctx, &s3.HeadBucketInput{
+		Bucket: aws.String(s3Cfg.Bucket),
+	})
+	cancelS3()
+
+	if err != nil {
+		appLogger.Error("check s3 bucket failed", map[string]any{"error": err})
+		return fmt.Errorf("check s3 bucket: %w", err)
+	}
+
+	appLogger.Info("s3 bucket available", map[string]any{"bucket": s3Cfg.Bucket})
+
+	avatarStorage, err := filesservice.NewS3Storage(s3Client, s3Cfg.Bucket, s3Cfg.PublicEndpoint, s3Cfg.AvatarURLLifetime)
+	if err != nil {
+		appLogger.Error("create avatar storage failed", map[string]any{"error": err})
+		return fmt.Errorf("create avatar storage: %w", err)
+	}
+
 	var (
 		userRepo    domain.UserRepository
 		filmsRepo   domain.FilmsRepository
@@ -90,12 +126,42 @@ func Run(configPath, databaseConfigPath, redisConfigPath, loggerConfigPath strin
 	appLogger.Info("database connected", nil)
 	defer db.Close()
 
-	userRepo = authservice.NewPostgresUserRepo(db, appLogger)
-	filmsRepo = filmsservice.NewPostgresService(db, appLogger)
+	avatarRepo, err := filesservice.NewPostgresAvatarRepo(db)
+	if err != nil {
+		appLogger.Error("create avatar repository failed", map[string]any{"error": err})
+		return fmt.Errorf("create avatar repository: %w", err)
+	}
+	uploadAvatarUC, err := filesusecase.NewUploadAvatarUseCase(avatarStorage, avatarRepo, filesusecase.UploadAvatarOptions{
+		MaxSize:        s3Cfg.MaxAvatarSize,
+		MaxDimension:   s3Cfg.MaxAvatarDimension,
+		CleanupTimeout: s3Cfg.AvatarCleanupTimeout,
+	}, appLogger)
+	if err != nil {
+		appLogger.Error("create upload avatar use case failed", map[string]any{"error": err})
+		return fmt.Errorf("create upload avatar use case: %w", err)
+	}
+	getAvatarURLUC, err := filesusecase.NewGetAvatarURLUseCase(avatarStorage, appLogger)
+	if err != nil {
+		appLogger.Error("create get avatar URL use case failed", map[string]any{"error": err})
+		return fmt.Errorf("create get avatar URL use case: %w", err)
+	}
+	accountAvatarUC, err := filesusecase.NewAccountAvatarUseCase(avatarRepo, avatarStorage, appLogger)
+	if err != nil {
+		appLogger.Error("create account avatar use case failed", map[string]any{"error": err})
+		return fmt.Errorf("create account avatar use case: %w", err)
+	}
+	filesHandler, err := filesdelivery.NewHandler(uploadAvatarUC, getAvatarURLUC, accountAvatarUC, appLogger)
+	if err != nil {
+		appLogger.Error("create files handler failed", map[string]any{"error": err})
+		return fmt.Errorf("create files handler: %w", err)
+	}
+
+	userRepo = authservice.NewPostgresUserRepo(db)
+	filmsRepo = filmsservice.NewPostgresService(db)
+	reviewsRepo = reviewsservice.NewPostgresReviewRepo(db)
+  personsRepo = personservice.NewPersonRepo(db)
 	postgresRatingsRepo := ratingsservice.NewPostgresRepo(db, appLogger)
 	ratingsRepo = postgresRatingsRepo
-	reviewsRepo = reviewsservice.NewPostgresReviewRepo(db, appLogger)
-	personsRepo = personservice.NewPersonRepo(db, appLogger)
 
 	newClient, err := redis.NewClientWithPing(context.Background(), redisCfg.URL)
 	if err != nil {
@@ -105,7 +171,7 @@ func Run(configPath, databaseConfigPath, redisConfigPath, loggerConfigPath strin
 	appLogger.Info("redis connected", nil)
 	defer newClient.Close()
 
-	sessions := authservice.NewRedisSessionStore(newClient, cfg.Server.SessionTTL, appLogger)
+	sessions := authservice.NewRedisSessionStore(newClient, cfg.Server.SessionTTL)
 
 	passwordService := authservice.BcryptPasswordService{}
 
@@ -295,6 +361,7 @@ func Run(configPath, databaseConfigPath, redisConfigPath, loggerConfigPath strin
 		filmsHandler,
 		reviewsHandler,
 		personsHandler,
+		filesHandler,
 		ratingsHandler,
 		cfg.Server.AllowedOrigins,
 		appLogger,

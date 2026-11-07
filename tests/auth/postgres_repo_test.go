@@ -30,10 +30,10 @@ func newPostgresUserRepo(t *testing.T) (domain.UserRepository, sqlmock.Sqlmock) 
 		db.Close()
 	})
 
-	return auth.NewPostgresUserRepo(db, newTestLogger()), mock
+	return auth.NewPostgresUserRepo(db), mock
 }
 
-var userColumns = []string{"id", "email", "username", "password_hash", "role_code"}
+var userColumns = []string{"id", "email", "username", "password_hash", "role_code", "avatar_filename"}
 
 func TestPostgresUserRepo_Create(t *testing.T) {
 	repo, mock := newPostgresUserRepo(t)
@@ -104,7 +104,7 @@ func TestPostgresUserRepo_GetByEmail(t *testing.T) {
 
 	mock.ExpectQuery(`FROM account\s+WHERE email = \$1 AND deleted_at IS NULL`).
 		WithArgs("anna@example.com").
-		WillReturnRows(sqlmock.NewRows(userColumns).AddRow(7, "anna@example.com", "Анна", "hash", "reader"))
+		WillReturnRows(sqlmock.NewRows(userColumns).AddRow(7, "anna@example.com", "Анна", "hash", "reader", nil))
 
 	user, err := repo.GetByEmail(context.Background(), "anna@example.com")
 	require.NoError(t, err)
@@ -116,7 +116,7 @@ func TestPostgresUserRepo_GetUser(t *testing.T) {
 
 	mock.ExpectQuery(`FROM account\s+WHERE id = \$1 AND deleted_at IS NULL`).
 		WithArgs(domain.UserID(7)).
-		WillReturnRows(sqlmock.NewRows(userColumns).AddRow(7, "anna@example.com", "Анна", "hash", "reader"))
+		WillReturnRows(sqlmock.NewRows(userColumns).AddRow(7, "anna@example.com", "Анна", "hash", "reader", nil))
 
 	user, err := repo.GetUser(context.Background(), 7)
 	require.NoError(t, err)
