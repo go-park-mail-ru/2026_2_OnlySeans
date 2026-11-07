@@ -9,6 +9,7 @@ import (
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/files"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/films"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/persons"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/profile"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/ratings"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/reviews"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
@@ -19,10 +20,11 @@ func NewRouter(
 	filmsHandler *films.Handler,
 	reviewsHandler *reviews.Handler,
 	personsHandler *persons.Handler,
-  filesHandler *files.Handler,
+	filesHandler *files.Handler,
 	ratingsHandler *ratings.Handler,
 	allowedOrigins []string,
 	appLogger logger.Logger,
+	profileHandlers ...*profile.Handler,
 ) (http.Handler, error) {
 	r := mux.NewRouter()
 	authenticatedMiddlewares := []Middleware{RequireAuth(authHandler)}
@@ -32,11 +34,11 @@ func NewRouter(
 	r.HandleFunc("/api/register", authHandler.Register).Methods(http.MethodPost)
 	r.HandleFunc("/api/login", authHandler.Login).Methods(http.MethodPost)
 	r.HandleFunc("/api/logout", WrapMiddlewares(authHandler.Logout, authenticatedMiddlewares)).Methods(http.MethodPost)
-  r.HandleFunc("/api/me/avatar", WrapMiddlewares(filesHandler.GetMyAvatarURL, authenticatedMiddlewares)).Methods(http.MethodGet)
-  r.HandleFunc("/api/me/avatar", WrapMiddlewares(filesHandler.UpdateMyAvatar, authenticatedMiddlewares)).Methods(http.MethodPut)
-  r.HandleFunc("/api/me/avatar", WrapMiddlewares(filesHandler.DeleteMyAvatar, authenticatedMiddlewares)).Methods(http.MethodDelete)
-  r.HandleFunc("/api/avatars", WrapMiddlewares(filesHandler.UploadAvatar, authenticatedMiddlewares)).Methods(http.MethodPost)
-  r.HandleFunc("/api/avatars/{filename}", filesHandler.GetAvatarURL).Methods(http.MethodGet)
+	r.HandleFunc("/api/me/avatar", WrapMiddlewares(filesHandler.GetMyAvatarURL, authenticatedMiddlewares)).Methods(http.MethodGet)
+	r.HandleFunc("/api/me/avatar", WrapMiddlewares(filesHandler.UpdateMyAvatar, authenticatedMiddlewares)).Methods(http.MethodPut)
+	r.HandleFunc("/api/me/avatar", WrapMiddlewares(filesHandler.DeleteMyAvatar, authenticatedMiddlewares)).Methods(http.MethodDelete)
+	r.HandleFunc("/api/avatars", WrapMiddlewares(filesHandler.UploadAvatar, authenticatedMiddlewares)).Methods(http.MethodPost)
+	r.HandleFunc("/api/avatars/{filename}", filesHandler.GetAvatarURL).Methods(http.MethodGet)
 
 	r.HandleFunc("/api/films", filmsHandler.ListFilms).Methods(http.MethodGet)
 	r.HandleFunc("/api/films/{id}", filmsHandler.GetFilm).Methods(http.MethodGet)
@@ -48,6 +50,13 @@ func NewRouter(
 	r.HandleFunc("/api/collections/{id}", filmsHandler.GetCollection).Methods(http.MethodGet)
 
 	r.HandleFunc("/api/authorised", WrapMiddlewares(authHandler.Authorised, authenticatedMiddlewares)).Methods(http.MethodGet)
+	if len(profileHandlers) > 0 && profileHandlers[0] != nil {
+		profileHandler := profileHandlers[0]
+		r.HandleFunc("/api/me/profile", WrapMiddlewares(profileHandler.Overview, authenticatedMiddlewares)).Methods(http.MethodGet)
+		r.HandleFunc("/api/me/profile", WrapMiddlewares(profileHandler.UpdateAccount, authenticatedMiddlewares)).Methods(http.MethodPut)
+		r.HandleFunc("/api/me/password", WrapMiddlewares(profileHandler.ChangePassword, authenticatedMiddlewares)).Methods(http.MethodPut)
+		r.HandleFunc("/api/me/favorites/{id}", WrapMiddlewares(profileHandler.SetFavorite, authenticatedMiddlewares)).Methods(http.MethodPut, http.MethodDelete)
+	}
 
 	r.HandleFunc("/api/films/{id}/reviews", reviewsHandler.ListByFilm).Methods(http.MethodGet)
 	r.HandleFunc("/api/films/{id}/reviews", WrapMiddlewares(reviewsHandler.Create, authenticatedMiddlewares)).Methods(http.MethodPost)
