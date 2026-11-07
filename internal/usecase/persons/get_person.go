@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/logging"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 )
 
@@ -35,9 +36,8 @@ func (uc *GetPersonUseCase) Run(ctx context.Context, id domain.PersonID) (*Perso
 
 	person, err := uc.persons.GetByID(ctx, id)
 	if err != nil {
-		uc.logger.Error("get person failed", map[string]any{
+		logging.Failure(uc.logger, "get person failed", err, map[string]any{
 			"person_id": id,
-			"error":     err,
 		})
 
 		return nil, fmt.Errorf("get person %d: %w", id, err)

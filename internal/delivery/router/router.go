@@ -11,20 +11,16 @@ import (
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/persons"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/reviews"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
-	staticassets "github.com/go-park-mail-ru/2026_2_OnlySeans/static"
 )
 
 func NewRouter(authHandler *auth.Handler, filmsHandler *films.Handler, reviewsHandler *reviews.Handler, personsHandler *persons.Handler, filesHandler *files.Handler, allowedOrigin string, appLogger logger.Logger) http.Handler {
 	r := mux.NewRouter()
 
-	r.PathPrefix("/static/").Handler(
-		http.StripPrefix("/static", http.FileServer(http.FS(staticassets.Files))),
-	)
-
 	r.HandleFunc("/api/register", authHandler.Register).Methods(http.MethodPost)
 	r.HandleFunc("/api/login", authHandler.Login).Methods(http.MethodPost)
 	r.HandleFunc("/api/logout", RequireAuth(authHandler, authHandler.Logout)).Methods(http.MethodPost)
 	r.HandleFunc("/api/me/avatar", RequireAuth(authHandler, filesHandler.GetMyAvatarURL)).Methods(http.MethodGet)
+	r.HandleFunc("/api/me/avatar", RequireAuth(authHandler, filesHandler.UpdateMyAvatar)).Methods(http.MethodPut)
 	r.HandleFunc("/api/me/avatar", RequireAuth(authHandler, filesHandler.DeleteMyAvatar)).Methods(http.MethodDelete)
 	r.HandleFunc("/api/avatars", RequireAuth(authHandler, filesHandler.UploadAvatar)).Methods(http.MethodPost)
 	r.HandleFunc("/api/avatars/{filename}", filesHandler.GetAvatarURL).Methods(http.MethodGet)
@@ -45,9 +41,9 @@ func NewRouter(authHandler *auth.Handler, filmsHandler *films.Handler, reviewsHa
 	r.HandleFunc("/api/persons", personsHandler.ListPersons).Methods(http.MethodGet)
 	r.HandleFunc("/api/persons/{id}", personsHandler.GetPerson).Methods(http.MethodGet)
 
-	r.HandleFunc("/api/persons", RequireAuth(authHandler, RequireCatalogEditor(authHandler, personsHandler.CreatePerson))).Methods(http.MethodPost)
-	r.HandleFunc("/api/persons/{id}", RequireAuth(authHandler, RequireCatalogEditor(authHandler, personsHandler.UpdatePerson))).Methods(http.MethodPut)
-	r.HandleFunc("/api/persons/{id}", RequireAuth(authHandler, RequireCatalogEditor(authHandler, personsHandler.DeletePerson))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/persons", RequireAuth(authHandler, RequireCatalogEditor(authHandler, personsHandler.CreatePerson, appLogger))).Methods(http.MethodPost)
+	r.HandleFunc("/api/persons/{id}", RequireAuth(authHandler, RequireCatalogEditor(authHandler, personsHandler.UpdatePerson, appLogger))).Methods(http.MethodPut)
+	r.HandleFunc("/api/persons/{id}", RequireAuth(authHandler, RequireCatalogEditor(authHandler, personsHandler.DeletePerson, appLogger))).Methods(http.MethodDelete)
 
 	return withLogging(withRecover(withCORS(r, allowedOrigin), appLogger), appLogger)
 }

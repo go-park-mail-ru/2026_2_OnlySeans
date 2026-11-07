@@ -44,7 +44,7 @@ func newPostgresReviewRepo(t *testing.T) (domain.ReviewRepository, sqlmock.Sqlmo
 		db.Close()
 	})
 
-	return reviews.NewPostgresReviewRepo(db, newReviewsTestLogger()), mock
+	return reviews.NewPostgresReviewRepo(db), mock
 }
 
 func reviewRows(reviewsToReturn ...domain.Review) *sqlmock.Rows {

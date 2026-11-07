@@ -8,7 +8,6 @@ import (
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/storage"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
@@ -51,14 +50,12 @@ const (
 )
 
 type PostgresReviewRepo struct {
-	db        *sql.DB
-	appLogger logger.Logger
+	db *sql.DB
 }
 
-func NewPostgresReviewRepo(db *sql.DB, appLogger logger.Logger) domain.ReviewRepository {
+func NewPostgresReviewRepo(db *sql.DB) domain.ReviewRepository {
 	return &PostgresReviewRepo{
-		db:        db,
-		appLogger: appLogger,
+		db: db,
 	}
 }
 
@@ -96,10 +93,6 @@ func (r *PostgresReviewRepo) GetByID(
 	}
 
 	if err != nil {
-		r.appLogger.Error("postgres get review failed", map[string]any{
-			"review_id": id,
-			"error":     err,
-		})
 
 		return nil, fmt.Errorf("get review %d: %w", id, err)
 	}
@@ -128,10 +121,6 @@ func (r *PostgresReviewRepo) Update(
 	}
 
 	if err != nil {
-		r.appLogger.Error("postgres update review failed", map[string]any{
-			"review_id": id,
-			"error":     err,
-		})
 
 		return nil, fmt.Errorf("update review %d: %w", id, err)
 	}
@@ -146,20 +135,12 @@ func (r *PostgresReviewRepo) Delete(
 ) error {
 	result, err := r.db.ExecContext(ctx, deleteReviewQuery, id, deletedBy)
 	if err != nil {
-		r.appLogger.Error("postgres delete review failed", map[string]any{
-			"review_id": id,
-			"error":     err,
-		})
 
 		return fmt.Errorf("delete review %d: %w", id, err)
 	}
 
 	affected, err := result.RowsAffected()
 	if err != nil {
-		r.appLogger.Error("postgres get deleted rows count failed", map[string]any{
-			"review_id": id,
-			"error":     err,
-		})
 
 		return fmt.Errorf("delete review %d: %w", id, err)
 	}
@@ -206,12 +187,6 @@ func (r *PostgresReviewRepo) Create(
 		}
 	}
 
-	r.appLogger.Error("postgres create review failed", map[string]any{
-		"author_id": authorID,
-		"film_id":   filmID,
-		"error":     err,
-	})
-
 	return nil, fmt.Errorf("create review: %w", err)
 }
 
@@ -227,10 +202,6 @@ func (r *PostgresReviewRepo) ListByFilm(
 		countReviewsQuery,
 		filmID,
 	).Scan(&total); err != nil {
-		r.appLogger.Error("postgres count reviews failed", map[string]any{
-			"film_id": filmID,
-			"error":   err,
-		})
 
 		return nil, 0, fmt.Errorf("count reviews: %w", err)
 	}
@@ -243,12 +214,6 @@ func (r *PostgresReviewRepo) ListByFilm(
 		offset,
 	)
 	if err != nil {
-		r.appLogger.Error("postgres list reviews failed", map[string]any{
-			"film_id": filmID,
-			"limit":   limit,
-			"offset":  offset,
-			"error":   err,
-		})
 
 		return nil, 0, fmt.Errorf("list reviews: %w", err)
 	}
@@ -259,10 +224,6 @@ func (r *PostgresReviewRepo) ListByFilm(
 	for rows.Next() {
 		review, err := scanReview(rows)
 		if err != nil {
-			r.appLogger.Error("postgres scan review failed", map[string]any{
-				"film_id": filmID,
-				"error":   err,
-			})
 
 			return nil, 0, fmt.Errorf("scan review: %w", err)
 		}
@@ -271,10 +232,6 @@ func (r *PostgresReviewRepo) ListByFilm(
 	}
 
 	if err := rows.Err(); err != nil {
-		r.appLogger.Error("postgres iterate reviews failed", map[string]any{
-			"film_id": filmID,
-			"error":   err,
-		})
 
 		return nil, 0, fmt.Errorf("list reviews: %w", err)
 	}

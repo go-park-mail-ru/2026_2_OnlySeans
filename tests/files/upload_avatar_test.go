@@ -100,7 +100,7 @@ func TestUploadAvatarAttachesToAccount(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			storage := &uploadStorage{uploadErr: tt.uploadErr, deleteErr: tt.cleanupErr}
 			repo := &avatarRepo{err: tt.saveErr}
-			uc, err := filesusecase.NewUploadAvatarUseCase(storage, repo, testAvatarOptions())
+			uc, err := filesusecase.NewUploadAvatarUseCase(storage, repo, testAvatarOptions(), testFilesLogger(t))
 			require.NoError(t, err)
 			result, err := uc.Run(t.Context(), filesusecase.UploadAvatarInput{
 				UserID: tt.owner,
@@ -161,7 +161,7 @@ func TestUploadAvatarConfiguredLimits(t *testing.T) {
 			options.MaxSize = tt.maxSize
 			options.MaxDimension = tt.maxDimension
 			storage := &uploadStorage{}
-			uc, err := filesusecase.NewUploadAvatarUseCase(storage, &avatarRepo{}, options)
+			uc, err := filesusecase.NewUploadAvatarUseCase(storage, &avatarRepo{}, options, testFilesLogger(t))
 			require.NoError(t, err)
 			_, err = uc.Run(t.Context(), filesusecase.UploadAvatarInput{
 				UserID: 7,

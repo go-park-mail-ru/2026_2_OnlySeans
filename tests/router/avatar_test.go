@@ -207,3 +207,118 @@ func TestOwnAvatarRequiresSession(t *testing.T) {
 		})
 	}
 }
+
+func TestAvatarUpdateRoute(t *testing.T) {
+	var validImage bytes.Buffer
+	require.NoError(t, png.Encode(&validImage, image.NewRGBA(image.Rect(0, 0, 3, 3))))
+	tests := []struct {
+		name         string
+		session      string
+		existing     bool
+		invalidImage bool
+		wantStatus   int
+	}{
+		{
+			name:       "replace existing avatar",
+			session:    "valid",
+			existing:   true,
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "set previously absent avatar",
+			session:    "valid",
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "no session",
+			wantStatus: http.StatusUnauthorized,
+		},
+		{
+			name:       "invalid session",
+			session:    "invalid",
+			wantStatus: http.StatusUnauthorized,
+		},
+		{
+			name:         "invalid replacement preserves existing avatar",
+			session:      "valid",
+			existing:     true,
+			invalidImage: true,
+			wantStatus:   http.StatusBadRequest,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			storage := &routerAvatarStorage{}
+			handler := newTestRouterWithAvatarStorage(t, &spyLogger{}, storage)
+			var cookie *http.Cookie
+			if tt.session == "valid" {
+				register := httptest.NewRecorder()
+				handler.ServeHTTP(register, httptest.NewRequest(http.MethodPost, "/api/register", strings.NewReader(`{"email":"update@example.com","username":"updateuser","password":"Password1"}`)))
+				require.Equal(t, http.StatusCreated, register.Code)
+				cookie = register.Result().Cookies()[0]
+			} else if tt.session == "invalid" {
+				cookie = &http.Cookie{Name: auth.SessionCookieName, Value: "invalid"}
+			}
+			sendImage := func(method, path string, data []byte) *httptest.ResponseRecorder {
+				t.Helper()
+				var body bytes.Buffer
+				writer := multipart.NewWriter(&body)
+				part, err := writer.CreateFormFile("avatar", "photo.png")
+				require.NoError(t, err)
+				_, err = part.Write(data)
+				require.NoError(t, err)
+				require.NoError(t, writer.Close())
+				req := httptest.NewRequest(method, path, &body)
+				req.Header.Set("Content-Type", writer.FormDataContentType())
+				if cookie != nil {
+					req.AddCookie(cookie)
+				}
+				rec := httptest.NewRecorder()
+				handler.ServeHTTP(rec, req)
+				return rec
+			}
+			var previousFilename string
+			if tt.existing {
+				initial := sendImage(http.MethodPost, "/api/avatars", validImage.Bytes())
+				require.Equal(t, http.StatusCreated, initial.Code)
+				var created struct {
+					Filename string `json:"filename"`
+				}
+				require.NoError(t, json.Unmarshal(initial.Body.Bytes(), &created))
+				previousFilename = created.Filename
+			}
+			imageData := validImage.Bytes()
+			if tt.invalidImage {
+				imageData = []byte("invalid image")
+			}
+			rec := sendImage(http.MethodPut, "/api/me/avatar", imageData)
+			require.Equal(t, tt.wantStatus, rec.Code, rec.Body.String())
+			switch tt.wantStatus {
+			case http.StatusOK:
+				var updated struct {
+					Filename string `json:"filename"`
+				}
+				require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &updated))
+				require.NotEmpty(t, updated.Filename)
+				require.NotEqual(t, previousFilename, updated.Filename)
+				require.Equal(t, updated.Filename, storage.key)
+				profileReq := httptest.NewRequest(http.MethodGet, "/api/authorised", nil)
+				profileReq.AddCookie(cookie)
+				profile := httptest.NewRecorder()
+				handler.ServeHTTP(profile, profileReq)
+				require.Equal(t, http.StatusOK, profile.Code)
+				require.Contains(t, profile.Body.String(), updated.Filename)
+			case http.StatusBadRequest:
+				require.Equal(t, 1, storage.calls)
+				getReq := httptest.NewRequest(http.MethodGet, "/api/me/avatar", nil)
+				getReq.AddCookie(cookie)
+				current := httptest.NewRecorder()
+				handler.ServeHTTP(current, getReq)
+				require.Equal(t, http.StatusOK, current.Code)
+				require.Contains(t, current.Body.String(), previousFilename)
+			case http.StatusUnauthorized:
+				require.Zero(t, storage.calls)
+			}
+		})
+	}
+}

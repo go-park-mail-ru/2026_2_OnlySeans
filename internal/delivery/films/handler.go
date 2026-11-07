@@ -3,6 +3,7 @@ package films
 import (
 	"errors"
 	"fmt"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/httprequest"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/httpresponse"
 	"net/http"
 	"strconv"
@@ -132,6 +133,7 @@ type collectionPage struct {
 func (h *Handler) ListFilms(w http.ResponseWriter, r *http.Request) {
 	limit, offset, err := pagination(r)
 	if err != nil {
+		httprequest.LogRejected(h.appLogger, r, "pagination", err)
 		writeError(w, err, h.appLogger)
 		return
 	}
@@ -155,6 +157,7 @@ func (h *Handler) ListFilms(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) GetFilm(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(r)
 	if !ok {
+		httprequest.LogRejected(h.appLogger, r, "id", ErrInvalidFilmID)
 		writeError(w, ErrInvalidFilmID, h.appLogger)
 		return
 	}
@@ -172,6 +175,7 @@ func (h *Handler) GetFilm(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) ListCollections(w http.ResponseWriter, r *http.Request) {
 	limit, offset, err := pagination(r)
 	if err != nil {
+		httprequest.LogRejected(h.appLogger, r, "pagination", err)
 		writeError(w, err, h.appLogger)
 		return
 	}
@@ -195,11 +199,13 @@ func (h *Handler) ListCollections(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) GetCollection(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(r)
 	if !ok {
+		httprequest.LogRejected(h.appLogger, r, "id", ErrInvalidCollectionID)
 		writeError(w, ErrInvalidCollectionID, h.appLogger)
 		return
 	}
 	limit, offset, err := pagination(r)
 	if err != nil {
+		httprequest.LogRejected(h.appLogger, r, "pagination", err)
 		writeError(w, err, h.appLogger)
 		return
 	}
@@ -258,6 +264,5 @@ func writeError(w http.ResponseWriter, err error, appLogger logger.Logger) {
 		}
 	}
 
-	appLogger.Error("unexpected error", map[string]any{"error": err})
 	httpresponse.WriteError(w, http.StatusInternalServerError, httpresponse.InternalErrorMessage, appLogger)
 }

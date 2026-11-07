@@ -130,11 +130,11 @@ func TestUploadAvatar(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			storage := &avatarStorage{err: tt.storageErr}
-			uc, err := fileusecase.NewUploadAvatarUseCase(storage, &avatarMetadataRepo{}, testAvatarOptions())
+			uc, err := fileusecase.NewUploadAvatarUseCase(storage, &avatarMetadataRepo{}, testAvatarOptions(), testFilesLogger(t))
 			require.NoError(t, err)
 			appLogger, err := logger.NewLogger(io.Discard, logger.LogLevelInfo, "text")
 			require.NoError(t, err)
-			urlUC, err := fileusecase.NewGetAvatarURLUseCase(&avatarURLStorage{})
+			urlUC, err := fileusecase.NewGetAvatarURLUseCase(&avatarURLStorage{}, testFilesLogger(t))
 			require.NoError(t, err)
 			handler, err := filesdelivery.NewHandler(uc, urlUC, testAccountAvatar(t, &avatarURLStorage{}), appLogger)
 			require.NoError(t, err)
@@ -239,10 +239,10 @@ func TestGetAvatarURL(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			upload, err := fileusecase.NewUploadAvatarUseCase(&avatarStorage{}, &avatarMetadataRepo{}, testAvatarOptions())
+			upload, err := fileusecase.NewUploadAvatarUseCase(&avatarStorage{}, &avatarMetadataRepo{}, testAvatarOptions(), testFilesLogger(t))
 			require.NoError(t, err)
 			storage := &avatarURLStorage{url: "https://media.example/avatar.png?signature=test", err: tt.err}
-			getURL, err := fileusecase.NewGetAvatarURLUseCase(storage)
+			getURL, err := fileusecase.NewGetAvatarURLUseCase(storage, testFilesLogger(t))
 			require.NoError(t, err)
 			appLogger, err := logger.NewLogger(io.Discard, logger.LogLevelInfo, "text")
 			require.NoError(t, err)
@@ -295,11 +295,11 @@ func TestAccountAvatarHandlers(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			repo := &accountAvatarStub{file: &domain.AvatarFile{Filename: "avatar.png"}, err: tt.repoErr}
 			storage := &avatarURLStorage{url: "https://example.com/avatar"}
-			account, err := fileusecase.NewAccountAvatarUseCase(repo, storage)
+			account, err := fileusecase.NewAccountAvatarUseCase(repo, storage, testFilesLogger(t))
 			require.NoError(t, err)
-			upload, err := fileusecase.NewUploadAvatarUseCase(&avatarStorage{}, &avatarMetadataRepo{}, testAvatarOptions())
+			upload, err := fileusecase.NewUploadAvatarUseCase(&avatarStorage{}, &avatarMetadataRepo{}, testAvatarOptions(), testFilesLogger(t))
 			require.NoError(t, err)
-			getURL, err := fileusecase.NewGetAvatarURLUseCase(storage)
+			getURL, err := fileusecase.NewGetAvatarURLUseCase(storage, testFilesLogger(t))
 			require.NoError(t, err)
 			appLogger, err := logger.NewLogger(io.Discard, logger.LogLevelInfo, "text")
 			require.NoError(t, err)

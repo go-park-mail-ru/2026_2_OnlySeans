@@ -83,6 +83,7 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 
 	s3Client, err := storage.NewS3Client(*s3Cfg)
 	if err != nil {
+		appLogger.Error("create s3 client failed", map[string]any{"error": err})
 		return fmt.Errorf("create s3 client: %w", err)
 	}
 
@@ -94,6 +95,7 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 	cancelS3()
 
 	if err != nil {
+		appLogger.Error("check s3 bucket failed", map[string]any{"error": err})
 		return fmt.Errorf("check s3 bucket: %w", err)
 	}
 
@@ -101,6 +103,7 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 
 	avatarStorage, err := filesservice.NewS3Storage(s3Client, s3Cfg.Bucket, s3Cfg.PublicEndpoint, s3Cfg.AvatarURLLifetime)
 	if err != nil {
+		appLogger.Error("create avatar storage failed", map[string]any{"error": err})
 		return fmt.Errorf("create avatar storage: %w", err)
 	}
 
@@ -121,33 +124,38 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 
 	avatarRepo, err := filesservice.NewPostgresAvatarRepo(db)
 	if err != nil {
+		appLogger.Error("create avatar repository failed", map[string]any{"error": err})
 		return fmt.Errorf("create avatar repository: %w", err)
 	}
 	uploadAvatarUC, err := filesusecase.NewUploadAvatarUseCase(avatarStorage, avatarRepo, filesusecase.UploadAvatarOptions{
 		MaxSize:        s3Cfg.MaxAvatarSize,
 		MaxDimension:   s3Cfg.MaxAvatarDimension,
 		CleanupTimeout: s3Cfg.AvatarCleanupTimeout,
-	})
+	}, appLogger)
 	if err != nil {
+		appLogger.Error("create upload avatar use case failed", map[string]any{"error": err})
 		return fmt.Errorf("create upload avatar use case: %w", err)
 	}
-	getAvatarURLUC, err := filesusecase.NewGetAvatarURLUseCase(avatarStorage)
+	getAvatarURLUC, err := filesusecase.NewGetAvatarURLUseCase(avatarStorage, appLogger)
 	if err != nil {
+		appLogger.Error("create get avatar URL use case failed", map[string]any{"error": err})
 		return fmt.Errorf("create get avatar URL use case: %w", err)
 	}
-	accountAvatarUC, err := filesusecase.NewAccountAvatarUseCase(avatarRepo, avatarStorage)
+	accountAvatarUC, err := filesusecase.NewAccountAvatarUseCase(avatarRepo, avatarStorage, appLogger)
 	if err != nil {
+		appLogger.Error("create account avatar use case failed", map[string]any{"error": err})
 		return fmt.Errorf("create account avatar use case: %w", err)
 	}
 	filesHandler, err := filesdelivery.NewHandler(uploadAvatarUC, getAvatarURLUC, accountAvatarUC, appLogger)
 	if err != nil {
+		appLogger.Error("create files handler failed", map[string]any{"error": err})
 		return fmt.Errorf("create files handler: %w", err)
 	}
 
-	userRepo = authservice.NewPostgresUserRepo(db, appLogger)
-	filmsRepo = filmsservice.NewPostgresService(db, appLogger)
-	reviewsRepo = reviewsservice.NewPostgresReviewRepo(db, appLogger)
-	personsRepo = personservice.NewPersonRepo(db, appLogger)
+	userRepo = authservice.NewPostgresUserRepo(db)
+	filmsRepo = filmsservice.NewPostgresService(db)
+	reviewsRepo = reviewsservice.NewPostgresReviewRepo(db)
+	personsRepo = personservice.NewPersonRepo(db)
 
 	newClient, err := redis.NewClientWithPing(context.Background(), redisCfg.URL)
 	if err != nil {
@@ -157,7 +165,7 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 	appLogger.Info("redis connected", nil)
 	defer newClient.Close()
 
-	sessions := authservice.NewRedisSessionStore(newClient, cfg.Server.SessionTTL, appLogger)
+	sessions := authservice.NewRedisSessionStore(newClient, cfg.Server.SessionTTL)
 
 	passwordService := authservice.BcryptPasswordService{}
 

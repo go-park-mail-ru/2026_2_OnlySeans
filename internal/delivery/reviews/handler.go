@@ -139,11 +139,13 @@ type reviewRequest struct {
 func (h *Handler) ListByFilm(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(r)
 	if !ok {
+		httprequest.LogRejected(h.appLogger, r, "id", ErrInvalidID)
 		writeError(w, ErrInvalidID, h.appLogger)
 		return
 	}
 	limit, offset, err := pagination(r)
 	if err != nil {
+		httprequest.LogRejected(h.appLogger, r, "pagination", err)
 		writeError(w, err, h.appLogger)
 		return
 	}
@@ -170,16 +172,19 @@ func (h *Handler) ListByFilm(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(r)
 	if !ok {
+		httprequest.LogRejected(h.appLogger, r, "id", ErrInvalidID)
 		writeError(w, ErrInvalidID, h.appLogger)
 		return
 	}
 	userID, ok := authdelivery.UserIDFromContext(r.Context())
 	if !ok {
+		httprequest.LogRejected(h.appLogger, r, "session", domain.ErrUnauthorized)
 		writeError(w, domain.ErrUnauthorized, h.appLogger)
 		return
 	}
 	input, err := decodeReview(w, r)
 	if err != nil {
+		httprequest.LogRejected(h.appLogger, r, "body", err)
 		writeError(w, err, h.appLogger)
 		return
 	}
@@ -201,16 +206,19 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(r)
 	if !ok {
+		httprequest.LogRejected(h.appLogger, r, "id", ErrInvalidID)
 		writeError(w, ErrInvalidID, h.appLogger)
 		return
 	}
 	userID, ok := authdelivery.UserIDFromContext(r.Context())
 	if !ok {
+		httprequest.LogRejected(h.appLogger, r, "session", domain.ErrUnauthorized)
 		writeError(w, domain.ErrUnauthorized, h.appLogger)
 		return
 	}
 	input, err := decodeReview(w, r)
 	if err != nil {
+		httprequest.LogRejected(h.appLogger, r, "body", err)
 		writeError(w, err, h.appLogger)
 		return
 	}
@@ -232,11 +240,13 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(r)
 	if !ok {
+		httprequest.LogRejected(h.appLogger, r, "id", ErrInvalidID)
 		writeError(w, ErrInvalidID, h.appLogger)
 		return
 	}
 	userID, ok := authdelivery.UserIDFromContext(r.Context())
 	if !ok {
+		httprequest.LogRejected(h.appLogger, r, "session", domain.ErrUnauthorized)
 		writeError(w, domain.ErrUnauthorized, h.appLogger)
 		return
 	}
@@ -304,6 +314,5 @@ func writeError(w http.ResponseWriter, err error, appLogger logger.Logger) {
 		}
 	}
 
-	appLogger.Error("unexpected error", map[string]any{"error": err})
 	httpresponse.WriteError(w, http.StatusInternalServerError, httpresponse.InternalErrorMessage, appLogger)
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/logging"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 )
 
@@ -44,20 +45,18 @@ func (uc *ListReviewsUseCase) Run(ctx context.Context, input ListReviewsInput) (
 	})
 
 	if _, err := uc.films.GetFilmByID(ctx, input.FilmID); err != nil {
-		uc.logger.Error("get film for reviews failed", map[string]any{
+		logging.Failure(uc.logger, "get film for reviews failed", err, map[string]any{
 			"film_id": input.FilmID,
-			"error":   err,
 		})
 		return nil, fmt.Errorf("get film %d: %w", input.FilmID, err)
 	}
 
 	reviews, total, err := uc.reviews.ListByFilm(ctx, input.FilmID, input.Limit, input.Offset)
 	if err != nil {
-		uc.logger.Error("list reviews failed", map[string]any{
+		logging.Failure(uc.logger, "list reviews failed", err, map[string]any{
 			"film_id": input.FilmID,
 			"limit":   input.Limit,
 			"offset":  input.Offset,
-			"error":   err,
 		})
 		return nil, fmt.Errorf("list reviews of film %d: %w", input.FilmID, err)
 	}

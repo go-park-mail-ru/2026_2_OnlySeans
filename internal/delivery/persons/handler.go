@@ -76,6 +76,7 @@ func NewHandler(cases HandlerUseCases, appLogger logger.Logger) (*Handler, error
 func (h *Handler) ListPersons(w http.ResponseWriter, r *http.Request) {
 	limit, offset, err := pagination(r)
 	if err != nil {
+		httprequest.LogRejected(h.logger, r, "pagination", err)
 		h.writeError(w, err)
 		return
 	}
@@ -102,6 +103,7 @@ func (h *Handler) ListPersons(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) GetPerson(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r)
 	if err != nil {
+		httprequest.LogRejected(h.logger, r, "id", err)
 		h.writeError(w, err)
 		return
 	}
@@ -129,12 +131,14 @@ func (h *Handler) CreatePerson(w http.ResponseWriter, r *http.Request) {
 	var request personRequest
 
 	if err := httprequest.DecodeJSON(w, r, &request); err != nil {
+		httprequest.LogRejected(h.logger, r, "body", err)
 		h.writeError(w, err)
 		return
 	}
 
 	birthDate, err := parseBirthDate(request.BirthDate)
 	if err != nil {
+		httprequest.LogRejected(h.logger, r, "birth_date", err)
 		h.writeError(w, err)
 		return
 	}
@@ -159,6 +163,7 @@ func (h *Handler) CreatePerson(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) UpdatePerson(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r)
 	if err != nil {
+		httprequest.LogRejected(h.logger, r, "id", err)
 		h.writeError(w, err)
 		return
 	}
@@ -166,12 +171,14 @@ func (h *Handler) UpdatePerson(w http.ResponseWriter, r *http.Request) {
 	var request personRequest
 
 	if err := httprequest.DecodeJSON(w, r, &request); err != nil {
+		httprequest.LogRejected(h.logger, r, "body", err)
 		h.writeError(w, err)
 		return
 	}
 
 	birthDate, err := parseBirthDate(request.BirthDate)
 	if err != nil {
+		httprequest.LogRejected(h.logger, r, "birth_date", err)
 		h.writeError(w, err)
 		return
 	}
@@ -199,6 +206,7 @@ func (h *Handler) UpdatePerson(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) DeletePerson(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r)
 	if err != nil {
+		httprequest.LogRejected(h.logger, r, "id", err)
 		h.writeError(w, err)
 		return
 	}

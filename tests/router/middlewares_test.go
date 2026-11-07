@@ -74,11 +74,11 @@ func newTestRouterWithAvatarStorage(t *testing.T, appLogger logger.Logger, stora
 		MaxSize:        5 << 20,
 		MaxDimension:   4096,
 		CleanupTimeout: 5 * time.Second,
-	})
+	}, appLogger)
 	require.NoError(t, err)
-	getAvatarURL, err := filesusecase.NewGetAvatarURLUseCase(&routerAvatarURLStorage{})
+	getAvatarURL, err := filesusecase.NewGetAvatarURLUseCase(&routerAvatarURLStorage{}, appLogger)
 	require.NoError(t, err)
-	accountAvatar, err := filesusecase.NewAccountAvatarUseCase(users, &routerAvatarURLStorage{})
+	accountAvatar, err := filesusecase.NewAccountAvatarUseCase(users, &routerAvatarURLStorage{}, appLogger)
 	require.NoError(t, err)
 	filesHandler, err := filesdelivery.NewHandler(uploadAvatar, getAvatarURL, accountAvatar, appLogger)
 	require.NoError(t, err)

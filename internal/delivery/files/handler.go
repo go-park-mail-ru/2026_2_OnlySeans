@@ -63,7 +63,6 @@ func (h *Handler) GetAvatarURL(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, domain.ErrFileNotFound):
 			httpresponse.WriteError(w, http.StatusNotFound, domain.ErrFileNotFound.Error(), h.logger)
 		default:
-			h.logger.Error("get avatar URL failed", map[string]any{"error": err})
 			httpresponse.WriteError(w, http.StatusInternalServerError, httpresponse.InternalErrorMessage, h.logger)
 		}
 		return
@@ -73,8 +72,17 @@ func (h *Handler) GetAvatarURL(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
+	h.saveAvatar(w, r, http.StatusCreated)
+}
+
+func (h *Handler) UpdateMyAvatar(w http.ResponseWriter, r *http.Request) {
+	h.saveAvatar(w, r, http.StatusOK)
+}
+
+func (h *Handler) saveAvatar(w http.ResponseWriter, r *http.Request, status int) {
 	userID, ok := authdelivery.UserIDFromContext(r.Context())
 	if !ok || userID <= 0 {
+		h.logger.Warn("avatar request rejected: missing or invalid user context", map[string]any{"operation": r.Method})
 		httpresponse.WriteError(w, http.StatusUnauthorized, domain.ErrUnauthorized.Error(), h.logger)
 		return
 	}
@@ -82,28 +90,40 @@ func (h *Handler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxUploadRequestSize)
 	err := r.ParseMultipartForm(maxUploadRequestSize)
 	if r.MultipartForm != nil {
-		defer r.MultipartForm.RemoveAll()
+		defer func() {
+			if err := r.MultipartForm.RemoveAll(); err != nil {
+				h.logger.Warn("remove avatar multipart temporary files failed", map[string]any{"user_id": userID, "error": err})
+			}
+		}()
 	}
 	if err != nil {
 		var sizeErr *http.MaxBytesError
 		if errors.As(err, &sizeErr) {
+			h.logger.Warn("avatar request body exceeds limit", map[string]any{"user_id": userID, "max_size": maxUploadRequestSize})
 			httpresponse.WriteError(w, http.StatusRequestEntityTooLarge, "upload request is too large", h.logger)
 		} else {
+			h.logger.Warn("invalid avatar multipart request", map[string]any{"user_id": userID, "error": err})
 			httpresponse.WriteError(w, http.StatusBadRequest, "invalid multipart request", h.logger)
 		}
 		return
 	}
 
 	if len(r.MultipartForm.File[avatarFieldName]) != 1 {
+		h.logger.Warn("avatar request rejected: expected one file", map[string]any{"user_id": userID, "file_count": len(r.MultipartForm.File[avatarFieldName])})
 		httpresponse.WriteError(w, http.StatusBadRequest, "exactly one avatar file is required", h.logger)
 		return
 	}
 	file, header, err := r.FormFile(avatarFieldName)
 	if err != nil {
+		h.logger.Warn("open avatar multipart file failed", map[string]any{"user_id": userID, "error": err})
 		httpresponse.WriteError(w, http.StatusBadRequest, fileusecase.ErrAvatarMissing.Error(), h.logger)
 		return
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			h.logger.Warn("close avatar upload file failed", map[string]any{"user_id": userID, "error": err})
+		}
+	}()
 
 	result, err := h.uploadAvatar.Run(r.Context(), fileusecase.UploadAvatarInput{
 		UserID: userID,
@@ -115,7 +135,7 @@ func (h *Handler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	httpresponse.WriteJSON(w, http.StatusCreated, uploadAvatarResponse{
+	httpresponse.WriteJSON(w, status, uploadAvatarResponse{
 		Filename: result.Filename,
 	}, h.logger)
 }
@@ -132,7 +152,6 @@ func (h *Handler) writeUploadError(w http.ResponseWriter, err error) {
 		errors.Is(err, fileusecase.ErrAvatarDimensionsTooLarge):
 		httpresponse.WriteError(w, http.StatusBadRequest, err.Error(), h.logger)
 	default:
-		h.logger.Error("upload avatar failed", map[string]any{"error": err})
 		httpresponse.WriteError(w, http.StatusInternalServerError, httpresponse.InternalErrorMessage, h.logger)
 	}
 }
@@ -140,6 +159,7 @@ func (h *Handler) writeUploadError(w http.ResponseWriter, err error) {
 func (h *Handler) GetMyAvatarURL(w http.ResponseWriter, r *http.Request) {
 	userID, ok := authdelivery.UserIDFromContext(r.Context())
 	if !ok || userID <= 0 {
+		h.logger.Warn("avatar request rejected: missing or invalid user context", map[string]any{"operation": r.Method})
 		h.writeAccountAvatarError(w, domain.ErrUnauthorized)
 		return
 	}
@@ -155,6 +175,7 @@ func (h *Handler) GetMyAvatarURL(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) DeleteMyAvatar(w http.ResponseWriter, r *http.Request) {
 	userID, ok := authdelivery.UserIDFromContext(r.Context())
 	if !ok || userID <= 0 {
+		h.logger.Warn("avatar request rejected: missing or invalid user context", map[string]any{"operation": r.Method})
 		h.writeAccountAvatarError(w, domain.ErrUnauthorized)
 		return
 	}
@@ -172,7 +193,6 @@ func (h *Handler) writeAccountAvatarError(w http.ResponseWriter, err error) {
 	case errors.Is(err, domain.ErrFileNotFound):
 		httpresponse.WriteError(w, http.StatusNotFound, domain.ErrFileNotFound.Error(), h.logger)
 	default:
-		h.logger.Error("account avatar operation failed", map[string]any{"error": err})
 		httpresponse.WriteError(w, http.StatusInternalServerError, httpresponse.InternalErrorMessage, h.logger)
 	}
 }

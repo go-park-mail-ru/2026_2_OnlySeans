@@ -71,7 +71,7 @@ func TestAccountAvatarUseCase(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			repo := &accountAvatarStub{file: &domain.AvatarFile{Filename: "test.png"}, err: tt.repoErr}
 			storage := &avatarURLStorage{url: "https://example.com/avatar", err: tt.storageErr}
-			uc, err := filesusecase.NewAccountAvatarUseCase(repo, storage)
+			uc, err := filesusecase.NewAccountAvatarUseCase(repo, storage, testFilesLogger(t))
 			require.NoError(t, err)
 			url, err := uc.GetURL(t.Context(), tt.userID)
 			if tt.wantErr != nil {

@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/logging"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 )
 
@@ -40,18 +41,16 @@ func (uc *GetCollectionUseCase) Run(ctx context.Context, input GetCollectionInpu
 
 	collection, err := uc.repository.GetCollectionByID(ctx, input.CollectionID)
 	if err != nil {
-		uc.logger.Error("get collection failed", map[string]any{
+		logging.Failure(uc.logger, "get collection failed", err, map[string]any{
 			"collection_id": input.CollectionID,
-			"error":         err,
 		})
 		return nil, fmt.Errorf("get collection %d: %w", input.CollectionID, err)
 	}
 
 	films, total, err := uc.repository.ListCollectionFilms(ctx, input.CollectionID, input.Limit, input.Offset)
 	if err != nil {
-		uc.logger.Error("list films of collection failed", map[string]any{
+		logging.Failure(uc.logger, "list films of collection failed", err, map[string]any{
 			"collection_id": input.CollectionID,
-			"error":         err,
 		})
 		return nil, fmt.Errorf("list films of collection %d: %w", input.CollectionID, err)
 	}

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/logging"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 )
 
@@ -38,9 +39,8 @@ func (uc *DeleteReviewUseCase) Run(ctx context.Context, input DeleteReviewInput)
 
 	review, err := uc.reviews.GetByID(ctx, input.ReviewID)
 	if err != nil {
-		uc.logger.Error("get review for deletion failed", map[string]any{
+		logging.Failure(uc.logger, "get review for deletion failed", err, map[string]any{
 			"review_id": input.ReviewID,
-			"error":     err,
 		})
 		return fmt.Errorf("get review %d: %w", input.ReviewID, err)
 	}
@@ -54,10 +54,9 @@ func (uc *DeleteReviewUseCase) Run(ctx context.Context, input DeleteReviewInput)
 	}
 
 	if err := uc.reviews.Delete(ctx, input.ReviewID, input.UserID); err != nil {
-		uc.logger.Error("delete review failed", map[string]any{
+		logging.Failure(uc.logger, "delete review failed", err, map[string]any{
 			"user_id":   input.UserID,
 			"review_id": input.ReviewID,
-			"error":     err,
 		})
 		return fmt.Errorf("delete review %d: %w", input.ReviewID, err)
 	}

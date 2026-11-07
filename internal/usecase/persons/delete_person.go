@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/logging"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 )
 
@@ -35,9 +36,8 @@ func (uc *DeletePersonUseCase) Run(ctx context.Context, input DeletePersonInput)
 
 	err := uc.persons.Delete(ctx, input.PersonID)
 	if err != nil {
-		uc.logger.Error("delete person failed", map[string]any{
+		logging.Failure(uc.logger, "delete person failed", err, map[string]any{
 			"person_id": input.PersonID,
-			"error":     err,
 		})
 
 		return fmt.Errorf("delete person %d: %w", input.PersonID, err)

@@ -2,11 +2,14 @@ package files_test
 
 import (
 	"context"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
-	filesusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/files"
-	"github.com/stretchr/testify/require"
+	"io"
 	"testing"
 	"time"
+
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
+	filesusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/files"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -30,7 +33,14 @@ func (*accountAvatarRepo) GetAvatar(context.Context, domain.UserID) (*domain.Ava
 func (*accountAvatarRepo) DeleteAvatar(context.Context, domain.UserID) error { return nil }
 func testAccountAvatar(t *testing.T, storage filesusecase.AvatarURLStorage) *filesusecase.AccountAvatarUseCase {
 	t.Helper()
-	uc, err := filesusecase.NewAccountAvatarUseCase(&accountAvatarRepo{}, storage)
+	uc, err := filesusecase.NewAccountAvatarUseCase(&accountAvatarRepo{}, storage, testFilesLogger(t))
 	require.NoError(t, err)
 	return uc
+}
+
+func testFilesLogger(t *testing.T) logger.Logger {
+	t.Helper()
+	appLogger, err := logger.NewLogger(io.Discard, logger.LogLevelDebug, "json")
+	require.NoError(t, err)
+	return appLogger
 }

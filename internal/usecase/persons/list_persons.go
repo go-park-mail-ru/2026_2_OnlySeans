@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/logging"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 )
 
@@ -40,10 +41,9 @@ func (uc *ListPersonsUseCase) Run(ctx context.Context, input ListPersonsInput) (
 		input.Offset,
 	)
 	if err != nil {
-		uc.logger.Error("list persons failed", map[string]any{
+		logging.Failure(uc.logger, "list persons failed", err, map[string]any{
 			"limit":  input.Limit,
 			"offset": input.Offset,
-			"error":  err,
 		})
 
 		return nil, fmt.Errorf("list persons: %w", err)

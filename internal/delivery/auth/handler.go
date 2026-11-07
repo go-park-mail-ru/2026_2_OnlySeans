@@ -3,11 +3,12 @@ package auth
 import (
 	"context"
 	"errors"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/httprequest"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/httpresponse"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/httprequest"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/httpresponse"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	usecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/auth"
@@ -65,7 +66,6 @@ func NewHandler(cases HandlerUseCases, appLogger logger.Logger) (*Handler, error
 	}, nil
 }
 
-// Register handles POST /api/register.
 func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		httpresponse.WriteError(w, http.StatusMethodNotAllowed, "method not supported", h.appLogger)
@@ -74,6 +74,7 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 
 	var req registerRequest
 	if err := httprequest.DecodeJSON(w, r, &req); err != nil {
+		httprequest.LogRejected(h.appLogger, r, "body", err)
 		httpresponse.WriteError(w, http.StatusBadRequest, "invalid request body", h.appLogger)
 		return
 	}
@@ -101,12 +102,11 @@ func writeRegisterError(w http.ResponseWriter, err error, appLogger logger.Logge
 	case errors.Is(err, domain.ErrUsernameTaken):
 		httpresponse.WriteError(w, http.StatusConflict, domain.ErrUsernameTaken.Error(), appLogger)
 	default:
-		appLogger.Error("register user failed", map[string]any{"error": err})
+
 		httpresponse.WriteError(w, http.StatusInternalServerError, domain.ErrInternal.Error(), appLogger)
 	}
 }
 
-// Login handles POST /api/login.
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		httpresponse.WriteError(w, http.StatusMethodNotAllowed, "method not supported", h.appLogger)
@@ -115,6 +115,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 
 	var req loginRequest
 	if err := httprequest.DecodeJSON(w, r, &req); err != nil {
+		httprequest.LogRejected(h.appLogger, r, "body", err)
 		httpresponse.WriteError(w, http.StatusBadRequest, "invalid request body", h.appLogger)
 		return
 	}
@@ -122,7 +123,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 
 	result, err := h.login.Run(r.Context(), toLoginUserInput(req))
 	if err != nil {
-		writeLoginError(w, err, r.RemoteAddr, h.appLogger)
+		writeLoginError(w, err, h.appLogger)
 		return
 	}
 
@@ -130,21 +131,19 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	httpresponse.WriteJSON(w, http.StatusOK, toAuthResponse(result.User), h.appLogger)
 }
 
-func writeLoginError(w http.ResponseWriter, err error, remoteAddr string, appLogger logger.Logger) {
+func writeLoginError(w http.ResponseWriter, err error, appLogger logger.Logger) {
 	switch {
 	case errors.Is(err, domain.ErrInvalidEmail),
 		errors.Is(err, domain.ErrInvalidPassword):
 		httpresponse.WriteError(w, http.StatusBadRequest, err.Error(), appLogger)
 	case errors.Is(err, domain.ErrInvalidCredentials):
-		appLogger.Warn("login rejected", map[string]any{"remote_addr": remoteAddr})
 		httpresponse.WriteError(w, http.StatusUnauthorized, domain.ErrInvalidCredentials.Error(), appLogger)
 	default:
-		appLogger.Error("login user failed", map[string]any{"error": err})
+
 		httpresponse.WriteError(w, http.StatusInternalServerError, domain.ErrInternal.Error(), appLogger)
 	}
 }
 
-// Logout handles POST /api/logout.
 func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		httpresponse.WriteError(w, http.StatusMethodNotAllowed, "method not supported", h.appLogger)
@@ -153,7 +152,6 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 
 	if cookie, err := r.Cookie(SessionCookieName); err == nil {
 		if err := h.logout.Run(r.Context(), usecase.NewLogoutInput(cookie.Value)); err != nil {
-			h.appLogger.Error("logout user failed", map[string]any{"error": err})
 			httpresponse.WriteError(w, http.StatusInternalServerError, domain.ErrInternal.Error(), h.appLogger)
 			return
 		}
@@ -169,8 +167,6 @@ func (h *Handler) Authenticate(ctx context.Context, sessionID string) (domain.Us
 		if errors.Is(err, domain.ErrUnauthorized) {
 			return 0, err
 		}
-
-		h.appLogger.Error("authenticate session failed", map[string]any{"error": err})
 
 		return 0, domain.ErrInternal
 	}
@@ -211,7 +207,6 @@ func (h *Handler) Authorised(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.getUser.Run(r.Context(), usecase.NewGetUserInput(id))
 	if err != nil {
-		h.appLogger.Error("get authorised user failed", map[string]any{"error": err})
 		httpresponse.WriteError(w, http.StatusInternalServerError, domain.ErrInternal.Error(), h.appLogger)
 		return
 	}

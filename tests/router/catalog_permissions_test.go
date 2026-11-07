@@ -42,10 +42,11 @@ func TestRequireCatalogEditor(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			called := false
+			appLogger := &spyLogger{}
 			handler := router.RequireCatalogEditor(catalogPermissionStub{role: tt.role, err: tt.err}, func(w http.ResponseWriter, _ *http.Request) {
 				called = true
 				w.WriteHeader(http.StatusNoContent)
-			})
+			}, appLogger)
 			req := httptest.NewRequest(http.MethodPost, "/api/persons", nil)
 			if tt.authenticated {
 				req = req.WithContext(auth.ContextWithUserID(req.Context(), 1))
@@ -55,6 +56,15 @@ func TestRequireCatalogEditor(t *testing.T) {
 			require.Equal(t, tt.wantStatus, rec.Code)
 			require.Equal(t, tt.wantStatus == http.StatusNoContent, called)
 			require.NotContains(t, rec.Body.String(), "database down")
+			if tt.wantStatus == http.StatusForbidden {
+				require.Len(t, appLogger.entries, 1)
+				entry := appLogger.entries[0]
+				require.Equal(t, "warn", entry.level)
+				require.Equal(t, "catalog modification forbidden", entry.msg)
+				require.Equal(t, domain.UserID(1), entry.fields["user_id"])
+				require.Equal(t, "/api/persons", entry.fields["path"])
+			}
+
 		})
 	}
 }

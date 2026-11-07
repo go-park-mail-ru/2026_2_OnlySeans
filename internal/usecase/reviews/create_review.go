@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/logging"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 )
 
@@ -45,23 +46,22 @@ func (uc *CreateReviewUseCase) Run(ctx context.Context, input CreateReviewInput)
 
 	review, err := prepareReview(input.Review)
 	if err != nil {
+		logging.Validation(uc.logger, "create review rejected: invalid input", err, map[string]any{"user_id": input.AuthorID, "film_id": input.FilmID})
 		return nil, err
 	}
 
 	if _, err := uc.films.GetFilmByID(ctx, input.FilmID); err != nil {
-		uc.logger.Error("get film for review failed", map[string]any{
+		logging.Failure(uc.logger, "get film for review failed", err, map[string]any{
 			"film_id": input.FilmID,
-			"error":   err,
 		})
 		return nil, fmt.Errorf("get film %d: %w", input.FilmID, err)
 	}
 
 	created, err := uc.reviews.Create(ctx, input.AuthorID, input.FilmID, *review)
 	if err != nil {
-		uc.logger.Error("create review failed", map[string]any{
+		logging.Failure(uc.logger, "create review failed", err, map[string]any{
 			"user_id": input.AuthorID,
 			"film_id": input.FilmID,
-			"error":   err,
 		})
 		return nil, fmt.Errorf("create review: %w", err)
 	}

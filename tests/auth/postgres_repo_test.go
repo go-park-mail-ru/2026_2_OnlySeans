@@ -30,7 +30,7 @@ func newPostgresUserRepo(t *testing.T) (domain.UserRepository, sqlmock.Sqlmock) 
 		db.Close()
 	})
 
-	return auth.NewPostgresUserRepo(db, newTestLogger()), mock
+	return auth.NewPostgresUserRepo(db), mock
 }
 
 var userColumns = []string{"id", "email", "username", "password_hash", "role_code", "avatar_filename"}

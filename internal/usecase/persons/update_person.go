@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/logging"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 )
 
@@ -35,6 +36,7 @@ func (uc *UpdatePersonUseCase) Run(ctx context.Context, input UpdatePersonInput)
 
 	person, err := preparePerson(input.Person)
 	if err != nil {
+		logging.Validation(uc.logger, "update person rejected: invalid input", err, map[string]any{"person_id": input.PersonID})
 		return nil, err
 	}
 
@@ -44,9 +46,8 @@ func (uc *UpdatePersonUseCase) Run(ctx context.Context, input UpdatePersonInput)
 		*person,
 	)
 	if err != nil {
-		uc.logger.Error("update person failed", map[string]any{
+		logging.Failure(uc.logger, "update person failed", err, map[string]any{
 			"person_id": input.PersonID,
-			"error":     err,
 		})
 
 		return nil, fmt.Errorf("update person %d: %w", input.PersonID, err)

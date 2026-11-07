@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 )
 
 const (
@@ -48,14 +47,12 @@ const (
 )
 
 type PersonRepo struct {
-	db        *sql.DB
-	appLogger logger.Logger
+	db *sql.DB
 }
 
-func NewPersonRepo(db *sql.DB, appLogger logger.Logger) domain.PersonRepository {
+func NewPersonRepo(db *sql.DB) domain.PersonRepository {
 	return &PersonRepo{
-		db:        db,
-		appLogger: appLogger,
+		db: db,
 	}
 }
 
@@ -92,10 +89,6 @@ func (r *PersonRepo) GetByID(
 	}
 
 	if err != nil {
-		r.appLogger.Error("postgres get person failed", map[string]any{
-			"person_id": id,
-			"error":     err,
-		})
 
 		return nil, fmt.Errorf("get person %d: %w", id, err)
 	}
@@ -107,19 +100,11 @@ func (s *PersonRepo) List(ctx context.Context, limit, offset int) ([]domain.Pers
 	var total int
 
 	if err := s.db.QueryRowContext(ctx, countPersonsQuery).Scan(&total); err != nil {
-		s.appLogger.Error("postgres count persons failed", map[string]any{
-			"error": err,
-		})
 		return nil, 0, fmt.Errorf("count persons: %w", err)
 	}
 
 	rows, err := s.db.QueryContext(ctx, listPersonsQuery, limit, offset)
 	if err != nil {
-		s.appLogger.Error("postgres list persons failed", map[string]any{
-			"limit":  limit,
-			"offset": offset,
-			"error":  err,
-		})
 		return nil, 0, fmt.Errorf("list persons: %w", err)
 	}
 	defer rows.Close()
@@ -129,9 +114,6 @@ func (s *PersonRepo) List(ctx context.Context, limit, offset int) ([]domain.Pers
 	for rows.Next() {
 		person, err := scanPerson(rows)
 		if err != nil {
-			s.appLogger.Error("postgres scan person failed", map[string]any{
-				"error": err,
-			})
 			return nil, 0, fmt.Errorf("scan person: %w", err)
 		}
 
@@ -139,9 +121,6 @@ func (s *PersonRepo) List(ctx context.Context, limit, offset int) ([]domain.Pers
 	}
 
 	if err := rows.Err(); err != nil {
-		s.appLogger.Error("postgres list persons failed", map[string]any{
-			"error": err,
-		})
 		return nil, 0, fmt.Errorf("list persons: %w", err)
 	}
 
@@ -162,9 +141,6 @@ func (r *PersonRepo) Create(
 		input.BirthDate,
 	).Scan(&id)
 	if err != nil {
-		r.appLogger.Error("postgres create person failed", map[string]any{
-			"error": err,
-		})
 		return 0, fmt.Errorf("create person: %w", err)
 	}
 
@@ -192,10 +168,6 @@ func (r *PersonRepo) Update(
 	}
 
 	if err != nil {
-		r.appLogger.Error("postgres update person failed", map[string]any{
-			"person_id": id,
-			"error":     err,
-		})
 
 		return nil, fmt.Errorf("update person %d: %w", id, err)
 	}
@@ -209,20 +181,12 @@ func (r *PersonRepo) Delete(
 ) error {
 	result, err := r.db.ExecContext(ctx, deletePersonQuery, id)
 	if err != nil {
-		r.appLogger.Error("postgres delete person failed", map[string]any{
-			"person_id": id,
-			"error":     err,
-		})
 
 		return fmt.Errorf("delete person %d: %w", id, err)
 	}
 
 	affected, err := result.RowsAffected()
 	if err != nil {
-		r.appLogger.Error("postgres get deleted rows count failed", map[string]any{
-			"person_id": id,
-			"error":     err,
-		})
 
 		return fmt.Errorf("delete person %d: %w", id, err)
 	}

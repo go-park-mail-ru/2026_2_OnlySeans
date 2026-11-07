@@ -18,7 +18,6 @@ tags:
   - name: Отзывы
   - name: Персоны
   - name: Файлы
-  - name: Статика
 security: []
 x-cors:
   allowed-origin: http://localhost:8000
@@ -72,6 +71,45 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/AvatarNotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    put:
+      tags:
+        - Файлы
+      operationId: updateMyAvatar
+      summary: Обновить свою аватарку
+      description: |-
+        Принимает один JPEG или PNG в multipart-поле avatar. Использует ID пользователя из сессии.
+        Загружает новый файл в RustFS и заменяет привязку аватарки в PostgreSQL.
+        Если аватарка ещё не назначена, устанавливает её. Возвращает 200 и новое имя файла.
+        Ограничения совпадают с POST /api/avatars. Старый объект и его метаданные сохраняются.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - avatar
+              properties:
+                avatar:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Новая аватарка назначена текущему пользователю.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadAvatarResponse'
+        '400':
+          $ref: '#/components/responses/InvalidAvatarUpload'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '413':
+          $ref: '#/components/responses/AvatarTooLarge'
         '500':
           $ref: '#/components/responses/InternalError'
     delete:
@@ -745,43 +783,6 @@ paths:
           $ref: '#/components/responses/RouteMethodNotAllowed'
         '500':
           $ref: '#/components/responses/InternalError'
-  /static/{path}:
-    x-route-prefix: /static/
-    parameters:
-      - name: path
-        in: path
-        required: true
-        description: Относительный путь в embedded static, включая подкаталоги, например posters/home-alone.svg.
-        schema:
-          type: string
-    get:
-      tags:
-        - Статика
-      operationId: getStaticFile
-      summary: Получить встроенный статический файл
-      description: Раздаёт встроенные в приложение файлы из static. Загруженные в S3 аватары здесь не обслуживаются.
-      security: []
-      responses:
-        '200':
-          description: Содержимое файла. Content-Type зависит от файла; текущие постеры — SVG.
-          content:
-            image/svg+xml:
-              schema:
-                type: string
-                format: binary
-        '404':
-          description: Файл отсутствует. Стандартный текстовый ответ net/http.
-    head:
-      tags:
-        - Статика
-      operationId: headStaticFile
-      summary: Получить заголовки статического файла
-      security: []
-      responses:
-        '200':
-          description: Заголовки файла без тела.
-        '404':
-          description: Файл отсутствует.
 components:
   securitySchemes:
     sessionCookie:
