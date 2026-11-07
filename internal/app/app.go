@@ -18,6 +18,7 @@ import (
 	filesdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/files"
 	filmsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/films"
 	persondelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/persons"
+	profiledelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/profile"
 	ratingsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/ratings"
 	reviewsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/reviews"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/router"
@@ -26,6 +27,7 @@ import (
 	filesservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/files"
 	filmsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/films"
 	personservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/persons"
+	profileservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/profile"
 	ratingsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/ratings"
 	reviewsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/reviews"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/storage"
@@ -159,7 +161,7 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 	userRepo = authservice.NewPostgresUserRepo(db)
 	filmsRepo = filmsservice.NewPostgresService(db)
 	reviewsRepo = reviewsservice.NewPostgresReviewRepo(db)
-  personsRepo = personservice.NewPersonRepo(db)
+	personsRepo = personservice.NewPersonRepo(db)
 	postgresRatingsRepo := ratingsservice.NewPostgresRepo(db, appLogger)
 	ratingsRepo = postgresRatingsRepo
 
@@ -365,6 +367,7 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 		ratingsHandler,
 		cfg.Server.AllowedOrigins,
 		appLogger,
+		profiledelivery.NewHandler(profileservice.NewRepo(db), passwordService, appLogger),
 	)
 	if err != nil {
 		return fmt.Errorf("create router: %w", err)
