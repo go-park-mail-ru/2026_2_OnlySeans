@@ -1,4 +1,4 @@
-package router
+package router_test
 
 import (
 	"encoding/json"
@@ -9,6 +9,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/router"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -69,7 +70,7 @@ func TestWithRecover(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			spy := &recoverSpyLogger{}
-			handler := withRecover(tt.handler, spy)
+			handler := router.WithRecover(tt.handler, spy)
 
 			req := httptest.NewRequest(http.MethodGet, "/api/films", nil)
 			rec := httptest.NewRecorder()
@@ -113,14 +114,14 @@ func TestWithLogging_WithRecover(t *testing.T) {
 			"после паники логируется 500",
 			func(http.ResponseWriter, *http.Request) { panic("boom") },
 			http.StatusInternalServerError,
-			[]string{"panic recovered", "request handled"},
+			[]string{"request started", "panic recovered", "request handled"},
 			"error",
 		},
 		{
-			"без паники логируется только запрос",
+			"без паники логируется начало и завершение запроса",
 			func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusCreated) },
 			http.StatusCreated,
-			[]string{"request handled"},
+			[]string{"request started", "request handled"},
 			"info",
 		},
 	}
@@ -128,7 +129,7 @@ func TestWithLogging_WithRecover(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			spy := &recoverSpyLogger{}
-			handler := withLogging(withRecover(tt.handler, spy), spy)
+			handler := router.WithLogging(router.WithRecover(tt.handler, spy), spy)
 
 			rec := httptest.NewRecorder()
 			handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/x", nil))
@@ -148,7 +149,7 @@ func TestWithLogging_WithRecover(t *testing.T) {
 	}
 }
 
-// Границы выбора уровня в withLogging.
+// Границы выбора уровня в router.WithLogging.
 func TestWithLogging_Level(t *testing.T) {
 	tests := []struct {
 		status    int
@@ -170,14 +171,16 @@ func TestWithLogging_Level(t *testing.T) {
 		t.Run(strconv.Itoa(tt.status), func(t *testing.T) {
 			spy := &recoverSpyLogger{}
 			next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(tt.status) })
-			handler := withLogging(next, spy)
+			handler := router.WithLogging(next, spy)
 
 			handler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/", nil))
 
-			require.Len(t, spy.entries, 1)
-			assert.Equal(t, tt.wantLevel, spy.entries[0].level)
-			assert.Equal(t, "request handled", spy.entries[0].msg)
-			assert.Equal(t, tt.status, spy.entries[0].fields["status"])
+			require.Len(t, spy.entries, 2)
+			assert.Equal(t, "debug", spy.entries[0].level)
+			assert.Equal(t, "request started", spy.entries[0].msg)
+			assert.Equal(t, tt.wantLevel, spy.entries[1].level)
+			assert.Equal(t, "request handled", spy.entries[1].msg)
+			assert.Equal(t, tt.status, spy.entries[1].fields["status"])
 		})
 	}
 }
@@ -220,7 +223,7 @@ func TestRecoveryAfterResponseStarted(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			spy := &recoverSpyLogger{}
-			handler := withLogging(withRecover(tt.handler, spy), spy)
+			handler := router.WithLogging(router.WithRecover(tt.handler, spy), spy)
 			rec := httptest.NewRecorder()
 			handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
 			require.Equal(t, tt.wantStatus, rec.Code)
@@ -228,7 +231,7 @@ func TestRecoveryAfterResponseStarted(t *testing.T) {
 			last := spy.entries[len(spy.entries)-1]
 			require.Equal(t, tt.wantStatus, last.fields["status"])
 			if tt.name != "later status cannot replace implicit status" {
-				require.Equal(t, "panic recovered", spy.entries[0].msg)
+				require.Equal(t, "panic recovered", spy.entries[1].msg)
 			}
 		})
 	}

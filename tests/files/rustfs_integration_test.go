@@ -96,7 +96,7 @@ func TestRustFSAvatarHTTP(t *testing.T) {
 	handler, err := filesdelivery.NewHandler(upload, getURL, accountAvatar, appLogger)
 	require.NoError(t, err)
 	routes := mux.NewRouter()
-	routes.HandleFunc("/api/avatars", router.RequireAuth(integrationAuthenticator{}, handler.UploadAvatar)).Methods(http.MethodPost)
+	routes.HandleFunc("/api/avatars", router.RequireAuth(integrationAuthenticator{})(handler.UploadAvatar)).Methods(http.MethodPost)
 	routes.HandleFunc("/api/avatars/{filename}", handler.GetAvatarURL).Methods(http.MethodGet)
 	userRepo := authservice.NewPostgresUserRepo(db)
 	sessions := authservice.NewInMemorySessionStore(time.Hour)
@@ -115,7 +115,7 @@ func TestRustFSAvatarHTTP(t *testing.T) {
 		Register: registerUC, Login: loginUC, Logout: logoutUC, Authenticate: authenticateUC, GetUser: getUserUC,
 	}, appLogger)
 	require.NoError(t, err)
-	routes.HandleFunc("/api/authorised", router.RequireAuth(integrationAuthenticator{}, authHandler.Authorised)).Methods(http.MethodGet)
+	routes.HandleFunc("/api/authorised", router.RequireAuth(integrationAuthenticator{})(authHandler.Authorised)).Methods(http.MethodGet)
 	server := httptest.NewServer(routes)
 	defer server.Close()
 	httpClient := &http.Client{Timeout: 10 * time.Second}

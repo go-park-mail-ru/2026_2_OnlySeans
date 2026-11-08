@@ -43,10 +43,13 @@ func TestRequireCatalogEditor(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			called := false
 			appLogger := &spyLogger{}
-			handler := router.RequireCatalogEditor(catalogPermissionStub{role: tt.role, err: tt.err}, func(w http.ResponseWriter, _ *http.Request) {
+			handler := router.RequireCatalogEditor(
+				catalogPermissionStub{role: tt.role, err: tt.err},
+				appLogger,
+			)(func(w http.ResponseWriter, _ *http.Request) {
 				called = true
 				w.WriteHeader(http.StatusNoContent)
-			}, appLogger)
+			})
 			req := httptest.NewRequest(http.MethodPost, "/api/persons", nil)
 			if tt.authenticated {
 				req = req.WithContext(auth.ContextWithUserID(req.Context(), 1))

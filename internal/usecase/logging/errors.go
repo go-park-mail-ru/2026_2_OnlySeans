@@ -15,9 +15,9 @@ func Failure(appLogger logger.Logger, message string, err error, fields map[stri
 	}
 	fields["error"] = err
 	switch {
-	case matches(err, domain.ErrFilmNotFound, domain.ErrCollectionNotFound, domain.ErrPersonNotFound, domain.ErrReviewNotFound, domain.ErrUserNotFound, domain.ErrSessionNotFound, domain.ErrFileNotFound):
+	case matches(err, domain.ErrFilmNotFound, domain.ErrCollectionNotFound, domain.ErrPersonNotFound, domain.ErrReviewNotFound, domain.ErrUserNotFound, domain.ErrSessionNotFound, domain.ErrFileNotFound, domain.ErrRatingNotFound):
 		appLogger.Debug(message, fields)
-	case matches(err, domain.ErrUserExists, domain.ErrUsernameTaken, domain.ErrReviewExists, domain.ErrFilmExists, domain.ErrCollectionExists, domain.ErrDuplicateCollectionFilm, domain.ErrForbidden, domain.ErrUnauthorized, domain.ErrInvalidCredentials):
+	case matches(err, domain.ErrUserExists, domain.ErrUsernameTaken, domain.ErrReviewExists, domain.ErrFilmExists, domain.ErrCollectionExists, domain.ErrDuplicateCollectionFilm, domain.ErrForbidden, domain.ErrUnauthorized, domain.ErrInvalidCredentials, domain.ErrInvalidFilmRating, domain.ErrInvalidFilmInput):
 		appLogger.Warn(message, fields)
 	default:
 		appLogger.Error(message, fields)

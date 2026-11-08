@@ -58,6 +58,27 @@ func TestRequestRejectionLogs(t *testing.T) {
 			field:   "pagination",
 		},
 		{
+			name:    "rating film ID",
+			method:  http.MethodGet,
+			path:    "/api/films/invalid/rating",
+			message: "request rejected",
+			field:   "id",
+		},
+		{
+			name:    "rating collection ID",
+			method:  http.MethodGet,
+			path:    "/api/collections/invalid/ratings",
+			message: "request rejected",
+			field:   "id",
+		},
+		{
+			name:    "rating pagination",
+			method:  http.MethodGet,
+			path:    "/api/collections/1/ratings?limit=invalid",
+			message: "request rejected",
+			field:   "pagination",
+		},
+		{
 			name:    "person ID",
 			method:  http.MethodGet,
 			path:    "/api/persons/invalid",

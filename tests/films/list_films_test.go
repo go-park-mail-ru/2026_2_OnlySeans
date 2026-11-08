@@ -1,4 +1,4 @@
-package usecase
+package films_test
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	entities "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
+	filmsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/films"
 )
 
 // Тестовый логгер.
@@ -47,12 +48,12 @@ func TestListFilmsUseCaseRun(t *testing.T) {
 		total: 5,
 	}
 
-	uc, err := NewListFilmsUseCase(repository, &testLogger{})
+	uc, err := filmsusecase.NewListFilmsUseCase(repository, &testLogger{})
 	if err != nil {
-		t.Fatalf("NewListFilmsUseCase: %v", err)
+		t.Fatalf("filmsusecase.NewListFilmsUseCase: %v", err)
 	}
 
-	result, err := uc.Run(ctx, NewListFilmsInput(2, 1))
+	result, err := uc.Run(ctx, filmsusecase.NewListFilmsInput(2, 1))
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -78,12 +79,12 @@ func TestListFilmsUseCaseRun(t *testing.T) {
 func TestListFilmsUseCaseRunReturnsRepositoryError(t *testing.T) {
 	repositoryErr := errors.New("storage unavailable")
 
-	uc, err := NewListFilmsUseCase(&filmRepositoryStub{err: repositoryErr}, &testLogger{})
+	uc, err := filmsusecase.NewListFilmsUseCase(&filmRepositoryStub{err: repositoryErr}, &testLogger{})
 	if err != nil {
-		t.Fatalf("NewListFilmsUseCase: %v", err)
+		t.Fatalf("filmsusecase.NewListFilmsUseCase: %v", err)
 	}
 
-	result, err := uc.Run(context.Background(), NewListFilmsInput(10, 0))
+	result, err := uc.Run(context.Background(), filmsusecase.NewListFilmsInput(10, 0))
 
 	if !errors.Is(err, repositoryErr) {
 		t.Fatalf("Run error = %v, want wrapped %v", err, repositoryErr)
@@ -95,15 +96,15 @@ func TestListFilmsUseCaseRunReturnsRepositoryError(t *testing.T) {
 }
 
 func TestNewListFilmsUseCaseRejectsNilRepository(t *testing.T) {
-	if _, err := NewListFilmsUseCase(nil, &testLogger{}); err == nil {
-		t.Fatal("NewListFilmsUseCase(nil) error = nil, want error")
+	if _, err := filmsusecase.NewListFilmsUseCase(nil, &testLogger{}); err == nil {
+		t.Fatal("filmsusecase.NewListFilmsUseCase(nil) error = nil, want error")
 	}
 }
 
 func TestNewListFilmsUseCaseRejectsNilLogger(t *testing.T) {
 	repository := &filmRepositoryStub{}
 
-	if _, err := NewListFilmsUseCase(repository, nil); err == nil {
-		t.Fatal("NewListFilmsUseCase with nil logger: expected error")
+	if _, err := filmsusecase.NewListFilmsUseCase(repository, nil); err == nil {
+		t.Fatal("filmsusecase.NewListFilmsUseCase with nil logger: expected error")
 	}
 }

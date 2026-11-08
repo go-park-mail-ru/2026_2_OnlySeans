@@ -18,6 +18,7 @@ import (
 	filesdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/files"
 	filmsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/films"
 	persondelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/persons"
+	ratingsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/ratings"
 	reviewsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/reviews"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/router"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
@@ -25,12 +26,14 @@ import (
 	filesservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/files"
 	filmsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/films"
 	personservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/persons"
+	ratingsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/ratings"
 	reviewsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/reviews"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/storage"
 	authusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/auth"
 	filesusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/files"
 	filmsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/films"
 	personusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/persons"
+	ratingsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/ratings"
 	reviewsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/reviews"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/redis"
@@ -110,6 +113,7 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 	var (
 		userRepo    domain.UserRepository
 		filmsRepo   domain.FilmsRepository
+		ratingsRepo domain.FilmRatingRepository
 		reviewsRepo domain.ReviewRepository
 		personsRepo domain.PersonRepository
 	)
@@ -156,6 +160,8 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 	filmsRepo = filmsservice.NewPostgresService(db)
 	reviewsRepo = reviewsservice.NewPostgresReviewRepo(db)
 	personsRepo = personservice.NewPersonRepo(db)
+	postgresRatingsRepo := ratingsservice.NewPostgresRepo(db, appLogger)
+	ratingsRepo = postgresRatingsRepo
 
 	newClient, err := redis.NewClientWithPing(context.Background(), redisCfg.URL)
 	if err != nil {
@@ -204,6 +210,21 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 		return fmt.Errorf("create get film use case: %w", err)
 	}
 
+	createFilmUC, err := filmsusecase.NewCreateFilmUseCase(filmsRepo, appLogger)
+	if err != nil {
+		return fmt.Errorf("create film use case: %w", err)
+	}
+
+	updateFilmUC, err := filmsusecase.NewUpdateFilmUseCase(filmsRepo, appLogger)
+	if err != nil {
+		return fmt.Errorf("create update film use case: %w", err)
+	}
+
+	deleteFilmUC, err := filmsusecase.NewDeleteFilmUseCase(filmsRepo, appLogger)
+	if err != nil {
+		return fmt.Errorf("create delete film use case: %w", err)
+	}
+
 	listCollectionsUC, err := filmsusecase.NewListCollectionsUseCase(filmsRepo, appLogger)
 	if err != nil {
 		return fmt.Errorf("create list collections use case: %w", err)
@@ -228,6 +249,9 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 	filmsHandler, err := filmsdelivery.NewHandler(filmsdelivery.HandlerUseCases{
 		ListFilms:       listFilmsUC,
 		GetFilm:         getFilmUC,
+		CreateFilm:      createFilmUC,
+		UpdateFilm:      updateFilmUC,
+		DeleteFilm:      deleteFilmUC,
 		ListCollections: listCollectionsUC,
 		GetCollection:   getCollectionUC,
 	}, appLogger)
@@ -242,7 +266,7 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 
 	createReviewUC, err := reviewsusecase.NewCreateReviewUseCase(reviewsRepo, filmsRepo, appLogger)
 	if err != nil {
-		return fmt.Errorf("create create review use case: %w", err)
+		return fmt.Errorf("create review use case: %w", err)
 	}
 
 	updateReviewUC, err := reviewsusecase.NewUpdateReviewUseCase(reviewsRepo, appLogger)
@@ -302,15 +326,49 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 		return fmt.Errorf("create persons handler: %w", err)
 	}
 
-	httpHandler := router.NewRouter(
+	setFilmRatingUC, err := ratingsusecase.NewSetFilmRatingUseCase(ratingsRepo, filmsRepo, appLogger)
+	if err != nil {
+		return fmt.Errorf("create set film rating use case: %w", err)
+	}
+
+	getFilmRatingUC, err := ratingsusecase.NewGetFilmRatingUseCase(ratingsRepo, filmsRepo, appLogger)
+	if err != nil {
+		return fmt.Errorf("create get film rating use case: %w", err)
+	}
+
+	getCollectionRatingsUC, err := ratingsusecase.NewGetCollectionRatingsUseCase(postgresRatingsRepo, appLogger)
+	if err != nil {
+		return fmt.Errorf("create get collection ratings use case: %w", err)
+	}
+
+	deleteFilmRatingUC, err := ratingsusecase.NewDeleteFilmRatingUseCase(ratingsRepo, filmsRepo, appLogger)
+	if err != nil {
+		return fmt.Errorf("create delete film rating use case: %w", err)
+	}
+
+	ratingsHandler, err := ratingsdelivery.NewHandler(ratingsdelivery.HandlerUseCases{
+		SetRating:               setFilmRatingUC,
+		GetRating:               getFilmRatingUC,
+		GetRatingsForCollection: getCollectionRatingsUC,
+		DeleteRating:            deleteFilmRatingUC,
+	}, appLogger)
+	if err != nil {
+		return fmt.Errorf("create ratings handler: %w", err)
+	}
+
+	httpHandler, err := router.NewRouter(
 		authHandler,
 		filmsHandler,
 		reviewsHandler,
 		personsHandler,
 		filesHandler,
-		cfg.Server.AllowedOrigin,
+		ratingsHandler,
+		cfg.Server.AllowedOrigins,
 		appLogger,
 	)
+	if err != nil {
+		return fmt.Errorf("create router: %w", err)
+	}
 
 	server := &http.Server{
 		Addr:         cfg.Server.Addr(),

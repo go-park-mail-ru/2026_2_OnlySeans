@@ -20,6 +20,16 @@ func TestUseCaseFailureLevels(t *testing.T) {
 		level string
 	}{
 		{
+			name:  "missing rating",
+			err:   fmt.Errorf("delete rating: %w", domain.ErrRatingNotFound),
+			level: "DEBUG",
+		},
+		{
+			name:  "invalid rating",
+			err:   domain.InvalidFilmRatingLimitsError(),
+			level: "WARN",
+		},
+		{
 			name:  "missing film",
 			err:   domain.ErrFilmNotFound,
 			level: "DEBUG",
