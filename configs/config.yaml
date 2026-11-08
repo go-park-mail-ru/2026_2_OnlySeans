@@ -6,4 +6,5 @@ server:
   idle_timeout: 60s
   shutdown_timeout: 10s
   session_ttl: 24h
-  allowed_origin: "http://localhost:8000"
+  allowed_origins:
+    - "http://localhost:8000"

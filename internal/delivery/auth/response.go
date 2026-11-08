@@ -16,17 +16,14 @@ type loginRequest struct {
 }
 
 type userResponse struct {
-	ID       int    `json:"id"`
-	Email    string `json:"email"`
-	Username string `json:"username"`
+	ID             int     `json:"id"`
+	Email          string  `json:"email"`
+	Username       string  `json:"username"`
+	AvatarFilename *string `json:"avatar_filename,omitempty"`
 }
 
 type authResponse struct {
 	User userResponse `json:"user"`
-}
-
-type errorResponse struct {
-	Error string `json:"error"`
 }
 
 func toRegisterUserInput(request registerRequest) usecase.RegisterUserInput {
@@ -40,9 +37,10 @@ func toLoginUserInput(request loginRequest) usecase.LoginUserInput {
 func toAuthResponse(user usecase.UserDTO) authResponse {
 	return authResponse{
 		User: userResponse{
-			ID:       int(user.ID),
-			Email:    user.Email,
-			Username: user.Username,
+			ID:             int(user.ID),
+			Email:          user.Email,
+			Username:       user.Username,
+			AvatarFilename: user.AvatarFilename,
 		},
 	}
 }

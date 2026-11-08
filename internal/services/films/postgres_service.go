@@ -76,13 +76,29 @@ const (
 	SELECT count(*) FROM collection_film
 	WHERE collection_id = $1
 	`
+	// создание фильма
+	createFilmQuery = `
+		INSERT INTO film (title, original_title, film_type, production_year, duration_min, age_limit, description)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		RETURNING id
+	`
+
+	updateFilmQuery = `
+		UPDATE film SET title = $2, original_title = $3, film_type = $4, production_year = $5, duration_min = $6, age_limit = $7, description = $8
+		WHERE id = $1
+	`
+
+	deleteFilmQuery = `
+		DELETE FROM film
+		WHERE id = $1
+	`
 )
 
 type PostgresService struct {
 	db *sql.DB
 }
 
-func NewPostgresService(db *sql.DB) *PostgresService {
+func NewPostgresService(db *sql.DB) domain.FilmsRepository {
 	return &PostgresService{db: db}
 }
 
@@ -157,6 +173,59 @@ func (s *PostgresService) GetFilmByID(ctx context.Context, id domain.FilmID) (do
 		return domain.Film{}, err
 	}
 	return films[0], nil
+}
+
+// сохраняем карточку и получаем ее id
+func (s *PostgresService) CreateFilm(ctx context.Context, input domain.CreateFilmInput) (domain.FilmID, error) {
+	var id domain.FilmID
+	err := s.db.QueryRowContext(ctx, createFilmQuery,
+		input.Title,
+		input.OriginalTitle,
+		input.FilmType,
+		input.ReleaseYear,
+		input.DurationMin,
+		input.AgeLimit,
+		input.Description,
+	).Scan(&id)
+	if err != nil {
+		return 0, fmt.Errorf("create film: %w", err)
+	}
+	return id, nil
+}
+
+// обновляет данные существующего фильма
+func (s *PostgresService) UpdateFilm(ctx context.Context, id domain.FilmID, input domain.CreateFilmInput) error {
+	result, err := s.db.ExecContext(ctx, updateFilmQuery, id, input.Title, input.OriginalTitle, input.FilmType, input.ReleaseYear, input.DurationMin, input.AgeLimit, input.Description)
+	if err != nil {
+		return fmt.Errorf("update film %d: %w", id, err)
+	}
+
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("update film %d: %w", id, err)
+	}
+	if affected == 0 {
+		return domain.ErrFilmNotFound
+	}
+
+	return nil
+}
+
+func (s *PostgresService) DeleteFilm(ctx context.Context, id domain.FilmID) error {
+	result, err := s.db.ExecContext(ctx, deleteFilmQuery, id)
+	if err != nil {
+		return fmt.Errorf("delete film %d: %w", id, err)
+	}
+
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("delete film %d: %w", id, err)
+	}
+	if affected == 0 {
+		return domain.ErrFilmNotFound
+	}
+
+	return nil
 }
 
 func (s *PostgresService) ListFilms(ctx context.Context, limit, offset int) ([]domain.Film, int, error) {

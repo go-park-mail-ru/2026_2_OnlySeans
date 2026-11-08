@@ -11,9 +11,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
+	authdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
 	authservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/auth"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/auth"
+	authusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/auth"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 )
 
 type registerRequest struct {
@@ -69,8 +70,11 @@ func TestHandler_Register(t *testing.T) {
 			h := newTestHandler(t)
 
 			status, body := doRequest(t, h.Register, registerRequest{
-				Email: tt.email, Username: tt.username, Password: tt.password,
+				Email:    tt.email,
+				Username: tt.username,
+				Password: tt.password,
 			})
+
 			if status != tt.wantStatus {
 				t.Errorf("status = %d, want %d (body: %v)", status, tt.wantStatus, body)
 			}
@@ -78,52 +82,68 @@ func TestHandler_Register(t *testing.T) {
 	}
 }
 
-func newTestHandler(t *testing.T) *auth.Handler {
+func newTestHandler(t *testing.T) *authdelivery.Handler {
 	t.Helper()
 
 	h, _, _ := newTestAuth(t)
 	return h
 }
 
-func newTestAuth(t *testing.T) (*auth.Handler, *authservice.InMemoryUserRepo, *authservice.InMemorySessionStore) {
+func newTestAuth(t *testing.T) (*authdelivery.Handler, *authservice.InMemoryUserRepo, *authservice.InMemorySessionStore) {
 	t.Helper()
 
 	users := authservice.NewInMemoryUserRepo()
 	sessions := authservice.NewInMemorySessionStore(time.Hour)
 	passwordService := authservice.BcryptPasswordService{}
+	appLogger := newTestLogger()
 
-	register, err := usecase.NewRegisterUserUseCase(users, sessions, passwordService)
-	require.NoError(t, err)
-	login, err := usecase.NewLoginUserUseCase(users, sessions, passwordService)
-	require.NoError(t, err)
-	logout, err := usecase.NewLogoutUserUseCase(sessions)
-	require.NoError(t, err)
-	authenticate, err := usecase.NewAuthenticateUserUseCase(sessions)
-	require.NoError(t, err)
-	getUser, err := usecase.NewGetUserUseCase(users)
+	register, err := authusecase.NewRegisterUserUseCase(users, sessions, passwordService, appLogger)
 	require.NoError(t, err)
 
-	h, err := auth.NewHandler(auth.HandlerUseCases{
+	login, err := authusecase.NewLoginUserUseCase(users, sessions, passwordService, appLogger)
+	require.NoError(t, err)
+
+	logout, err := authusecase.NewLogoutUserUseCase(sessions, appLogger)
+	require.NoError(t, err)
+
+	authenticate, err := authusecase.NewAuthenticateUserUseCase(sessions, appLogger)
+	require.NoError(t, err)
+
+	getUser, err := authusecase.NewGetUserUseCase(users, appLogger)
+	require.NoError(t, err)
+
+	h, err := authdelivery.NewHandler(authdelivery.HandlerUseCases{
 		Register:     register,
 		Login:        login,
 		Logout:       logout,
 		Authenticate: authenticate,
 		GetUser:      getUser,
-	})
+	}, appLogger)
 	require.NoError(t, err)
+
 	return h, users, sessions
 }
 
 func TestHandler_Register_DuplicateEmail(t *testing.T) {
 	h := newTestHandler(t)
-	req := registerRequest{Email: "dup@example.com", Username: "first", Password: "Password1"}
+
+	req := registerRequest{
+		Email:    "dup@example.com",
+		Username: "first",
+		Password: "Password1",
+	}
 
 	status, _ := doRequest(t, h.Register, req)
 	if status != http.StatusCreated {
 		t.Fatalf("first registration: status = %d, want %d", status, http.StatusCreated)
 	}
 
-	status, body := doRequest(t, h.Register, registerRequest{Email: "dup@example.com", Username: "second", Password: "Password1"})
+	status, body := doRequest(t, h.Register, registerRequest{
+		Email:    "dup@example.com",
+		Username: "second",
+		Password: "Password1",
+	})
+
 	if status != http.StatusConflict {
 		t.Errorf("duplicate registration: status = %d, want %d (body: %v)", status, http.StatusConflict, body)
 	}
@@ -131,7 +151,13 @@ func TestHandler_Register_DuplicateEmail(t *testing.T) {
 
 func TestHandler_Login(t *testing.T) {
 	h := newTestHandler(t)
-	status, _ := doRequest(t, h.Register, registerRequest{Email: "login@example.com", Username: "loginuser", Password: "Password1"})
+
+	status, _ := doRequest(t, h.Register, registerRequest{
+		Email:    "login@example.com",
+		Username: "loginuser",
+		Password: "Password1",
+	})
+
 	if status != http.StatusCreated {
 		t.Fatalf("failed to set up user: status %d", status)
 	}
@@ -153,7 +179,11 @@ func TestHandler_Login(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			status, body := doRequest(t, h.Login, loginRequest{Email: tt.email, Password: tt.password})
+			status, body := doRequest(t, h.Login, loginRequest{
+				Email:    tt.email,
+				Password: tt.password,
+			})
+
 			if status != tt.wantStatus {
 				t.Errorf("status = %d, want %d (body: %v)", status, tt.wantStatus, body)
 			}
@@ -162,7 +192,42 @@ func TestHandler_Login(t *testing.T) {
 }
 
 func TestNewHandler_NilDependencies(t *testing.T) {
-	h, err := auth.NewHandler(auth.HandlerUseCases{})
-	assert.Nil(t, h)
-	assert.EqualError(t, err, "register use case is nil")
+	tests := []struct {
+		name    string
+		remove  func(*authdelivery.HandlerUseCases, *logger.Logger)
+		wantErr string
+	}{
+		{"all dependencies", nil, ""},
+		{"nil register", func(c *authdelivery.HandlerUseCases, _ *logger.Logger) { c.Register = nil }, "register use case is nil"},
+		{"nil login", func(c *authdelivery.HandlerUseCases, _ *logger.Logger) { c.Login = nil }, "login use case is nil"},
+		{"nil logout", func(c *authdelivery.HandlerUseCases, _ *logger.Logger) { c.Logout = nil }, "logout use case is nil"},
+		{"nil authenticate", func(c *authdelivery.HandlerUseCases, _ *logger.Logger) { c.Authenticate = nil }, "authenticate use case is nil"},
+		{"nil get user", func(c *authdelivery.HandlerUseCases, _ *logger.Logger) { c.GetUser = nil }, "get user use case is nil"},
+		{"nil logger", func(_ *authdelivery.HandlerUseCases, l *logger.Logger) { *l = nil }, "logger use case is nil"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cases := authdelivery.HandlerUseCases{
+				Register:     &authusecase.RegisterUserUseCase{},
+				Login:        &authusecase.LoginUserUseCase{},
+				Logout:       &authusecase.LogoutUserUseCase{},
+				Authenticate: &authusecase.AuthenticateUserUseCase{},
+				GetUser:      &authusecase.GetUserUseCase{},
+			}
+			appLogger := newTestLogger()
+			if tt.remove != nil {
+				tt.remove(&cases, &appLogger)
+			}
+
+			h, err := authdelivery.NewHandler(cases, appLogger)
+			if tt.wantErr != "" {
+				assert.Nil(t, h)
+				assert.EqualError(t, err, tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.NotNil(t, h)
+		})
+	}
 }

@@ -3,6 +3,7 @@ package films_test
 import (
 	"context"
 	"database/sql/driver"
+	"errors"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
@@ -32,7 +33,7 @@ func (int64SliceConverter) ConvertValue(v any) (driver.Value, error) {
 	return driver.DefaultParameterConverter.ConvertValue(v)
 }
 
-func newPostgresService(t *testing.T) (*films.PostgresService, sqlmock.Sqlmock) {
+func newPostgresService(t *testing.T) (domain.FilmsRepository, sqlmock.Sqlmock) {
 	t.Helper()
 
 	db, mock, err := sqlmock.New(sqlmock.ValueConverterOption(int64SliceConverter{}))
@@ -439,4 +440,45 @@ func TestPostgresService_ListCollectionFilmsErrors(t *testing.T) {
 			assert.Zero(t, total)
 		})
 	}
+}
+
+func TestPostgresService_CreateFilm(t *testing.T) {
+	repo, mock := newPostgresService(t)
+	input := domain.CreateFilmInput{
+		Title:       "Alien",
+		FilmType:    domain.FilmTypeMovie,
+		ReleaseYear: 1979,
+		AgeLimit:    16,
+	}
+
+	mock.ExpectQuery("INSERT INTO film").
+		WithArgs(input.Title, nil, string(input.FilmType), input.ReleaseYear, nil, input.AgeLimit, nil).
+		WillReturnRows(
+			sqlmock.NewRows([]string{"id"}).AddRow(42),
+		)
+
+	id, err := repo.CreateFilm(context.Background(), input)
+	require.NoError(t, err)
+	assert.Equal(t, domain.FilmID(42), id)
+}
+
+func TestPostgresService_CreateFilmError(t *testing.T) {
+	repo, mock := newPostgresService(t)
+	input := domain.CreateFilmInput{
+		Title:       "Alien",
+		FilmType:    domain.FilmTypeMovie,
+		ReleaseYear: 1979,
+		AgeLimit:    16,
+	}
+	dbErr := errors.New("database unavailable")
+
+	mock.ExpectQuery("INSERT INTO film").
+		WithArgs(input.Title, nil, string(input.FilmType), input.ReleaseYear, nil, input.AgeLimit, nil).
+		WillReturnError(
+			dbErr,
+		)
+
+	id, err := repo.CreateFilm(context.Background(), input)
+	assert.Equal(t, domain.FilmID(0), id)
+	assert.ErrorIs(t, err, dbErr)
 }

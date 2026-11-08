@@ -57,9 +57,10 @@ func NewLoginOutput(user UserDTO, session SessionDTO) LoginOutput {
 }
 
 type UserDTO struct {
-	ID       domain.UserID
-	Email    string
-	Username string
+	AvatarFilename *string
+	ID             domain.UserID
+	Email          string
+	Username       string
 }
 
 func NewUserDTO(id domain.UserID, email, username string) UserDTO {
@@ -91,9 +92,11 @@ func NewGetUserInput(userID domain.UserID) GetUserInput {
 }
 
 type GetUserOutput struct {
-	ID       domain.UserID
-	Email    string
-	Username string
+	AvatarFilename *string
+	Role           domain.Role
+	ID             domain.UserID
+	Email          string
+	Username       string
 }
 
 func NewGetUserOutput(id domain.UserID, email, username string) GetUserOutput {

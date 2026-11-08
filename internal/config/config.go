@@ -5,12 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 	"gopkg.in/yaml.v3"
 )
 
@@ -18,6 +20,21 @@ const (
 	EnvServerHost  = "SERVER_HOST"
 	EnvServerPort  = "SERVER_PORT"
 	EnvDatabaseURL = "DATABASE_URL"
+	EnvRedisURL    = "REDIS_URL"
+	EnvLogLevel    = "LOG_LEVEL"
+	EnvLogFormat   = "LOG_FORMAT"
+
+	EnvS3Endpoint       = "S3_ENDPOINT"
+	EnvS3PublicEndpoint = "S3_PUBLIC_ENDPOINT"
+	EnvS3Region         = "S3_REGION"
+	EnvS3Bucket         = "S3_BUCKET"
+	EnvS3AccessKey      = "RUSTFS_ACCESS_KEY"
+	EnvS3SecretKey      = "RUSTFS_SECRET_KEY"
+)
+
+const (
+	MinAvatarURLLifetime = time.Second
+	MaxAvatarURLLifetime = 7 * 24 * time.Hour
 )
 
 const (
@@ -39,6 +56,17 @@ const (
 	defaultMaxIdleConns    = 5                //сколько из них откытыми прозапас когда запросов нет
 	defaultConnMaxLifetime = 30 * time.Minute //через сколько пересоздавать соединение чтобы зависшие не копились
 	defaultConnectTimeout  = 5 * time.Second  //сколько ждать продключения при запуске
+
+	defaultRedisURL = "redis://localhost:6379"
+
+	defaultLogLvl    = logger.LogLevelInfo
+	defaultLogFormat = "text"
+
+	defaultAvatarURLLifetime    = 15 * time.Minute
+	defaultMaxAvatarSize        = 5 << 20
+	defaultMaxAvatarDimension   = 4096
+	defaultBucketCheckTimeout   = 5 * time.Second
+	defaultAvatarCleanupTimeout = 5 * time.Second
 )
 
 type Config struct {
@@ -48,7 +76,7 @@ type Config struct {
 type Server struct {
 	Host            string        `yaml:"host"`
 	Port            int           `yaml:"port"`
-	AllowedOrigin   string        `yaml:"allowed_origin"`
+	AllowedOrigins  []string      `yaml:"allowed_origins"`
 	ReadTimeout     time.Duration `yaml:"read_timeout"`
 	WriteTimeout    time.Duration `yaml:"write_timeout"`
 	IdleTimeout     time.Duration `yaml:"idle_timeout"`
@@ -64,6 +92,30 @@ type Database struct {
 	ConnectTimeout  time.Duration `yaml:"connect_timeout"`
 }
 
+type Redis struct {
+	URL string `yaml:"url"`
+}
+
+type S3 struct {
+	Endpoint             string        `yaml:"endpoint"`
+	PublicEndpoint       string        `yaml:"public_endpoint"`
+	Region               string        `yaml:"region"`
+	Bucket               string        `yaml:"bucket"`
+	AccessKey            string        `yaml:"access_key"`
+	SecretKey            string        `yaml:"secret_key"`
+	AvatarURLLifetime    time.Duration `yaml:"avatar_url_lifetime"`
+	MaxAvatarSize        int64         `yaml:"max_avatar_size"`
+	MaxAvatarDimension   int           `yaml:"max_avatar_dimension"`
+	BucketCheckTimeout   time.Duration `yaml:"bucket_check_timeout"`
+	AvatarCleanupTimeout time.Duration `yaml:"avatar_cleanup_timeout"`
+}
+
+type LoggerConfig struct {
+	Level  logger.LogLevelType `yaml:"level"`
+	Format string              `yaml:"format"`
+	File   string              `yaml:"file"`
+}
+
 func (s *Server) Addr() string {
 	return net.JoinHostPort(s.Host, strconv.Itoa(s.Port))
 }
@@ -73,7 +125,7 @@ func Default() *Config {
 		Server: Server{
 			Host:            defaultHost,
 			Port:            defaultPort,
-			AllowedOrigin:   defaultAllowedOrigin,
+			AllowedOrigins:  []string{defaultAllowedOrigin},
 			ReadTimeout:     defaultReadTimeout,
 			WriteTimeout:    defaultWriteTimeout,
 			IdleTimeout:     defaultIdleTimeout,
@@ -92,21 +144,53 @@ func DefaultDatabase() *Database {
 	}
 }
 
-func Load(path string) (*Config, error) {
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("read config: %w", err)
+func DefaultRedis() *Redis {
+	return &Redis{URL: defaultRedisURL}
+}
+
+func DefaultS3() *S3 {
+	return &S3{
+		AvatarURLLifetime:    defaultAvatarURLLifetime,
+		MaxAvatarSize:        defaultMaxAvatarSize,
+		MaxAvatarDimension:   defaultMaxAvatarDimension,
+		BucketCheckTimeout:   defaultBucketCheckTimeout,
+		AvatarCleanupTimeout: defaultAvatarCleanupTimeout,
 	}
-	return Parse(raw, os.LookupEnv)
+}
+
+func DefaultLogger() *LoggerConfig {
+	return &LoggerConfig{
+		Level:  defaultLogLvl,
+		Format: defaultLogFormat,
+		File:   "logs/app.log",
+	}
+}
+
+func Load(path string) (*Config, error) {
+	return loadFile(path, "config", Parse)
+}
+
+func LoadDatabase(path string) (*Database, error) {
+	return loadFile(path, "database config", ParseDatabase)
+}
+
+func LoadRedis(path string) (*Redis, error) {
+	return loadFile(path, "redis config", ParseRedis)
+}
+
+func LoadS3(path string) (*S3, error) {
+	return loadFile(path, "s3 config", ParseS3)
+}
+
+func LoadLogger(path string) (*LoggerConfig, error) {
+	return loadFile(path, "logger config", ParseLogger)
 }
 
 func Parse(raw []byte, lookupEnv func(string) (string, bool)) (*Config, error) {
 	cfg := Default()
 
-	decoder := yaml.NewDecoder(bytes.NewReader(raw))
-	decoder.KnownFields(true)
-	if err := decoder.Decode(cfg); err != nil && !errors.Is(err, io.EOF) {
-		return nil, fmt.Errorf("parse config: %w", err)
+	if err := decodeStrict(raw, cfg, "config"); err != nil {
+		return nil, err
 	}
 
 	if err := cfg.applyEnv(lookupEnv); err != nil {
@@ -118,21 +202,11 @@ func Parse(raw []byte, lookupEnv func(string) (string, bool)) (*Config, error) {
 	return cfg, nil
 }
 
-func LoadDatabase(path string) (*Database, error) {
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("read database config: %w", err)
-	}
-	return ParseDatabase(raw, os.LookupEnv)
-}
-
 func ParseDatabase(raw []byte, lookupEnv func(string) (string, bool)) (*Database, error) {
 	cfg := DefaultDatabase()
 
-	decoder := yaml.NewDecoder(bytes.NewReader(raw))
-	decoder.KnownFields(true)
-	if err := decoder.Decode(cfg); err != nil && !errors.Is(err, io.EOF) {
-		return nil, fmt.Errorf("parse database config: %w", err)
+	if err := decodeStrict(raw, cfg, "database config"); err != nil {
+		return nil, err
 	}
 
 	if dbURL, ok := lookupEnv(EnvDatabaseURL); ok {
@@ -141,6 +215,76 @@ func ParseDatabase(raw []byte, lookupEnv func(string) (string, bool)) (*Database
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
+	return cfg, nil
+}
+
+func ParseRedis(raw []byte, lookupEnv func(string) (string, bool)) (*Redis, error) {
+	cfg := DefaultRedis()
+
+	if err := decodeStrict(raw, cfg, "redis config"); err != nil {
+		return nil, err
+	}
+
+	if redisURL, ok := lookupEnv(EnvRedisURL); ok {
+		cfg.URL = redisURL
+	}
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+	return cfg, nil
+}
+
+func ParseS3(raw []byte, lookupEnv func(string) (string, bool)) (*S3, error) {
+	cfg := DefaultS3()
+
+	if err := decodeStrict(raw, cfg, "s3 config"); err != nil {
+		return nil, err
+	}
+
+	if s3Endpoint, ok := lookupEnv(EnvS3Endpoint); ok {
+		cfg.Endpoint = s3Endpoint
+	}
+	if publicEndpoint, ok := lookupEnv(EnvS3PublicEndpoint); ok {
+		cfg.PublicEndpoint = publicEndpoint
+	}
+
+	if region, ok := lookupEnv(EnvS3Region); ok {
+		cfg.Region = region
+	}
+
+	if bucket, ok := lookupEnv(EnvS3Bucket); ok {
+		cfg.Bucket = bucket
+	}
+
+	if accessKey, ok := lookupEnv(EnvS3AccessKey); ok {
+		cfg.AccessKey = accessKey
+	}
+
+	if secretKey, ok := lookupEnv(EnvS3SecretKey); ok {
+		cfg.SecretKey = secretKey
+	}
+
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+	return cfg, nil
+}
+
+func ParseLogger(raw []byte, lookupEnv func(string) (string, bool)) (*LoggerConfig, error) {
+	cfg := DefaultLogger()
+
+	if err := decodeStrict(raw, cfg, "logger config"); err != nil {
+		return nil, err
+	}
+
+	if loggerLvl, ok := lookupEnv(EnvLogLevel); ok {
+		cfg.Level = logger.LogLevelType(loggerLvl)
+	}
+
+	if loggerFormat, ok := lookupEnv(EnvLogFormat); ok {
+		cfg.Format = loggerFormat
+	}
+
 	return cfg, nil
 }
 
@@ -177,6 +321,52 @@ func (d *Database) Validate() error {
 	return errors.Join(errs...)
 }
 
+func (r *Redis) Validate() error {
+	if strings.TrimSpace(r.URL) == "" {
+		return errors.New("redis.url is required")
+	}
+	return nil
+}
+
+func (s *S3) Validate() error {
+	if strings.TrimSpace(s.Endpoint) == "" {
+		return errors.New("s3.endpoint is required")
+	}
+
+	if strings.TrimSpace(s.Region) == "" {
+		return errors.New("s3.region is required")
+	}
+
+	if strings.TrimSpace(s.Bucket) == "" {
+		return errors.New("s3.bucket is required")
+	}
+
+	if strings.TrimSpace(s.AccessKey) == "" {
+		return errors.New("s3.access_key is required")
+	}
+
+	if strings.TrimSpace(s.SecretKey) == "" {
+		return errors.New("s3.secret_key is required")
+	}
+
+	if s.AvatarURLLifetime < MinAvatarURLLifetime || s.AvatarURLLifetime > MaxAvatarURLLifetime {
+		return errors.New("s3.avatar_url_lifetime must be between 1s and 168h")
+	}
+	if s.MaxAvatarSize <= 0 || s.MaxAvatarSize > math.MaxInt64-(1<<20) {
+		return errors.New("s3.max_avatar_size must be positive and leave room for multipart overhead")
+	}
+	if s.MaxAvatarDimension <= 0 {
+		return errors.New("s3.max_avatar_dimension must be positive")
+	}
+	if s.BucketCheckTimeout <= 0 {
+		return errors.New("s3.bucket_check_timeout must be positive")
+	}
+	if s.AvatarCleanupTimeout <= 0 {
+		return errors.New("s3.avatar_cleanup_timeout must be positive")
+	}
+	return nil
+}
+
 func (c *Config) applyEnv(lookupEnv func(string) (string, bool)) error {
 	if host, ok := lookupEnv(EnvServerHost); ok {
 		c.Server.Host = host
@@ -198,8 +388,20 @@ func (c *Config) Validate() error {
 		errs = append(errs, errors.New("server.host is required"))
 	}
 
-	if strings.TrimSpace(c.Server.AllowedOrigin) == "" {
-		errs = append(errs, errors.New("server.allowed_origin is required"))
+	if len(c.Server.AllowedOrigins) == 0 {
+		errs = append(
+			errs,
+			errors.New("server.allowed_origins must not be empty"),
+		)
+	}
+
+	for i, origin := range c.Server.AllowedOrigins {
+		if strings.TrimSpace(origin) == "" {
+			errs = append(
+				errs,
+				fmt.Errorf("server.allowed_origins[%d] must not be empty", i),
+			)
+		}
 	}
 
 	if c.Server.Port < MinPort || c.Server.Port > MaxPort {
@@ -238,4 +440,24 @@ func (c *Config) Validate() error {
 	}
 
 	return errors.Join(errs...)
+}
+
+func loadFile[T any](
+	path, name string,
+	parse func(raw []byte, lookupEnv func(string) (string, bool)) (*T, error),
+) (*T, error) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", name, err)
+	}
+	return parse(raw, os.LookupEnv)
+}
+
+func decodeStrict(raw []byte, dst any, name string) error {
+	decoder := yaml.NewDecoder(bytes.NewReader(raw))
+	decoder.KnownFields(true)
+	if err := decoder.Decode(dst); err != nil && !errors.Is(err, io.EOF) {
+		return fmt.Errorf("parse %s: %w", name, err)
+	}
+	return nil
 }

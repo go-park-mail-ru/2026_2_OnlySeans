@@ -1,18 +1,19 @@
 package reviews
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/httprequest"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/httpresponse"
 	"github.com/gorilla/mux"
 
 	authdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	usecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/reviews"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 )
 
 const (
@@ -20,7 +21,6 @@ const (
 	minLimit      = 1
 	maxLimit      = 100
 	defaultOffset = 0
-	maxBodyBytes  = 1 << 20
 	decimalBase   = 10
 	int64Bits     = 64
 )
@@ -31,13 +31,10 @@ const (
 	idVar       = "id"
 )
 
-const internalErrorMessage = "internal server error"
-
 var (
 	ErrInvalidID     = errors.New("id must be a positive integer")
 	ErrInvalidLimit  = errors.New("invalid limit")
 	ErrInvalidOffset = errors.New("offset must be a non-negative integer")
-	ErrInvalidBody   = errors.New("invalid request body")
 )
 
 var clientErrors = []struct {
@@ -61,9 +58,9 @@ var clientErrors = []struct {
 		message: ErrInvalidOffset.Error(),
 	},
 	{
-		err:     ErrInvalidBody,
+		err:     httprequest.ErrInvalidBody,
 		status:  http.StatusBadRequest,
-		message: ErrInvalidBody.Error(),
+		message: httprequest.ErrInvalidBody.Error(),
 	},
 	{
 		err:     domain.ErrInvalidVersion,
@@ -120,10 +117,11 @@ type HandlerUseCases struct {
 }
 
 type Handler struct {
-	useCases HandlerUseCases
+	useCases  HandlerUseCases
+	appLogger logger.Logger
 }
 
-func NewHandler(cases HandlerUseCases) (*Handler, error) {
+func NewHandler(cases HandlerUseCases, appLogger logger.Logger) (*Handler, error) {
 	if cases.List == nil {
 		return nil, errors.New("list reviews use case is nil")
 	}
@@ -136,8 +134,10 @@ func NewHandler(cases HandlerUseCases) (*Handler, error) {
 	if cases.Delete == nil {
 		return nil, errors.New("delete review use case is nil")
 	}
-
-	return &Handler{useCases: cases}, nil
+	if appLogger == nil {
+		return nil, errors.New("logger is nil")
+	}
+	return &Handler{useCases: cases, appLogger: appLogger}, nil
 }
 
 type reviewRequest struct {
@@ -150,113 +150,126 @@ type reviewRequest struct {
 func (h *Handler) ListByFilm(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(r)
 	if !ok {
-		writeError(w, ErrInvalidID)
+		httprequest.LogRejected(h.appLogger, r, "id", ErrInvalidID)
+		writeError(w, ErrInvalidID, h.appLogger)
 		return
 	}
 	limit, offset, err := pagination(r)
 	if err != nil {
-		writeError(w, err)
+		httprequest.LogRejected(h.appLogger, r, "pagination", err)
+		writeError(w, err, h.appLogger)
 		return
 	}
 
-	result, err := h.useCases.List.Run(r.Context(), usecase.NewListReviewsInput(
+	input := usecase.NewListReviewsInput(
 		domain.FilmID(id),
 		limit,
 		offset,
-	))
+	)
+	result, err := h.useCases.List.Run(r.Context(), input)
 	if err != nil {
-		writeError(w, err)
+		writeError(w, err, h.appLogger)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, reviewsPage{
+	httpresponse.WriteJSON(w, http.StatusOK, reviewsPage{
 		Reviews: toReviewResponseDTOs(result.Reviews),
 		Total:   result.Total,
 		Limit:   limit,
 		Offset:  offset,
-	})
+	}, h.appLogger)
 }
 
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(r)
 	if !ok {
-		writeError(w, ErrInvalidID)
+		httprequest.LogRejected(h.appLogger, r, "id", ErrInvalidID)
+		writeError(w, ErrInvalidID, h.appLogger)
 		return
 	}
 	userID, ok := authdelivery.UserIDFromContext(r.Context())
 	if !ok {
-		writeError(w, domain.ErrUnauthorized)
+		httprequest.LogRejected(h.appLogger, r, "session", domain.ErrUnauthorized)
+		writeError(w, domain.ErrUnauthorized, h.appLogger)
 		return
 	}
 	input, _, err := decodeReview(w, r)
 	if err != nil {
-		writeError(w, err)
+		httprequest.LogRejected(h.appLogger, r, "body", err)
+		writeError(w, err, h.appLogger)
 		return
 	}
 
-	result, err := h.useCases.Create.Run(r.Context(), usecase.NewCreateReviewInput(
+	inputCreateReview := usecase.NewCreateReviewInput(
 		userID,
 		domain.FilmID(id),
 		input,
-	))
+	)
+	result, err := h.useCases.Create.Run(r.Context(), inputCreateReview)
 	if err != nil {
-		writeError(w, err)
+		writeError(w, err, h.appLogger)
 		return
 	}
 
-	writeJSON(w, http.StatusCreated, reviewResponse{Review: toReviewResponseDTO(result.Review)})
+	httpresponse.WriteJSON(w, http.StatusCreated, createReviewResponse{ID: result.ID}, h.appLogger)
 }
 
 func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(r)
 	if !ok {
-		writeError(w, ErrInvalidID)
+		httprequest.LogRejected(h.appLogger, r, "id", ErrInvalidID)
+		writeError(w, ErrInvalidID, h.appLogger)
 		return
 	}
 	userID, ok := authdelivery.UserIDFromContext(r.Context())
 	if !ok {
-		writeError(w, domain.ErrUnauthorized)
+		httprequest.LogRejected(h.appLogger, r, "session", domain.ErrUnauthorized)
+		writeError(w, domain.ErrUnauthorized, h.appLogger)
 		return
 	}
 	input, version, err := decodeReview(w, r)
 	if err != nil {
-		writeError(w, err)
+		httprequest.LogRejected(h.appLogger, r, "body", err)
+		writeError(w, err, h.appLogger)
 		return
 	}
 
-	result, err := h.useCases.Update.Run(r.Context(), usecase.NewUpdateReviewInput(
+	inputUpdateReview := usecase.NewUpdateReviewInput(
 		userID,
 		domain.ReviewID(id),
 		input,
 		version,
-	))
+	)
+	result, err := h.useCases.Update.Run(r.Context(), inputUpdateReview)
 	if err != nil {
-		writeError(w, err)
+		writeError(w, err, h.appLogger)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, reviewResponse{Review: toReviewResponseDTO(result.Review)})
+	httpresponse.WriteJSON(w, http.StatusOK, reviewResponse{Review: toReviewResponseDTO(result.Review)}, h.appLogger)
 }
 
 func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(r)
 	if !ok {
-		writeError(w, ErrInvalidID)
+		httprequest.LogRejected(h.appLogger, r, "id", ErrInvalidID)
+		writeError(w, ErrInvalidID, h.appLogger)
 		return
 	}
 	userID, ok := authdelivery.UserIDFromContext(r.Context())
 	if !ok {
-		writeError(w, domain.ErrUnauthorized)
+		httprequest.LogRejected(h.appLogger, r, "session", domain.ErrUnauthorized)
+		writeError(w, domain.ErrUnauthorized, h.appLogger)
 		return
 	}
 
-	err := h.useCases.Delete.Run(r.Context(),
-		usecase.NewDeleteReviewInput(
-			userID,
-			domain.ReviewID(id),
-		))
+	input := usecase.NewDeleteReviewInput(
+		userID,
+		domain.ReviewID(id),
+	)
+	err := h.useCases.Delete.Run(r.Context(), input)
 	if err != nil {
-		writeError(w, err)
+		writeError(w, err, h.appLogger)
 		return
 	}
 
@@ -265,13 +278,9 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 
 // читает тело не больше 1 МБ и не пропускает неизвестные поля
 func decodeReview(w http.ResponseWriter, r *http.Request) (domain.ReviewInput, int, error) {
-	r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
-	decoder := json.NewDecoder(r.Body)
-	decoder.DisallowUnknownFields()
-
 	var req reviewRequest
-	if err := decoder.Decode(&req); err != nil {
-		return domain.ReviewInput{}, 0, ErrInvalidBody
+	if err := httprequest.DecodeJSON(w, r, &req); err != nil {
+		return domain.ReviewInput{}, 0, err
 	}
 	return domain.ReviewInput{
 		Title:            req.Title,
@@ -309,22 +318,13 @@ func queryInt(r *http.Request, key string, fallback int) (int, bool) {
 	return value, err == nil
 }
 
-func writeJSON(w http.ResponseWriter, status int, body any) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(body); err != nil {
-		log.Printf("reviews: write response: %v", err)
-	}
-}
-
-func writeError(w http.ResponseWriter, err error) {
+func writeError(w http.ResponseWriter, err error, appLogger logger.Logger) {
 	for _, known := range clientErrors {
 		if errors.Is(err, known.err) {
-			writeJSON(w, known.status, errorResponse{Error: known.message})
+			httpresponse.WriteError(w, known.status, known.message, appLogger)
 			return
 		}
 	}
 
-	log.Printf("reviews: %v", err)
-	writeJSON(w, http.StatusInternalServerError, errorResponse{Error: internalErrorMessage})
+	httpresponse.WriteError(w, http.StatusInternalServerError, httpresponse.InternalErrorMessage, appLogger)
 }

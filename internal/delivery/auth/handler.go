@@ -2,15 +2,17 @@ package auth
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"log"
 	"net/http"
 	"strings"
 	"time"
 
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/httprequest"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/httpresponse"
+
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	usecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/auth"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 )
 
 const SessionCookieName = "session_id"
@@ -21,6 +23,7 @@ type Handler struct {
 	logout       *usecase.LogoutUserUseCase
 	authenticate *usecase.AuthenticateUserUseCase
 	getUser      *usecase.GetUserUseCase
+	appLogger    logger.Logger
 	CookieSecure bool
 }
 
@@ -32,7 +35,7 @@ type HandlerUseCases struct {
 	GetUser      *usecase.GetUserUseCase
 }
 
-func NewHandler(cases HandlerUseCases) (*Handler, error) {
+func NewHandler(cases HandlerUseCases, appLogger logger.Logger) (*Handler, error) {
 	if cases.Register == nil {
 		return nil, errors.New("register use case is nil")
 	}
@@ -49,35 +52,30 @@ func NewHandler(cases HandlerUseCases) (*Handler, error) {
 		return nil, errors.New("get user use case is nil")
 	}
 
+	if appLogger == nil {
+		return nil, errors.New("logger use case is nil")
+	}
+
 	return &Handler{
 		register:     cases.Register,
 		login:        cases.Login,
 		logout:       cases.Logout,
 		authenticate: cases.Authenticate,
 		getUser:      cases.GetUser,
+		appLogger:    appLogger,
 	}, nil
 }
 
-func writeJSON(w http.ResponseWriter, status int, body any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(body)
-}
-
-func writeError(w http.ResponseWriter, status int, msg string) {
-	writeJSON(w, status, errorResponse{Error: msg})
-}
-
-// Register handles POST /api/register.
 func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		writeError(w, http.StatusMethodNotAllowed, "method not supported")
+		httpresponse.WriteError(w, http.StatusMethodNotAllowed, "method not supported", h.appLogger)
 		return
 	}
 
 	var req registerRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+	if err := httprequest.DecodeJSON(w, r, &req); err != nil {
+		httprequest.LogRejected(h.appLogger, r, "body", err)
+		httpresponse.WriteError(w, http.StatusBadRequest, "invalid request body", h.appLogger)
 		return
 	}
 	req.Email = strings.TrimSpace(req.Email)
@@ -85,78 +83,76 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 
 	result, err := h.register.Run(r.Context(), toRegisterUserInput(req))
 	if err != nil {
-		writeRegisterError(w, err)
+		writeRegisterError(w, err, h.appLogger)
 		return
 	}
 
 	h.setSessionCookie(w, result.Session.ID, result.Session.ExpiresAt)
-	writeJSON(w, http.StatusCreated, toAuthResponse(result.User))
+	httpresponse.WriteJSON(w, http.StatusCreated, toAuthResponse(result.User), h.appLogger)
 }
 
-func writeRegisterError(w http.ResponseWriter, err error) {
+func writeRegisterError(w http.ResponseWriter, err error, appLogger logger.Logger) {
 	switch {
 	case errors.Is(err, domain.ErrInvalidEmail),
 		errors.Is(err, domain.ErrInvalidUsername),
 		errors.Is(err, domain.ErrInvalidPassword):
-		writeError(w, http.StatusBadRequest, err.Error())
+		httpresponse.WriteError(w, http.StatusBadRequest, err.Error(), appLogger)
 	case errors.Is(err, domain.ErrUserExists):
-		writeError(w, http.StatusConflict, domain.ErrUserExists.Error())
+		httpresponse.WriteError(w, http.StatusConflict, domain.ErrUserExists.Error(), appLogger)
 	case errors.Is(err, domain.ErrUsernameTaken):
-		writeError(w, http.StatusConflict, domain.ErrUsernameTaken.Error())
+		httpresponse.WriteError(w, http.StatusConflict, domain.ErrUsernameTaken.Error(), appLogger)
 	default:
-		//log.Printf("auth: register user: %v", err)
-		writeError(w, http.StatusInternalServerError, domain.ErrInternal.Error())
+
+		httpresponse.WriteError(w, http.StatusInternalServerError, domain.ErrInternal.Error(), appLogger)
 	}
 }
 
-// Login handles POST /api/login.
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		writeError(w, http.StatusMethodNotAllowed, "method not supported")
+		httpresponse.WriteError(w, http.StatusMethodNotAllowed, "method not supported", h.appLogger)
 		return
 	}
 
 	var req loginRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+	if err := httprequest.DecodeJSON(w, r, &req); err != nil {
+		httprequest.LogRejected(h.appLogger, r, "body", err)
+		httpresponse.WriteError(w, http.StatusBadRequest, "invalid request body", h.appLogger)
 		return
 	}
 	req.Email = strings.TrimSpace(req.Email)
 
 	result, err := h.login.Run(r.Context(), toLoginUserInput(req))
 	if err != nil {
-		writeLoginError(w, err)
+		writeLoginError(w, err, h.appLogger)
 		return
 	}
 
 	h.setSessionCookie(w, result.Session.ID, result.Session.ExpiresAt)
-	writeJSON(w, http.StatusOK, toAuthResponse(result.User))
+	httpresponse.WriteJSON(w, http.StatusOK, toAuthResponse(result.User), h.appLogger)
 }
 
-func writeLoginError(w http.ResponseWriter, err error) {
+func writeLoginError(w http.ResponseWriter, err error, appLogger logger.Logger) {
 	switch {
 	case errors.Is(err, domain.ErrInvalidEmail),
 		errors.Is(err, domain.ErrInvalidPassword):
-		writeError(w, http.StatusBadRequest, err.Error())
+		httpresponse.WriteError(w, http.StatusBadRequest, err.Error(), appLogger)
 	case errors.Is(err, domain.ErrInvalidCredentials):
-		writeError(w, http.StatusUnauthorized, domain.ErrInvalidCredentials.Error())
+		httpresponse.WriteError(w, http.StatusUnauthorized, domain.ErrInvalidCredentials.Error(), appLogger)
 	default:
-		log.Printf("auth: login user: %v", err)
-		writeError(w, http.StatusInternalServerError, domain.ErrInternal.Error())
+
+		httpresponse.WriteError(w, http.StatusInternalServerError, domain.ErrInternal.Error(), appLogger)
 	}
 }
 
-// Logout handles POST /api/logout.
 func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		writeError(w, http.StatusMethodNotAllowed, "method not supported")
+		httpresponse.WriteError(w, http.StatusMethodNotAllowed, "method not supported", h.appLogger)
 		return
 	}
 
 	if cookie, err := r.Cookie(SessionCookieName); err == nil {
 		if err := h.logout.Run(r.Context(), usecase.NewLogoutInput(cookie.Value)); err != nil {
-			log.Printf("auth: logout user: %v", err)
-			writeError(w, http.StatusInternalServerError, domain.ErrInternal.Error())
+			httpresponse.WriteError(w, http.StatusInternalServerError, domain.ErrInternal.Error(), h.appLogger)
 			return
 		}
 	}
@@ -172,11 +168,51 @@ func (h *Handler) Authenticate(ctx context.Context, sessionID string) (domain.Us
 			return 0, err
 		}
 
-		log.Printf("auth: authenticate session: %v", err)
 		return 0, domain.ErrInternal
 	}
 
 	return userID.ID, nil
+}
+
+func (h *Handler) getUserRole(ctx context.Context, userID domain.UserID) (domain.Role, error) {
+	user, err := h.getUser.Run(ctx, usecase.NewGetUserInput(userID))
+	if err != nil {
+		return "", err
+	}
+	if user == nil {
+		return "", domain.ErrUserNotFound
+	}
+	return user.Role, nil
+}
+
+func (h *Handler) RequireAdmin(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, ok := UserIDFromContext(r.Context())
+		if !ok {
+			h.appLogger.Warn("admin access rejected: missing user context", map[string]any{"method": r.Method, "path": r.URL.Path})
+			httpresponse.WriteError(w, http.StatusUnauthorized, domain.ErrUnauthorized.Error(), h.appLogger)
+			return
+		}
+
+		role, err := h.getUserRole(r.Context(), userID)
+		if err != nil {
+			if errors.Is(err, domain.ErrUserNotFound) {
+				h.appLogger.Warn("admin access rejected: user not found", map[string]any{"user_id": userID, "method": r.Method, "path": r.URL.Path})
+				httpresponse.WriteError(w, http.StatusUnauthorized, domain.ErrUnauthorized.Error(), h.appLogger)
+				return
+			}
+			h.appLogger.Error("get user role failed", map[string]any{"error": err, "user_id": userID, "method": r.Method, "path": r.URL.Path})
+			httpresponse.WriteError(w, http.StatusInternalServerError, domain.ErrInternal.Error(), h.appLogger)
+			return
+		}
+		if role != domain.RoleAdmin {
+			h.appLogger.Warn("admin access forbidden", map[string]any{"user_id": userID, "method": r.Method, "path": r.URL.Path})
+			httpresponse.WriteError(w, http.StatusForbidden, domain.ErrForbidden.Error(), h.appLogger)
+			return
+		}
+
+		next(w, r)
+	}
 }
 
 func (h *Handler) setSessionCookie(w http.ResponseWriter, sessionID string, expiresAt time.Time) {
@@ -206,21 +242,30 @@ func (h *Handler) clearSessionCookie(w http.ResponseWriter) {
 func (h *Handler) Authorised(w http.ResponseWriter, r *http.Request) {
 	id, ok := UserIDFromContext(r.Context())
 	if !ok {
-		writeError(w, http.StatusUnauthorized, domain.ErrUnauthorized.Error())
+		httpresponse.WriteError(w, http.StatusUnauthorized, domain.ErrUnauthorized.Error(), h.appLogger)
 		return
 	}
 
 	user, err := h.getUser.Run(r.Context(), usecase.NewGetUserInput(id))
 	if err != nil {
-		log.Printf("auth: get authorised user: %v", err)
-		writeError(w, http.StatusInternalServerError, domain.ErrInternal.Error())
+		httpresponse.WriteError(w, http.StatusInternalServerError, domain.ErrInternal.Error(), h.appLogger)
 		return
 	}
 	if user == nil {
-		log.Printf("auth: get authorised user: use case returned nil user")
-		writeError(w, http.StatusInternalServerError, domain.ErrInternal.Error())
+		h.appLogger.Error("get authorised user returned nil user", map[string]any{"user_id": id})
+		httpresponse.WriteError(w, http.StatusInternalServerError, domain.ErrInternal.Error(), h.appLogger)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, toAuthResponse(usecase.NewUserDTO(user.ID, user.Email, user.Username)))
+	userDTO := usecase.NewUserDTO(user.ID, user.Email, user.Username)
+	userDTO.AvatarFilename = user.AvatarFilename
+	httpresponse.WriteJSON(w, http.StatusOK, toAuthResponse(userDTO), h.appLogger)
+}
+
+func (h *Handler) CanEditPersons(ctx context.Context, userID domain.UserID) (bool, error) {
+	user, err := h.getUser.Run(ctx, usecase.NewGetUserInput(userID))
+	if err != nil {
+		return false, err
+	}
+	return user.Role.CanEditPersons(), nil
 }
