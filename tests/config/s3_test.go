@@ -10,7 +10,7 @@ import (
 )
 
 func TestParseS3(t *testing.T) {
-	const required = "endpoint: http://localhost:9000\nregion: us-east-1\nbucket: avatars\n"
+	const required = "endpoint: http://localhost:9000\nregion: us-east-1\nbucket: avatars\nposters_bucket: posters\n"
 	credentials := env(map[string]string{
 		config.EnvS3AccessKey: "test-key",
 		config.EnvS3SecretKey: "test-secret",
@@ -40,8 +40,30 @@ func TestParseS3(t *testing.T) {
 			wantErr: "s3.bucket is required",
 		},
 		{
+			name:    "missing posters bucket is not replaced with default",
+			raw:     strings.ReplaceAll(required, "posters_bucket: posters\n", ""),
+			wantErr: "s3.posters_bucket is required",
+		},
+		{
+			name:    "blank posters bucket",
+			raw:     strings.ReplaceAll(required, "posters_bucket: posters\n", "posters_bucket: \"   \"\n"),
+			wantErr: "s3.posters_bucket is required",
+		},
+		{
 			name: "custom limits and timeouts",
 			raw:  required + "avatar_url_lifetime: 2m\nmax_avatar_size: 1024\nmax_avatar_dimension: 64\nbucket_check_timeout: 1s\navatar_cleanup_timeout: 2s\n",
+		},
+		{
+			name: "zero poster size", raw: required + "max_poster_size: 0\n", wantErr: "s3.max_poster_size",
+		},
+		{
+			name: "poster size overflows body limit", raw: required + "max_poster_size: 9223372036854775807\n", wantErr: "s3.max_poster_size",
+		},
+		{
+			name: "negative poster dimension", raw: required + "max_poster_dimension: -1\n", wantErr: "s3.max_poster_dimension",
+		},
+		{
+			name: "zero poster cleanup timeout", raw: required + "poster_cleanup_timeout: 0s\n", wantErr: "s3.poster_cleanup_timeout",
 		},
 		{
 			name:    "zero URL lifetime",
@@ -87,6 +109,7 @@ func TestParseS3(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
+			require.Equal(t, "posters", cfg.PostersBucket)
 			require.Equal(t, "test-key", cfg.AccessKey)
 			require.Equal(t, "test-secret", cfg.SecretKey)
 			if tt.name == "custom limits and timeouts" {

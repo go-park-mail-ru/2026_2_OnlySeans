@@ -31,7 +31,7 @@ func NewS3Storage(client *s3.Client, bucket, publicEndpoint string, urlLifetime 
 	}
 
 	if urlLifetime < config.MinAvatarURLLifetime || urlLifetime > config.MaxAvatarURLLifetime {
-		return nil, errors.New("avatar URL lifetime must be between 1s and 168h")
+		return nil, errors.New("object URL lifetime must be between 1s and 168h")
 	}
 
 	return &S3Storage{
@@ -73,7 +73,7 @@ func (s *S3Storage) GetURL(ctx context.Context, key string) (string, error) {
 		if errors.As(err, &notFound) {
 			return "", domain.ErrFileNotFound
 		}
-		return "", fmt.Errorf("check avatar object: %w", err)
+		return "", fmt.Errorf("check object: %w", err)
 	}
 	request, err := s.presigner.PresignGetObject(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(s.bucket),
@@ -82,7 +82,7 @@ func (s *S3Storage) GetURL(ctx context.Context, key string) (string, error) {
 		options.Expires = s.urlLifetime
 	})
 	if err != nil {
-		return "", fmt.Errorf("sign avatar URL: %w", err)
+		return "", fmt.Errorf("sign object URL: %w", err)
 	}
 	return request.URL, nil
 }
@@ -93,7 +93,7 @@ func (s *S3Storage) Delete(ctx context.Context, key string) error {
 		Key:    aws.String(key),
 	})
 	if err != nil {
-		return fmt.Errorf("delete avatar object: %w", err)
+		return fmt.Errorf("delete object: %w", err)
 	}
 	return nil
 }

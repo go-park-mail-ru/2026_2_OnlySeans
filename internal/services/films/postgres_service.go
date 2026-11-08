@@ -12,7 +12,7 @@ import (
 const (
 	filmColumns = `
 		f.id, f.title, f.original_title, f.film_type, f.production_year, f.duration_min, f.age_limit, f.description,
-		(SELECT COALESCE(fl.external_url, '/static/' || fl.storage_key)
+		(SELECT fl.external_url
 			FROM film_file AS ff JOIN file AS fl ON fl.id=ff.file_id
 			WHERE ff.film_id = f.id AND ff.file_role = 'poster'
 			ORDER BY ff.sort_order LIMIT 1
@@ -20,6 +20,11 @@ const (
 		(SELECT COALESCE(fl.external_url, '/static/' || fl.storage_key)
 			FROM film_file AS ff JOIN file AS fl ON fl.id=ff.file_id
 			WHERE ff.film_id = f.id AND ff.file_role = 'trailer'
+			ORDER BY ff.sort_order LIMIT 1
+		),
+		(SELECT CASE WHEN fl.external_url IS NULL THEN fl.storage_key END
+			FROM film_file AS ff JOIN file AS fl ON fl.id=ff.file_id
+			WHERE ff.film_id = f.id AND ff.file_role = 'poster'
 			ORDER BY ff.sort_order LIMIT 1
 		)`
 
@@ -118,6 +123,7 @@ func scanFilm(row rowScanner) (domain.Film, error) {
 		&film.Description,
 		&film.PosterURL,
 		&film.TrailerURL,
+		&film.PosterStorageKey,
 	)
 	return film, err
 }

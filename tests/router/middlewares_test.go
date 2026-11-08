@@ -118,12 +118,20 @@ func newTestRouterWithAvatarStorage(t *testing.T, appLogger logger.Logger, stora
 	)
 	require.NoError(t, err)
 
+	uploadPoster, err := filesusecase.NewUploadPosterUseCase(storage, &routerPosterRepo{}, filmsRepo, filesusecase.UploadPosterOptions{
+		MaxSize: 5 << 20, MaxDimension: 4096, CleanupTimeout: 5 * time.Second,
+	}, appLogger)
+	require.NoError(t, err)
+	postersHandler, err := filesdelivery.NewPosterHandler(uploadPoster, appLogger)
+	require.NoError(t, err)
+
 	handler, err := router.NewRouter(
 		authHandler,
 		filmsHandler,
 		newTestReviewsHandler(t, filmsRepo, appLogger),
 		newTestPersonsHandler(t, appLogger),
 		filesHandler,
+		postersHandler,
 		newTestRatingsHandler(t, filmsRepo, appLogger),
 		[]string{testOrigin},
 		appLogger,
@@ -428,4 +436,10 @@ func newTestPersonsHandler(t *testing.T, appLogger logger.Logger) *personsdelive
 	require.NoError(t, err)
 
 	return handler
+}
+
+type routerPosterRepo struct{}
+
+func (*routerPosterRepo) SavePoster(context.Context, domain.FilmID, domain.UserID, domain.PosterFile) error {
+	return nil
 }

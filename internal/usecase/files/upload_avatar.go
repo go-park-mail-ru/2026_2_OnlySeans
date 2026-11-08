@@ -3,23 +3,17 @@ package files
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"errors"
 	"fmt"
-	"image"
 	"io"
 	"math"
 	"time"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
-
-	_ "image/jpeg"
-	_ "image/png"
 )
 
-const AvatarNameRandomBytes = 16
+const AvatarNameRandomBytes = imageNameRandomBytes
 
 type UploadAvatarOptions struct {
 	MaxSize        int64
@@ -76,7 +70,7 @@ func NewUploadAvatarUseCase(storage AvatarStorage, avatars AvatarWriter, options
 	if avatars == nil {
 		return nil, errors.New("avatar repository is nil")
 	}
-	if options.MaxSize <= 0 || options.MaxSize > math.MaxInt64-(1<<20) || options.MaxDimension <= 0 || options.CleanupTimeout <= 0 {
+	if options.MaxSize <= 0 || options.MaxSize > math.MaxInt64-multipartOverheadBytes || options.MaxDimension <= 0 || options.CleanupTimeout <= 0 {
 		return nil, errors.New("avatar limits and cleanup timeout must be positive and size must leave room for multipart overhead")
 	}
 	return &UploadAvatarUseCase{
@@ -97,76 +91,36 @@ func (uc *UploadAvatarUseCase) Run(ctx context.Context, input UploadAvatarInput)
 		uc.logger.Warn("avatar upload rejected: invalid user", nil)
 		return nil, domain.ErrUnauthorized
 	}
-	if input.Body == nil {
-		uc.logger.Warn("avatar upload rejected: missing file", map[string]any{"user_id": input.UserID})
-		return nil, ErrAvatarMissing
+	imageErrors := imageUploadErrors{
+		missing:            ErrAvatarMissing,
+		invalidSize:        ErrInvalidAvatarSize,
+		tooLarge:           ErrAvatarTooLarge,
+		invalidImage:       ErrInvalidAvatarImage,
+		dimensionsTooLarge: ErrAvatarDimensionsTooLarge,
 	}
-	if input.Size <= 0 {
-		uc.logger.Warn("avatar upload rejected: invalid declared size", map[string]any{"user_id": input.UserID, "size": input.Size})
-		return nil, ErrInvalidAvatarSize
-	}
-	if input.Size > uc.options.MaxSize {
-		uc.logger.Warn("avatar upload rejected: declared size exceeds limit", map[string]any{"user_id": input.UserID, "size": input.Size, "max_size": uc.options.MaxSize})
-		return nil, ErrAvatarTooLarge
-	}
-	if _, err := input.Body.Seek(0, io.SeekStart); err != nil {
-		uc.logger.Error("rewind avatar failed", map[string]any{"user_id": input.UserID, "error": err})
-		return nil, fmt.Errorf("rewind avatar: %w", err)
-	}
-
-	data, err := io.ReadAll(io.LimitReader(input.Body, uc.options.MaxSize+1))
+	image, err := readUploadImage(input.Body, input.Size, uc.options.MaxSize, uc.options.MaxDimension, imageErrors)
 	if err != nil {
-		uc.logger.Error("read avatar failed", map[string]any{"user_id": input.UserID, "error": err})
-		return nil, fmt.Errorf("read avatar: %w", err)
+		fields := map[string]any{"user_id": input.UserID, "error": err, "size": input.Size}
+		if imageErrors.contains(err) {
+			uc.logger.Warn("avatar upload rejected: invalid file", fields)
+		} else {
+			uc.logger.Error("read avatar failed", fields)
+		}
+		return nil, err
 	}
+	uc.logger.Debug("avatar image validated", map[string]any{
+		"user_id": input.UserID,
+		"size":    len(image.data),
+		"width":   image.width,
+		"height":  image.height,
+	})
 
-	if len(data) == 0 {
-		uc.logger.Warn("avatar upload rejected: empty file", map[string]any{"user_id": input.UserID})
-		return nil, ErrInvalidAvatarSize
-	}
-
-	if int64(len(data)) > uc.options.MaxSize {
-		uc.logger.Warn("avatar upload rejected: actual size exceeds limit", map[string]any{"user_id": input.UserID, "size": len(data), "max_size": uc.options.MaxSize})
-		return nil, ErrAvatarTooLarge
-	}
-
-	imageConfig, format, err := image.DecodeConfig(bytes.NewReader(data))
-	if err != nil || (format != "jpeg" && format != "png") {
-		uc.logger.Warn("avatar upload rejected: invalid image format", map[string]any{"user_id": input.UserID, "format": format, "error": err})
-		return nil, ErrInvalidAvatarImage
-	}
-
-	if imageConfig.Width <= 0 || imageConfig.Height <= 0 {
-		uc.logger.Warn("avatar upload rejected: invalid dimensions", map[string]any{"user_id": input.UserID, "width": imageConfig.Width, "height": imageConfig.Height})
-		return nil, ErrInvalidAvatarImage
-	}
-
-	if imageConfig.Width > uc.options.MaxDimension ||
-		imageConfig.Height > uc.options.MaxDimension {
-		uc.logger.Warn("avatar upload rejected: dimensions exceed limit", map[string]any{"user_id": input.UserID, "width": imageConfig.Width, "height": imageConfig.Height, "max_dimension": uc.options.MaxDimension})
-		return nil, ErrAvatarDimensionsTooLarge
-	}
-
-	if _, _, err := image.Decode(bytes.NewReader(data)); err != nil {
-		uc.logger.Warn("avatar upload rejected: damaged image", map[string]any{"user_id": input.UserID, "error": err})
-		return nil, ErrInvalidAvatarImage
-	}
-
-	randomBytes := make([]byte, AvatarNameRandomBytes)
-	if _, err := rand.Read(randomBytes); err != nil {
+	filename, err := newImageFilename(image.extension)
+	if err != nil {
 		uc.logger.Error("generate avatar name failed", map[string]any{"user_id": input.UserID, "error": err})
-		return nil, fmt.Errorf("generate avatar name: %w", err)
+		return nil, err
 	}
-
-	extension := ".jpg"
-	contentType := "image/jpeg"
-
-	if format == "png" {
-		extension = ".png"
-		contentType = "image/png"
-	}
-
-	filename := hex.EncodeToString(randomBytes) + extension
+	data, contentType := image.data, image.contentType
 
 	if err := uc.storage.Upload(
 		ctx,

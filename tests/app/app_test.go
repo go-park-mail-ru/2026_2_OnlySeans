@@ -67,7 +67,7 @@ func newConfigPaths(t *testing.T) configPaths {
 		server:   writeConfig(t, "config.yaml", validServerConfig),
 		database: writeConfig(t, "database.yaml", ""),
 		redis:    writeConfig(t, "redis.yaml", ""),
-		s3:       writeConfig(t, "s3.yaml", ""),
+		s3:       writeConfig(t, "s3.yaml", "posters_bucket: posters\n"),
 		logger:   writeConfig(t, "logger.yaml", fmt.Sprintf("file: %q\n", filepath.Join(t.TempDir(), "app.log"))),
 	}
 }
@@ -244,39 +244,76 @@ func TestRun_PortInUse(t *testing.T) {
 
 func TestRun_S3BucketCheck(t *testing.T) {
 	tests := []struct {
-		name    string
-		status  int
-		wantErr string
+		name         string
+		avatarStatus int
+		posterStatus int
+		wantErr      string
+		wantChecked  []string
 	}{
 		{
-			name:    "bucket available, startup proceeds to database",
-			status:  http.StatusOK,
-			wantErr: "open database",
+			name:         "both buckets available, startup proceeds to database",
+			avatarStatus: http.StatusOK,
+			posterStatus: http.StatusOK,
+			wantErr:      "open database",
+			wantChecked:  []string{"/avatars", "/posters"},
 		},
 		{
-			name:    "bucket missing",
-			status:  http.StatusNotFound,
-			wantErr: "check s3 bucket",
+			name:         "avatar bucket missing",
+			avatarStatus: http.StatusNotFound,
+			posterStatus: http.StatusOK,
+			wantErr:      `check s3 bucket "avatars"`,
+			wantChecked:  []string{"/avatars"},
 		},
 		{
-			name:    "access denied",
-			status:  http.StatusForbidden,
-			wantErr: "check s3 bucket",
+			name:         "avatar access denied",
+			avatarStatus: http.StatusForbidden,
+			posterStatus: http.StatusOK,
+			wantErr:      `check s3 bucket "avatars"`,
+			wantChecked:  []string{"/avatars"},
+		},
+		{
+			name:         "poster bucket missing",
+			avatarStatus: http.StatusOK,
+			posterStatus: http.StatusNotFound,
+			wantErr:      `check s3 bucket "posters"`,
+			wantChecked:  []string{"/avatars", "/posters"},
+		},
+		{
+			name:         "poster access denied",
+			avatarStatus: http.StatusOK,
+			posterStatus: http.StatusForbidden,
+			wantErr:      `check s3 bucket "posters"`,
+			wantChecked:  []string{"/avatars", "/posters"},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Setenv(config.EnvDatabaseURL, dummyDatabaseURL)
 			p := newConfigPaths(t)
+			checked := make(chan string, 10)
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if r.Method != http.MethodHead || r.URL.Path != "/avatars" {
-					t.Errorf("unexpected S3 request: %s %s", r.Method, r.URL.Path)
+				if r.Method != http.MethodHead {
+					t.Errorf("unexpected S3 method: %s", r.Method)
 				}
-				w.WriteHeader(tt.status)
+				checked <- r.URL.Path
+				switch r.URL.Path {
+				case "/avatars":
+					w.WriteHeader(tt.avatarStatus)
+				case "/posters":
+					w.WriteHeader(tt.posterStatus)
+				default:
+					t.Errorf("unexpected S3 bucket: %s", r.URL.Path)
+					w.WriteHeader(http.StatusBadRequest)
+				}
 			}))
 			defer server.Close()
 			t.Setenv(config.EnvS3Endpoint, server.URL)
 			require.ErrorContains(t, runWithTimeout(t, p), tt.wantErr)
+			var gotChecked []string
+			for len(checked) > 0 {
+				gotChecked = append(gotChecked, <-checked)
+			}
+			require.Equal(t, tt.wantChecked, gotChecked)
 		})
 	}
 }

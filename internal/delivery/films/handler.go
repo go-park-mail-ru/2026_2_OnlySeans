@@ -128,11 +128,11 @@ func NewHandler(cases HandlerUseCases, appLogger logger.Logger) (*Handler, error
 	}, nil
 }
 
-type filmsPage struct {
-	Films  []filmCardResponseDTO `json:"films"`
-	Total  int                   `json:"total"`
-	Limit  int                   `json:"limit"`
-	Offset int                   `json:"offset"`
+type filmsPage[T any] struct {
+	Films  []T `json:"films"`
+	Total  int `json:"total"`
+	Limit  int `json:"limit"`
+	Offset int `json:"offset"`
 }
 
 type filmResponse struct {
@@ -169,7 +169,18 @@ func (h *Handler) ListFilms(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	httpresponse.WriteJSON(w, http.StatusOK, filmsPage{
+	if r.URL.Query().Get("details") == "true" {
+		films := make([]filmResponseDTO, len(result.Films))
+		for i, film := range result.Films {
+			films[i] = toFilmResponseDTO(film)
+		}
+		httpresponse.WriteJSON(w, http.StatusOK, filmsPage[filmResponseDTO]{
+			Films: films, Total: result.Total, Limit: limit, Offset: offset,
+		}, h.appLogger)
+		return
+	}
+
+	httpresponse.WriteJSON(w, http.StatusOK, filmsPage[filmCardResponseDTO]{
 		Films:  toFilmCardResponseDTOs(result.Films),
 		Total:  result.Total,
 		Limit:  limit,

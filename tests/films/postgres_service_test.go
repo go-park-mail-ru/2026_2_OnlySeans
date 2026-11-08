@@ -15,7 +15,7 @@ import (
 )
 
 var (
-	filmColumns       = []string{"id", "title", "original_title", "film_type", "production_year", "duration_min", "age_limit", "description", "poster_url", "trailer_url"}
+	filmColumns       = []string{"id", "title", "original_title", "film_type", "production_year", "duration_min", "age_limit", "description", "poster_url", "trailer_url", "poster_storage_key"}
 	genreColumns      = []string{"film_id", "id", "name", "slug"}
 	collectionColumns = []string{"id", "title", "slug", "description", "cover_url"}
 	countColumns      = []string{"count"}
@@ -95,7 +95,7 @@ func filmRows(filmsToReturn ...domain.Film) *sqlmock.Rows {
 	rows := sqlmock.NewRows(filmColumns)
 	for _, f := range filmsToReturn {
 		rows.AddRow(f.ID, f.Title, value(f.OriginalTitle), string(f.FilmType), f.ReleaseYear,
-			value(f.DurationMin), f.AgeLimit, value(f.Description), value(f.PosterURL), value(f.TrailerURL))
+			value(f.DurationMin), f.AgeLimit, value(f.Description), value(f.PosterURL), value(f.TrailerURL), value(f.PosterStorageKey))
 	}
 	return rows
 }

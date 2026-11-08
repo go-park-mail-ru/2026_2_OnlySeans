@@ -57,12 +57,15 @@ const (
 	defaultConnMaxLifetime = 30 * time.Minute //через сколько пересоздавать соединение чтобы зависшие не копились
 	defaultConnectTimeout  = 5 * time.Second  //сколько ждать продключения при запуске
 
-	defaultRedisURL = "redis://localhost:6379"
+	defaultRedisURL = "redis://localhost:8020"
 
 	defaultLogLvl    = logger.LogLevelInfo
 	defaultLogFormat = "text"
 
 	defaultAvatarURLLifetime    = 15 * time.Minute
+	defaultMaxPosterSize        = 5 << 20
+	defaultMaxPosterDimension   = 4096
+	defaultPosterCleanupTimeout = 5 * time.Second
 	defaultMaxAvatarSize        = 5 << 20
 	defaultMaxAvatarDimension   = 4096
 	defaultBucketCheckTimeout   = 5 * time.Second
@@ -97,10 +100,14 @@ type Redis struct {
 }
 
 type S3 struct {
+	MaxPosterSize        int64         `yaml:"max_poster_size"`
+	MaxPosterDimension   int           `yaml:"max_poster_dimension"`
+	PosterCleanupTimeout time.Duration `yaml:"poster_cleanup_timeout"`
 	Endpoint             string        `yaml:"endpoint"`
 	PublicEndpoint       string        `yaml:"public_endpoint"`
 	Region               string        `yaml:"region"`
 	Bucket               string        `yaml:"bucket"`
+	PostersBucket        string        `yaml:"posters_bucket"`
 	AccessKey            string        `yaml:"access_key"`
 	SecretKey            string        `yaml:"secret_key"`
 	AvatarURLLifetime    time.Duration `yaml:"avatar_url_lifetime"`
@@ -152,6 +159,9 @@ func DefaultS3() *S3 {
 	return &S3{
 		AvatarURLLifetime:    defaultAvatarURLLifetime,
 		MaxAvatarSize:        defaultMaxAvatarSize,
+		MaxPosterSize:        defaultMaxPosterSize,
+		MaxPosterDimension:   defaultMaxPosterDimension,
+		PosterCleanupTimeout: defaultPosterCleanupTimeout,
 		MaxAvatarDimension:   defaultMaxAvatarDimension,
 		BucketCheckTimeout:   defaultBucketCheckTimeout,
 		AvatarCleanupTimeout: defaultAvatarCleanupTimeout,
@@ -341,6 +351,10 @@ func (s *S3) Validate() error {
 		return errors.New("s3.bucket is required")
 	}
 
+	if strings.TrimSpace(s.PostersBucket) == "" {
+		return errors.New("s3.posters_bucket is required")
+	}
+
 	if strings.TrimSpace(s.AccessKey) == "" {
 		return errors.New("s3.access_key is required")
 	}
@@ -351,6 +365,15 @@ func (s *S3) Validate() error {
 
 	if s.AvatarURLLifetime < MinAvatarURLLifetime || s.AvatarURLLifetime > MaxAvatarURLLifetime {
 		return errors.New("s3.avatar_url_lifetime must be between 1s and 168h")
+	}
+	if s.MaxPosterSize <= 0 || s.MaxPosterSize > math.MaxInt64-(1<<20) {
+		return errors.New("s3.max_poster_size must be positive and leave room for multipart overhead")
+	}
+	if s.MaxPosterDimension <= 0 {
+		return errors.New("s3.max_poster_dimension must be positive")
+	}
+	if s.PosterCleanupTimeout <= 0 {
+		return errors.New("s3.poster_cleanup_timeout must be positive")
 	}
 	if s.MaxAvatarSize <= 0 || s.MaxAvatarSize > math.MaxInt64-(1<<20) {
 		return errors.New("s3.max_avatar_size must be positive and leave room for multipart overhead")

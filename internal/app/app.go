@@ -14,6 +14,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/config"
+	assetsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/assets"
+	librarydelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/library"
+	libraryservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/library"
 	authdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
 	filesdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/files"
 	filmsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/films"
@@ -90,25 +93,29 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 		return fmt.Errorf("create s3 client: %w", err)
 	}
 
-	s3Ctx, cancelS3 := context.WithTimeout(context.Background(), s3Cfg.BucketCheckTimeout)
+	objectStorages := make(map[string]*filesservice.S3Storage)
+	for _, bucket := range []string{s3Cfg.Bucket, s3Cfg.PostersBucket} {
+		s3Ctx, cancelS3 := context.WithTimeout(context.Background(), s3Cfg.BucketCheckTimeout)
+		_, err = s3Client.HeadBucket(s3Ctx, &s3.HeadBucketInput{
+			Bucket: aws.String(bucket),
+		})
+		cancelS3()
 
-	_, err = s3Client.HeadBucket(s3Ctx, &s3.HeadBucketInput{
-		Bucket: aws.String(s3Cfg.Bucket),
-	})
-	cancelS3()
+		if err != nil {
+			appLogger.Error("check s3 bucket failed", map[string]any{"bucket": bucket, "error": err})
+			return fmt.Errorf("check s3 bucket %q: %w", bucket, err)
+		}
+		appLogger.Info("s3 bucket available", map[string]any{"bucket": bucket})
 
-	if err != nil {
-		appLogger.Error("check s3 bucket failed", map[string]any{"error": err})
-		return fmt.Errorf("check s3 bucket: %w", err)
+		objectStorage, err := filesservice.NewS3Storage(s3Client, bucket, s3Cfg.PublicEndpoint, s3Cfg.AvatarURLLifetime)
+		if err != nil {
+			appLogger.Error("create s3 storage failed", map[string]any{"bucket": bucket, "error": err})
+			return fmt.Errorf("create s3 storage %q: %w", bucket, err)
+		}
+		objectStorages[bucket] = objectStorage
+		appLogger.Info("s3 storage initialized", map[string]any{"bucket": bucket})
 	}
-
-	appLogger.Info("s3 bucket available", map[string]any{"bucket": s3Cfg.Bucket})
-
-	avatarStorage, err := filesservice.NewS3Storage(s3Client, s3Cfg.Bucket, s3Cfg.PublicEndpoint, s3Cfg.AvatarURLLifetime)
-	if err != nil {
-		appLogger.Error("create avatar storage failed", map[string]any{"error": err})
-		return fmt.Errorf("create avatar storage: %w", err)
-	}
+	avatarStorage := objectStorages[s3Cfg.Bucket]
 
 	var (
 		userRepo    domain.UserRepository
@@ -163,6 +170,23 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 	postgresRatingsRepo := ratingsservice.NewPostgresRepo(db, appLogger)
 	ratingsRepo = postgresRatingsRepo
 
+	posterRepo, err := filesservice.NewPostgresPosterRepo(db)
+	if err != nil {
+		return fmt.Errorf("create poster repository: %w", err)
+	}
+	uploadPosterUC, err := filesusecase.NewUploadPosterUseCase(objectStorages[s3Cfg.PostersBucket], posterRepo, filmsRepo, filesusecase.UploadPosterOptions{
+		MaxSize:        s3Cfg.MaxPosterSize,
+		MaxDimension:   s3Cfg.MaxPosterDimension,
+		CleanupTimeout: s3Cfg.PosterCleanupTimeout,
+	}, appLogger)
+	if err != nil {
+		return fmt.Errorf("create upload poster use case: %w", err)
+	}
+	postersHandler, err := filesdelivery.NewPosterHandler(uploadPosterUC, appLogger)
+	if err != nil {
+		return fmt.Errorf("create posters handler: %w", err)
+	}
+
 	newClient, err := redis.NewClientWithPing(context.Background(), redisCfg.URL)
 	if err != nil {
 		return fmt.Errorf("connect redis: %w", err)
@@ -200,12 +224,17 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 		return fmt.Errorf("can't create get user use case: %w", err)
 	}
 
-	listFilmsUC, err := filmsusecase.NewListFilmsUseCase(filmsRepo, appLogger)
+	filmsWithPosters, err := filmsservice.NewRepositoryWithPosterURLs(filmsRepo, objectStorages[s3Cfg.PostersBucket], appLogger)
+	if err != nil {
+		return fmt.Errorf("create films repository with poster URLs: %w", err)
+	}
+
+	listFilmsUC, err := filmsusecase.NewListFilmsUseCase(filmsWithPosters, appLogger)
 	if err != nil {
 		return fmt.Errorf("create list films use case: %w", err)
 	}
 
-	getFilmUC, err := filmsusecase.NewGetFilmUseCase(filmsRepo, appLogger)
+	getFilmUC, err := filmsusecase.NewGetFilmUseCase(filmsWithPosters, appLogger)
 	if err != nil {
 		return fmt.Errorf("create get film use case: %w", err)
 	}
@@ -230,7 +259,7 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 		return fmt.Errorf("create list collections use case: %w", err)
 	}
 
-	getCollectionUC, err := filmsusecase.NewGetCollectionUseCase(filmsRepo, appLogger)
+	getCollectionUC, err := filmsusecase.NewGetCollectionUseCase(filmsWithPosters, appLogger)
 	if err != nil {
 		return fmt.Errorf("create get collection use case: %w", err)
 	}
@@ -356,15 +385,26 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 		return fmt.Errorf("create ratings handler: %w", err)
 	}
 
+	getMyRatingUC, err := ratingsusecase.NewGetMyFilmRatingUseCase(postgresRatingsRepo, filmsRepo, appLogger)
+	if err != nil { return fmt.Errorf("create personal rating use case: %w", err) }
+
+	libraryHandler := librarydelivery.NewHandler(libraryservice.NewPostgresRepo(db), appLogger)
+	profileHandler := authdelivery.NewProfileHandler(authusecase.NewUpdateProfileUseCase(authservice.NewProfileRepo(db)), appLogger)
 	httpHandler, err := router.NewRouter(
 		authHandler,
 		filmsHandler,
 		reviewsHandler,
 		personsHandler,
 		filesHandler,
+		postersHandler,
 		ratingsHandler,
 		cfg.Server.AllowedOrigins,
 		appLogger,
+		libraryHandler.Register(router.RequireAuth(authHandler)),
+		ratingsdelivery.RegisterMine(getMyRatingUC, appLogger, router.RequireAuth(authHandler)),
+		profileHandler.Register(router.RequireAuth(authHandler)),
+		assetsdelivery.Register(s3Client, s3Cfg.Bucket),
+		filmsdelivery.RegisterPeople(personservice.NewCatalogRepo(db), filmsRepo, appLogger),
 	)
 	if err != nil {
 		return fmt.Errorf("create router: %w", err)

@@ -1,11 +1,13 @@
-endpoint: "http://localhost:9000"
+endpoint: "http://localhost:8050"
 region: "us-east-1"
 bucket: "avatars"
+posters_bucket: "avatars"
 avatar_url_lifetime: 15m
 max_avatar_size: 5242880 # 5 MiB
 max_avatar_dimension: 4096
 bucket_check_timeout: 5s
 avatar_cleanup_timeout: 5s
 
-# Для ссылок из браузера, если endpoint доступен только внутри Docker:
-# public_endpoint: "http://localhost:9000"
+max_poster_size: 5242880 # 5 MiB
+max_poster_dimension: 4096
+poster_cleanup_timeout: 5s

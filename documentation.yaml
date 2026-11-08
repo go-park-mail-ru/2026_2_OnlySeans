@@ -482,6 +482,66 @@ paths:
           $ref: '#/components/responses/RouteMethodNotAllowed'
         '500':
           $ref: '#/components/responses/InternalError'
+  /api/films/{id}/poster:
+    post:
+      tags:
+        - Файлы
+      operationId: uploadFilmPoster
+      summary: Загрузить или заменить основной постер фильма
+      description: |-
+        Требует сессию администратора. Один JPEG или PNG в поле poster.
+        По умолчанию размер до 5 МиБ, каждая сторона до 4096 пикселей.
+        Лимиты задаются max_poster_size и max_poster_dimension в configs/s3.yaml.
+        Объект сохраняется в bucket posters, метаданные — в file, связь — в film_file
+        с file_role=poster и sort_order=1. Повторная загрузка заменяет эту связь.
+        Старый объект сохраняется. Возвращается имя файла, а не ссылка на изображение.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - poster
+              properties:
+                poster:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Постер сохранён и привязан к фильму.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - filename
+                properties:
+                  filename:
+                    type: string
+                    example: 9ecfbbdf720949b2b0ce77cfaafac032.png
+        '400':
+          description: Некорректный ID, multipart-запрос или изображение.
+        '401':
+          description: Нет действующей сессии.
+        '403':
+          description: Пользователь не администратор или запрос отклонён CSRF-защитой.
+        '404':
+          description: Фильм не найден.
+        '413':
+          description: Превышен размер файла или всего запроса.
+        '500':
+          $ref: '#/components/responses/InternalError'
   /api/films/{id}/rating:
     parameters:
       - name: id
@@ -1267,6 +1327,13 @@ components:
           type: string
         poster_url:
           type: string
+          description: |-
+            Для файла в приватном bucket posters — временная подписанная ссылка RustFS,
+            создаваемая при чтении фильма, списка или состава подборки.
+            Срок действия задаётся s3.avatar_url_lifetime (по умолчанию 15 минут).
+            Для обновления истёкшей ссылки нужно повторно запросить фильм или список.
+            Внешний external_url возвращается без изменений. При отсутствии постера
+            или объекта в RustFS поле отсутствует.
         trailer_url:
           type: string
         genres:

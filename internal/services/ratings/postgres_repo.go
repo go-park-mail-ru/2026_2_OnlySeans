@@ -76,7 +76,7 @@ type PostgresRepo struct {
 	appLogger logger.Logger
 }
 
-func NewPostgresRepo(db *sql.DB, appLogger logger.Logger) domain.FilmRatingCollectionRepository {
+func NewPostgresRepo(db *sql.DB, appLogger logger.Logger) *PostgresRepo {
 	return &PostgresRepo{db: db, appLogger: appLogger}
 }
 

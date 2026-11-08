@@ -20,9 +20,11 @@ func NewRouter(
 	reviewsHandler *reviews.Handler,
 	personsHandler *persons.Handler,
 	filesHandler *files.Handler,
+	postersHandler *files.PosterHandler,
 	ratingsHandler *ratings.Handler,
 	allowedOrigins []string,
 	appLogger logger.Logger,
+	register ...func(*mux.Router),
 ) (http.Handler, error) {
 	r := mux.NewRouter()
 	authenticatedMiddlewares := []Middleware{RequireAuth(authHandler)}
@@ -37,6 +39,8 @@ func NewRouter(
 	r.HandleFunc("/api/me/avatar", WrapMiddlewares(filesHandler.DeleteMyAvatar, authenticatedMiddlewares)).Methods(http.MethodDelete)
 	r.HandleFunc("/api/avatars", WrapMiddlewares(filesHandler.UploadAvatar, authenticatedMiddlewares)).Methods(http.MethodPost)
 	r.HandleFunc("/api/avatars/{filename}", filesHandler.GetAvatarURL).Methods(http.MethodGet)
+
+	r.HandleFunc("/api/films/{id}/poster", WrapMiddlewares(postersHandler.UploadPoster, adminMiddlewares)).Methods(http.MethodPost)
 
 	r.HandleFunc("/api/films", filmsHandler.ListFilms).Methods(http.MethodGet)
 	r.HandleFunc("/api/films/{id}", filmsHandler.GetFilm).Methods(http.MethodGet)
@@ -64,6 +68,10 @@ func NewRouter(
 	r.HandleFunc("/api/persons", WrapMiddlewares(personsHandler.CreatePerson, catalogEditorMiddlewares)).Methods(http.MethodPost)
 	r.HandleFunc("/api/persons/{id}", WrapMiddlewares(personsHandler.UpdatePerson, catalogEditorMiddlewares)).Methods(http.MethodPut)
 	r.HandleFunc("/api/persons/{id}", WrapMiddlewares(personsHandler.DeletePerson, catalogEditorMiddlewares)).Methods(http.MethodDelete)
+
+	for _, routes := range register {
+		routes(r)
+	}
 
 	csrf, err := newCSRFMiddleware(allowedOrigins)
 	if err != nil {
