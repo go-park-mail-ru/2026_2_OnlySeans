@@ -5,17 +5,15 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/auth"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/router"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/router"
 )
 
 func TestRequireAuth_SessionFlow(t *testing.T) {
-	h, err := auth.NewHandler(auth.NewInMemoryUserRepo(), auth.NewInMemorySessionStore(time.Hour))
-	require.NoError(t, err)
+	h := newTestAuthHandler(t, newSpyLogger(t))
 
 	body := `{"email":"flow@example.com","username":"flowuser","password":"Password1"}`
 	rec := httptest.NewRecorder()
@@ -29,9 +27,9 @@ func TestRequireAuth_SessionFlow(t *testing.T) {
 	require.NotEmpty(t, cookie.Value)
 	require.True(t, cookie.HttpOnly, "кука должна быть HttpOnly")
 
-	protected := router.RequireAuth(h, func(w http.ResponseWriter, r *http.Request) {
+	protected := router.RequireAuth(h)(func(w http.ResponseWriter, r *http.Request) {
 		if _, ok := auth.UserIDFromContext(r.Context()); !ok {
-			w.WriteHeader(http.StatusInternalServerError) // мидлварь не положила ID
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 		w.WriteHeader(http.StatusOK)

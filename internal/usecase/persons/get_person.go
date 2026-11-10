@@ -1,0 +1,51 @@
+package usecase
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/logging"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
+)
+
+type GetPersonUseCase struct {
+	persons   domain.PersonRepository
+	appLogger logger.Logger
+}
+
+func NewGetPersonUseCase(persons domain.PersonRepository, appLogger logger.Logger) (*GetPersonUseCase, error) {
+	if persons == nil {
+		return nil, domain.ErrNilPersonsRepo
+	}
+
+	if appLogger == nil {
+		return nil, domain.ErrInvalidAppLogger
+	}
+
+	return &GetPersonUseCase{
+		persons:   persons,
+		appLogger: appLogger,
+	}, nil
+}
+
+func (uc *GetPersonUseCase) Run(ctx context.Context, id domain.PersonID) (*PersonOutput, error) {
+	uc.appLogger.DebugContext(ctx, "get person started", map[string]any{
+		"person_id": id,
+	})
+
+	person, err := uc.persons.GetByID(ctx, id)
+	if err != nil {
+		logging.Failure(ctx, uc.appLogger, "get person failed", err, map[string]any{
+			"person_id": id,
+		})
+
+		return nil, fmt.Errorf("get person %d: %w", id, err)
+	}
+
+	uc.appLogger.InfoContext(ctx, "person retrieved", map[string]any{
+		"person_id": id,
+	})
+
+	return NewPersonOutput(person), nil
+}

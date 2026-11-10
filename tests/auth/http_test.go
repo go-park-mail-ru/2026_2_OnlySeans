@@ -13,7 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/auth"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 )
 
 const validRegisterBody = `{"email":"anna@example.com","username":"anna","password":"Password1"}`
@@ -77,19 +78,22 @@ func TestHandler_InvalidBody(t *testing.T) {
 	}
 }
 
+const validLoginBody = `{"email":"anna@example.com","password":"Password1"}`
+
 func TestHandler_ResponseHidesPassword(t *testing.T) {
-	h := newTestHandler(t)
+	h, users, _ := newTestAuth(t)
 
 	for _, step := range []struct {
 		name        string
+		body        string
 		handlerFunc http.HandlerFunc
 		wantStatus  int
 	}{
-		{"register", h.Register, http.StatusCreated},
-		{"login", h.Login, http.StatusOK},
+		{"register", validRegisterBody, h.Register, http.StatusCreated},
+		{"login", validLoginBody, h.Login, http.StatusOK},
 	} {
 		t.Run(step.name, func(t *testing.T) {
-			rec := rawRequest(step.handlerFunc, http.MethodPost, validRegisterBody)
+			rec := rawRequest(step.handlerFunc, http.MethodPost, step.body)
 			require.Equal(t, step.wantStatus, rec.Code)
 
 			body := rec.Body.String()
@@ -99,7 +103,7 @@ func TestHandler_ResponseHidesPassword(t *testing.T) {
 		})
 	}
 
-	user, err := h.Users.GetByEmail(context.Background(), "anna@example.com")
+	user, err := users.GetByEmail(context.Background(), "anna@example.com")
 	require.NoError(t, err)
 	assert.NotEqual(t, "Password1", user.PasswordHash)
 	assert.NoError(t, bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte("Password1")))
@@ -141,7 +145,7 @@ func TestHandler_Logout(t *testing.T) {
 	assert.Negative(t, cleared.MaxAge)
 
 	_, err = h.Authenticate(ctx, cookie.Value)
-	assert.ErrorIs(t, err, auth.ErrUnauthorized)
+	assert.ErrorIs(t, err, domain.ErrUnauthorized)
 
 	assert.Equal(t, http.StatusNoContent, rawRequest(h.Logout, http.MethodPost, "", cookie).Code)
 	assert.Equal(t, http.StatusNoContent, rawRequest(h.Logout, http.MethodPost, "").Code)
@@ -152,8 +156,8 @@ func TestHandler_SessionsAreIndependent(t *testing.T) {
 	ctx := context.Background()
 
 	registered := sessionCookie(t, rawRequest(h.Register, http.MethodPost, validRegisterBody))
-	phone := sessionCookie(t, rawRequest(h.Login, http.MethodPost, validRegisterBody))
-	laptop := sessionCookie(t, rawRequest(h.Login, http.MethodPost, validRegisterBody))
+	phone := sessionCookie(t, rawRequest(h.Login, http.MethodPost, validLoginBody))
+	laptop := sessionCookie(t, rawRequest(h.Login, http.MethodPost, validLoginBody))
 
 	assert.NotEqual(t, registered.Value, phone.Value)
 	assert.NotEqual(t, phone.Value, laptop.Value)
@@ -167,7 +171,7 @@ func TestHandler_SessionsAreIndependent(t *testing.T) {
 		session *http.Cookie
 		wantErr error
 	}{
-		{"вышедшая сессия", phone, auth.ErrUnauthorized},
+		{"вышедшая сессия", phone, domain.ErrUnauthorized},
 		{"сессия регистрации жива", registered, nil},
 		{"сессия ноутбука жива", laptop, nil},
 	}
@@ -180,7 +184,24 @@ func TestHandler_SessionsAreIndependent(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			assert.Equal(t, auth.UserID(1), userID)
+			assert.Equal(t, domain.UserID(1), userID)
 		})
 	}
+}
+
+func TestHandler_RegisterTrimsEmailAndUsername(t *testing.T) {
+	h := newTestHandler(t)
+
+	rec := rawRequest(h.Register, http.MethodPost, `{"email":"  anna@example.com ","username":" Анна К ","password":"Password1"}`)
+	require.Equal(t, http.StatusCreated, rec.Code, rec.Body.String())
+	assert.JSONEq(t, `{"user":{"id":1,"email":"anna@example.com","username":"Анна К"}}`, rec.Body.String())
+
+	rec = rawRequest(h.Login, http.MethodPost, `{"email":"anna@example.com","password":"Password1"}`)
+	assert.Equal(t, http.StatusOK, rec.Code, "вход без пробелов находит пользователя")
+
+	rec = rawRequest(h.Login, http.MethodPost, `{"email":" anna@example.com ","password":"Password1"}`)
+	assert.Equal(t, http.StatusOK, rec.Code, "пробелы при входе тоже обрезаются")
+
+	rec = rawRequest(h.Register, http.MethodPost, `{"email":"anna@example.com","username":"other","password":"Password1"}`)
+	assert.Equal(t, http.StatusConflict, rec.Code, "тот же email без пробелов — это тот же пользователь")
 }

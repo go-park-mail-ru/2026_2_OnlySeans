@@ -10,7 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/auth"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
+	authservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/auth"
 )
 
 const workers = 100
@@ -33,7 +34,7 @@ func runConcurrently(work func(i int)) {
 }
 
 func TestInMemoryUserRepo_ConcurrentCreate_SameEmail(t *testing.T) {
-	repo := auth.NewInMemoryUserRepo()
+	repo := authservice.NewInMemoryUserRepo()
 	ctx := context.Background()
 	errs := make([]error, workers)
 
@@ -47,22 +48,22 @@ func TestInMemoryUserRepo_ConcurrentCreate_SameEmail(t *testing.T) {
 			created++
 			continue
 		}
-		assert.ErrorIs(t, err, auth.ErrUserExists)
+		assert.ErrorIs(t, err, domain.ErrUserExists)
 	}
 	assert.Equal(t, 1, created)
 }
 
 func TestInMemoryUserRepo_ConcurrentCreate_UniqueIDs(t *testing.T) {
-	repo := auth.NewInMemoryUserRepo()
+	repo := authservice.NewInMemoryUserRepo()
 	ctx := context.Background()
-	ids := make([]auth.UserID, workers)
+	ids := make([]domain.UserID, workers)
 	errs := make([]error, workers)
 
 	runConcurrently(func(i int) {
 		ids[i], errs[i] = repo.Create(ctx, fmt.Sprintf("user%d@example.com", i), "user", "hash")
 	})
 
-	seen := make(map[auth.UserID]struct{}, workers)
+	seen := make(map[domain.UserID]struct{}, workers)
 	for i, id := range ids {
 		require.NoError(t, errs[i])
 		seen[id] = struct{}{}
@@ -75,13 +76,13 @@ func TestInMemoryUserRepo_ConcurrentCreate_UniqueIDs(t *testing.T) {
 }
 
 func TestInMemorySessionStore_ConcurrentCreate(t *testing.T) {
-	store := auth.NewInMemorySessionStore(time.Hour)
+	store := authservice.NewInMemorySessionStore(time.Hour)
 	ctx := t.Context()
-	sessions := make([]*auth.Session, workers)
+	sessions := make([]*domain.Session, workers)
 	errs := make([]error, workers)
 
 	runConcurrently(func(i int) {
-		sessions[i], errs[i] = store.Create(ctx, auth.UserID(i))
+		sessions[i], errs[i] = store.Create(ctx, domain.UserID(i))
 	})
 
 	seen := make(map[string]struct{}, workers)
@@ -91,7 +92,7 @@ func TestInMemorySessionStore_ConcurrentCreate(t *testing.T) {
 
 		got, err := store.Get(ctx, session.ID)
 		require.NoError(t, err)
-		assert.Equal(t, auth.UserID(i), got.UserID)
+		assert.Equal(t, domain.UserID(i), got.UserID)
 	}
 	assert.Len(t, seen, workers)
 }

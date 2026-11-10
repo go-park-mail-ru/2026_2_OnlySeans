@@ -10,8 +10,8 @@ import (
 	"testing"
 	"unicode/utf8"
 
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/entities"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/films"
+	entities "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
+	films "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/films"
 )
 
 var genreDrama = entities.Genre{
@@ -52,8 +52,8 @@ func filmIDs(films []entities.Film) []entities.FilmID {
 func TestInMemoryService_AddFilm_Duplicate(t *testing.T) {
 	service := newTestService(t, 1)
 
-	if err := service.AddFilm(entities.Film{ID: 1}); !errors.Is(err, films.ErrFilmExists) {
-		t.Errorf("error = %v, want %v", err, films.ErrFilmExists)
+	if err := service.AddFilm(entities.Film{ID: 1}); !errors.Is(err, entities.ErrFilmExists) {
+		t.Errorf("error = %v, want %v", err, entities.ErrFilmExists)
 	}
 }
 
@@ -86,7 +86,7 @@ func TestInMemoryService_AddCollection(t *testing.T) {
 				Slug: "existing",
 			},
 			filmIDs: []entities.FilmID{1},
-			wantErr: films.ErrCollectionExists,
+			wantErr: entities.ErrCollectionExists,
 		},
 		{
 			name: "duplicate id",
@@ -95,7 +95,7 @@ func TestInMemoryService_AddCollection(t *testing.T) {
 				Slug: "other",
 			},
 			filmIDs: []entities.FilmID{1},
-			wantErr: films.ErrCollectionExists,
+			wantErr: entities.ErrCollectionExists,
 		},
 		{
 			name: "unknown film",
@@ -104,7 +104,7 @@ func TestInMemoryService_AddCollection(t *testing.T) {
 				Slug: "other",
 			},
 			filmIDs: []entities.FilmID{1, 42},
-			wantErr: films.ErrFilmNotFound,
+			wantErr: entities.ErrFilmNotFound,
 		},
 		{
 			name: "film added twice",
@@ -113,7 +113,7 @@ func TestInMemoryService_AddCollection(t *testing.T) {
 				Slug: "other",
 			},
 			filmIDs: []entities.FilmID{1, 2, 1},
-			wantErr: films.ErrDuplicateCollectionFilm,
+			wantErr: entities.ErrDuplicateCollectionFilm,
 		},
 	}
 
@@ -271,8 +271,8 @@ func TestInMemoryService_ListCollectionFilms(t *testing.T) {
 		})
 	}
 
-	if _, _, err := service.ListCollectionFilms(ctx, 99, 10, 0); !errors.Is(err, films.ErrCollectionNotFound) {
-		t.Errorf("error = %v, want %v", err, films.ErrCollectionNotFound)
+	if _, _, err := service.ListCollectionFilms(ctx, 99, 10, 0); !errors.Is(err, entities.ErrCollectionNotFound) {
+		t.Errorf("error = %v, want %v", err, entities.ErrCollectionNotFound)
 	}
 }
 
@@ -291,8 +291,8 @@ func TestInMemoryService_GetCollectionByID(t *testing.T) {
 	if err != nil || collection.Slug != "found" {
 		t.Errorf("GetCollectionByID(5) = %+v, %v", collection, err)
 	}
-	if _, err := service.GetCollectionByID(ctx, 6); !errors.Is(err, films.ErrCollectionNotFound) {
-		t.Errorf("error = %v, want %v", err, films.ErrCollectionNotFound)
+	if _, err := service.GetCollectionByID(ctx, 6); !errors.Is(err, entities.ErrCollectionNotFound) {
+		t.Errorf("error = %v, want %v", err, entities.ErrCollectionNotFound)
 	}
 }
 
@@ -311,8 +311,8 @@ func TestInMemoryService_GetFilmByID(t *testing.T) {
 		t.Errorf("mutating result changed stored film: %+v", again)
 	}
 
-	if _, err := service.GetFilmByID(ctx, 4); !errors.Is(err, films.ErrFilmNotFound) {
-		t.Errorf("error = %v, want %v", err, films.ErrFilmNotFound)
+	if _, err := service.GetFilmByID(ctx, 4); !errors.Is(err, entities.ErrFilmNotFound) {
+		t.Errorf("error = %v, want %v", err, entities.ErrFilmNotFound)
 	}
 }
 

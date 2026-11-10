@@ -1,0 +1,213 @@
+package files_test
+
+import (
+	"bytes"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"testing"
+	"time"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/files"
+	"github.com/stretchr/testify/require"
+)
+
+func TestS3StorageUpload(t *testing.T) {
+	tests := []struct {
+		name    string
+		bucket  string
+		status  int
+		wantErr bool
+	}{
+		{
+			name:   "avatar uploaded",
+			bucket: "avatars",
+			status: http.StatusOK,
+		},
+		{
+			name:   "poster uploaded",
+			bucket: "posters",
+			status: http.StatusOK,
+		},
+		{
+			name:    "access denied",
+			bucket:  "posters",
+			status:  http.StatusForbidden,
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			contents := []byte("test image contents")
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodPut || r.URL.Path != "/"+tt.bucket+"/test.jpg" {
+					t.Errorf("unexpected upload request: %s %s", r.Method, r.URL.Path)
+				}
+				if got := r.Header.Get("Content-Type"); got != "image/jpeg" {
+					t.Errorf("unexpected content type: %s", got)
+				}
+				body, err := io.ReadAll(r.Body)
+				if err != nil {
+					t.Errorf("read upload: %v", err)
+				}
+				if !bytes.Equal(contents, body) {
+					t.Errorf("uploaded contents differ: %q", body)
+				}
+				w.WriteHeader(tt.status)
+			}))
+			defer server.Close()
+
+			client := s3.NewFromConfig(aws.Config{
+				Region:      "us-east-1",
+				Credentials: credentials.NewStaticCredentialsProvider("test-key", "test-secret", ""),
+			}, func(options *s3.Options) {
+				options.BaseEndpoint = aws.String(server.URL)
+				options.UsePathStyle = true
+				options.RetryMaxAttempts = 1
+			})
+			storage, err := files.NewS3Storage(client, tt.bucket, "", 15*time.Minute, nil)
+			require.NoError(t, err)
+			err = storage.Upload(t.Context(), "test.jpg", "image/jpeg", bytes.NewReader(contents))
+			if tt.wantErr {
+				require.ErrorContains(t, err, "upload object")
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestS3StorageGetURL(t *testing.T) {
+	tests := []struct {
+		name    string
+		bucket  string
+		status  int
+		wantErr bool
+		missing bool
+	}{
+		{
+			name:   "existing avatar",
+			bucket: "avatars",
+			status: http.StatusOK,
+		},
+		{
+			name:   "existing poster",
+			bucket: "posters",
+			status: http.StatusOK,
+		},
+		{
+			name:    "missing object",
+			bucket:  "posters",
+			status:  http.StatusNotFound,
+			wantErr: true,
+			missing: true,
+		},
+		{
+			name:    "access denied is not missing",
+			bucket:  "posters",
+			status:  http.StatusForbidden,
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			const key = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.png"
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodHead || r.URL.Path != "/"+tt.bucket+"/"+key {
+					t.Errorf("unexpected object check: %s %s", r.Method, r.URL.Path)
+				}
+				w.WriteHeader(tt.status)
+			}))
+			defer server.Close()
+			client := s3.NewFromConfig(aws.Config{
+				Region:      "us-east-1",
+				Credentials: credentials.NewStaticCredentialsProvider("test-key", "test-secret", ""),
+			}, func(options *s3.Options) {
+				options.BaseEndpoint = aws.String(server.URL)
+				options.UsePathStyle = true
+				options.RetryMaxAttempts = 1
+			})
+
+			storage, err := files.NewS3Storage(client, tt.bucket, "https://media.example.com", 2*time.Minute, nil)
+			require.NoError(t, err)
+			link, err := storage.GetURL(t.Context(), key)
+			if tt.wantErr {
+				require.Error(t, err)
+				require.Empty(t, link)
+				if tt.missing {
+					require.ErrorIs(t, err, domain.ErrFileNotFound)
+				} else {
+					require.NotErrorIs(t, err, domain.ErrFileNotFound)
+				}
+				return
+			}
+			require.NoError(t, err)
+			parsed, err := url.Parse(link)
+			require.NoError(t, err)
+			require.Equal(t, "https", parsed.Scheme)
+			require.Equal(t, "media.example.com", parsed.Host)
+			require.Equal(t, "/"+tt.bucket+"/"+key, parsed.Path)
+			require.Equal(t, "120", parsed.Query().Get("X-Amz-Expires"))
+			require.NotEmpty(t, parsed.Query().Get("X-Amz-Signature"))
+		})
+	}
+}
+
+func TestS3StorageDelete(t *testing.T) {
+	tests := []struct {
+		name    string
+		bucket  string
+		status  int
+		wantErr bool
+	}{
+		{
+			name:   "delete avatar",
+			bucket: "avatars",
+			status: http.StatusNoContent,
+		},
+		{
+			name:   "delete poster",
+			bucket: "posters",
+			status: http.StatusNoContent,
+		},
+		{
+			name:    "poster deletion denied",
+			bucket:  "posters",
+			status:  http.StatusForbidden,
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodDelete || r.URL.Path != "/"+tt.bucket+"/test.jpg" {
+					t.Errorf("unexpected deletion: %s %s", r.Method, r.URL.Path)
+				}
+				w.WriteHeader(tt.status)
+			}))
+			defer server.Close()
+			client := s3.NewFromConfig(aws.Config{
+				Region:      "us-east-1",
+				Credentials: credentials.NewStaticCredentialsProvider("test-key", "test-secret", ""),
+			}, func(options *s3.Options) {
+				options.BaseEndpoint = aws.String(server.URL)
+				options.UsePathStyle = true
+				options.RetryMaxAttempts = 1
+			})
+			storage, err := files.NewS3Storage(client, tt.bucket, "", 15*time.Minute, nil)
+			require.NoError(t, err)
+			err = storage.Delete(t.Context(), "test.jpg")
+			if tt.wantErr {
+				require.ErrorContains(t, err, "delete object:")
+				require.NotContains(t, err.Error(), "avatar")
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
