@@ -152,7 +152,6 @@ func TestInMemoryReviewRepo_ListByFilm(t *testing.T) {
 	ctx := context.Background()
 	repo := reviews.NewInMemoryReviewRepo()
 
-	// На фильм 1 пишут авторы 1, 2, 3, на фильм 2 — автор 1.
 	for author := domain.UserID(1); author <= 3; author++ {
 		_, err := repo.Create(ctx, author, 1, validInput())
 		require.NoError(t, err)

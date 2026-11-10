@@ -70,7 +70,7 @@ func TestS3StorageUpload(t *testing.T) {
 				options.UsePathStyle = true
 				options.RetryMaxAttempts = 1
 			})
-			storage, err := files.NewS3Storage(client, tt.bucket, "", 15*time.Minute)
+			storage, err := files.NewS3Storage(client, tt.bucket, "", 15*time.Minute, nil)
 			require.NoError(t, err)
 			err = storage.Upload(t.Context(), "test.jpg", "image/jpeg", bytes.NewReader(contents))
 			if tt.wantErr {
@@ -132,8 +132,8 @@ func TestS3StorageGetURL(t *testing.T) {
 				options.UsePathStyle = true
 				options.RetryMaxAttempts = 1
 			})
-			// Internal checks use the test server; links use the browser-facing endpoint.
-			storage, err := files.NewS3Storage(client, tt.bucket, "https://media.example.com", 2*time.Minute)
+
+			storage, err := files.NewS3Storage(client, tt.bucket, "https://media.example.com", 2*time.Minute, nil)
 			require.NoError(t, err)
 			link, err := storage.GetURL(t.Context(), key)
 			if tt.wantErr {
@@ -199,7 +199,7 @@ func TestS3StorageDelete(t *testing.T) {
 				options.UsePathStyle = true
 				options.RetryMaxAttempts = 1
 			})
-			storage, err := files.NewS3Storage(client, tt.bucket, "", 15*time.Minute)
+			storage, err := files.NewS3Storage(client, tt.bucket, "", 15*time.Minute, nil)
 			require.NoError(t, err)
 			err = storage.Delete(t.Context(), "test.jpg")
 			if tt.wantErr {

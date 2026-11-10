@@ -51,7 +51,7 @@ func scanCatalogPerson(row catalogScanner) (domain.CatalogPerson, error) {
 	return p, err
 }
 func (r *CatalogRepo) FilmPersons(ctx context.Context, id int64) (_ []domain.PersonCredit, operationErr error) {
-	operationLog := storage.StartOperation(ctx, r.log, "postgres", "person_catalog.film_persons", map[string]any{"person_id": id})
+	operationLog := storage.StartOperation(ctx, r.log, "postgres", "person_catalog.film_persons", map[string]any{"film_id": id})
 	defer func() { operationLog.Finish(operationErr) }()
 
 	persons := []domain.PersonCredit{}

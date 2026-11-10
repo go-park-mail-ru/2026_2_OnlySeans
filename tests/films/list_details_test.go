@@ -15,7 +15,7 @@ func TestListFilmsDetails(t *testing.T) {
 	duration := int16(120)
 	for _, query := range []string{"", "&details=false", "&details=true"} {
 		t.Run(query, func(t *testing.T) {
-			repo := mocks.NewMockFilmsRepository(gomock.NewController(t))
+			repo := mocks.NewMockFilmRepository(gomock.NewController(t))
 			repo.EXPECT().ListFilms(gomock.Any(), 2, 3).Return([]domain.Film{{ID: 1, Title: "Film", Description: &description, FilmType: domain.FilmTypeMovie, DurationMin: &duration, AgeLimit: 16}}, 7, nil)
 			handler := newTestRouter(t, repo)
 			rec := httptest.NewRecorder()

@@ -67,12 +67,13 @@ func TestFilmPosterSignedURLs(t *testing.T) {
 					o.UsePathStyle = true
 					o.RetryMaxAttempts = 1
 				})
-				storage, err := filesservice.NewS3Storage(client, "posters", "https://media.example.org", 15*time.Minute)
+				storage, err := filesservice.NewS3Storage(client, "posters", "https://media.example.org", 15*time.Minute, nil)
 				require.NoError(t, err)
 				appLogger, err := logger.NewLogger(io.Discard, logger.LogLevelDebug, "json")
 				require.NoError(t, err)
 				original := domain.Film{ID: 9, PosterURL: tt.external, PosterStorageKey: tt.key}
-				repo := mocks.NewMockFilmsRepository(gomock.NewController(t))
+				repo := mocks.NewMockFilmRepository(gomock.NewController(t))
+				collections := mocks.NewMockCollectionRepository(gomock.NewController(t))
 				source := []domain.Film{original}
 				switch operation {
 				case "get":
@@ -80,9 +81,9 @@ func TestFilmPosterSignedURLs(t *testing.T) {
 				case "list":
 					repo.EXPECT().ListFilms(gomock.Any(), 3, 4).Return(source, 12, tt.repoErr)
 				case "collection":
-					repo.EXPECT().ListCollectionFilms(gomock.Any(), domain.CollectionID(5), 3, 4).Return(source, 12, tt.repoErr)
+					collections.EXPECT().ListCollectionFilms(gomock.Any(), domain.CollectionID(5), 3, 4).Return(source, 12, tt.repoErr)
 				}
-				reader, err := filmsservice.NewRepositoryWithPosterURLs(repo, storage, appLogger)
+				reader, err := filmsservice.NewRepositoryWithPosterURLs(repo, collections, storage, appLogger)
 				require.NoError(t, err)
 				var films []domain.Film
 				var total int

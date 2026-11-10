@@ -46,7 +46,7 @@ func TestNewLogger(t *testing.T) {
 }
 
 func TestSlogLogger_LevelFiltering(t *testing.T) {
-	// какие методы должны что-то записать при каждом уровне
+
 	tests := []struct {
 		level logger.LogLevelType
 		want  map[string]bool
@@ -86,8 +86,8 @@ func TestSlogLogger_TextFormat(t *testing.T) {
 		name         string
 		msg          string
 		fields       map[string]any
-		wantContains []string // все эти подстроки должны быть в выводе
-		wantOrder    []string // эти подстроки должны идти именно в таком порядке
+		wantContains []string
+		wantOrder    []string
 	}{
 		{
 			name:         "поля идут по алфавиту",
@@ -144,7 +144,7 @@ func TestSlogLogger_FieldTypesInJSON(t *testing.T) {
 	tests := []struct {
 		name   string
 		fields map[string]any
-		want   map[string]any // после json.Unmarshal числа становятся float64
+		want   map[string]any
 	}{
 		{"строка", map[string]any{"path": "/api"}, map[string]any{"path": "/api"}},
 		{"число", map[string]any{"status": 200}, map[string]any{"status": float64(200)}},

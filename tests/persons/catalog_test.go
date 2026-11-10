@@ -54,7 +54,9 @@ func TestCatalogRoutes(t *testing.T) {
 				}
 			}
 			router := mux.NewRouter()
-			delivery.RegisterCatalog(uc.NewGetFilmPersonsUseCase(repo, films), uc.NewGetPersonCatalogUseCase(repo, films), log)(router)
+			h := delivery.NewCatalogHandler(uc.NewGetFilmPersonsUseCase(repo, films), uc.NewGetPersonCatalogUseCase(repo, films), log)
+			router.HandleFunc("/api/films/{id}/people", h.GetFilmPersons).Methods(http.MethodGet)
+			router.HandleFunc("/api/people/{id}", h.GetPersonCatalog).Methods(http.MethodGet)
 			rec := httptest.NewRecorder()
 			router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, tc.path, nil))
 			require.Equal(t, tc.status, rec.Code, rec.Body.String())

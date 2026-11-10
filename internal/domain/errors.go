@@ -26,3 +26,8 @@ var (
 	ErrInvalidPasswordHasher = errors.New("Invalid passworf hasher")
 	ErrInvalidAppLogger      = errors.New("logger is required")
 )
+
+var (
+	ErrFileNotFound  = errors.New("file not found")
+	ErrCommitUnknown = errors.New("transaction commit outcome is unknown")
+)

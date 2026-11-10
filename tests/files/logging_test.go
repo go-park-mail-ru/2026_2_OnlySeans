@@ -68,7 +68,7 @@ func TestUploadAvatarLogging(t *testing.T) {
 		{
 			name:       "unknown commit keeps object",
 			owner:      7,
-			saveErr:    domain.ErrAvatarCommitUnknown,
+			saveErr:    domain.ErrCommitUnknown,
 			message:    "avatar object retained: commit outcome unknown",
 			level:      "WARN",
 			errorCount: 1,
@@ -86,7 +86,7 @@ func TestUploadAvatarLogging(t *testing.T) {
 				upload := storage.EXPECT().Upload(gomock.Any(), gomock.Any(), "image/png", gomock.Any()).Return(tt.uploadErr)
 				if tt.uploadErr == nil {
 					save := repo.EXPECT().SaveAvatar(gomock.Any(), tt.owner, gomock.Any()).Return(tt.saveErr).After(upload)
-					if tt.saveErr != nil && !errors.Is(tt.saveErr, domain.ErrAvatarCommitUnknown) {
+					if tt.saveErr != nil && !errors.Is(tt.saveErr, domain.ErrCommitUnknown) {
 						storage.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(tt.cleanupErr).After(save)
 					}
 				}

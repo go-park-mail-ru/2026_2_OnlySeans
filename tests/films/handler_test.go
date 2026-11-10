@@ -99,14 +99,18 @@ func responseFilmIDs(films []filmResponseDTO) []domain.FilmID {
 	return ids
 }
 
-// Тестовый логгер для всех тестов пакета films_test.
-
 func newFilmsTestLogger() logger.Logger {
 	return testutil.DiscardLogger()
 }
 
-func newTestRouter(t testing.TB, service filmsservice.Service) *mux.Router {
+func newTestRouter(t testing.TB, service domain.FilmRepository, collectionRepos ...domain.CollectionRepository) *mux.Router {
 	t.Helper()
+	collections, ok := service.(domain.CollectionRepository)
+	if len(collectionRepos) > 0 {
+		collections = collectionRepos[0]
+	} else if !ok {
+		collections = mocks.NewMockCollectionRepository(gomock.NewController(t))
+	}
 
 	listFilms, err := filmsusecase.NewListFilmsUseCase(service, newFilmsTestLogger())
 	if err != nil {
@@ -133,12 +137,12 @@ func newTestRouter(t testing.TB, service filmsservice.Service) *mux.Router {
 		t.Fatalf("NewDeleteFilmUseCase: %v", err)
 	}
 
-	listCollections, err := filmsusecase.NewListCollectionsUseCase(service, newFilmsTestLogger())
+	listCollections, err := filmsusecase.NewListCollectionsUseCase(collections, newFilmsTestLogger())
 	if err != nil {
 		t.Fatalf("NewListCollectionsUseCase: %v", err)
 	}
 
-	getCollection, err := filmsusecase.NewGetCollectionUseCase(service, newFilmsTestLogger())
+	getCollection, err := filmsusecase.NewGetCollectionUseCase(collections, newFilmsTestLogger())
 	if err != nil {
 		t.Fatalf("NewGetCollectionUseCase: %v", err)
 	}
@@ -619,23 +623,24 @@ func TestHandler_InternalErrorIsHidden(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			service := mocks.NewMockFilmsRepository(gomock.NewController(t))
+			service := mocks.NewMockFilmRepository(gomock.NewController(t))
+			collections := mocks.NewMockCollectionRepository(gomock.NewController(t))
 			switch tt.target {
 			case "/api/films":
 				service.EXPECT().ListFilms(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, 0, errStorage)
 			case "/api/films/1":
 				service.EXPECT().GetFilmByID(gomock.Any(), domain.FilmID(1)).Return(domain.Film{}, errStorage)
 			case "/api/collections":
-				service.EXPECT().ListCollections(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, 0, errStorage)
+				collections.EXPECT().ListCollections(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, 0, errStorage)
 			case "/api/collections/1":
 				if tt.failCollectionFilms {
-					lookup := service.EXPECT().GetCollectionByID(gomock.Any(), domain.CollectionID(1)).Return(domain.Collection{ID: 1, Slug: "family"}, nil)
-					service.EXPECT().ListCollectionFilms(gomock.Any(), domain.CollectionID(1), gomock.Any(), gomock.Any()).Return(nil, 0, errStorage).After(lookup)
+					lookup := collections.EXPECT().GetCollectionByID(gomock.Any(), domain.CollectionID(1)).Return(domain.Collection{ID: 1, Slug: "family"}, nil)
+					collections.EXPECT().ListCollectionFilms(gomock.Any(), domain.CollectionID(1), gomock.Any(), gomock.Any()).Return(nil, 0, errStorage).After(lookup)
 				} else {
-					service.EXPECT().GetCollectionByID(gomock.Any(), domain.CollectionID(1)).Return(domain.Collection{}, errStorage)
+					collections.EXPECT().GetCollectionByID(gomock.Any(), domain.CollectionID(1)).Return(domain.Collection{}, errStorage)
 				}
 			}
-			rec := serve(newTestRouter(t, service), http.MethodGet, tt.target)
+			rec := serve(newTestRouter(t, service, collections), http.MethodGet, tt.target)
 
 			if rec.Code != http.StatusInternalServerError {
 				t.Fatalf("status = %d, want %d", rec.Code, http.StatusInternalServerError)
@@ -649,10 +654,11 @@ func TestHandler_InternalErrorIsHidden(t *testing.T) {
 }
 
 func TestHandler_ListCollectionsDoesNotLoadFilms(t *testing.T) {
-	service := mocks.NewMockFilmsRepository(gomock.NewController(t))
-	service.EXPECT().ListCollections(gomock.Any(), gomock.Any(), gomock.Any()).Return([]domain.Collection{{ID: 1, Slug: "family"}}, 1, nil)
+	service := mocks.NewMockFilmRepository(gomock.NewController(t))
+	collections := mocks.NewMockCollectionRepository(gomock.NewController(t))
+	collections.EXPECT().ListCollections(gomock.Any(), gomock.Any(), gomock.Any()).Return([]domain.Collection{{ID: 1, Slug: "family"}}, 1, nil)
 
-	rec := serve(newTestRouter(t, service), http.MethodGet, "/api/collections")
+	rec := serve(newTestRouter(t, service, collections), http.MethodGet, "/api/collections")
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d (body: %s)", rec.Code, http.StatusOK, rec.Body)

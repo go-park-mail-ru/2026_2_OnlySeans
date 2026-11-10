@@ -140,7 +140,7 @@ func (uc *UploadAvatarUseCase) Run(ctx context.Context, input UploadAvatarInput)
 	})
 	if err != nil {
 		uc.logger.ErrorContext(ctx, "save account avatar failed", map[string]any{"user_id": input.UserID, "filename": filename, "error": err})
-		if !errors.Is(err, domain.ErrAvatarCommitUnknown) {
+		if !errors.Is(err, domain.ErrCommitUnknown) {
 			cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), uc.options.CleanupTimeout)
 			cleanupErr := uc.storage.Delete(cleanupCtx, filename)
 			cancel()

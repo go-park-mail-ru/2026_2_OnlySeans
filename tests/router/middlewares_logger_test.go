@@ -19,7 +19,6 @@ type logEntry struct {
 	fields map[string]any
 }
 
-// spyLogger запоминает всё, что в него писали (реализует logger.Logger).
 type spyLogger struct {
 	*mocks.MockLogger
 	mu      sync.Mutex
@@ -37,7 +36,7 @@ func TestWithCORS(t *testing.T) {
 		name            string
 		method          string
 		origin          string
-		wantStatus      int // 204 на OPTIONS значит, что ответил мидлвар: mux без него вернул бы 405
+		wantStatus      int
 		wantAllowOrigin string
 	}{
 		{"preflight отвечает middleware", http.MethodOptions, testOrigin, http.StatusNoContent, testOrigin},

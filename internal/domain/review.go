@@ -38,7 +38,6 @@ type ReviewUpdate struct {
 	Version int
 }
 
-// проверяет длину заголовка и текста в символах, а не в байтах
 func (in *ReviewInput) Validate() error {
 	titleLen := utf8.RuneCountInString(in.Title)
 	if titleLen < MinReviewTitleLen {

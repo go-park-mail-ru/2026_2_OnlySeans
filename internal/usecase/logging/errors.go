@@ -9,6 +9,33 @@ import (
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 )
 
+var notFoundErrors = []error{
+	domain.ErrFilmNotFound,
+	domain.ErrCollectionNotFound,
+	domain.ErrPersonNotFound,
+	domain.ErrReviewNotFound,
+	domain.ErrUserNotFound,
+	domain.ErrSessionNotFound,
+	domain.ErrFileNotFound,
+	domain.ErrRatingNotFound,
+}
+
+var rejectedErrors = []error{
+	domain.ErrUserExists,
+	domain.ErrUsernameTaken,
+	domain.ErrReviewExists,
+	domain.ErrFilmExists,
+	domain.ErrCollectionExists,
+	domain.ErrDuplicateCollectionFilm,
+	domain.ErrForbidden,
+	domain.ErrUnauthorized,
+	domain.ErrInvalidCredentials,
+	domain.ErrInvalidFilmRating,
+	domain.ErrInvalidFilmInput,
+	domain.ErrVersionConflict,
+	domain.ErrInvalidVersion,
+}
+
 func Failure(ctx context.Context, appLogger logger.Logger, message string, err error, fields map[string]any) {
 	fields = maps.Clone(fields)
 	if fields == nil {
@@ -16,9 +43,9 @@ func Failure(ctx context.Context, appLogger logger.Logger, message string, err e
 	}
 	fields["error"] = err
 	switch {
-	case matches(err, domain.ErrFilmNotFound, domain.ErrCollectionNotFound, domain.ErrPersonNotFound, domain.ErrReviewNotFound, domain.ErrUserNotFound, domain.ErrSessionNotFound, domain.ErrFileNotFound, domain.ErrRatingNotFound):
+	case matches(err, notFoundErrors):
 		appLogger.DebugContext(ctx, message, fields)
-	case matches(err, domain.ErrUserExists, domain.ErrUsernameTaken, domain.ErrReviewExists, domain.ErrFilmExists, domain.ErrCollectionExists, domain.ErrDuplicateCollectionFilm, domain.ErrForbidden, domain.ErrUnauthorized, domain.ErrInvalidCredentials, domain.ErrInvalidFilmRating, domain.ErrInvalidFilmInput, domain.ErrVersionConflict, domain.ErrInvalidVersion):
+	case matches(err, rejectedErrors):
 		appLogger.WarnContext(ctx, message, fields)
 	default:
 		appLogger.ErrorContext(ctx, message, fields)
@@ -56,7 +83,7 @@ func invalidField(err error) string {
 	return "input"
 }
 
-func matches(err error, targets ...error) bool {
+func matches(err error, targets []error) bool {
 	for _, target := range targets {
 		if errors.Is(err, target) {
 			return true

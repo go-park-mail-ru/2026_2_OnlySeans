@@ -5,27 +5,36 @@ import (
 
 	"github.com/gorilla/mux"
 
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/assets"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/files"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/films"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/library"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/persons"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/ratings"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/reviews"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 )
 
-func NewRouter(
-	authHandler *auth.Handler,
-	filmsHandler *films.Handler,
-	reviewsHandler *reviews.Handler,
-	personsHandler *persons.Handler,
-	filesHandler *files.Handler,
-	postersHandler *files.PosterHandler,
-	ratingsHandler *ratings.Handler,
-	allowedOrigins []string,
-	appLogger logger.Logger,
-	register ...func(*mux.Router),
-) (http.Handler, error) {
+type Handlers struct {
+	Auth           *auth.Handler
+	Films          *films.Handler
+	Reviews        *reviews.Handler
+	Persons        *persons.Handler
+	Files          *files.Handler
+	Posters        *files.PosterHandler
+	Ratings        *ratings.Handler
+	Library        *library.Handler
+	Profile        *auth.ProfileHandler
+	PersonalRating *ratings.MyRatingHandler
+	PersonCatalog  *persons.CatalogHandler
+	Assets         *assets.Handler
+}
+
+func NewRouter(handlers Handlers, allowedOrigins []string, appLogger logger.Logger) (http.Handler, error) {
+	authHandler, filmsHandler, reviewsHandler := handlers.Auth, handlers.Films, handlers.Reviews
+	personsHandler, filesHandler := handlers.Persons, handlers.Files
+	postersHandler, ratingsHandler := handlers.Posters, handlers.Ratings
 	r := mux.NewRouter()
 	authenticatedMiddlewares := []Middleware{RequireAuth(authHandler)}
 	adminMiddlewares := []Middleware{RequireAuth(authHandler), authHandler.RequireAdmin}
@@ -41,6 +50,8 @@ func NewRouter(
 	r.HandleFunc("/api/avatars/{filename}", filesHandler.GetAvatarURL).Methods(http.MethodGet)
 
 	r.HandleFunc("/api/films/{id}/poster", WrapMiddlewares(postersHandler.UploadPoster, adminMiddlewares)).Methods(http.MethodPost)
+	r.HandleFunc("/api/films/{id}/poster", postersHandler.GetPoster).Methods(http.MethodGet)
+	r.HandleFunc("/api/films/{id}/poster", WrapMiddlewares(postersHandler.DeletePoster, adminMiddlewares)).Methods(http.MethodDelete)
 
 	r.HandleFunc("/api/films", filmsHandler.ListFilms).Methods(http.MethodGet)
 	r.HandleFunc("/api/films/{id}", filmsHandler.GetFilm).Methods(http.MethodGet)
@@ -53,10 +64,10 @@ func NewRouter(
 
 	r.HandleFunc("/api/authorised", WrapMiddlewares(authHandler.Authorised, authenticatedMiddlewares)).Methods(http.MethodGet)
 
-	r.HandleFunc("/api/films/{id}/reviews", reviewsHandler.ListByFilm).Methods(http.MethodGet)
-	r.HandleFunc("/api/films/{id}/reviews", WrapMiddlewares(reviewsHandler.Create, authenticatedMiddlewares)).Methods(http.MethodPost)
-	r.HandleFunc("/api/reviews/{id}", WrapMiddlewares(reviewsHandler.Update, authenticatedMiddlewares)).Methods(http.MethodPut)
-	r.HandleFunc("/api/reviews/{id}", WrapMiddlewares(reviewsHandler.Delete, authenticatedMiddlewares)).Methods(http.MethodDelete)
+	r.HandleFunc("/api/films/{id}/reviews", reviewsHandler.ListFilmReviews).Methods(http.MethodGet)
+	r.HandleFunc("/api/films/{id}/reviews", WrapMiddlewares(reviewsHandler.CreateReview, authenticatedMiddlewares)).Methods(http.MethodPost)
+	r.HandleFunc("/api/reviews/{id}", WrapMiddlewares(reviewsHandler.UpdateReview, authenticatedMiddlewares)).Methods(http.MethodPut)
+	r.HandleFunc("/api/reviews/{id}", WrapMiddlewares(reviewsHandler.DeleteReview, authenticatedMiddlewares)).Methods(http.MethodDelete)
 
 	r.HandleFunc("/api/films/{id}/rating", ratingsHandler.GetFilmRating).Methods(http.MethodGet)
 	r.HandleFunc("/api/films/{id}/rating", WrapMiddlewares(ratingsHandler.SetFilmRating, authenticatedMiddlewares)).Methods(http.MethodPut)
@@ -69,8 +80,26 @@ func NewRouter(
 	r.HandleFunc("/api/persons/{id}", WrapMiddlewares(personsHandler.UpdatePerson, catalogEditorMiddlewares)).Methods(http.MethodPut)
 	r.HandleFunc("/api/persons/{id}", WrapMiddlewares(personsHandler.DeletePerson, catalogEditorMiddlewares)).Methods(http.MethodDelete)
 
-	for _, routes := range register {
-		routes(r)
+	if h := handlers.Library; h != nil {
+		r.HandleFunc("/api/me/library", WrapMiddlewares(h.Get, authenticatedMiddlewares)).Methods(http.MethodGet)
+		r.HandleFunc("/api/me/library/lists/{list}/{film}", WrapMiddlewares(h.SetSaved, authenticatedMiddlewares)).Methods(http.MethodPut)
+		r.HandleFunc("/api/me/preferences", WrapMiddlewares(h.Preferences, authenticatedMiddlewares)).Methods(http.MethodGet)
+		r.HandleFunc("/api/me/preferences", WrapMiddlewares(h.SavePreference, authenticatedMiddlewares)).Methods(http.MethodPut)
+	}
+	if h := handlers.Profile; h != nil {
+		r.HandleFunc("/api/me/profile", WrapMiddlewares(h.Get, authenticatedMiddlewares)).Methods(http.MethodGet)
+		r.HandleFunc("/api/me/profile", WrapMiddlewares(h.Update, authenticatedMiddlewares)).Methods(http.MethodPut)
+		r.HandleFunc("/api/me", WrapMiddlewares(h.Update, authenticatedMiddlewares)).Methods(http.MethodPut)
+	}
+	if h := handlers.PersonalRating; h != nil {
+		r.HandleFunc("/api/films/{id}/rating/me", WrapMiddlewares(h.GetPersonalRating, authenticatedMiddlewares)).Methods(http.MethodGet)
+	}
+	if h := handlers.PersonCatalog; h != nil {
+		r.HandleFunc("/api/films/{id}/people", h.GetFilmPersons).Methods(http.MethodGet)
+		r.HandleFunc("/api/people/{id}", h.GetPersonCatalog).Methods(http.MethodGet)
+	}
+	if h := handlers.Assets; h != nil {
+		r.HandleFunc("/static/{key:.*}", h.GetAsset).Methods(http.MethodGet)
 	}
 
 	csrf, err := newCSRFMiddleware(allowedOrigins)

@@ -21,9 +21,6 @@ var (
 	countColumns      = []string{"count"}
 )
 
-// int64SliceConverter пропускает срез номеров фильмов в запрос жанров как есть.
-// Настоящий драйвер pgx превращает []int64 в массив Postgres, а sqlmock
-// по умолчанию срезы не принимает.
 type int64SliceConverter struct{}
 
 func (int64SliceConverter) ConvertValue(v any) (driver.Value, error) {
@@ -33,7 +30,7 @@ func (int64SliceConverter) ConvertValue(v any) (driver.Value, error) {
 	return driver.DefaultParameterConverter.ConvertValue(v)
 }
 
-func newPostgresService(t *testing.T) (domain.FilmsRepository, sqlmock.Sqlmock) {
+func newPostgresService(t *testing.T) (*films.PostgresService, sqlmock.Sqlmock) {
 	t.Helper()
 
 	db, mock, err := sqlmock.New(sqlmock.ValueConverterOption(int64SliceConverter{}))
@@ -51,7 +48,6 @@ var (
 	crimeGenre = domain.Genre{ID: 3, Name: "криминал", Slug: "crime"}
 )
 
-// shawshank — фильм со всеми полями, ivan — без оригинального названия и трейлера.
 func shawshank() domain.Film {
 	return domain.Film{
 		ID:            1,
@@ -83,7 +79,6 @@ func ptr[T any](v T) *T {
 	return &v
 }
 
-// value превращает пустой указатель в NULL, а заполненный — в значение.
 func value[T any](p *T) driver.Value {
 	if p == nil {
 		return nil

@@ -11,11 +11,11 @@ import (
 )
 
 type CreateFilmUseCase struct {
-	repository domain.FilmCreator
+	repository domain.FilmRepository
 	logger     logger.Logger
 }
 
-func NewCreateFilmUseCase(repository domain.FilmCreator, appLogger logger.Logger) (*CreateFilmUseCase, error) {
+func NewCreateFilmUseCase(repository domain.FilmRepository, appLogger logger.Logger) (*CreateFilmUseCase, error) {
 	if repository == nil {
 		return nil, domain.ErrNilFilmsRepo
 	}

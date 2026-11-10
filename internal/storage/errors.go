@@ -1,7 +1,7 @@
 package storage
 
 const (
-	UniqueViolation     = "23505" // нарушена уникальность, у автора уже есть отзыв на этот фильм
-	ForeignKeyViolation = "23503" // нарушена внешняя ссылка, фильма с таким номером нет в базе
-	CheckViolation      = "23514" // нарушено ограничение CHECK, оценка не входит в допустимый диапазон
+	UniqueViolation     = "23505"
+	ForeignKeyViolation = "23503"
+	CheckViolation      = "23514"
 )

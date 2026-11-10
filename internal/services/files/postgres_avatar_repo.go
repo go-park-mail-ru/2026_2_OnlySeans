@@ -20,6 +20,7 @@ func NewPostgresAvatarRepo(db *sql.DB, appLogger logger.Logger) (*PostgresAvatar
 	if db == nil {
 		return nil, errors.New("avatar database is nil")
 	}
+
 	return &PostgresAvatarRepo{log: appLogger, db: db}, nil
 }
 
@@ -65,7 +66,7 @@ func (r *PostgresAvatarRepo) SaveAvatar(ctx context.Context, userID domain.UserI
 
 	operationLog.Stage = "commit"
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("%w: %w", domain.ErrAvatarCommitUnknown, err)
+		return fmt.Errorf("commit avatar transaction: %w: %w", domain.ErrCommitUnknown, err)
 	}
 
 	return nil
@@ -79,11 +80,11 @@ func (r *PostgresAvatarRepo) GetAvatar(ctx context.Context, userID domain.UserID
 	var size sql.NullInt64
 	operationLog.Stage = "query"
 	err := r.db.QueryRowContext(ctx, `
-  SELECT f.storage_key, f.mime_type, f.size_bytes
-  FROM account AS a
-  LEFT JOIN file AS f ON f.id = a.avatar_file_id
-  WHERE a.id = $1 AND a.deleted_at IS NULL
- `, userID).Scan(&filename, &contentType, &size)
+		SELECT f.storage_key, f.mime_type, f.size_bytes
+		FROM account AS a
+		LEFT JOIN file AS f ON f.id = a.avatar_file_id
+		WHERE a.id = $1 AND a.deleted_at IS NULL
+		`, userID).Scan(&filename, &contentType, &size)
 
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, domain.ErrUserNotFound
@@ -97,7 +98,11 @@ func (r *PostgresAvatarRepo) GetAvatar(ctx context.Context, userID domain.UserID
 		return nil, domain.ErrFileNotFound
 	}
 
-	return &domain.AvatarFile{Filename: filename.String, ContentType: contentType.String, Size: size.Int64}, nil
+	return &domain.AvatarFile{
+		Filename:    filename.String,
+		ContentType: contentType.String,
+		Size:        size.Int64,
+	}, nil
 }
 
 func (r *PostgresAvatarRepo) DeleteAvatar(ctx context.Context, userID domain.UserID) (operationErr error) {

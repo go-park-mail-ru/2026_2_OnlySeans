@@ -8,14 +8,6 @@ import (
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 )
 
-type PersonalRatingRepository interface {
-	GetMyScore(context.Context, domain.UserID, domain.FilmID) (*int, error)
-}
-
-type RatingFilmLookup interface {
-	GetFilmByID(context.Context, domain.FilmID) (domain.Film, error)
-}
-
 type GetMyFilmRatingInput struct {
 	AccountID domain.UserID
 	FilmID    domain.FilmID
@@ -24,12 +16,12 @@ type GetMyFilmRatingInput struct {
 type GetMyFilmRatingOutput struct{ Score *int }
 
 type GetMyFilmRatingUseCase struct {
-	ratings PersonalRatingRepository
-	films   RatingFilmLookup
+	ratings domain.FilmRatingRepository
+	films   domain.FilmRepository
 	logger  logger.Logger
 }
 
-func NewGetMyFilmRatingUseCase(ratings PersonalRatingRepository, films RatingFilmLookup, log logger.Logger) (*GetMyFilmRatingUseCase, error) {
+func NewGetMyFilmRatingUseCase(ratings domain.FilmRatingRepository, films domain.FilmRepository, log logger.Logger) (*GetMyFilmRatingUseCase, error) {
 	if ratings == nil {
 		return nil, domain.ErrNilFilmRatingsRepo
 	}

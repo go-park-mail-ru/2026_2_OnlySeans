@@ -10,11 +10,11 @@ import (
 )
 
 type DeleteFilmUseCase struct {
-	repository domain.FilmDeleter
+	repository domain.FilmRepository
 	logger     logger.Logger
 }
 
-func NewDeleteFilmUseCase(repository domain.FilmDeleter, appLogger logger.Logger) (*DeleteFilmUseCase, error) {
+func NewDeleteFilmUseCase(repository domain.FilmRepository, appLogger logger.Logger) (*DeleteFilmUseCase, error) {
 	if repository == nil {
 		return nil, domain.ErrNilFilmsRepo
 	}

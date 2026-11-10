@@ -54,7 +54,7 @@ func TestCreateFilmHandler(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			repo := mocks.NewMockFilmsRepository(gomock.NewController(t))
+			repo := mocks.NewMockFilmRepository(gomock.NewController(t))
 			var captured domain.CreateFilmInput
 			if tt.called {
 				repo.EXPECT().CreateFilm(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, input domain.CreateFilmInput) (domain.FilmID, error) {
@@ -76,9 +76,9 @@ func TestCreateFilmHandler(t *testing.T) {
 			require.NoError(t, err)
 			deleteFilm, err := usecase.NewDeleteFilmUseCase(repo, newFilmsTestLogger())
 			require.NoError(t, err)
-			listCollections, err := usecase.NewListCollectionsUseCase(repo, appLogger)
+			listCollections, err := usecase.NewListCollectionsUseCase(mocks.NewMockCollectionRepository(gomock.NewController(t)), appLogger)
 			require.NoError(t, err)
-			getCollection, err := usecase.NewGetCollectionUseCase(repo, appLogger)
+			getCollection, err := usecase.NewGetCollectionUseCase(mocks.NewMockCollectionRepository(gomock.NewController(t)), appLogger)
 			require.NoError(t, err)
 			handler, err := films.NewHandler(films.HandlerUseCases{
 				CreateFilm: uc, ListFilms: list, GetFilm: get, UpdateFilm: update,

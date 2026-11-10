@@ -9,7 +9,6 @@ import (
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	usecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/auth"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
-	"github.com/gorilla/mux"
 )
 
 type ProfileHandler struct {
@@ -20,14 +19,6 @@ type ProfileHandler struct {
 
 func NewProfileHandler(get *usecase.GetProfileUseCase, update *usecase.UpdateProfileUseCase, log logger.Logger) *ProfileHandler {
 	return &ProfileHandler{get: get, update: update, log: log}
-}
-
-func (h *ProfileHandler) Register(protect func(http.HandlerFunc) http.HandlerFunc) func(*mux.Router) {
-	return func(r *mux.Router) {
-		r.HandleFunc("/api/me/profile", protect(h.Get)).Methods(http.MethodGet)
-		r.HandleFunc("/api/me/profile", protect(h.Update)).Methods(http.MethodPut)
-		r.HandleFunc("/api/me", protect(h.Update)).Methods(http.MethodPut)
-	}
 }
 
 func (h *ProfileHandler) Get(w http.ResponseWriter, r *http.Request) {

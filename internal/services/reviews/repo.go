@@ -8,7 +8,6 @@ import (
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 )
 
-// для проверки, что автор ещё не писал отзыв на фильм
 type reviewKey struct {
 	authorID domain.UserID
 	filmID   domain.FilmID
@@ -91,12 +90,10 @@ func (r *InMemoryReviewRepo) Update(_ context.Context, id domain.ReviewID, chang
 	return &review, nil
 }
 
-// отдаёт страницу отзывов фильма, новые первыми
 func (r *InMemoryReviewRepo) ListByFilm(_ context.Context, filmID domain.FilmID, limit, offset int) ([]domain.Review, int, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	// Словарь перебирается в случайном порядке, поэтому идём по номерам
 	matched := make([]domain.Review, 0)
 	for id := r.nextID - 1; id >= 1; id-- {
 		review, exists := r.byID[id]

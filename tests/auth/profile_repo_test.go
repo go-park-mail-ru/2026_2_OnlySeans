@@ -138,7 +138,7 @@ func TestProfileRepoUpdate(t *testing.T) {
 			} else {
 				query.WillReturnRows(sqlmock.NewRows(userColumns).AddRow(7, "anna@example.com", "anna", "hash", "reader", nil))
 			}
-			result, err := authrepo.NewProfileRepo(db, nil).UpdateProfile(t.Context(), 7, "anna@example.com", "anna")
+			result, err := authrepo.NewPostgresUserRepo(db, nil).UpdateProfile(t.Context(), 7, "anna@example.com", "anna")
 			require.ErrorIs(t, err, tc.wantErr)
 			if err == nil {
 				require.Equal(t, domain.UserID(7), result.ID)
@@ -156,7 +156,7 @@ func TestProfileRepoUnknownConflictIsNotEmailConflict(t *testing.T) {
 	defer db.Close()
 	failure := &pgconn.PgError{Code: "23505", ConstraintName: "unknown_constraint"}
 	mock.ExpectQuery("UPDATE account").WillReturnError(failure)
-	_, err = authrepo.NewProfileRepo(db, nil).UpdateProfile(t.Context(), 7, "anna@example.com", "anna")
+	_, err = authrepo.NewPostgresUserRepo(db, nil).UpdateProfile(t.Context(), 7, "anna@example.com", "anna")
 	require.ErrorIs(t, err, failure)
 	require.NotErrorIs(t, err, domain.ErrUserExists)
 	require.NotErrorIs(t, err, domain.ErrUsernameTaken)

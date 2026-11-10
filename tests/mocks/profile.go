@@ -8,39 +8,6 @@ import (
 	gomock "go.uber.org/mock/gomock"
 )
 
-type MockProfileRepository struct {
-	ctrl     *gomock.Controller
-	recorder *MockProfileRepositoryMockRecorder
-	isgomock struct{}
-}
-
-type MockProfileRepositoryMockRecorder struct {
-	mock *MockProfileRepository
-}
-
-func NewMockProfileRepository(ctrl *gomock.Controller) *MockProfileRepository {
-	mock := &MockProfileRepository{ctrl: ctrl}
-	mock.recorder = &MockProfileRepositoryMockRecorder{mock}
-	return mock
-}
-
-func (m *MockProfileRepository) EXPECT() *MockProfileRepositoryMockRecorder {
-	return m.recorder
-}
-
-func (m *MockProfileRepository) UpdateProfile(arg0 context.Context, arg1 domain.UserID, arg2, arg3 string) (*domain.User, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateProfile", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(*domain.User)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-func (mr *MockProfileRepositoryMockRecorder) UpdateProfile(arg0, arg1, arg2, arg3 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateProfile", reflect.TypeOf((*MockProfileRepository)(nil).UpdateProfile), arg0, arg1, arg2, arg3)
-}
-
 type MockProfileReader struct {
 	ctrl     *gomock.Controller
 	recorder *MockProfileReaderMockRecorder

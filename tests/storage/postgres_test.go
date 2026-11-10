@@ -19,8 +19,6 @@ func newStorageTestLogger() logger.Logger {
 	return testutil.DiscardLogger()
 }
 
-// testDatabaseURLEnv задаёт адрес настоящей базы для проверки успешного подключения.
-// Без неё тест подключения пропускается, остальные проверки работают без базы.
 const testDatabaseURLEnv = "TEST_DATABASE_URL"
 
 func databaseConfig(url string) config.Database {
@@ -33,7 +31,6 @@ func databaseConfig(url string) config.Database {
 	}
 }
 
-// closedPort возвращает адрес, на котором точно никто не слушает.
 func closedPort(t *testing.T) string {
 	t.Helper()
 
@@ -70,7 +67,7 @@ func TestOpen_DatabaseUnavailable(t *testing.T) {
 }
 
 func TestOpen_RespectsConnectTimeout(t *testing.T) {
-	// Сервер принимает соединение, но молчит: без таймаута Open ждал бы вечно.
+
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 	t.Cleanup(func() { listener.Close() })

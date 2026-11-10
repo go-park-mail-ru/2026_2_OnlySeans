@@ -18,10 +18,6 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-// Тестовый логгер. Ничего не записывает.
-
-// Тестовый репозиторий.
-// Создаём хэндлер со всеми необходимыми usecase.
 func newHandlerTest(t *testing.T, repo domain.PersonRepository) *persondelivery.Handler {
 	t.Helper()
 
@@ -82,14 +78,12 @@ func newHandlerTestRequest(method, url, body string) *http.Request {
 	return httptest.NewRequest(method, url, strings.NewReader(body))
 }
 
-// Устанавливаем ID в запросе, как это делает gorilla/mux.
 func withPersonID(r *http.Request, id string) *http.Request {
 	return mux.SetURLVars(r, map[string]string{
 		"id": id,
 	})
 }
 
-// Проверяем HTTP-статус и наличие нужного текста в ответе.
 func checkHandlerResponse(
 	t *testing.T,
 	recorder *httptest.ResponseRecorder,
@@ -115,8 +109,6 @@ func checkHandlerResponse(
 		)
 	}
 }
-
-// CREATE
 
 func TestCreatePersonHandler(t *testing.T) {
 	repoErr := errors.New("database error")
@@ -214,8 +206,6 @@ func TestCreatePersonHandler(t *testing.T) {
 	}
 }
 
-// GET
-
 func TestGetPersonHandler(t *testing.T) {
 	repoErr := errors.New("database error")
 
@@ -288,8 +278,6 @@ func TestGetPersonHandler(t *testing.T) {
 		})
 	}
 }
-
-// LIST
 
 func TestListPersonsHandler(t *testing.T) {
 	repoErr := errors.New("database error")
@@ -375,8 +363,6 @@ func TestListPersonsHandler(t *testing.T) {
 		})
 	}
 }
-
-// UPDATE
 
 func TestUpdatePersonHandler(t *testing.T) {
 	repoErr := errors.New("database error")
@@ -476,8 +462,6 @@ func TestUpdatePersonHandler(t *testing.T) {
 		})
 	}
 }
-
-// DELETE
 
 func TestDeletePersonHandler(t *testing.T) {
 	repoErr := errors.New("database error")

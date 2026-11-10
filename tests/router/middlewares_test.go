@@ -123,20 +123,18 @@ func newTestRouterWithAvatarStorage(t *testing.T, appLogger logger.Logger, stora
 		MaxSize: 5 << 20, MaxDimension: 4096, CleanupTimeout: 5 * time.Second,
 	}, appLogger)
 	require.NoError(t, err)
-	postersHandler, err := filesdelivery.NewPosterHandler(uploadPoster, appLogger)
+	filmPoster, err := filesusecase.NewFilmPosterUseCase(testPosterRepository(t), testAvatarURLStorage(t), appLogger)
+	require.NoError(t, err)
+	postersHandler, err := filesdelivery.NewPosterHandler(uploadPoster, filmPoster, appLogger)
 	require.NoError(t, err)
 
-	handler, err := router.NewRouter(
-		authHandler,
-		filmsHandler,
-		newTestReviewsHandler(t, filmsRepo, appLogger),
-		newTestPersonsHandler(t, appLogger),
-		filesHandler,
-		postersHandler,
-		newTestRatingsHandler(t, filmsRepo, appLogger),
-		[]string{testOrigin},
-		appLogger,
-	)
+	handler, err := router.NewRouter(router.Handlers{
+		Auth: authHandler, Films: filmsHandler,
+		Reviews: newTestReviewsHandler(t, filmsRepo, appLogger),
+		Persons: newTestPersonsHandler(t, appLogger),
+		Files:   filesHandler, Posters: postersHandler,
+		Ratings: newTestRatingsHandler(t, filmsRepo, appLogger),
+	}, []string{testOrigin}, appLogger)
 	require.NoError(t, err)
 	return handler
 }
@@ -165,7 +163,7 @@ func TestFilmRatingRoutes(t *testing.T) {
 	require.Equal(t, http.StatusUnauthorized, deleteRec.Code, deleteRec.Body.String())
 }
 
-func newTestRatingsHandler(t *testing.T, films domain.FilmsRepository, appLogger logger.Logger) *ratingsdelivery.Handler {
+func newTestRatingsHandler(t *testing.T, films *filmsservice.InMemoryService, appLogger logger.Logger) *ratingsdelivery.Handler {
 	t.Helper()
 
 	repo := ratingsservice.NewInMemoryRepo()
@@ -201,7 +199,7 @@ func newTestAuthHandlerWithUsers(t *testing.T, appLogger logger.Logger) (*auth.H
 
 	users := authservice.NewInMemoryUserRepo()
 	sessions := authservice.NewInMemorySessionStore(time.Hour)
-	passwordService := authservice.BcryptPasswordService{}
+	passwordService := &authservice.BcryptPasswordService{}
 
 	register, err := authusecase.NewRegisterUserUseCase(users, sessions, passwordService, appLogger)
 	require.NoError(t, err)
@@ -230,7 +228,7 @@ func newTestAuthHandlerWithUsers(t *testing.T, appLogger logger.Logger) (*auth.H
 	return handler, users
 }
 
-func newTestReviewsHandler(t *testing.T, films domain.FilmRepository, appLogger logger.Logger) *reviewsdelivery.Handler {
+func newTestReviewsHandler(t *testing.T, films *filmsservice.InMemoryService, appLogger logger.Logger) *reviewsdelivery.Handler {
 	t.Helper()
 
 	repo := reviewsservice.NewInMemoryReviewRepo()

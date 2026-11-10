@@ -10,13 +10,12 @@ import (
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 )
 
-// обновляет данные существующего фильма
 type UpdateFilmUseCase struct {
-	repository domain.FilmUpdater
+	repository domain.FilmRepository
 	logger     logger.Logger
 }
 
-func NewUpdateFilmUseCase(repository domain.FilmUpdater, appLogger logger.Logger) (*UpdateFilmUseCase, error) {
+func NewUpdateFilmUseCase(repository domain.FilmRepository, appLogger logger.Logger) (*UpdateFilmUseCase, error) {
 	if repository == nil {
 		return nil, domain.ErrNilFilmsRepo
 	}

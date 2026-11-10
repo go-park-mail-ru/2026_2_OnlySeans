@@ -17,17 +17,6 @@ var (
 	ErrDuplicateCollectionFilm = domain.ErrDuplicateCollectionFilm
 )
 
-type Service interface {
-	CreateFilm(ctx context.Context, input domain.CreateFilmInput) (domain.FilmID, error)
-	UpdateFilm(ctx context.Context, id domain.FilmID, input domain.CreateFilmInput) error
-	DeleteFilm(ctx context.Context, id domain.FilmID) error
-	ListFilms(ctx context.Context, limit, offset int) ([]domain.Film, int, error)
-	GetFilmByID(ctx context.Context, id domain.FilmID) (domain.Film, error)
-	ListCollections(ctx context.Context, limit, offset int) ([]domain.Collection, int, error)
-	GetCollectionByID(ctx context.Context, id domain.CollectionID) (domain.Collection, error)
-	ListCollectionFilms(ctx context.Context, collectionID domain.CollectionID, limit, offset int) ([]domain.Film, int, error)
-}
-
 type InMemoryService struct {
 	mu              sync.RWMutex
 	films           map[domain.FilmID]domain.Film
@@ -61,7 +50,6 @@ func (s *InMemoryService) AddFilm(film domain.Film) error {
 	return nil
 }
 
-// сохраняем новый фильм в памяти
 func (s *InMemoryService) CreateFilm(_ context.Context, input domain.CreateFilmInput) (domain.FilmID, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

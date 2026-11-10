@@ -35,7 +35,6 @@ var (
 	errLimitMessage   = errors.New("limit must be an integer from 1 to 100")
 )
 
-// reviewJSON — отзыв в том виде, в каком его получает фронтенд.
 type reviewJSON struct {
 	ID               domain.ReviewID `json:"id"`
 	AuthorID         domain.UserID   `json:"author_id"`
@@ -76,15 +75,13 @@ func newTestRouter(t *testing.T, films domain.FilmRepository) *mux.Router {
 	require.NoError(t, err)
 
 	router := mux.NewRouter()
-	router.HandleFunc("/api/films/{id}/reviews", h.ListByFilm).Methods(http.MethodGet)
-	router.HandleFunc("/api/films/{id}/reviews", h.Create).Methods(http.MethodPost)
-	router.HandleFunc("/api/reviews/{id}", h.Update).Methods(http.MethodPut)
-	router.HandleFunc("/api/reviews/{id}", h.Delete).Methods(http.MethodDelete)
+	router.HandleFunc("/api/films/{id}/reviews", h.ListFilmReviews).Methods(http.MethodGet)
+	router.HandleFunc("/api/films/{id}/reviews", h.CreateReview).Methods(http.MethodPost)
+	router.HandleFunc("/api/reviews/{id}", h.UpdateReview).Methods(http.MethodPut)
+	router.HandleFunc("/api/reviews/{id}", h.DeleteReview).Methods(http.MethodDelete)
 	return router
 }
 
-// serve выполняет запрос от имени user; guest — без пользователя в контексте,
-// как будто middleware RequireAuth не пропустил бы запрос.
 func serve(router http.Handler, method, target, body string, user domain.UserID) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(method, target, strings.NewReader(body))
 	if user != guest {
@@ -141,7 +138,6 @@ func reviewPath(id domain.ReviewID) string {
 	return fmt.Sprintf("/api/reviews/%d", id)
 }
 
-// createReview создаёт отзыв через ручку и возвращает его.
 func createReview(t *testing.T, router http.Handler, user domain.UserID) reviewJSON {
 	t.Helper()
 

@@ -94,7 +94,7 @@ func newTestAuth(t *testing.T) (*authdelivery.Handler, *authservice.InMemoryUser
 
 	users := authservice.NewInMemoryUserRepo()
 	sessions := authservice.NewInMemorySessionStore(time.Hour)
-	passwordService := authservice.BcryptPasswordService{}
+	passwordService := &authservice.BcryptPasswordService{}
 	appLogger := newTestLogger()
 
 	register, err := authusecase.NewRegisterUserUseCase(users, sessions, passwordService, appLogger)

@@ -96,7 +96,6 @@ func (r *PersonRepo) GetByID(
 	}
 
 	if err != nil {
-
 		return nil, fmt.Errorf("get person %d: %w", id, err)
 	}
 

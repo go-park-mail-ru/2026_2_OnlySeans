@@ -47,16 +47,19 @@ func (w *responseWriter) Write(data []byte) (int, error) {
 	if !w.wroteHeader {
 		w.WriteHeader(http.StatusOK)
 	}
+
 	return w.ResponseWriter.Write(data)
 }
 
 func (w *responseWriter) Unwrap() http.ResponseWriter {
 	return w.ResponseWriter
 }
+
 func withCORS(next http.Handler, allowedOrigins []string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Vary", "Origin")
 		origin := r.Header.Get("Origin")
+
 		for _, allowedOrigin := range allowedOrigins {
 			if origin == allowedOrigin {
 				w.Header().Set("Access-Control-Allow-Origin", origin)
@@ -64,6 +67,7 @@ func withCORS(next http.Handler, allowedOrigins []string) http.Handler {
 				break
 			}
 		}
+
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 
@@ -71,6 +75,7 @@ func withCORS(next http.Handler, allowedOrigins []string) http.Handler {
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
+
 		next.ServeHTTP(w, r)
 	})
 }
@@ -80,6 +85,7 @@ func withSecurityHeaders(next http.Handler) http.Handler {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'")
 		w.Header().Set("X-Frame-Options", "DENY")
+
 		next.ServeHTTP(w, r)
 	})
 }
@@ -99,6 +105,7 @@ func RequireAuth(authn Authenticator) Middleware {
 					writeError(r.Context(), w, http.StatusUnauthorized, domain.ErrUnauthorized)
 					return
 				}
+
 				writeError(r.Context(), w, http.StatusInternalServerError, domain.ErrInternal)
 				return
 			}
@@ -119,9 +126,11 @@ func newCSRFMiddleware(allowedOrigins []string) (*csrfMiddleware, error) {
 			return nil, fmt.Errorf("add trusted origin %q: %w", origin, err)
 		}
 	}
+
 	protection.SetDenyHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		writeError(r.Context(), w, http.StatusForbidden, domain.ErrForbidden)
 	}))
+
 	return &csrfMiddleware{protection: protection}, nil
 }
 
@@ -136,6 +145,7 @@ func writeError(ctx context.Context, w http.ResponseWriter, status int, err erro
 func WithRequestID(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		r = requestWithID(w, r)
+
 		next.ServeHTTP(w, r)
 	})
 }
@@ -146,6 +156,7 @@ func requestWithID(w http.ResponseWriter, r *http.Request) *http.Request {
 		id = rand.Text()
 		r = r.WithContext(logger.ContextWithRequestID(r.Context(), id))
 	}
+
 	w.Header().Set("X-Request-ID", id)
 	return r
 }
@@ -186,6 +197,7 @@ func WithRecover(next http.Handler, appLogger logger.Logger) http.Handler {
 		if !ok {
 			tracked = &responseWriter{ResponseWriter: w, status: http.StatusOK}
 		}
+
 		defer func() {
 			if rec := recover(); rec != nil {
 				appLogger.ErrorContext(r.Context(), "panic recovered", map[string]any{
@@ -193,16 +205,17 @@ func WithRecover(next http.Handler, appLogger logger.Logger) http.Handler {
 					"method": r.Method,
 					"path":   r.URL.Path,
 				})
+
 				if !tracked.wroteHeader {
 					httpresponse.WriteErrorContext(r.Context(), tracked, http.StatusInternalServerError, httpresponse.InternalErrorMessage, appLogger)
 				}
 			}
 		}()
+
 		next.ServeHTTP(tracked, r)
 	})
 }
 
-// CatalogEditor checks the current account role after session authentication.
 type CatalogEditor interface {
 	CanEditPersons(context.Context, domain.UserID) (bool, error)
 }
@@ -219,6 +232,7 @@ func RequireCatalogEditor(checker CatalogEditor, appLogger logger.Logger) Middle
 						"path":   r.URL.Path,
 					},
 				)
+
 				writeError(r.Context(), w, http.StatusUnauthorized, domain.ErrUnauthorized)
 				return
 			}
@@ -234,6 +248,7 @@ func RequireCatalogEditor(checker CatalogEditor, appLogger logger.Logger) Middle
 							"path":    r.URL.Path,
 						},
 					)
+
 					writeError(r.Context(), w, http.StatusUnauthorized, domain.ErrUnauthorized)
 					return
 				}
@@ -252,6 +267,7 @@ func RequireCatalogEditor(checker CatalogEditor, appLogger logger.Logger) Middle
 						"path":    r.URL.Path,
 					},
 				)
+
 				writeError(r.Context(), w, http.StatusForbidden, domain.ErrForbidden)
 				return
 			}

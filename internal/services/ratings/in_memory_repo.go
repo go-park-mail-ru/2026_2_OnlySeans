@@ -82,3 +82,14 @@ func (r *InMemoryRepo) DeleteFilmRating(_ context.Context, accountID domain.User
 	delete(r.ratings, key)
 	return nil
 }
+
+func (r *InMemoryRepo) GetMyScore(_ context.Context, accountID domain.UserID, filmID domain.FilmID) (*int, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	rating, ok := r.ratings[ratingKey{accountID: accountID, filmID: filmID}]
+	if !ok {
+		return nil, nil
+	}
+	score := rating.Score
+	return &score, nil
+}

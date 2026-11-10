@@ -29,7 +29,6 @@ func TestRegister_Gomock(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			// Only calls preceding the failure are allowed. Any later call fails the test.
 			var calls []any
 			if stage == "hash" {
 				calls = append(calls, hasher.EXPECT().Hash(input.Password).Return("", failure))

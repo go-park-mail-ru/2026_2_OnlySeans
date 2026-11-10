@@ -26,8 +26,6 @@ func newTestLogger() logger.Logger {
 	return testutil.DiscardLogger()
 }
 
-// CREATE
-
 func TestCreatePersonUseCase(t *testing.T) {
 	repoErr := errors.New("database error")
 
@@ -115,8 +113,6 @@ func TestCreatePersonUseCase(t *testing.T) {
 	}
 }
 
-// GET
-
 func TestGetPersonUseCase(t *testing.T) {
 	repoErr := errors.New("database error")
 
@@ -179,8 +175,6 @@ func TestGetPersonUseCase(t *testing.T) {
 		})
 	}
 }
-
-// LIST
 
 func TestListPersonsUseCase(t *testing.T) {
 	repoErr := errors.New("database error")
@@ -251,8 +245,6 @@ func TestListPersonsUseCase(t *testing.T) {
 		})
 	}
 }
-
-// UPDATE
 
 func TestUpdatePersonUseCase(t *testing.T) {
 	repoErr := errors.New("database error")
@@ -337,8 +329,6 @@ func TestUpdatePersonUseCase(t *testing.T) {
 		})
 	}
 }
-
-// DELETE
 
 func TestDeletePersonUseCase(t *testing.T) {
 	repoErr := errors.New("database error")

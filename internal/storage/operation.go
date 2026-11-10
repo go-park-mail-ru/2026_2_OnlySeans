@@ -13,8 +13,6 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-// Operation records one repository operation, including transaction completion.
-// Fields must contain identifiers and metadata, never SQL arguments or session tokens.
 type Operation struct {
 	Stage    string
 	NotFound bool
@@ -67,8 +65,7 @@ func (op *Operation) Finish(err error) {
 			return
 		}
 	}
-	// PostgreSQL diagnostics may include passwords or other SQL argument values.
-	// Keep the SQLSTATE, never Message, Detail or the SQL text.
+
 	var pgErr *pgconn.PgError
 	switch {
 	case errors.As(err, &pgErr):

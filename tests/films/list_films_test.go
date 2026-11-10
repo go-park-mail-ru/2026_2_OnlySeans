@@ -12,8 +12,6 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-// Тестовый логгер.
-
 func TestListFilmsUseCaseRun(t *testing.T) {
 	ctx := context.Background()
 	expectedFilms := []entities.Film{{ID: 1}}

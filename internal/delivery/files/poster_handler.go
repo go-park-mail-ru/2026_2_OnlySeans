@@ -22,11 +22,15 @@ type uploadPosterResponse struct {
 }
 
 type PosterHandler struct {
+	filmPoster   *fileusecase.FilmPosterUseCase
 	uploadPoster *fileusecase.UploadPosterUseCase
 	logger       logger.Logger
 }
 
-func NewPosterHandler(uploadPoster *fileusecase.UploadPosterUseCase, appLogger logger.Logger) (*PosterHandler, error) {
+func NewPosterHandler(uploadPoster *fileusecase.UploadPosterUseCase, filmPoster *fileusecase.FilmPosterUseCase, appLogger logger.Logger) (*PosterHandler, error) {
+	if filmPoster == nil {
+		return nil, errors.New("film poster use case is nil")
+	}
 	if uploadPoster == nil {
 		return nil, errors.New("upload poster use case is nil")
 	}
@@ -35,7 +39,7 @@ func NewPosterHandler(uploadPoster *fileusecase.UploadPosterUseCase, appLogger l
 		return nil, domain.ErrInvalidAppLogger
 	}
 
-	return &PosterHandler{uploadPoster: uploadPoster, logger: appLogger}, nil
+	return &PosterHandler{filmPoster: filmPoster, uploadPoster: uploadPoster, logger: appLogger}, nil
 }
 
 func (h *PosterHandler) UploadPoster(w http.ResponseWriter, r *http.Request) {
@@ -115,8 +119,8 @@ func (h *PosterHandler) writePosterError(ctx context.Context, w http.ResponseWri
 	switch {
 	case errors.Is(err, domain.ErrUnauthorized), errors.Is(err, domain.ErrUserNotFound):
 		httpresponse.WriteErrorContext(ctx, w, http.StatusUnauthorized, domain.ErrUnauthorized.Error(), h.logger)
-	case errors.Is(err, domain.ErrFilmNotFound):
-		httpresponse.WriteErrorContext(ctx, w, http.StatusNotFound, domain.ErrFilmNotFound.Error(), h.logger)
+	case errors.Is(err, domain.ErrFilmNotFound), errors.Is(err, domain.ErrFileNotFound):
+		httpresponse.WriteErrorContext(ctx, w, http.StatusNotFound, err.Error(), h.logger)
 	case errors.Is(err, fileusecase.ErrPosterTooLarge):
 		httpresponse.WriteErrorContext(ctx, w, http.StatusRequestEntityTooLarge, fileusecase.ErrPosterTooLarge.Error(), h.logger)
 	case errors.Is(err, fileusecase.ErrInvalidPosterFilmID), errors.Is(err, fileusecase.ErrPosterMissing),
@@ -126,4 +130,33 @@ func (h *PosterHandler) writePosterError(ctx context.Context, w http.ResponseWri
 	default:
 		httpresponse.WriteErrorContext(ctx, w, http.StatusInternalServerError, httpresponse.InternalErrorMessage, h.logger)
 	}
+}
+
+func (h *PosterHandler) GetPoster(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(mux.Vars(r)["id"], 10, 64)
+	if err != nil {
+		h.writePosterError(r.Context(), w, fileusecase.ErrInvalidPosterFilmID)
+		return
+	}
+	url, err := h.filmPoster.GetURL(r.Context(), domain.FilmID(id))
+	if err != nil {
+		h.writePosterError(r.Context(), w, err)
+		return
+	}
+	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, struct {
+		URL string `json:"url"`
+	}{URL: url}, h.logger)
+}
+
+func (h *PosterHandler) DeletePoster(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(mux.Vars(r)["id"], 10, 64)
+	if err != nil {
+		h.writePosterError(r.Context(), w, fileusecase.ErrInvalidPosterFilmID)
+		return
+	}
+	if err := h.filmPoster.Delete(r.Context(), domain.FilmID(id)); err != nil {
+		h.writePosterError(r.Context(), w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }

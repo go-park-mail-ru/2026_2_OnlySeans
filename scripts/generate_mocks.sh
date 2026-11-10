@@ -15,10 +15,9 @@ generate() {
 }
 
 generate auth "$module/internal/domain" 'PasswordHasher,PasswordVerifier,SessionStore,UserRepository'
-generate repositories "$module/internal/domain" 'FilmCreator,FilmUpdater,FilmDeleter,FilmRatingRepository,CollectionFilmRatingRepository,FilmRatingCollectionRepository,FilmRepository,CollectionRepository,FilmsRepository,PersonRepository,ReviewRepository,AvatarRepository,PosterRepository,LibraryRepository,PersonCatalogRepository'
+generate repositories "$module/internal/domain" 'FilmRatingRepository,CollectionFilmRatingRepository,FilmRepository,CollectionRepository,PersonRepository,ReviewRepository,AvatarRepository,PosterRepository,LibraryRepository,PersonCatalogRepository'
 generate files "$module/internal/usecase/files" 'AvatarStorage,AvatarWriter,AvatarURLStorage,AccountAvatarRepository,PosterStorage,PosterFilmReader'
-generate personal_rating "$module/internal/usecase/ratings" 'PersonalRatingRepository,RatingFilmLookup'
-generate profile "$module/internal/usecase/auth" 'ProfileRepository,ProfileReader,ProfilePosterStorage'
+generate profile "$module/internal/usecase/auth" 'ProfileReader,ProfilePosterStorage'
 generate person_catalog "$module/internal/usecase/persons" CatalogFilmRepository
 generate poster_urls "$module/internal/services/films" PosterURLStorage
 generate router "$module/internal/delivery/router" 'Authenticator,CatalogEditor'

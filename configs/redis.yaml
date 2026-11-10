@@ -1,1 +1,2 @@
-url: "redis://localhost:8020"
+host: "localhost"
+port: 8020

@@ -19,18 +19,14 @@ import (
 const (
 	validServerConfig = "server:\n  host: 127.0.0.1\n  port: 18080\n"
 
-	// Адрес, к которому никто не подключится. Нужен тестам, которые
-	// заканчиваются раньше, чем Run откроет базу.
 	dummyDatabaseURL = "postgres://user@127.0.0.1:1/kinopoisk?sslmode=disable"
 
-	// Тесты с настоящими Postgres и Redis пропускаются, если переменные не заданы.
 	testDatabaseURLEnv = "TEST_DATABASE_URL"
 	testRedisURLEnv    = "TEST_REDIS_URL"
 
 	runTimeout = 10 * time.Second
 )
 
-// кладёт файл конфига во временную папку теста и возвращает путь к нему
 func writeConfig(t *testing.T, name, raw string) string {
 	t.Helper()
 
@@ -39,7 +35,6 @@ func writeConfig(t *testing.T, name, raw string) string {
 	return path
 }
 
-// пути к пяти конфигам, которые принимает Run
 type configPaths struct {
 	server   string
 	database string
@@ -48,11 +43,9 @@ type configPaths struct {
 	logger   string
 }
 
-// newConfigPaths создаёт рабочие конфиги и тестовое S3-хранилище.
 func newConfigPaths(t *testing.T) configPaths {
 	t.Helper()
 
-	// S3 startup checks use a local server, not RustFS or real credentials.
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -76,7 +69,6 @@ func (p configPaths) run() error {
 	return app.Run(p.server, p.database, p.redis, p.s3, p.logger)
 }
 
-// runWithTimeout не даёт тесту зависнуть, если Run не возвращается
 func runWithTimeout(t *testing.T, p configPaths) error {
 	t.Helper()
 
@@ -98,7 +90,6 @@ func missingFile(t *testing.T) string {
 	return filepath.Join(t.TempDir(), "missing.yaml")
 }
 
-// адрес, на котором только что закрыли порт: подключиться к нему нельзя
 func closedAddr(t *testing.T) string {
 	t.Helper()
 
@@ -130,7 +121,6 @@ func TestRun_InvalidConfig(t *testing.T) {
 	require.ErrorContains(t, err, "server.port")
 }
 
-// каждый отсутствующий файл конфига должен давать ошибку именно про него
 func TestRun_MissingConfigFiles(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -146,7 +136,7 @@ func TestRun_MissingConfigFiles(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// чтобы Run дошёл до чтения нужного файла, а не остановился на адресе базы
+
 			t.Setenv(config.EnvDatabaseURL, dummyDatabaseURL)
 			p := newConfigPaths(t)
 			tt.mutate(&p, missingFile(t))
@@ -156,7 +146,6 @@ func TestRun_MissingConfigFiles(t *testing.T) {
 	}
 }
 
-// без адреса базы сервер не стартует, и ошибка называет нужную переменную
 func TestRun_MissingDatabaseURL(t *testing.T) {
 	t.Setenv(config.EnvDatabaseURL, "")
 
@@ -175,7 +164,6 @@ func TestRun_MissingRedisURL(t *testing.T) {
 	require.ErrorContains(t, err, "redis.url")
 }
 
-// неверные настройки логгера обнаруживаются при старте, до открытия базы
 func TestRun_InvalidLoggerSettings(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -209,9 +197,6 @@ func TestRun_DatabaseUnavailable(t *testing.T) {
 
 	require.ErrorContains(t, err, "open database")
 }
-
-// Дальше тесты, которым нужна настоящая база: Run открывает Postgres раньше Redis.
-// Запуск: TEST_DATABASE_URL=... TEST_REDIS_URL=... go test ./tests/app/ -v
 
 func TestRun_RedisUnavailable(t *testing.T) {
 	t.Setenv(config.EnvDatabaseURL, requireEnv(t, testDatabaseURLEnv))

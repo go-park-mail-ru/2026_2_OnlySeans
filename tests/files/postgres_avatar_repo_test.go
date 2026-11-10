@@ -22,7 +22,7 @@ func TestPostgresAvatarRepoSave(t *testing.T) {
 		{name: "missing or deleted account", failure: "account", wantErr: domain.ErrUserNotFound},
 		{name: "insert failure rolls back", failure: "insert", wantErr: dbErr},
 		{name: "account update failure rolls back", failure: "update", wantErr: dbErr},
-		{name: "commit outcome unknown", failure: "commit", wantErr: domain.ErrAvatarCommitUnknown},
+		{name: "commit outcome unknown", failure: "commit", wantErr: domain.ErrCommitUnknown},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -158,7 +158,7 @@ func TestPostgresAvatarRepoDelete(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 			}
-			require.NotErrorIs(t, err, domain.ErrAvatarCommitUnknown)
+			require.NotErrorIs(t, err, domain.ErrCommitUnknown)
 			require.NoError(t, mock.ExpectationsWereMet())
 		})
 	}

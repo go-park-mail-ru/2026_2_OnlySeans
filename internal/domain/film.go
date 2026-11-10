@@ -50,7 +50,6 @@ type Film struct {
 	Genres           []Genre
 }
 
-// данные для одной карточки
 type CreateFilmInput struct {
 	Title         string
 	OriginalTitle *string
@@ -109,19 +108,6 @@ func (input CreateFilmInput) Validate() error {
 	return nil
 }
 
-// создание фильма в репозитории
-type FilmCreator interface {
-	CreateFilm(ctx context.Context, input CreateFilmInput) (FilmID, error)
-}
-
-type FilmUpdater interface {
-	UpdateFilm(ctx context.Context, id FilmID, input CreateFilmInput) error
-}
-
-type FilmDeleter interface {
-	DeleteFilm(ctx context.Context, id FilmID) error
-}
-
 const (
 	MinFilmRating int = 1
 	MaxFilmRating int = 10
@@ -142,6 +128,7 @@ type FilmRatingSummary struct {
 }
 
 type FilmRatingRepository interface {
+	GetMyScore(ctx context.Context, accountID UserID, filmID FilmID) (*int, error)
 	SetFilmRating(ctx context.Context, accountID UserID, filmID FilmID, score int) (FilmRating, error)
 	GetFilmRatingSummary(ctx context.Context, filmID FilmID) (FilmRatingSummary, error)
 	GetFilmRatingsSummaries(ctx context.Context, filmIDs []FilmID) ([]FilmRatingSummary, error)
@@ -152,12 +139,10 @@ type CollectionFilmRatingRepository interface {
 	GetCollectionFilmRatingSummaries(ctx context.Context, collectionID CollectionID, limit, offset int) ([]FilmRatingSummary, int, error)
 }
 
-type FilmRatingCollectionRepository interface {
-	FilmRatingRepository
-	CollectionFilmRatingRepository
-}
-
 type FilmRepository interface {
+	CreateFilm(ctx context.Context, input CreateFilmInput) (FilmID, error)
+	UpdateFilm(ctx context.Context, id FilmID, input CreateFilmInput) error
+	DeleteFilm(ctx context.Context, id FilmID) error
 	ListFilms(ctx context.Context, limit, offset int) ([]Film, int, error)
 	GetFilmByID(ctx context.Context, id FilmID) (Film, error)
 }
@@ -166,13 +151,4 @@ type CollectionRepository interface {
 	ListCollections(ctx context.Context, limit, offset int) ([]Collection, int, error)
 	GetCollectionByID(ctx context.Context, id CollectionID) (Collection, error)
 	ListCollectionFilms(ctx context.Context, collectionID CollectionID, limit, offset int) ([]Film, int, error)
-}
-
-// фильмы и подборки вместе
-type FilmsRepository interface {
-	FilmRepository
-	CollectionRepository
-	FilmCreator
-	FilmUpdater
-	FilmDeleter
 }

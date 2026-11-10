@@ -57,19 +57,19 @@ const (
 		(SELECT COALESCE(fl.external_url, '/static/' || fl.storage_key)
 		FROM file AS fl WHERE fl.id = c.cover_file_id)
 	`
-	//одна
+
 	getCollectionQuery = `
 		SELECT ` + collectionColumns +
 		` FROM collection AS c WHERE c.id = $1 `
-	//страница
+
 	listCollectionsQuery = ` SELECT ` + collectionColumns +
 		` FROM collection AS c
 		  ORDER BY c.id LIMIT $1 OFFSET $2 `
-	//сколько
+
 	countCollectionsQuery = `
 		SELECT count(*) FROM collection
 	`
-	//фильмы из одной подборки
+
 	listCollectionFilmsQuery = `
 		SELECT ` + filmColumns +
 		` FROM collection_film AS cf
@@ -78,12 +78,12 @@ const (
 		  ORDER BY cf.position
 		  LIMIT $2 OFFSET $3
 		`
-	//сколько в ней фильмов
+
 	countCollectionFilmsQuery = `
 	SELECT count(*) FROM collection_film
 	WHERE collection_id = $1
 	`
-	// создание фильма
+
 	createFilmQuery = `
 		INSERT INTO film (title, original_title, film_type, production_year, duration_min, age_limit, description)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -106,7 +106,7 @@ type PostgresService struct {
 	db  *sql.DB
 }
 
-func NewPostgresService(db *sql.DB, appLogger logger.Logger) domain.FilmsRepository {
+func NewPostgresService(db *sql.DB, appLogger logger.Logger) *PostgresService {
 	return &PostgresService{log: appLogger, db: db}
 }
 
@@ -135,7 +135,6 @@ type querier interface {
 	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
 }
 
-// метод хранилища, меняет срез, который ей передали, добавляет жанр
 func attachGenresTx(ctx context.Context, q querier, films []domain.Film, appLogger logger.Logger) (operationErr error) {
 	operationLog := storage.StartOperation(ctx, appLogger, "postgres", "film.load_genres", map[string]any{"film_count": len(films)})
 	defer func() { operationLog.Finish(operationErr) }()
@@ -143,12 +142,12 @@ func attachGenresTx(ctx context.Context, q querier, films []domain.Film, appLogg
 	if len(films) == 0 {
 		return nil
 	}
-	ids := make([]int64, 0, len(films))                  //номера для $1
-	positions := make(map[domain.FilmID]int, len(films)) //номер фльма-индекс в срезе
+	ids := make([]int64, 0, len(films))
+	positions := make(map[domain.FilmID]int, len(films))
 	for i := range films {
 		ids = append(ids, int64(films[i].ID))
 		positions[films[i].ID] = i
-		films[i].Genres = make([]domain.Genre, 0) //пустой срез чтобы пустой получил не nil
+		films[i].Genres = make([]domain.Genre, 0)
 	}
 	rows, err := q.QueryContext(ctx, filmGenresQuery, ids)
 	if err != nil {
@@ -175,15 +174,15 @@ func (s *PostgresService) GetFilmByID(ctx context.Context, id domain.FilmID) (_ 
 	defer func() { operationLog.Finish(operationErr) }()
 
 	operationLog.Stage = "query"
-	film, err := scanFilm(s.db.QueryRowContext(ctx, getFilmQuery, id)) //достаем фильм
-	//не нашелся
+	film, err := scanFilm(s.db.QueryRowContext(ctx, getFilmQuery, id))
+
 	if errors.Is(err, sql.ErrNoRows) {
 		return domain.Film{}, ErrFilmNotFound
 	}
 	if err != nil {
 		return domain.Film{}, fmt.Errorf("get film %d: %w", id, err)
 	}
-	//добавить жанры
+
 	films := []domain.Film{film}
 	if err := attachGenresTx(ctx, s.db, films, s.log); err != nil {
 		return domain.Film{}, err
@@ -191,7 +190,6 @@ func (s *PostgresService) GetFilmByID(ctx context.Context, id domain.FilmID) (_ 
 	return films[0], nil
 }
 
-// сохраняем карточку и получаем ее id
 func (s *PostgresService) CreateFilm(ctx context.Context, input domain.CreateFilmInput) (_ domain.FilmID, operationErr error) {
 	operationLog := storage.StartOperation(ctx, s.log, "postgres", "film.create_film", map[string]any{})
 	defer func() { operationLog.Finish(operationErr) }()
@@ -213,7 +211,6 @@ func (s *PostgresService) CreateFilm(ctx context.Context, input domain.CreateFil
 	return id, nil
 }
 
-// обновляет данные существующего фильма
 func (s *PostgresService) UpdateFilm(ctx context.Context, id domain.FilmID, input domain.CreateFilmInput) (operationErr error) {
 	operationLog := storage.StartOperation(ctx, s.log, "postgres", "film.update_film", map[string]any{"film_id": id})
 	defer func() { operationLog.Finish(operationErr) }()
@@ -287,7 +284,7 @@ func (s *PostgresService) ListFilms(ctx context.Context, limit, offset int) (_ [
 		}
 		list = append(list, film)
 	}
-	//проверяем чтение
+
 	if err := rows.Err(); err != nil {
 		return nil, 0, fmt.Errorf("list films: %w", err)
 	}
@@ -302,7 +299,6 @@ func (s *PostgresService) ListFilms(ctx context.Context, limit, offset int) (_ [
 	return list, total, nil
 }
 
-// подборки
 func scanCollection(row rowScanner) (domain.Collection, error) {
 	var collection domain.Collection
 	err := row.Scan(
@@ -315,14 +311,13 @@ func scanCollection(row rowScanner) (domain.Collection, error) {
 	return collection, err
 }
 
-// страница одной подборки
 func (s *PostgresService) GetCollectionByID(ctx context.Context, id domain.CollectionID) (_ domain.Collection, operationErr error) {
 	operationLog := storage.StartOperation(ctx, s.log, "postgres", "film.get_collection_by_id", map[string]any{"collection_id": id})
 	defer func() { operationLog.Finish(operationErr) }()
 
 	operationLog.Stage = "query"
-	collection, err := scanCollection(s.db.QueryRowContext(ctx, getCollectionQuery, id)) //достаем коллекцию
-	//не нашлась
+	collection, err := scanCollection(s.db.QueryRowContext(ctx, getCollectionQuery, id))
+
 	if errors.Is(err, sql.ErrNoRows) {
 		return domain.Collection{}, ErrCollectionNotFound
 	}
@@ -332,7 +327,6 @@ func (s *PostgresService) GetCollectionByID(ctx context.Context, id domain.Colle
 	return collection, nil
 }
 
-// главная страница, список подборок
 func (s *PostgresService) ListCollections(ctx context.Context, limit, offset int) (_ []domain.Collection, _ int, operationErr error) {
 	operationLog := storage.StartOperation(ctx, s.log, "postgres", "film.list_collections", map[string]any{"limit": limit, "offset": offset})
 	defer func() { operationLog.Finish(operationErr) }()
@@ -349,7 +343,7 @@ func (s *PostgresService) ListCollections(ctx context.Context, limit, offset int
 	if err := tx.QueryRowContext(ctx, countCollectionsQuery).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count collections: %w", err)
 	}
-	//страница
+
 	operationLog.Stage = "query"
 	rows, err := tx.QueryContext(ctx, listCollectionsQuery, limit, offset)
 	if err != nil {
@@ -365,7 +359,7 @@ func (s *PostgresService) ListCollections(ctx context.Context, limit, offset int
 		}
 		list = append(list, collection)
 	}
-	//проверяем чтение
+
 	if err := rows.Err(); err != nil {
 		return nil, 0, fmt.Errorf("list collection: %w", err)
 	}
@@ -377,12 +371,10 @@ func (s *PostgresService) ListCollections(ctx context.Context, limit, offset int
 	return list, total, nil
 }
 
-// фильмы внутри подборки
 func (s *PostgresService) ListCollectionFilms(ctx context.Context, collectionID domain.CollectionID, limit, offset int) (_ []domain.Film, _ int, operationErr error) {
 	operationLog := storage.StartOperation(ctx, s.log, "postgres", "film.list_collection_films", map[string]any{"collection_id": collectionID, "limit": limit, "offset": offset})
 	defer func() { operationLog.Finish(operationErr) }()
 
-	//существует ли
 	if _, err := s.GetCollectionByID(ctx, collectionID); err != nil {
 		return nil, 0, err
 	}
@@ -399,7 +391,7 @@ func (s *PostgresService) ListCollectionFilms(ctx context.Context, collectionID 
 	if err := tx.QueryRowContext(ctx, countCollectionFilmsQuery, collectionID).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count collection films: %w", err)
 	}
-	//страница фильмов
+
 	operationLog.Stage = "query"
 	rows, err := tx.QueryContext(ctx, listCollectionFilmsQuery, collectionID, limit, offset)
 	if err != nil {

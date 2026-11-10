@@ -28,7 +28,7 @@ func TestHandlerCanEditPersons(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// The same account is checked again after its role changes.
+
 			user.Role = tt.role
 			allowed, err := h.CanEditPersons(ctx, id)
 			require.NoError(t, err)

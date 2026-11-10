@@ -9,103 +9,6 @@ import (
 	gomock "go.uber.org/mock/gomock"
 )
 
-type MockFilmCreator struct {
-	ctrl     *gomock.Controller
-	recorder *MockFilmCreatorMockRecorder
-	isgomock struct{}
-}
-
-type MockFilmCreatorMockRecorder struct {
-	mock *MockFilmCreator
-}
-
-func NewMockFilmCreator(ctrl *gomock.Controller) *MockFilmCreator {
-	mock := &MockFilmCreator{ctrl: ctrl}
-	mock.recorder = &MockFilmCreatorMockRecorder{mock}
-	return mock
-}
-
-func (m *MockFilmCreator) EXPECT() *MockFilmCreatorMockRecorder {
-	return m.recorder
-}
-
-func (m *MockFilmCreator) CreateFilm(ctx context.Context, input domain.CreateFilmInput) (domain.FilmID, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateFilm", ctx, input)
-	ret0, _ := ret[0].(domain.FilmID)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-func (mr *MockFilmCreatorMockRecorder) CreateFilm(ctx, input any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateFilm", reflect.TypeOf((*MockFilmCreator)(nil).CreateFilm), ctx, input)
-}
-
-type MockFilmUpdater struct {
-	ctrl     *gomock.Controller
-	recorder *MockFilmUpdaterMockRecorder
-	isgomock struct{}
-}
-
-type MockFilmUpdaterMockRecorder struct {
-	mock *MockFilmUpdater
-}
-
-func NewMockFilmUpdater(ctrl *gomock.Controller) *MockFilmUpdater {
-	mock := &MockFilmUpdater{ctrl: ctrl}
-	mock.recorder = &MockFilmUpdaterMockRecorder{mock}
-	return mock
-}
-
-func (m *MockFilmUpdater) EXPECT() *MockFilmUpdaterMockRecorder {
-	return m.recorder
-}
-
-func (m *MockFilmUpdater) UpdateFilm(ctx context.Context, id domain.FilmID, input domain.CreateFilmInput) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateFilm", ctx, id, input)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (mr *MockFilmUpdaterMockRecorder) UpdateFilm(ctx, id, input any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateFilm", reflect.TypeOf((*MockFilmUpdater)(nil).UpdateFilm), ctx, id, input)
-}
-
-type MockFilmDeleter struct {
-	ctrl     *gomock.Controller
-	recorder *MockFilmDeleterMockRecorder
-	isgomock struct{}
-}
-
-type MockFilmDeleterMockRecorder struct {
-	mock *MockFilmDeleter
-}
-
-func NewMockFilmDeleter(ctrl *gomock.Controller) *MockFilmDeleter {
-	mock := &MockFilmDeleter{ctrl: ctrl}
-	mock.recorder = &MockFilmDeleterMockRecorder{mock}
-	return mock
-}
-
-func (m *MockFilmDeleter) EXPECT() *MockFilmDeleterMockRecorder {
-	return m.recorder
-}
-
-func (m *MockFilmDeleter) DeleteFilm(ctx context.Context, id domain.FilmID) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteFilm", ctx, id)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (mr *MockFilmDeleterMockRecorder) DeleteFilm(ctx, id any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteFilm", reflect.TypeOf((*MockFilmDeleter)(nil).DeleteFilm), ctx, id)
-}
-
 type MockFilmRatingRepository struct {
 	ctrl     *gomock.Controller
 	recorder *MockFilmRatingRepositoryMockRecorder
@@ -164,6 +67,19 @@ func (mr *MockFilmRatingRepositoryMockRecorder) GetFilmRatingsSummaries(ctx, fil
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFilmRatingsSummaries", reflect.TypeOf((*MockFilmRatingRepository)(nil).GetFilmRatingsSummaries), ctx, filmIDs)
 }
 
+func (m *MockFilmRatingRepository) GetMyScore(ctx context.Context, accountID domain.UserID, filmID domain.FilmID) (*int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMyScore", ctx, accountID, filmID)
+	ret0, _ := ret[0].(*int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (mr *MockFilmRatingRepositoryMockRecorder) GetMyScore(ctx, accountID, filmID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMyScore", reflect.TypeOf((*MockFilmRatingRepository)(nil).GetMyScore), ctx, accountID, filmID)
+}
+
 func (m *MockFilmRatingRepository) SetFilmRating(ctx context.Context, accountID domain.UserID, filmID domain.FilmID, score int) (domain.FilmRating, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetFilmRating", ctx, accountID, filmID, score)
@@ -211,91 +127,6 @@ func (mr *MockCollectionFilmRatingRepositoryMockRecorder) GetCollectionFilmRatin
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCollectionFilmRatingSummaries", reflect.TypeOf((*MockCollectionFilmRatingRepository)(nil).GetCollectionFilmRatingSummaries), ctx, collectionID, limit, offset)
 }
 
-type MockFilmRatingCollectionRepository struct {
-	ctrl     *gomock.Controller
-	recorder *MockFilmRatingCollectionRepositoryMockRecorder
-	isgomock struct{}
-}
-
-type MockFilmRatingCollectionRepositoryMockRecorder struct {
-	mock *MockFilmRatingCollectionRepository
-}
-
-func NewMockFilmRatingCollectionRepository(ctrl *gomock.Controller) *MockFilmRatingCollectionRepository {
-	mock := &MockFilmRatingCollectionRepository{ctrl: ctrl}
-	mock.recorder = &MockFilmRatingCollectionRepositoryMockRecorder{mock}
-	return mock
-}
-
-func (m *MockFilmRatingCollectionRepository) EXPECT() *MockFilmRatingCollectionRepositoryMockRecorder {
-	return m.recorder
-}
-
-func (m *MockFilmRatingCollectionRepository) DeleteFilmRating(ctx context.Context, accountID domain.UserID, filmID domain.FilmID) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteFilmRating", ctx, accountID, filmID)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (mr *MockFilmRatingCollectionRepositoryMockRecorder) DeleteFilmRating(ctx, accountID, filmID any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteFilmRating", reflect.TypeOf((*MockFilmRatingCollectionRepository)(nil).DeleteFilmRating), ctx, accountID, filmID)
-}
-
-func (m *MockFilmRatingCollectionRepository) GetCollectionFilmRatingSummaries(ctx context.Context, collectionID domain.CollectionID, limit, offset int) ([]domain.FilmRatingSummary, int, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetCollectionFilmRatingSummaries", ctx, collectionID, limit, offset)
-	ret0, _ := ret[0].([]domain.FilmRatingSummary)
-	ret1, _ := ret[1].(int)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-func (mr *MockFilmRatingCollectionRepositoryMockRecorder) GetCollectionFilmRatingSummaries(ctx, collectionID, limit, offset any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCollectionFilmRatingSummaries", reflect.TypeOf((*MockFilmRatingCollectionRepository)(nil).GetCollectionFilmRatingSummaries), ctx, collectionID, limit, offset)
-}
-
-func (m *MockFilmRatingCollectionRepository) GetFilmRatingSummary(ctx context.Context, filmID domain.FilmID) (domain.FilmRatingSummary, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetFilmRatingSummary", ctx, filmID)
-	ret0, _ := ret[0].(domain.FilmRatingSummary)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-func (mr *MockFilmRatingCollectionRepositoryMockRecorder) GetFilmRatingSummary(ctx, filmID any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFilmRatingSummary", reflect.TypeOf((*MockFilmRatingCollectionRepository)(nil).GetFilmRatingSummary), ctx, filmID)
-}
-
-func (m *MockFilmRatingCollectionRepository) GetFilmRatingsSummaries(ctx context.Context, filmIDs []domain.FilmID) ([]domain.FilmRatingSummary, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetFilmRatingsSummaries", ctx, filmIDs)
-	ret0, _ := ret[0].([]domain.FilmRatingSummary)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-func (mr *MockFilmRatingCollectionRepositoryMockRecorder) GetFilmRatingsSummaries(ctx, filmIDs any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFilmRatingsSummaries", reflect.TypeOf((*MockFilmRatingCollectionRepository)(nil).GetFilmRatingsSummaries), ctx, filmIDs)
-}
-
-func (m *MockFilmRatingCollectionRepository) SetFilmRating(ctx context.Context, accountID domain.UserID, filmID domain.FilmID, score int) (domain.FilmRating, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetFilmRating", ctx, accountID, filmID, score)
-	ret0, _ := ret[0].(domain.FilmRating)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-func (mr *MockFilmRatingCollectionRepositoryMockRecorder) SetFilmRating(ctx, accountID, filmID, score any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetFilmRating", reflect.TypeOf((*MockFilmRatingCollectionRepository)(nil).SetFilmRating), ctx, accountID, filmID, score)
-}
-
 type MockFilmRepository struct {
 	ctrl     *gomock.Controller
 	recorder *MockFilmRepositoryMockRecorder
@@ -314,6 +145,31 @@ func NewMockFilmRepository(ctrl *gomock.Controller) *MockFilmRepository {
 
 func (m *MockFilmRepository) EXPECT() *MockFilmRepositoryMockRecorder {
 	return m.recorder
+}
+
+func (m *MockFilmRepository) CreateFilm(ctx context.Context, input domain.CreateFilmInput) (domain.FilmID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateFilm", ctx, input)
+	ret0, _ := ret[0].(domain.FilmID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (mr *MockFilmRepositoryMockRecorder) CreateFilm(ctx, input any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateFilm", reflect.TypeOf((*MockFilmRepository)(nil).CreateFilm), ctx, input)
+}
+
+func (m *MockFilmRepository) DeleteFilm(ctx context.Context, id domain.FilmID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteFilm", ctx, id)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (mr *MockFilmRepositoryMockRecorder) DeleteFilm(ctx, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteFilm", reflect.TypeOf((*MockFilmRepository)(nil).DeleteFilm), ctx, id)
 }
 
 func (m *MockFilmRepository) GetFilmByID(ctx context.Context, id domain.FilmID) (domain.Film, error) {
@@ -341,6 +197,18 @@ func (m *MockFilmRepository) ListFilms(ctx context.Context, limit, offset int) (
 func (mr *MockFilmRepositoryMockRecorder) ListFilms(ctx, limit, offset any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListFilms", reflect.TypeOf((*MockFilmRepository)(nil).ListFilms), ctx, limit, offset)
+}
+
+func (m *MockFilmRepository) UpdateFilm(ctx context.Context, id domain.FilmID, input domain.CreateFilmInput) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateFilm", ctx, id, input)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (mr *MockFilmRepositoryMockRecorder) UpdateFilm(ctx, id, input any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateFilm", reflect.TypeOf((*MockFilmRepository)(nil).UpdateFilm), ctx, id, input)
 }
 
 type MockCollectionRepository struct {
@@ -402,131 +270,6 @@ func (m *MockCollectionRepository) ListCollections(ctx context.Context, limit, o
 func (mr *MockCollectionRepositoryMockRecorder) ListCollections(ctx, limit, offset any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListCollections", reflect.TypeOf((*MockCollectionRepository)(nil).ListCollections), ctx, limit, offset)
-}
-
-type MockFilmsRepository struct {
-	ctrl     *gomock.Controller
-	recorder *MockFilmsRepositoryMockRecorder
-	isgomock struct{}
-}
-
-type MockFilmsRepositoryMockRecorder struct {
-	mock *MockFilmsRepository
-}
-
-func NewMockFilmsRepository(ctrl *gomock.Controller) *MockFilmsRepository {
-	mock := &MockFilmsRepository{ctrl: ctrl}
-	mock.recorder = &MockFilmsRepositoryMockRecorder{mock}
-	return mock
-}
-
-func (m *MockFilmsRepository) EXPECT() *MockFilmsRepositoryMockRecorder {
-	return m.recorder
-}
-
-func (m *MockFilmsRepository) CreateFilm(ctx context.Context, input domain.CreateFilmInput) (domain.FilmID, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateFilm", ctx, input)
-	ret0, _ := ret[0].(domain.FilmID)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-func (mr *MockFilmsRepositoryMockRecorder) CreateFilm(ctx, input any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateFilm", reflect.TypeOf((*MockFilmsRepository)(nil).CreateFilm), ctx, input)
-}
-
-func (m *MockFilmsRepository) DeleteFilm(ctx context.Context, id domain.FilmID) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteFilm", ctx, id)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (mr *MockFilmsRepositoryMockRecorder) DeleteFilm(ctx, id any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteFilm", reflect.TypeOf((*MockFilmsRepository)(nil).DeleteFilm), ctx, id)
-}
-
-func (m *MockFilmsRepository) GetCollectionByID(ctx context.Context, id domain.CollectionID) (domain.Collection, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetCollectionByID", ctx, id)
-	ret0, _ := ret[0].(domain.Collection)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-func (mr *MockFilmsRepositoryMockRecorder) GetCollectionByID(ctx, id any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCollectionByID", reflect.TypeOf((*MockFilmsRepository)(nil).GetCollectionByID), ctx, id)
-}
-
-func (m *MockFilmsRepository) GetFilmByID(ctx context.Context, id domain.FilmID) (domain.Film, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetFilmByID", ctx, id)
-	ret0, _ := ret[0].(domain.Film)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-func (mr *MockFilmsRepositoryMockRecorder) GetFilmByID(ctx, id any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFilmByID", reflect.TypeOf((*MockFilmsRepository)(nil).GetFilmByID), ctx, id)
-}
-
-func (m *MockFilmsRepository) ListCollectionFilms(ctx context.Context, collectionID domain.CollectionID, limit, offset int) ([]domain.Film, int, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListCollectionFilms", ctx, collectionID, limit, offset)
-	ret0, _ := ret[0].([]domain.Film)
-	ret1, _ := ret[1].(int)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-func (mr *MockFilmsRepositoryMockRecorder) ListCollectionFilms(ctx, collectionID, limit, offset any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListCollectionFilms", reflect.TypeOf((*MockFilmsRepository)(nil).ListCollectionFilms), ctx, collectionID, limit, offset)
-}
-
-func (m *MockFilmsRepository) ListCollections(ctx context.Context, limit, offset int) ([]domain.Collection, int, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListCollections", ctx, limit, offset)
-	ret0, _ := ret[0].([]domain.Collection)
-	ret1, _ := ret[1].(int)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-func (mr *MockFilmsRepositoryMockRecorder) ListCollections(ctx, limit, offset any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListCollections", reflect.TypeOf((*MockFilmsRepository)(nil).ListCollections), ctx, limit, offset)
-}
-
-func (m *MockFilmsRepository) ListFilms(ctx context.Context, limit, offset int) ([]domain.Film, int, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListFilms", ctx, limit, offset)
-	ret0, _ := ret[0].([]domain.Film)
-	ret1, _ := ret[1].(int)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-func (mr *MockFilmsRepositoryMockRecorder) ListFilms(ctx, limit, offset any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListFilms", reflect.TypeOf((*MockFilmsRepository)(nil).ListFilms), ctx, limit, offset)
-}
-
-func (m *MockFilmsRepository) UpdateFilm(ctx context.Context, id domain.FilmID, input domain.CreateFilmInput) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateFilm", ctx, id, input)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (mr *MockFilmsRepositoryMockRecorder) UpdateFilm(ctx, id, input any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateFilm", reflect.TypeOf((*MockFilmsRepository)(nil).UpdateFilm), ctx, id, input)
 }
 
 type MockPersonRepository struct {
@@ -774,6 +517,31 @@ func NewMockPosterRepository(ctrl *gomock.Controller) *MockPosterRepository {
 
 func (m *MockPosterRepository) EXPECT() *MockPosterRepositoryMockRecorder {
 	return m.recorder
+}
+
+func (m *MockPosterRepository) DeletePoster(ctx context.Context, filmID domain.FilmID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeletePoster", ctx, filmID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (mr *MockPosterRepositoryMockRecorder) DeletePoster(ctx, filmID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeletePoster", reflect.TypeOf((*MockPosterRepository)(nil).DeletePoster), ctx, filmID)
+}
+
+func (m *MockPosterRepository) GetPoster(ctx context.Context, filmID domain.FilmID) (*domain.PosterFile, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPoster", ctx, filmID)
+	ret0, _ := ret[0].(*domain.PosterFile)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (mr *MockPosterRepositoryMockRecorder) GetPoster(ctx, filmID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPoster", reflect.TypeOf((*MockPosterRepository)(nil).GetPoster), ctx, filmID)
 }
 
 func (m *MockPosterRepository) SavePoster(ctx context.Context, filmID domain.FilmID, userID domain.UserID, poster domain.PosterFile) error {

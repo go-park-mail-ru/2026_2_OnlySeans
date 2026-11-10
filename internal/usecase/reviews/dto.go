@@ -63,7 +63,6 @@ func NewListReviewsOutput(reviews []domain.Review, total int) *ListReviewsOutput
 	return &ListReviewsOutput{Reviews: reviews, Total: total}
 }
 
-// обрезает пробелы по краям и проверяет длину.
 func prepareReview(in domain.ReviewInput) (*domain.ReviewInput, error) {
 	in.Title = strings.TrimSpace(in.Title)
 	in.Content = strings.TrimSpace(in.Content)

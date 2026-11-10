@@ -16,9 +16,6 @@ import (
 
 var errConnLost = errors.New("connection lost")
 
-// newPostgresUserRepo возвращает хранилище поверх поддельной базы и саму подделку,
-// через которую тест задаёт ответы базы. В конце теста проверяется,
-// что все ожидаемые запросы действительно были отправлены.
 func newPostgresUserRepo(t *testing.T) (domain.UserRepository, sqlmock.Sqlmock) {
 	t.Helper()
 

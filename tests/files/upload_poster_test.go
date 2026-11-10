@@ -162,8 +162,8 @@ func TestUploadPoster(t *testing.T) {
 			events: []string{"film", "upload", "save", "delete"},
 		},
 		{
-			name: "ambiguous commit retains object", saveErr: errors.Join(domain.ErrPosterCommitUnknown, databaseErr),
-			wantErr: domain.ErrPosterCommitUnknown, events: []string{"film", "upload", "save"},
+			name: "ambiguous commit retains object", saveErr: errors.Join(domain.ErrCommitUnknown, databaseErr),
+			wantErr: domain.ErrCommitUnknown, events: []string{"film", "upload", "save"},
 		},
 		{
 			name: "cleanup preserves both failures", saveErr: databaseErr, deleteErr: cleanupErr, wantErr: databaseErr,

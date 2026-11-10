@@ -24,7 +24,6 @@ func Open(
 		return nil, fmt.Errorf("open database: %w", err)
 	}
 
-	// При ошибке закрываем пул, чтобы соединения не утекли.
 	defer func() {
 		if err != nil {
 			if closeErr := db.Close(); closeErr != nil {
@@ -35,16 +34,13 @@ func Open(
 		}
 	}()
 
-	// Настраиваем пул.
 	db.SetMaxOpenConns(cfg.MaxOpenConns)
 	db.SetMaxIdleConns(cfg.MaxIdleConns)
 	db.SetConnMaxLifetime(cfg.ConnMaxLifetime)
 
-	// Ограничиваем время подключения.
 	pingCtx, cancel := context.WithTimeout(ctx, cfg.ConnectTimeout)
 	defer cancel()
 
-	// Проверяем, что база отвечает.
 	if err := db.PingContext(pingCtx); err != nil {
 		appLogger.ErrorContext(ctx, "database ping failed", map[string]any{
 			"error": err,

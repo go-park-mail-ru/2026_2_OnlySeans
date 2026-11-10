@@ -15,8 +15,16 @@ const (
 	RoleAdmin  Role = "admin"
 )
 
-func (role Role) CanEditPersons() bool {
-	return role == RoleAdmin || role == RoleEditor
+func (role *Role) CanEditPersons() bool {
+	if role == nil {
+		return false
+	}
+	switch *role {
+	case RoleAdmin, RoleEditor:
+		return true
+	default:
+		return false
+	}
 }
 
 type UserID int
@@ -78,6 +86,7 @@ type SessionStore interface {
 }
 
 type UserRepository interface {
+	UpdateProfile(ctx context.Context, id UserID, email, username string) (*User, error)
 	Create(ctx context.Context, email, username, passwordHash string) (UserID, error)
 	GetByEmail(ctx context.Context, email string) (*User, error)
 	GetUser(ctx context.Context, id UserID) (*User, error)

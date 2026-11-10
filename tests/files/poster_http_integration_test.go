@@ -45,7 +45,7 @@ func TestRustFSPosterHTTP(t *testing.T) {
 	require.NoError(t, err)
 	s3Client, err := storage.NewS3Client(*cfg)
 	require.NoError(t, err)
-	objects, err := filesservice.NewS3Storage(s3Client, cfg.PostersBucket, cfg.PublicEndpoint, cfg.AvatarURLLifetime)
+	objects, err := filesservice.NewS3Storage(s3Client, cfg.PostersBucket, cfg.PublicEndpoint, cfg.AvatarURLLifetime, nil)
 	require.NoError(t, err)
 	db, err := sql.Open("pgx", dsn)
 	require.NoError(t, err)
@@ -85,9 +85,11 @@ func TestRustFSPosterHTTP(t *testing.T) {
 		MaxSize: cfg.MaxPosterSize, MaxDimension: cfg.MaxPosterDimension, CleanupTimeout: cfg.PosterCleanupTimeout,
 	}, appLogger)
 	require.NoError(t, err)
-	uploadHandler, err := filesdelivery.NewPosterHandler(upload, appLogger)
+	filmPoster, err := filesusecase.NewFilmPosterUseCase(posterRepo, objects, appLogger)
 	require.NoError(t, err)
-	filmReader, err := filmsservice.NewRepositoryWithPosterURLs(filmRepo, objects, appLogger)
+	uploadHandler, err := filesdelivery.NewPosterHandler(upload, filmPoster, appLogger)
+	require.NoError(t, err)
+	filmReader, err := filmsservice.NewRepositoryWithPosterURLs(filmRepo, filmRepo, objects, appLogger)
 	require.NoError(t, err)
 	list, err := filmsusecase.NewListFilmsUseCase(filmReader, appLogger)
 	require.NoError(t, err)
@@ -116,7 +118,7 @@ func TestRustFSPosterHTTP(t *testing.T) {
 	sessions := authservice.NewInMemorySessionStore(time.Hour)
 	session, err := sessions.Create(ctx, userID)
 	require.NoError(t, err)
-	passwords := authservice.BcryptPasswordService{}
+	passwords := &authservice.BcryptPasswordService{}
 	register, err := authusecase.NewRegisterUserUseCase(users, sessions, passwords, appLogger)
 	require.NoError(t, err)
 	login, err := authusecase.NewLoginUserUseCase(users, sessions, passwords, appLogger)
@@ -135,6 +137,10 @@ func TestRustFSPosterHTTP(t *testing.T) {
 	routes.HandleFunc("/api/films/{id}/poster", router.WrapMiddlewares(uploadHandler.UploadPoster, []router.Middleware{
 		router.RequireAuth(authHandler), authHandler.RequireAdmin,
 	})).Methods(http.MethodPost)
+	routes.HandleFunc("/api/films/{id}/poster", uploadHandler.GetPoster).Methods(http.MethodGet)
+	routes.HandleFunc("/api/films/{id}/poster", router.WrapMiddlewares(uploadHandler.DeletePoster, []router.Middleware{
+		router.RequireAuth(authHandler), authHandler.RequireAdmin,
+	})).Methods(http.MethodDelete)
 	routes.HandleFunc("/api/films/{id}", readHandler.GetFilm).Methods(http.MethodGet)
 	server := httptest.NewServer(routes)
 	defer server.Close()
@@ -231,6 +237,15 @@ func TestRustFSPosterHTTP(t *testing.T) {
 			data, err := io.ReadAll(download.Body)
 			require.NoError(t, err)
 			require.Equal(t, tt.data, data)
+			getPoster, err := httpClient.Get(server.URL + "/api/films/9/poster")
+			require.NoError(t, err)
+			require.Equal(t, http.StatusOK, getPoster.StatusCode)
+			var posterURL struct {
+				URL string `json:"url"`
+			}
+			require.NoError(t, json.NewDecoder(getPoster.Body).Decode(&posterURL))
+			getPoster.Body.Close()
+			require.Contains(t, posterURL.URL, created.Filename)
 			var filename, contentType string
 			var owner, size int64
 			require.NoError(t, db.QueryRowContext(ctx, `SELECT f.storage_key, f.mime_type, f.created_by, f.size_bytes FROM film_file ff JOIN file f ON f.id = ff.file_id WHERE ff.film_id = 9 AND ff.file_role = 'poster' AND ff.sort_order = 1`).Scan(&filename, &contentType, &owner, &size))
@@ -240,5 +255,27 @@ func TestRustFSPosterHTTP(t *testing.T) {
 			require.Equal(t, int64(len(tt.data)), size)
 		})
 	}
+	for _, role := range []domain.Role{domain.RoleReader, domain.RoleAdmin} {
+		user.Role = role
+		request, err := http.NewRequestWithContext(ctx, http.MethodDelete, server.URL+"/api/films/9/poster", nil)
+		require.NoError(t, err)
+		request.AddCookie(&http.Cookie{Name: authdelivery.SessionCookieName, Value: session.ID})
+		response, err := httpClient.Do(request)
+		require.NoError(t, err)
+		response.Body.Close()
+		if role == domain.RoleReader {
+			require.Equal(t, http.StatusForbidden, response.StatusCode)
+		} else {
+			require.Equal(t, http.StatusNoContent, response.StatusCode)
+		}
+	}
+	missingPoster, err := httpClient.Get(server.URL + "/api/films/9/poster")
+	require.NoError(t, err)
+	missingPoster.Body.Close()
+	require.Equal(t, http.StatusNotFound, missingPoster.StatusCode)
+	var bindings int
+	require.NoError(t, db.QueryRowContext(ctx, `SELECT count(*) FROM film_file WHERE film_id = 9 AND file_role = 'poster'`).Scan(&bindings))
+	require.Zero(t, bindings)
+
 	t.Log("HTTP upload -> PostgreSQL binding -> film poster_url -> signed RustFS download; replacement and access checks passed")
 }

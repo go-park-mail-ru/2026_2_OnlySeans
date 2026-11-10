@@ -30,8 +30,8 @@ func TestGetMyFilmRating(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
-			repo := mocks.NewMockPersonalRatingRepository(ctrl)
-			films := mocks.NewMockRatingFilmLookup(ctrl)
+			repo := mocks.NewMockFilmRatingRepository(ctrl)
+			films := mocks.NewMockFilmRepository(ctrl)
 			if tc.user > 0 {
 				lookup := films.EXPECT().GetFilmByID(gomock.Any(), domain.FilmID(42)).Return(domain.Film{}, tc.filmErr)
 				if tc.calls > 0 {

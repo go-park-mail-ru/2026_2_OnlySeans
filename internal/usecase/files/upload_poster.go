@@ -157,7 +157,7 @@ func (uc *UploadPosterUseCase) Run(ctx context.Context, input UploadPosterInput)
 	})
 	if err != nil {
 		logging.Failure(ctx, uc.logger, "save film poster failed", err, fields)
-		if errors.Is(err, domain.ErrPosterCommitUnknown) {
+		if errors.Is(err, domain.ErrCommitUnknown) {
 			uc.logger.WarnContext(ctx, "poster object retained: commit outcome unknown", fields)
 			return nil, fmt.Errorf("attach poster: %w", err)
 		}

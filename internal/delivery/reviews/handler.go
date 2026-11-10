@@ -149,7 +149,7 @@ type reviewRequest struct {
 	Version          int    `json:"version"`
 }
 
-func (h *Handler) ListByFilm(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) ListFilmReviews(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(r)
 	if !ok {
 		httprequest.LogRejected(h.appLogger, r, "id", ErrInvalidID)
@@ -182,7 +182,7 @@ func (h *Handler) ListByFilm(w http.ResponseWriter, r *http.Request) {
 	}, h.appLogger)
 }
 
-func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) CreateReview(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(r)
 	if !ok {
 		httprequest.LogRejected(h.appLogger, r, "id", ErrInvalidID)
@@ -216,7 +216,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	httpresponse.WriteJSONContext(r.Context(), w, http.StatusCreated, createReviewResponse{ID: result.ID}, h.appLogger)
 }
 
-func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) UpdateReview(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(r)
 	if !ok {
 		httprequest.LogRejected(h.appLogger, r, "id", ErrInvalidID)
@@ -251,7 +251,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, reviewResponse{Review: toReviewResponseDTO(result.Review)}, h.appLogger)
 }
 
-func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) DeleteReview(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(r)
 	if !ok {
 		httprequest.LogRejected(h.appLogger, r, "id", ErrInvalidID)
@@ -278,7 +278,6 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// читает тело не больше 1 МБ и не пропускает неизвестные поля
 func decodeReview(w http.ResponseWriter, r *http.Request) (domain.ReviewInput, int, error) {
 	var req reviewRequest
 	if err := httprequest.DecodeJSON(w, r, &req); err != nil {
@@ -305,7 +304,6 @@ func pagination(r *http.Request) (limit, offset int, err error) {
 	return limit, offset, nil
 }
 
-// достает номер из адреса запроса и проверяет что это норм число
 func pathID(r *http.Request) (int64, bool) {
 	id, err := strconv.ParseInt(mux.Vars(r)[idVar], decimalBase, int64Bits)
 	return id, err == nil && id > 0

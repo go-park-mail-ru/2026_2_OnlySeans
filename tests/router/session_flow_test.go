@@ -29,7 +29,7 @@ func TestRequireAuth_SessionFlow(t *testing.T) {
 
 	protected := router.RequireAuth(h)(func(w http.ResponseWriter, r *http.Request) {
 		if _, ok := auth.UserIDFromContext(r.Context()); !ok {
-			w.WriteHeader(http.StatusInternalServerError) // мидлварь не положила ID
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 		w.WriteHeader(http.StatusOK)

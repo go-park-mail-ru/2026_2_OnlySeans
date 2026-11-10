@@ -15,47 +15,55 @@ import (
 	"github.com/gorilla/mux"
 )
 
-func RegisterCatalog(getFilmPersons *personusecase.GetFilmPersonsUseCase, getPerson *personusecase.GetPersonCatalogUseCase, log logger.Logger) func(*mux.Router) {
-	fail := func(ctx context.Context, w http.ResponseWriter, err error) {
-		status := 500
-		if errors.Is(err, domain.ErrFilmNotFound) || errors.Is(err, domain.ErrPersonNotFound) {
-			status = 404
-		}
-		if status == 500 {
-			log.ErrorContext(ctx, "persons catalog failed", map[string]any{"error": err})
-		}
-		httpresponse.WriteErrorContext(ctx, w, status, "Не удалось загрузить участников фильма.", log)
+type CatalogHandler struct {
+	getFilmPersons *personusecase.GetFilmPersonsUseCase
+	getPerson      *personusecase.GetPersonCatalogUseCase
+	log            logger.Logger
+}
+
+func NewCatalogHandler(getFilmPersons *personusecase.GetFilmPersonsUseCase, getPerson *personusecase.GetPersonCatalogUseCase, log logger.Logger) *CatalogHandler {
+	return &CatalogHandler{getFilmPersons: getFilmPersons, getPerson: getPerson, log: log}
+}
+
+func (h *CatalogHandler) fail(ctx context.Context, w http.ResponseWriter, err error) {
+	status := http.StatusInternalServerError
+	if errors.Is(err, domain.ErrFilmNotFound) || errors.Is(err, domain.ErrPersonNotFound) {
+		status = http.StatusNotFound
 	}
-	return func(r *mux.Router) {
-		r.HandleFunc("/api/films/{id}/people", func(w http.ResponseWriter, r *http.Request) {
-			id, err := strconv.ParseInt(mux.Vars(r)["id"], 10, 64)
-			if err != nil || id < 1 {
-				httpresponse.WriteErrorContext(r.Context(), w, 400, "invalid id", log)
-				return
-			}
-			persons, err := getFilmPersons.Run(r.Context(), domain.FilmID(id))
-			if err != nil {
-				fail(r.Context(), w, err)
-				return
-			}
-			httpresponse.WriteJSONContext(r.Context(), w, 200, map[string]any{"people": persons}, log)
-		}).Methods(http.MethodGet)
-		r.HandleFunc("/api/people/{id}", func(w http.ResponseWriter, r *http.Request) {
-			id, err := strconv.ParseInt(mux.Vars(r)["id"], 10, 64)
-			if err != nil || id < 1 {
-				httpresponse.WriteErrorContext(r.Context(), w, 400, "invalid id", log)
-				return
-			}
-			result, err := getPerson.Run(r.Context(), domain.PersonID(id))
-			if err != nil {
-				fail(r.Context(), w, err)
-				return
-			}
-			items := []map[string]any{}
-			for _, credit := range result.Films {
-				items = append(items, map[string]any{"film": filmdto.FromFilm(credit.Film), "role": credit.Role, "character": credit.Character})
-			}
-			httpresponse.WriteJSONContext(r.Context(), w, 200, map[string]any{"person": result.Person, "films": items}, log)
-		}).Methods(http.MethodGet)
+	if status == http.StatusInternalServerError {
+		h.log.ErrorContext(ctx, "persons catalog failed", map[string]any{"error": err})
 	}
+	httpresponse.WriteErrorContext(ctx, w, status, "Не удалось загрузить участников фильма.", h.log)
+}
+
+func (h *CatalogHandler) GetFilmPersons(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(mux.Vars(r)["id"], 10, 64)
+	if err != nil || id < 1 {
+		httpresponse.WriteErrorContext(r.Context(), w, http.StatusBadRequest, "invalid id", h.log)
+		return
+	}
+	persons, err := h.getFilmPersons.Run(r.Context(), domain.FilmID(id))
+	if err != nil {
+		h.fail(r.Context(), w, err)
+		return
+	}
+	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, map[string]any{"people": persons}, h.log)
+}
+
+func (h *CatalogHandler) GetPersonCatalog(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(mux.Vars(r)["id"], 10, 64)
+	if err != nil || id < 1 {
+		httpresponse.WriteErrorContext(r.Context(), w, http.StatusBadRequest, "invalid id", h.log)
+		return
+	}
+	result, err := h.getPerson.Run(r.Context(), domain.PersonID(id))
+	if err != nil {
+		h.fail(r.Context(), w, err)
+		return
+	}
+	items := []map[string]any{}
+	for _, credit := range result.Films {
+		items = append(items, map[string]any{"film": filmdto.FromFilm(credit.Film), "role": credit.Role, "character": credit.Character})
+	}
+	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, map[string]any{"person": result.Person, "films": items}, h.log)
 }

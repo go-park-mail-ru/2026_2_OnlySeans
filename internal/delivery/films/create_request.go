@@ -19,7 +19,6 @@ type createFilmRequest struct {
 	Description   *string         `json:"description"`
 }
 
-// чтение запроса
 func decodeCreateFilm(r *http.Request) (domain.CreateFilmInput, error) {
 	var decoder = json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()

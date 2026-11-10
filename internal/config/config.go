@@ -52,12 +52,13 @@ const (
 	defaultSessionTTL      = 24 * time.Hour
 	defaultAllowedOrigin   = "http://localhost:3000"
 
-	defaultMaxOpenConns    = 10               //максимум соединений с базой
-	defaultMaxIdleConns    = 5                //сколько из них откытыми прозапас когда запросов нет
-	defaultConnMaxLifetime = 30 * time.Minute //через сколько пересоздавать соединение чтобы зависшие не копились
-	defaultConnectTimeout  = 5 * time.Second  //сколько ждать продключения при запуске
+	defaultMaxOpenConns    = 10
+	defaultMaxIdleConns    = 5
+	defaultConnMaxLifetime = 30 * time.Minute
+	defaultConnectTimeout  = 5 * time.Second
 
-	defaultRedisURL = "redis://localhost:8020"
+	defaultRedisHost = "localhost"
+	defaultRedisPort = 8020
 
 	defaultLogLvl    = logger.LogLevelInfo
 	defaultLogFormat = "text"
@@ -96,7 +97,9 @@ type Database struct {
 }
 
 type Redis struct {
-	URL string `yaml:"url"`
+	Host string `yaml:"host"`
+	Port int    `yaml:"port"`
+	URL  string `yaml:"url"`
 }
 
 type S3 struct {
@@ -152,7 +155,7 @@ func DefaultDatabase() *Database {
 }
 
 func DefaultRedis() *Redis {
-	return &Redis{URL: defaultRedisURL}
+	return &Redis{Host: defaultRedisHost, Port: defaultRedisPort}
 }
 
 func DefaultS3() *S3 {
@@ -235,6 +238,9 @@ func ParseRedis(raw []byte, lookupEnv func(string) (string, bool)) (*Redis, erro
 		return nil, err
 	}
 
+	if cfg.URL == "" {
+		cfg.URL = "redis://" + net.JoinHostPort(cfg.Host, strconv.Itoa(cfg.Port))
+	}
 	if redisURL, ok := lookupEnv(EnvRedisURL); ok {
 		cfg.URL = redisURL
 	}
@@ -298,7 +304,6 @@ func ParseLogger(raw []byte, lookupEnv func(string) (string, bool)) (*LoggerConf
 	return cfg, nil
 }
 
-// проверяет настройки пула соединений
 func (d *Database) Validate() error {
 	var errs []error
 
@@ -334,6 +339,12 @@ func (d *Database) Validate() error {
 func (r *Redis) Validate() error {
 	if strings.TrimSpace(r.URL) == "" {
 		return errors.New("redis.url is required")
+	}
+	if r.Host == "" {
+		return errors.New("redis.host is required")
+	}
+	if r.Port < MinPort || r.Port > MaxPort {
+		return errors.New("redis.port must be between 1 and 65535")
 	}
 	return nil
 }

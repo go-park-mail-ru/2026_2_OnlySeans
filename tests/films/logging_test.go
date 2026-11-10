@@ -38,7 +38,7 @@ func TestFilmMutationLogs(t *testing.T) {
 			var output bytes.Buffer
 			appLogger, err := logger.NewLogger(&output, logger.LogLevelDebug, "json")
 			require.NoError(t, err)
-			repo := mocks.NewMockFilmsRepository(gomock.NewController(t))
+			repo := mocks.NewMockFilmRepository(gomock.NewController(t))
 			input := domain.CreateFilmInput{Title: "Alien", FilmType: domain.FilmTypeMovie, ReleaseYear: 1979, AgeLimit: 16}
 			if tt.invalid {
 				input.Title = ""

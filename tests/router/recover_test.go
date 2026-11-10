@@ -42,7 +42,7 @@ func TestWithRecover(t *testing.T) {
 		handler    http.HandlerFunc
 		wantStatus int
 		wantLogged bool
-		wantPanic  string // что должно попасть в поле "panic" лога
+		wantPanic  string
 	}{
 		{
 			"паника строкой",
@@ -100,14 +100,13 @@ func TestWithRecover(t *testing.T) {
 	}
 }
 
-// Порядок как в NewRouter: logging снаружи, recover внутри.
 func TestWithLogging_WithRecover(t *testing.T) {
 	tests := []struct {
 		name       string
 		handler    http.HandlerFunc
 		wantStatus int
 		wantMsgs   []string
-		wantLevel  string // уровень последней записи ("request handled")
+		wantLevel  string
 	}{
 		{
 			"после паники логируется 500",
@@ -148,7 +147,6 @@ func TestWithLogging_WithRecover(t *testing.T) {
 	}
 }
 
-// Границы выбора уровня в router.WithLogging.
 func TestWithLogging_Level(t *testing.T) {
 	tests := []struct {
 		status    int

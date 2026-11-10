@@ -23,7 +23,7 @@ func newMockAuthHandler(t *testing.T, users domain.UserRepository, sessions doma
 	log := newTestLogger()
 	register, err := authusecase.NewRegisterUserUseCase(users, sessions, hasher, log)
 	require.NoError(t, err)
-	login, err := authusecase.NewLoginUserUseCase(users, sessions, authservice.BcryptPasswordService{}, log)
+	login, err := authusecase.NewLoginUserUseCase(users, sessions, &authservice.BcryptPasswordService{}, log)
 	require.NoError(t, err)
 	logout, err := authusecase.NewLogoutUserUseCase(sessions, log)
 	require.NoError(t, err)

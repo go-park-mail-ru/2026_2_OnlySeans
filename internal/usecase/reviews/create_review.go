@@ -38,7 +38,6 @@ func NewCreateReviewUseCase(
 	}, nil
 }
 
-// Повторный отзыв того же автора на тот же фильм отклоняет хранилище, без отдельной проверки заранее.
 func (uc *CreateReviewUseCase) Run(ctx context.Context, input CreateReviewInput) (*CreateReviewOutput, error) {
 	uc.logger.DebugContext(ctx, "create review started", map[string]any{
 		"user_id": input.AuthorID,

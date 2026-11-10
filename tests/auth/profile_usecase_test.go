@@ -119,7 +119,7 @@ func TestUpdateProfileValidation(t *testing.T) {
 		{"trimmed", 7, " anna@example.com ", " anna ", nil},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			repo := mocks.NewMockProfileRepository(gomock.NewController(t))
+			repo := mocks.NewMockUserRepository(gomock.NewController(t))
 			if tc.wantErr == nil {
 				repo.EXPECT().UpdateProfile(t.Context(), tc.user, "anna@example.com", "anna").Return(&domain.User{ID: tc.user}, nil)
 			}

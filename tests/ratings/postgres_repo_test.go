@@ -19,7 +19,7 @@ import (
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 )
 
-func newPostgresRatingRepo(t *testing.T) (domain.FilmRatingCollectionRepository, sqlmock.Sqlmock) {
+func newPostgresRatingRepo(t *testing.T) (*ratingsservice.PostgresRepo, sqlmock.Sqlmock) {
 	t.Helper()
 
 	db, mock, err := sqlmock.New()

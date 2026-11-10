@@ -574,6 +574,57 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
   /api/films/{id}/poster:
+    get:
+      tags: [Файлы]
+      operationId: getFilmPosterURL
+      summary: Получить ссылку на основной постер фильма
+      security: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: integer, format: int64, minimum: 1}
+      responses:
+        '200':
+          description: Внешняя или временная подписанная ссылка на изображение.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [url]
+                properties:
+                  url: {type: string, format: uri}
+        '400':
+          description: Некорректный ID фильма.
+        '404':
+          description: Фильм или постер не найден.
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      tags: [Файлы]
+      operationId: deleteFilmPoster
+      summary: Удалить привязки постеров фильма
+      description: Требует сессию администратора. Объекты и метаданные файлов сохраняются, как при замене постера.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: integer, format: int64, minimum: 1}
+      responses:
+        '204':
+          description: Привязки удалены; повторное удаление также успешно.
+        '400':
+          description: Некорректный ID фильма.
+        '401':
+          description: Нет действующей сессии.
+        '403':
+          description: Нет прав администратора или запрос отклонён CSRF-защитой.
+        '404':
+          description: Фильм не найден.
+        '500':
+          $ref: '#/components/responses/InternalError'
     post:
       tags:
         - Файлы

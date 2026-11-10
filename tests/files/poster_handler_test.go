@@ -16,8 +16,10 @@ import (
 	filesdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/files"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	filesusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/files"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/tests/mocks"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
 func TestPosterUploadHTTP(t *testing.T) {
@@ -96,7 +98,9 @@ func TestPosterUploadHTTP(t *testing.T) {
 				MaxSize: 1024, MaxDimension: 64, CleanupTimeout: time.Second,
 			}, testFilesLogger(t))
 			require.NoError(t, err)
-			handler, err := filesdelivery.NewPosterHandler(uc, testFilesLogger(t))
+			filmPoster, err := filesusecase.NewFilmPosterUseCase(mocks.NewMockPosterRepository(gomock.NewController(t)), mocks.NewMockAvatarURLStorage(gomock.NewController(t)), testFilesLogger(t))
+			require.NoError(t, err)
+			handler, err := filesdelivery.NewPosterHandler(uc, filmPoster, testFilesLogger(t))
 			require.NoError(t, err)
 			var body bytes.Buffer
 			writer := multipart.NewWriter(&body)

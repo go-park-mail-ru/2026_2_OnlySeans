@@ -57,7 +57,7 @@ func TestUploadAvatarAttachesToAccount(t *testing.T) {
 			wantUploads: 1, wantSaves: 1, wantDeletes: 1,
 		},
 		{
-			name: "ambiguous commit preserves possibly attached object", owner: 7, saveErr: domain.ErrAvatarCommitUnknown, wantErr: domain.ErrAvatarCommitUnknown,
+			name: "ambiguous commit preserves possibly attached object", owner: 7, saveErr: domain.ErrCommitUnknown, wantErr: domain.ErrCommitUnknown,
 			wantUploads: 1, wantSaves: 1,
 		},
 	}

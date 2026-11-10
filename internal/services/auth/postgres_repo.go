@@ -13,14 +13,12 @@ import (
 )
 
 const (
-	// Регистрация
 	createUserQuery = `
 		INSERT INTO account (role_id, email, username, password_hash)
 		VALUES ((SELECT id FROM role WHERE code = 'reader'), $1, $2, $3)
 		RETURNING id
 	`
 
-	// Вход
 	getUserByEmailQuery = `
 		SELECT id, email, username, password_hash,
  (SELECT code FROM role WHERE role.id = account.role_id) AS role_code,
@@ -29,7 +27,6 @@ const (
 		WHERE email = $1 AND deleted_at IS NULL
 	`
 
-	// Авторизация
 	getUserByIDQuery = `
 		SELECT id, email, username, password_hash,
  (SELECT code FROM role WHERE role.id = account.role_id) AS role_code,
@@ -50,7 +47,6 @@ func NewPostgresUserRepo(db *sql.DB, appLogger logger.Logger) domain.UserReposit
 	}
 }
 
-// Получение пользователя после входа.
 func (r *PostgresUserRepo) GetUser(ctx context.Context, id domain.UserID) (_ *domain.User, operationErr error) {
 	operationLog := storage.StartOperation(ctx, r.log, "postgres", "account.get_user", map[string]any{"user_id": id})
 	defer func() { operationLog.Finish(operationErr) }()
@@ -72,7 +68,6 @@ func (r *PostgresUserRepo) GetUser(ctx context.Context, id domain.UserID) (_ *do
 	return &user, nil
 }
 
-// Получение пользователя при входе.
 func (r *PostgresUserRepo) GetByEmail(ctx context.Context, email string) (_ *domain.User, operationErr error) {
 	operationLog := storage.StartOperation(ctx, r.log, "postgres", "account.get_by_email", map[string]any{})
 	defer func() { operationLog.Finish(operationErr) }()
@@ -94,7 +89,6 @@ func (r *PostgresUserRepo) GetByEmail(ctx context.Context, email string) (_ *dom
 	return &user, nil
 }
 
-// Создание пользователя при регистрации.
 func (r *PostgresUserRepo) Create(ctx context.Context, email, username, passwordHash string) (_ domain.UserID, operationErr error) {
 	operationLog := storage.StartOperation(ctx, r.log, "postgres", "account.create", map[string]any{})
 	defer func() { operationLog.Finish(operationErr) }()

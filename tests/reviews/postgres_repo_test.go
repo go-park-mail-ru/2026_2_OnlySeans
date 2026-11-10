@@ -18,8 +18,6 @@ import (
 var reviewColumns = []string{"id", "account_id", "film_id", "title", "content",
 	"contains_spoilers", "version", "created_at", "updated_at"}
 
-// newPostgresReviewRepo возвращает хранилище поверх поддельной базы и саму подделку.
-// В конце теста проверяется, что все ожидаемые запросы были отправлены.
 func newPostgresReviewRepo(t *testing.T) (domain.ReviewRepository, sqlmock.Sqlmock) {
 	t.Helper()
 
@@ -158,7 +156,6 @@ func TestPostgresReviewRepo_Update(t *testing.T) {
 	assert.Equal(t, &want, got)
 }
 
-// правку перехватил другой запрос: версия в базе уже другая
 func TestPostgresReviewRepo_UpdateVersionConflict(t *testing.T) {
 	repo, mock := newPostgresReviewRepo(t)
 
@@ -175,7 +172,6 @@ func TestPostgresReviewRepo_UpdateVersionConflict(t *testing.T) {
 	assert.ErrorIs(t, err, domain.ErrVersionConflict)
 }
 
-// отзыв удалили, пока его редактировали
 func TestPostgresReviewRepo_UpdateDeleted(t *testing.T) {
 	repo, mock := newPostgresReviewRepo(t)
 

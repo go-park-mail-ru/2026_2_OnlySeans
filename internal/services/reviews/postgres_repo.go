@@ -1,5 +1,3 @@
-//хранилище отзывов
-
 package reviews
 
 import (
@@ -15,7 +13,7 @@ import (
 )
 
 const (
-	reviewColumns = `id, account_id, film_id, title, content, contains_spoilers, version, created_at, updated_at` //список колонок отзыва
+	reviewColumns = `id, account_id, film_id, title, content, contains_spoilers, version, created_at, updated_at`
 
 	createReviewQuery = `
 		INSERT INTO review (account_id, film_id, title, content, contains_spoilers)
@@ -55,7 +53,6 @@ const (
 	`
 )
 
-// пул соединений
 type PostgresReviewRepo struct {
 	log logger.Logger
 	db  *sql.DB
@@ -65,14 +62,13 @@ func NewPostgresReviewRepo(db *sql.DB, appLogger logger.Logger) domain.ReviewRep
 	return &PostgresReviewRepo{log: appLogger, db: db}
 }
 
-// превратить строку из базы в domain.Review
 type rowScanner interface {
 	Scan(dest ...any) error
 }
 
 func scanReview(row rowScanner) (domain.Review, error) {
 	var review domain.Review
-	err := row.Scan( //разложить колонки по полям
+	err := row.Scan(
 		&review.ID,
 		&review.AuthorID,
 		&review.FilmID,
@@ -202,7 +198,7 @@ func (r *PostgresReviewRepo) ListByFilm(ctx context.Context, filmID domain.FilmI
 	if err != nil {
 		return nil, 0, fmt.Errorf("list reviews: %w", err)
 	}
-	defer rows.Close() //закрыть курсор и вернуть соединение в пул
+	defer rows.Close()
 	list := make([]domain.Review, 0)
 	for rows.Next() {
 		review, err := scanReview(rows)

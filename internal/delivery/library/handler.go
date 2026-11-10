@@ -39,15 +39,6 @@ func NewHandler(cases HandlerUseCases, log logger.Logger) *Handler {
 	return &Handler{useCases: cases, log: log}
 }
 
-func (h *Handler) Register(protect func(http.HandlerFunc) http.HandlerFunc) func(*mux.Router) {
-	return func(r *mux.Router) {
-		r.HandleFunc("/api/me/preferences", protect(h.Preferences)).Methods(http.MethodGet)
-		r.HandleFunc("/api/me/preferences", protect(h.SavePreference)).Methods(http.MethodPut)
-		r.HandleFunc("/api/me/library", protect(h.Get)).Methods(http.MethodGet)
-		r.HandleFunc("/api/me/library/lists/{list}/{film}", protect(h.SetSaved)).Methods(http.MethodPut)
-	}
-}
-
 func user(r *http.Request) domain.UserID {
 	id, _ := auth.UserIDFromContext(r.Context())
 	return id

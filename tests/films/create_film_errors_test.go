@@ -15,7 +15,7 @@ import (
 
 func TestCreateFilmUseCaseRunRepositoryError(t *testing.T) {
 	storageErr := errors.New("storage unavailable")
-	repo := mocks.NewMockFilmCreator(gomock.NewController(t))
+	repo := mocks.NewMockFilmRepository(gomock.NewController(t))
 	repo.EXPECT().CreateFilm(gomock.Any(), domain.CreateFilmInput{Title: "Alien", FilmType: domain.FilmTypeMovie, ReleaseYear: 1979, AgeLimit: 16}).Return(domain.FilmID(0), storageErr)
 	uc, err := filmsusecase.NewCreateFilmUseCase(repo, newFilmsTestLogger())
 	require.NoError(t, err)
@@ -35,7 +35,7 @@ func TestNewCreateFilmUseCaseNilRepository(t *testing.T) {
 }
 
 func TestCreateFilmUseCasePassesContextAndOptionalFields(t *testing.T) {
-	repo := mocks.NewMockFilmCreator(gomock.NewController(t))
+	repo := mocks.NewMockFilmRepository(gomock.NewController(t))
 	uc, err := filmsusecase.NewCreateFilmUseCase(repo, newFilmsTestLogger())
 	require.NoError(t, err)
 	original, description := "Alien", "Science fiction"

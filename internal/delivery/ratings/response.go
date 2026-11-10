@@ -6,10 +6,6 @@ import (
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 )
 
-type setFilmRatingRequest struct {
-	Score *int `json:"score"`
-}
-
 type filmRatingResponseDTO struct {
 	FilmID    domain.FilmID `json:"film_id"`
 	Score     int           `json:"score"`

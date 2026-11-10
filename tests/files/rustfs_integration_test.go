@@ -43,14 +43,12 @@ func (integrationAuthenticator) Authenticate(_ context.Context, session string) 
 	return 1, nil
 }
 
-// This test sends real HTTP requests through the handlers into RustFS.
-// It uses a test session and removes only the object it creates.
 func TestRustFSAvatarHTTP(t *testing.T) {
 	cfg, err := config.LoadS3("../../configs/s3.yaml")
 	require.NoError(t, err)
 	client, err := storage.NewS3Client(*cfg)
 	require.NoError(t, err)
-	objectStorage, err := filesservice.NewS3Storage(client, cfg.Bucket, cfg.PublicEndpoint, cfg.AvatarURLLifetime)
+	objectStorage, err := filesservice.NewS3Storage(client, cfg.Bucket, cfg.PublicEndpoint, cfg.AvatarURLLifetime, nil)
 	require.NoError(t, err)
 	db, err := sql.Open("pgx", os.Getenv("AVATAR_TEST_DATABASE_URL"))
 	require.NoError(t, err)
@@ -100,7 +98,7 @@ func TestRustFSAvatarHTTP(t *testing.T) {
 	routes.HandleFunc("/api/avatars/{filename}", handler.GetAvatarURL).Methods(http.MethodGet)
 	userRepo := authservice.NewPostgresUserRepo(db, nil)
 	sessions := authservice.NewInMemorySessionStore(time.Hour)
-	passwords := authservice.BcryptPasswordService{}
+	passwords := &authservice.BcryptPasswordService{}
 	registerUC, err := authusecase.NewRegisterUserUseCase(userRepo, sessions, passwords, appLogger)
 	require.NoError(t, err)
 	loginUC, err := authusecase.NewLoginUserUseCase(userRepo, sessions, passwords, appLogger)
@@ -160,7 +158,7 @@ func TestRustFSAvatarHTTP(t *testing.T) {
 	}
 	require.NoError(t, json.NewDecoder(response.Body).Decode(&link))
 	download, err := httpClient.Get(link.URL)
-	// Avoid printing the signed URL on an error.
+
 	if err != nil {
 		t.Fatal("download using signed URL failed")
 	}

@@ -13,7 +13,7 @@ import (
 )
 
 func TestCreateFilmUseCaseRun(t *testing.T) {
-	repo := mocks.NewMockFilmCreator(gomock.NewController(t))
+	repo := mocks.NewMockFilmRepository(gomock.NewController(t))
 	uc, err := filmsusecase.NewCreateFilmUseCase(repo, newFilmsTestLogger())
 	require.NoError(t, err)
 
@@ -33,9 +33,8 @@ func TestCreateFilmUseCaseRun(t *testing.T) {
 	assert.Equal(t, domain.FilmID(42), id)
 }
 
-// неверная карточка останавливается до обращения к репозиторию
 func TestCreateFilmUseCaseRunInvalidInput(t *testing.T) {
-	repo := mocks.NewMockFilmCreator(gomock.NewController(t))
+	repo := mocks.NewMockFilmRepository(gomock.NewController(t))
 	uc, err := filmsusecase.NewCreateFilmUseCase(repo, newFilmsTestLogger())
 	require.NoError(t, err)
 

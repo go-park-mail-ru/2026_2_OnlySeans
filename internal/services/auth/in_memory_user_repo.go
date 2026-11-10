@@ -110,3 +110,28 @@ func (r *InMemoryUserRepo) DeleteAvatar(_ context.Context, id domain.UserID) err
 	delete(r.avatars, id)
 	return nil
 }
+
+func (r *InMemoryUserRepo) UpdateProfile(_ context.Context, id domain.UserID, email, username string) (*domain.User, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	user, ok := r.byID[int(id)]
+	if !ok {
+		return nil, domain.ErrUserNotFound
+	}
+	for otherID, other := range r.byID {
+		if otherID == int(id) {
+			continue
+		}
+		if other.Email == email {
+			return nil, domain.ErrUserExists
+		}
+		if other.Username == username {
+			return nil, domain.ErrUsernameTaken
+		}
+	}
+	delete(r.byEmail, user.Email)
+	user.Email, user.Username = email, username
+	r.byEmail[email] = user
+	result := *user
+	return &result, nil
+}

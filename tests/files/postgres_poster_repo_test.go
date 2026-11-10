@@ -60,7 +60,7 @@ func TestPostgresPosterRepoSave(t *testing.T) {
 		{
 			name:      "commit outcome unknown",
 			failureAt: "commit",
-			wantErr:   domain.ErrPosterCommitUnknown,
+			wantErr:   domain.ErrCommitUnknown,
 		},
 	}
 	for _, tt := range tests {
@@ -124,7 +124,7 @@ func TestPostgresPosterRepoSave(t *testing.T) {
 			if tt.failureAt == "commit" {
 				require.ErrorIs(t, err, dbErr)
 			} else {
-				require.NotErrorIs(t, err, domain.ErrPosterCommitUnknown)
+				require.NotErrorIs(t, err, domain.ErrCommitUnknown)
 			}
 			require.NoError(t, mock.ExpectationsWereMet())
 		})

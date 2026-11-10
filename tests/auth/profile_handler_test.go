@@ -20,14 +20,16 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-func profileTestHandler(t *testing.T, repo uc.ProfileReader, update uc.ProfileRepository, posters uc.ProfilePosterStorage, auth router.Authenticator) http.Handler {
+func profileTestHandler(t *testing.T, repo uc.ProfileReader, update domain.UserRepository, posters uc.ProfilePosterStorage, auth router.Authenticator) http.Handler {
 	t.Helper()
 	log := testutil.DiscardLogger()
 	get, err := uc.NewGetProfileUseCase(repo, posters, log)
 	require.NoError(t, err)
 	handler := delivery.NewProfileHandler(get, uc.NewUpdateProfileUseCase(update), log)
 	routes := mux.NewRouter()
-	handler.Register(router.RequireAuth(auth))(routes)
+	routes.HandleFunc("/api/me/profile", router.RequireAuth(auth)(handler.Get)).Methods(http.MethodGet)
+	routes.HandleFunc("/api/me/profile", router.RequireAuth(auth)(handler.Update)).Methods(http.MethodPut)
+	routes.HandleFunc("/api/me", router.RequireAuth(auth)(handler.Update)).Methods(http.MethodPut)
 	return router.WithRequestID(router.WithLogging(routes, log))
 }
 
@@ -58,7 +60,7 @@ func TestProfileGetHTTP(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			repo := mocks.NewMockProfileReader(ctrl)
-			update := mocks.NewMockProfileRepository(ctrl)
+			update := mocks.NewMockUserRepository(ctrl)
 			posters := mocks.NewMockProfilePosterStorage(ctrl)
 			auth := mocks.NewMockAuthenticator(ctrl)
 			if tc.session {
@@ -140,7 +142,7 @@ func TestProfileUpdateHTTP(t *testing.T) {
 			t.Run(path+"/"+tc.name, func(t *testing.T) {
 				ctrl := gomock.NewController(t)
 				read := mocks.NewMockProfileReader(ctrl)
-				update := mocks.NewMockProfileRepository(ctrl)
+				update := mocks.NewMockUserRepository(ctrl)
 				posters := mocks.NewMockProfilePosterStorage(ctrl)
 				auth := mocks.NewMockAuthenticator(ctrl)
 				if tc.session {

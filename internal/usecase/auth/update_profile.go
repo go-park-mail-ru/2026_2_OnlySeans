@@ -8,13 +8,9 @@ import (
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/utils"
 )
 
-type ProfileRepository interface {
-	UpdateProfile(context.Context, domain.UserID, string, string) (*domain.User, error)
-}
+type UpdateProfileUseCase struct{ users domain.UserRepository }
 
-type UpdateProfileUseCase struct{ users ProfileRepository }
-
-func NewUpdateProfileUseCase(users ProfileRepository) *UpdateProfileUseCase {
+func NewUpdateProfileUseCase(users domain.UserRepository) *UpdateProfileUseCase {
 	return &UpdateProfileUseCase{users: users}
 }
 

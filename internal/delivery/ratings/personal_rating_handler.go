@@ -8,7 +8,6 @@ import (
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	usecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/ratings"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
-	"github.com/gorilla/mux"
 )
 
 type MyRatingHandler struct {
@@ -23,7 +22,7 @@ type personalRatingResponse struct {
 	Rating *personalScoreDTO `json:"rating"`
 }
 
-func (h *MyRatingHandler) Get(w http.ResponseWriter, r *http.Request) {
+func (h *MyRatingHandler) GetPersonalRating(w http.ResponseWriter, r *http.Request) {
 	filmID, ok := pathID(r)
 	if !ok {
 		writeError(r.Context(), w, ErrInvalidFilmID, h.logger)
@@ -51,10 +50,6 @@ func (h *MyRatingHandler) Get(w http.ResponseWriter, r *http.Request) {
 	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, response, h.logger)
 }
 
-func RegisterMine(uc *usecase.GetMyFilmRatingUseCase, log logger.Logger, protect func(http.HandlerFunc) http.HandlerFunc) func(*mux.Router) {
-	h := &MyRatingHandler{useCase: uc, logger: log}
-
-	return func(r *mux.Router) {
-		r.HandleFunc("/api/films/{id}/rating/me", protect(h.Get)).Methods(http.MethodGet)
-	}
+func NewMyRatingHandler(uc *usecase.GetMyFilmRatingUseCase, log logger.Logger) *MyRatingHandler {
+	return &MyRatingHandler{useCase: uc, logger: log}
 }

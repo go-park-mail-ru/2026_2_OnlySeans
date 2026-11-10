@@ -23,7 +23,7 @@ func TestPostgresPersonRepoUpdate(t *testing.T) {
 	db, err := sql.Open("pgx", dsn)
 	require.NoError(t, err)
 	defer db.Close()
-	// Temporary tables and all repository calls use the same connection.
+
 	db.SetMaxOpenConns(1)
 	db.SetMaxIdleConns(1)
 	for _, query := range []string{
