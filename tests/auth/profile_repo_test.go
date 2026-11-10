@@ -9,6 +9,7 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	authrepo "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/auth"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/tests/testutil"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/stretchr/testify/require"
 )
@@ -23,7 +24,8 @@ func TestProfileRepoGet(t *testing.T) {
 			db, mock, err := sqlmock.New()
 			require.NoError(t, err)
 			defer db.Close()
-			repo := authrepo.NewProfileRepo(db, nil)
+			repo, err := authrepo.NewProfileRepo(db, testutil.DiscardLogger())
+			require.NoError(t, err)
 			begin := mock.ExpectBegin()
 			if phase == "begin" {
 				begin.WillReturnError(failure)
@@ -160,5 +162,24 @@ func TestProfileRepoUnknownConflictIsNotEmailConflict(t *testing.T) {
 	require.ErrorIs(t, err, failure)
 	require.NotErrorIs(t, err, domain.ErrUserExists)
 	require.NotErrorIs(t, err, domain.ErrUsernameTaken)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestNewProfileRepoDependencies(t *testing.T) {
+	repo, err := authrepo.NewProfileRepo(nil, testutil.DiscardLogger())
+	require.Nil(t, repo)
+	require.ErrorContains(t, err, "profile database is nil")
+
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+
+	repo, err = authrepo.NewProfileRepo(db, nil)
+	require.Nil(t, repo)
+	require.ErrorIs(t, err, domain.ErrInvalidAppLogger)
+
+	repo, err = authrepo.NewProfileRepo(db, testutil.DiscardLogger())
+	require.NoError(t, err)
+	require.NotNil(t, repo)
 	require.NoError(t, mock.ExpectationsWereMet())
 }

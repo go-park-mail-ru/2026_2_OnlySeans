@@ -16,8 +16,16 @@ type ProfileRepo struct {
 	appLogger logger.Logger
 }
 
-func NewProfileRepo(db *sql.DB, appLogger logger.Logger) *ProfileRepo {
-	return &ProfileRepo{db: db, appLogger: appLogger}
+func NewProfileRepo(db *sql.DB, appLogger logger.Logger) (*ProfileRepo, error) {
+	if db == nil {
+		return nil, errors.New("profile database is nil")
+	}
+
+	if appLogger == nil {
+		return nil, domain.ErrInvalidAppLogger
+	}
+
+	return &ProfileRepo{db: db, appLogger: appLogger}, nil
 }
 
 const (

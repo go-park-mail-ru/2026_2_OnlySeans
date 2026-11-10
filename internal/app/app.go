@@ -144,7 +144,11 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 
 	libraryRepo := libraryservice.NewPostgresRepo(db, appLogger)
 	personCatalogRepo := personservice.NewCatalogRepo(db, appLogger)
-	profileRepo := authservice.NewProfileRepo(db, appLogger)
+	profileRepo, err := authservice.NewProfileRepo(db, appLogger)
+	if err != nil {
+		return fmt.Errorf("create profile repository: %w", err)
+	}
+
 	uploadAvatarUC, err := filesusecase.NewUploadAvatarUseCase(avatarStorage, avatarRepo, filesusecase.UploadAvatarOptions{
 		MaxSize:        s3Cfg.MaxAvatarSize,
 		MaxDimension:   s3Cfg.MaxAvatarDimension,
@@ -154,20 +158,24 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 		appLogger.Error("create upload avatar use case failed", map[string]any{"error": err})
 		return fmt.Errorf("create upload avatar use case: %w", err)
 	}
+
 	getAvatarURLUC, err := filesusecase.NewGetAvatarURLUseCase(avatarStorage, appLogger)
 	if err != nil {
 		appLogger.Error("create get avatar URL use case failed", map[string]any{"error": err})
 		return fmt.Errorf("create get avatar URL use case: %w", err)
 	}
+
 	accountAvatarUC, err := filesusecase.NewAccountAvatarUseCase(avatarRepo, avatarStorage, appLogger)
 	if err != nil {
 		appLogger.Error("create account avatar use case failed", map[string]any{"error": err})
 		return fmt.Errorf("create account avatar use case: %w", err)
 	}
+
 	filmPosterUC, err := filesusecase.NewFilmPosterUseCase(posterRepo, objectStorages[s3Cfg.PostersBucket], appLogger)
 	if err != nil {
 		return fmt.Errorf("create film poster use case: %w", err)
 	}
+
 	uploadPosterUC, err := filesusecase.NewUploadPosterUseCase(objectStorages[s3Cfg.PostersBucket], posterRepo, filmsRepo, filesusecase.UploadPosterOptions{
 		MaxSize:        s3Cfg.MaxPosterSize,
 		MaxDimension:   s3Cfg.MaxPosterDimension,
@@ -176,6 +184,7 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 	if err != nil {
 		return fmt.Errorf("create upload poster use case: %w", err)
 	}
+
 	registerUC, err := authusecase.NewRegisterUserUseCase(userRepo, sessions, passwordService, appLogger)
 	if err != nil {
 		return fmt.Errorf("can't create register use case: %w", err)
@@ -326,12 +335,14 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 	if err != nil {
 		return fmt.Errorf("create update profile use case: %w", err)
 	}
+
 	getFilmPersonsUC := personusecase.NewGetFilmPersonsUseCase(personCatalogRepo, filmsRepo)
 	getPersonCatalogUC := personusecase.NewGetPersonCatalogUseCase(personCatalogRepo, filmsRepo)
 	getProfileUC, err := authusecase.NewGetProfileUseCase(profileRepo, objectStorages[s3Cfg.PostersBucket], appLogger)
 	if err != nil {
 		return fmt.Errorf("create profile use case: %w", err)
 	}
+
 	filesHandler, err := filesdelivery.NewHandler(uploadAvatarUC, getAvatarURLUC, accountAvatarUC, appLogger)
 	if err != nil {
 		appLogger.Error("create files handler failed", map[string]any{"error": err})
@@ -405,6 +416,7 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 		GetPreferences: getPreferencesUC,
 		SavePreference: savePreferenceUC,
 	}, appLogger)
+
 	profileHandler := authdelivery.NewProfileHandler(getProfileUC, updateProfileUC, appLogger)
 	personalRatingHandler := ratingsdelivery.NewMyRatingHandler(getMyRatingUC, appLogger)
 	personCatalogHandler := persondelivery.NewCatalogHandler(getFilmPersonsUC, getPersonCatalogUC, appLogger)

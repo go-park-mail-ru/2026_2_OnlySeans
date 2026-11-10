@@ -139,11 +139,13 @@ func (h *PosterHandler) GetPoster(w http.ResponseWriter, r *http.Request) {
 		h.writePosterError(r.Context(), w, fileusecase.ErrInvalidPosterFilmID)
 		return
 	}
+
 	url, err := h.filmPoster.GetURL(r.Context(), domain.FilmID(id))
 	if err != nil {
 		h.writePosterError(r.Context(), w, err)
 		return
 	}
+
 	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, struct {
 		URL string `json:"url"`
 	}{URL: url}, h.appLogger)
@@ -155,9 +157,11 @@ func (h *PosterHandler) DeletePoster(w http.ResponseWriter, r *http.Request) {
 		h.writePosterError(r.Context(), w, fileusecase.ErrInvalidPosterFilmID)
 		return
 	}
+
 	if err := h.filmPoster.Delete(r.Context(), domain.FilmID(id)); err != nil {
 		h.writePosterError(r.Context(), w, err)
 		return
 	}
+
 	w.WriteHeader(http.StatusNoContent)
 }
