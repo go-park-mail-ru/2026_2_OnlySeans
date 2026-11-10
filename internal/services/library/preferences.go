@@ -16,7 +16,7 @@ const (
 )
 
 func (r *PostgresRepo) Preferences(ctx context.Context, user domain.UserID) (_ json.RawMessage, operationErr error) {
-	operationLog := storage.StartOperation(ctx, r.log, "postgres", "preferences.preferences", map[string]any{"user_id": user})
+	operationLog := storage.StartOperation(ctx, r.appLogger, "postgres", "preferences.preferences", map[string]any{"user_id": user})
 	defer func() { operationLog.Finish(operationErr) }()
 
 	var data json.RawMessage
@@ -26,7 +26,7 @@ func (r *PostgresRepo) Preferences(ctx context.Context, user domain.UserID) (_ j
 }
 
 func (r *PostgresRepo) SavePreference(ctx context.Context, user domain.UserID, key string, value json.RawMessage) (operationErr error) {
-	operationLog := storage.StartOperation(ctx, r.log, "postgres", "preferences.save_preference", map[string]any{"user_id": user})
+	operationLog := storage.StartOperation(ctx, r.appLogger, "postgres", "preferences.save_preference", map[string]any{"user_id": user})
 	defer func() { operationLog.Finish(operationErr) }()
 
 	operationLog.Stage = "query"

@@ -15,10 +15,10 @@ type PosterURLStorage interface {
 }
 
 type RepositoryWithPosterURLs struct {
-	domain.FilmRepository
-	domain.CollectionRepository
-	storage PosterURLStorage
-	logger  logger.Logger
+	films       domain.FilmRepository
+	collections domain.CollectionRepository
+	storage     PosterURLStorage
+	appLogger   logger.Logger
 }
 
 func NewRepositoryWithPosterURLs(repository domain.FilmRepository, collections domain.CollectionRepository, storage PosterURLStorage, appLogger logger.Logger) (*RepositoryWithPosterURLs, error) {
@@ -38,11 +38,11 @@ func NewRepositoryWithPosterURLs(repository domain.FilmRepository, collections d
 		return nil, domain.ErrInvalidAppLogger
 	}
 
-	return &RepositoryWithPosterURLs{FilmRepository: repository, CollectionRepository: collections, storage: storage, logger: appLogger}, nil
+	return &RepositoryWithPosterURLs{films: repository, collections: collections, storage: storage, appLogger: appLogger}, nil
 }
 
 func (r *RepositoryWithPosterURLs) GetFilmByID(ctx context.Context, id domain.FilmID) (domain.Film, error) {
-	film, err := r.FilmRepository.GetFilmByID(ctx, id)
+	film, err := r.films.GetFilmByID(ctx, id)
 	if err != nil {
 		return domain.Film{}, err
 	}
@@ -55,7 +55,7 @@ func (r *RepositoryWithPosterURLs) GetFilmByID(ctx context.Context, id domain.Fi
 }
 
 func (r *RepositoryWithPosterURLs) ListFilms(ctx context.Context, limit, offset int) ([]domain.Film, int, error) {
-	films, total, err := r.FilmRepository.ListFilms(ctx, limit, offset)
+	films, total, err := r.films.ListFilms(ctx, limit, offset)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -66,7 +66,7 @@ func (r *RepositoryWithPosterURLs) ListFilms(ctx context.Context, limit, offset 
 }
 
 func (r *RepositoryWithPosterURLs) ListCollectionFilms(ctx context.Context, id domain.CollectionID, limit, offset int) ([]domain.Film, int, error) {
-	films, total, err := r.CollectionRepository.ListCollectionFilms(ctx, id, limit, offset)
+	films, total, err := r.collections.ListCollectionFilms(ctx, id, limit, offset)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -95,7 +95,7 @@ func (r *RepositoryWithPosterURLs) attachPosterURL(ctx context.Context, film *do
 
 	url, err := r.storage.GetURL(ctx, *film.PosterStorageKey)
 	if errors.Is(err, domain.ErrFileNotFound) {
-		r.logger.WarnContext(ctx, "film poster object not found", map[string]any{"film_id": film.ID, "storage_key": *film.PosterStorageKey})
+		r.appLogger.WarnContext(ctx, "film poster object not found", map[string]any{"film_id": film.ID, "storage_key": *film.PosterStorageKey})
 		return nil
 	}
 
@@ -104,7 +104,27 @@ func (r *RepositoryWithPosterURLs) attachPosterURL(ctx context.Context, film *do
 	}
 
 	film.PosterURL = &url
-	r.logger.DebugContext(ctx, "film poster URL generated", map[string]any{"film_id": film.ID})
+	r.appLogger.DebugContext(ctx, "film poster URL generated", map[string]any{"film_id": film.ID})
 
 	return nil
+}
+
+func (r *RepositoryWithPosterURLs) CreateFilm(ctx context.Context, input domain.CreateFilmInput) (domain.FilmID, error) {
+	return r.films.CreateFilm(ctx, input)
+}
+
+func (r *RepositoryWithPosterURLs) UpdateFilm(ctx context.Context, id domain.FilmID, input domain.CreateFilmInput) error {
+	return r.films.UpdateFilm(ctx, id, input)
+}
+
+func (r *RepositoryWithPosterURLs) DeleteFilm(ctx context.Context, id domain.FilmID) error {
+	return r.films.DeleteFilm(ctx, id)
+}
+
+func (r *RepositoryWithPosterURLs) ListCollections(ctx context.Context, limit, offset int) ([]domain.Collection, int, error) {
+	return r.collections.ListCollections(ctx, limit, offset)
+}
+
+func (r *RepositoryWithPosterURLs) GetCollectionByID(ctx context.Context, id domain.CollectionID) (domain.Collection, error) {
+	return r.collections.GetCollectionByID(ctx, id)
 }

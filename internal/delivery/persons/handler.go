@@ -45,8 +45,8 @@ type HandlerUseCases struct {
 }
 
 type Handler struct {
-	useCases HandlerUseCases
-	logger   logger.Logger
+	useCases  HandlerUseCases
+	appLogger logger.Logger
 }
 
 func NewHandler(cases HandlerUseCases, appLogger logger.Logger) (*Handler, error) {
@@ -70,15 +70,15 @@ func NewHandler(cases HandlerUseCases, appLogger logger.Logger) (*Handler, error
 	}
 
 	return &Handler{
-		useCases: cases,
-		logger:   appLogger,
+		useCases:  cases,
+		appLogger: appLogger,
 	}, nil
 }
 
 func (h *Handler) ListPersons(w http.ResponseWriter, r *http.Request) {
 	limit, offset, err := pagination(r)
 	if err != nil {
-		httprequest.LogRejected(h.logger, r, "pagination", err)
+		httprequest.LogRejected(h.appLogger, r, "pagination", err)
 		h.writeError(r.Context(), w, err)
 		return
 	}
@@ -99,13 +99,13 @@ func (h *Handler) ListPersons(w http.ResponseWriter, r *http.Request) {
 		Offset:  offset,
 	}
 
-	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, response, h.logger)
+	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, response, h.appLogger)
 }
 
 func (h *Handler) GetPerson(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r)
 	if err != nil {
-		httprequest.LogRejected(h.logger, r, "id", err)
+		httprequest.LogRejected(h.appLogger, r, "id", err)
 		h.writeError(r.Context(), w, err)
 		return
 	}
@@ -120,7 +120,7 @@ func (h *Handler) GetPerson(w http.ResponseWriter, r *http.Request) {
 		Person: toPersonResponseDTO(result.Person),
 	}
 
-	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, response, h.logger)
+	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, response, h.appLogger)
 }
 
 type personRequest struct {
@@ -133,14 +133,14 @@ func (h *Handler) CreatePerson(w http.ResponseWriter, r *http.Request) {
 	var request personRequest
 
 	if err := httprequest.DecodeJSON(w, r, &request); err != nil {
-		httprequest.LogRejected(h.logger, r, "body", err)
+		httprequest.LogRejected(h.appLogger, r, "body", err)
 		h.writeError(r.Context(), w, err)
 		return
 	}
 
 	birthDate, err := parseBirthDate(request.BirthDate)
 	if err != nil {
-		httprequest.LogRejected(h.logger, r, "birth_date", err)
+		httprequest.LogRejected(h.appLogger, r, "birth_date", err)
 		h.writeError(r.Context(), w, err)
 		return
 	}
@@ -159,13 +159,13 @@ func (h *Handler) CreatePerson(w http.ResponseWriter, r *http.Request) {
 
 	response := createPersonResponse{ID: result.ID}
 
-	httpresponse.WriteJSONContext(r.Context(), w, http.StatusCreated, response, h.logger)
+	httpresponse.WriteJSONContext(r.Context(), w, http.StatusCreated, response, h.appLogger)
 }
 
 func (h *Handler) UpdatePerson(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r)
 	if err != nil {
-		httprequest.LogRejected(h.logger, r, "id", err)
+		httprequest.LogRejected(h.appLogger, r, "id", err)
 		h.writeError(r.Context(), w, err)
 		return
 	}
@@ -173,14 +173,14 @@ func (h *Handler) UpdatePerson(w http.ResponseWriter, r *http.Request) {
 	var request personRequest
 
 	if err := httprequest.DecodeJSON(w, r, &request); err != nil {
-		httprequest.LogRejected(h.logger, r, "body", err)
+		httprequest.LogRejected(h.appLogger, r, "body", err)
 		h.writeError(r.Context(), w, err)
 		return
 	}
 
 	birthDate, err := parseBirthDate(request.BirthDate)
 	if err != nil {
-		httprequest.LogRejected(h.logger, r, "birth_date", err)
+		httprequest.LogRejected(h.appLogger, r, "birth_date", err)
 		h.writeError(r.Context(), w, err)
 		return
 	}
@@ -202,13 +202,13 @@ func (h *Handler) UpdatePerson(w http.ResponseWriter, r *http.Request) {
 		Person: toPersonResponseDTO(result.Person),
 	}
 
-	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, response, h.logger)
+	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, response, h.appLogger)
 }
 
 func (h *Handler) DeletePerson(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r)
 	if err != nil {
-		httprequest.LogRejected(h.logger, r, "id", err)
+		httprequest.LogRejected(h.appLogger, r, "id", err)
 		h.writeError(r.Context(), w, err)
 		return
 	}
@@ -291,5 +291,5 @@ func (h *Handler) writeError(ctx context.Context, w http.ResponseWriter, err err
 		message = err.Error()
 	}
 
-	httpresponse.WriteErrorContext(ctx, w, status, message, h.logger)
+	httpresponse.WriteErrorContext(ctx, w, status, message, h.appLogger)
 }

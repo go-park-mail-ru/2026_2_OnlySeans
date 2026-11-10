@@ -306,11 +306,26 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 		return fmt.Errorf("create personal rating use case: %w", err)
 	}
 
-	getLibraryUC := libraryusecase.NewGetLibraryUseCase(libraryRepo)
-	setSavedUC := libraryusecase.NewSetSavedUseCase(libraryRepo)
-	getPreferencesUC := libraryusecase.NewGetPreferencesUseCase(libraryRepo)
-	savePreferenceUC := libraryusecase.NewSavePreferenceUseCase(libraryRepo)
-	updateProfileUC := authusecase.NewUpdateProfileUseCase(userRepo)
+	getLibraryUC, err := libraryusecase.NewGetLibraryUseCase(libraryRepo)
+	if err != nil {
+		return fmt.Errorf("create get library use case: %w", err)
+	}
+	setSavedUC, err := libraryusecase.NewSetSavedUseCase(libraryRepo)
+	if err != nil {
+		return fmt.Errorf("create set saved use case: %w", err)
+	}
+	getPreferencesUC, err := libraryusecase.NewGetPreferencesUseCase(libraryRepo)
+	if err != nil {
+		return fmt.Errorf("create get preferences use case: %w", err)
+	}
+	savePreferenceUC, err := libraryusecase.NewSavePreferenceUseCase(libraryRepo)
+	if err != nil {
+		return fmt.Errorf("create save preference use case: %w", err)
+	}
+	updateProfileUC, err := authusecase.NewUpdateProfileUseCase(userRepo)
+	if err != nil {
+		return fmt.Errorf("create update profile use case: %w", err)
+	}
 	getFilmPersonsUC := personusecase.NewGetFilmPersonsUseCase(personCatalogRepo, filmsRepo)
 	getPersonCatalogUC := personusecase.NewGetPersonCatalogUseCase(personCatalogRepo, filmsRepo)
 	getProfileUC, err := authusecase.NewGetProfileUseCase(profileRepo, objectStorages[s3Cfg.PostersBucket], appLogger)

@@ -10,8 +10,8 @@ import (
 )
 
 type CreatePersonUseCase struct {
-	persons domain.PersonRepository
-	logger  logger.Logger
+	persons   domain.PersonRepository
+	appLogger logger.Logger
 }
 
 func NewCreatePersonUseCase(persons domain.PersonRepository, appLogger logger.Logger) (*CreatePersonUseCase, error) {
@@ -24,28 +24,28 @@ func NewCreatePersonUseCase(persons domain.PersonRepository, appLogger logger.Lo
 	}
 
 	return &CreatePersonUseCase{
-		persons: persons,
-		logger:  appLogger,
+		persons:   persons,
+		appLogger: appLogger,
 	}, nil
 }
 
 func (uc *CreatePersonUseCase) Run(ctx context.Context, input CreatePersonInput) (*CreatePersonOutput, error) {
-	uc.logger.DebugContext(ctx, "create person started", nil)
+	uc.appLogger.DebugContext(ctx, "create person started", nil)
 
 	person, err := preparePerson(input.Person)
 	if err != nil {
-		logging.Validation(ctx, uc.logger, "create person rejected: invalid input", err, nil)
+		logging.Validation(ctx, uc.appLogger, "create person rejected: invalid input", err, nil)
 		return nil, err
 	}
 
 	id, err := uc.persons.Create(ctx, *person)
 	if err != nil {
-		logging.Failure(ctx, uc.logger, "create person failed", err, map[string]any{})
+		logging.Failure(ctx, uc.appLogger, "create person failed", err, map[string]any{})
 
 		return nil, fmt.Errorf("create person: %w", err)
 	}
 
-	uc.logger.InfoContext(ctx, "person created", map[string]any{
+	uc.appLogger.InfoContext(ctx, "person created", map[string]any{
 		"person_id": id,
 	})
 

@@ -17,3 +17,19 @@ type Library struct {
 	WatchLater []int64 `json:"watchlater"`
 	Watched    []int64 `json:"watched"`
 }
+
+type PreferenceKey string
+
+const (
+	PreferenceSidebarCollapsed PreferenceKey = "frame:sidebar-collapsed"
+	PreferenceCatalogView      PreferenceKey = "frame:catalog-view"
+)
+
+type PreferenceValue string
+
+const (
+	PreferenceEnabled  PreferenceValue = "true"
+	PreferenceDisabled PreferenceValue = "false"
+	PreferenceGrid     PreferenceValue = `"grid"`
+	PreferenceList     PreferenceValue = `"list"`
+)

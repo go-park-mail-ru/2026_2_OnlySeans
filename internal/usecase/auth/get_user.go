@@ -11,41 +11,44 @@ import (
 )
 
 type GetUserUseCase struct {
-	users  domain.UserRepository
-	logger logger.Logger
+	users     domain.UserRepository
+	appLogger logger.Logger
 }
 
 func NewGetUserUseCase(users domain.UserRepository, appLogger logger.Logger) (*GetUserUseCase, error) {
 	if users == nil {
 		return nil, errors.New("users repository is nil")
 	}
+
 	if appLogger == nil {
 		return nil, domain.ErrInvalidAppLogger
 	}
 
 	return &GetUserUseCase{
-		users:  users,
-		logger: appLogger,
+		users:     users,
+		appLogger: appLogger,
 	}, nil
 }
 
 func (uc *GetUserUseCase) Run(ctx context.Context, input GetUserInput) (*GetUserOutput, error) {
-	uc.logger.DebugContext(ctx, "get user started", map[string]any{
+	uc.appLogger.DebugContext(ctx, "get user started", map[string]any{
 		"user_id": input.UserID,
 	})
 
 	user, err := uc.users.GetUser(ctx, input.UserID)
 	if err != nil {
-		logging.Failure(ctx, uc.logger, "get user failed", err, map[string]any{
+		logging.Failure(ctx, uc.appLogger, "get user failed", err, map[string]any{
 			"user_id": input.UserID,
 		})
+
 		return nil, fmt.Errorf("get user: %w", err)
 	}
 
 	if user == nil {
-		uc.logger.WarnContext(ctx, "user not found", map[string]any{
+		uc.appLogger.WarnContext(ctx, "user not found", map[string]any{
 			"user_id": input.UserID,
 		})
+
 		return nil, domain.ErrUserNotFound
 	}
 
@@ -53,7 +56,7 @@ func (uc *GetUserUseCase) Run(ctx context.Context, input GetUserInput) (*GetUser
 	output.Role = user.Role
 	output.AvatarFilename = user.AvatarFilename
 
-	uc.logger.InfoContext(ctx, "user retrieved", map[string]any{
+	uc.appLogger.InfoContext(ctx, "user retrieved", map[string]any{
 		"user_id": user.ID,
 	})
 

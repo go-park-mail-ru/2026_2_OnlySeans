@@ -123,11 +123,19 @@ func TestUpdateProfileValidation(t *testing.T) {
 			if tc.wantErr == nil {
 				repo.EXPECT().UpdateProfile(t.Context(), tc.user, "anna@example.com", "anna").Return(&domain.User{ID: tc.user}, nil)
 			}
-			result, err := uc.NewUpdateProfileUseCase(repo).Run(t.Context(), tc.user, tc.email, tc.username)
+			updateProfile, err := uc.NewUpdateProfileUseCase(repo)
+			require.NoError(t, err)
+			result, err := updateProfile.Run(t.Context(), tc.user, tc.email, tc.username)
 			require.ErrorIs(t, err, tc.wantErr)
 			if err != nil {
 				require.Nil(t, result)
 			}
 		})
 	}
+}
+
+func TestNewUpdateProfileUseCaseRejectsNilRepository(t *testing.T) {
+	usecase, err := uc.NewUpdateProfileUseCase(nil)
+	require.Nil(t, usecase)
+	require.ErrorIs(t, err, domain.ErrInvalidUserRepo)
 }

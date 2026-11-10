@@ -8,8 +8,12 @@ import (
 
 type GetLibraryUseCase struct{ repo domain.LibraryRepository }
 
-func NewGetLibraryUseCase(repo domain.LibraryRepository) *GetLibraryUseCase {
-	return &GetLibraryUseCase{repo: repo}
+func NewGetLibraryUseCase(repo domain.LibraryRepository) (*GetLibraryUseCase, error) {
+	if repo == nil {
+		return nil, domain.ErrNilRepo
+	}
+
+	return &GetLibraryUseCase{repo: repo}, nil
 }
 
 func (uc *GetLibraryUseCase) Run(ctx context.Context, user domain.UserID) (domain.Library, error) {

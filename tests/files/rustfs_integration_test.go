@@ -81,7 +81,7 @@ func TestRustFSAvatarHTTP(t *testing.T) {
 		_, err = db.ExecContext(setupCtx, query)
 		require.NoError(t, err)
 	}
-	avatarRepo, err := filesservice.NewPostgresAvatarRepo(db, nil)
+	avatarRepo, err := filesservice.NewPostgresAvatarRepo(db, testFilesLogger(t))
 	require.NoError(t, err)
 	upload, err := filesusecase.NewUploadAvatarUseCase(objectStorage, avatarRepo, filesusecase.UploadAvatarOptions{MaxSize: cfg.MaxAvatarSize, MaxDimension: cfg.MaxAvatarDimension, CleanupTimeout: cfg.AvatarCleanupTimeout}, testFilesLogger(t))
 	require.NoError(t, err)

@@ -9,22 +9,22 @@ import (
 )
 
 type FilmPosterUseCase struct {
-	posters domain.PosterRepository
-	storage AvatarURLStorage
-	log     logger.Logger
+	posters   domain.PosterRepository
+	storage   AvatarURLStorage
+	appLogger logger.Logger
 }
 
-func NewFilmPosterUseCase(posters domain.PosterRepository, storage AvatarURLStorage, log logger.Logger) (*FilmPosterUseCase, error) {
+func NewFilmPosterUseCase(posters domain.PosterRepository, storage AvatarURLStorage, appLogger logger.Logger) (*FilmPosterUseCase, error) {
 	if posters == nil {
 		return nil, errors.New("poster repository is nil")
 	}
 	if storage == nil {
 		return nil, errors.New("poster URL storage is nil")
 	}
-	if log == nil {
+	if appLogger == nil {
 		return nil, domain.ErrInvalidAppLogger
 	}
-	return &FilmPosterUseCase{posters: posters, storage: storage, log: log}, nil
+	return &FilmPosterUseCase{posters: posters, storage: storage, appLogger: appLogger}, nil
 }
 
 func (uc *FilmPosterUseCase) GetURL(ctx context.Context, filmID domain.FilmID) (string, error) {
@@ -33,7 +33,7 @@ func (uc *FilmPosterUseCase) GetURL(ctx context.Context, filmID domain.FilmID) (
 	}
 	poster, err := uc.posters.GetPoster(ctx, filmID)
 	if err != nil {
-		logging.Failure(ctx, uc.log, "get film poster failed", err, map[string]any{"film_id": filmID})
+		logging.Failure(ctx, uc.appLogger, "get film poster failed", err, map[string]any{"film_id": filmID})
 		return "", err
 	}
 	if poster == nil {
@@ -50,9 +50,9 @@ func (uc *FilmPosterUseCase) Delete(ctx context.Context, filmID domain.FilmID) e
 		return ErrInvalidPosterFilmID
 	}
 	if err := uc.posters.DeletePoster(ctx, filmID); err != nil {
-		logging.Failure(ctx, uc.log, "delete film poster failed", err, map[string]any{"film_id": filmID})
+		logging.Failure(ctx, uc.appLogger, "delete film poster failed", err, map[string]any{"film_id": filmID})
 		return err
 	}
-	uc.log.InfoContext(ctx, "film poster detached", map[string]any{"film_id": filmID})
+	uc.appLogger.InfoContext(ctx, "film poster detached", map[string]any{"film_id": filmID})
 	return nil
 }

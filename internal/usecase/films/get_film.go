@@ -11,7 +11,7 @@ import (
 
 type GetFilmUseCase struct {
 	repository domain.FilmRepository
-	logger     logger.Logger
+	appLogger  logger.Logger
 }
 
 func NewGetFilmUseCase(
@@ -27,24 +27,24 @@ func NewGetFilmUseCase(
 
 	return &GetFilmUseCase{
 		repository: repository,
-		logger:     appLogger,
+		appLogger:  appLogger,
 	}, nil
 }
 
 func (uc *GetFilmUseCase) Run(ctx context.Context, input GetFilmInput) (*GetFilmOutput, error) {
-	uc.logger.DebugContext(ctx, "get film started", map[string]any{
+	uc.appLogger.DebugContext(ctx, "get film started", map[string]any{
 		"film_id": input.FilmID,
 	})
 
 	film, err := uc.repository.GetFilmByID(ctx, input.FilmID)
 	if err != nil {
-		logging.Failure(ctx, uc.logger, "get film failed", err, map[string]any{
+		logging.Failure(ctx, uc.appLogger, "get film failed", err, map[string]any{
 			"film_id": input.FilmID,
 		})
 		return nil, fmt.Errorf("get film %d: %w", input.FilmID, err)
 	}
 
-	uc.logger.InfoContext(ctx, "film retrieved", map[string]any{
+	uc.appLogger.InfoContext(ctx, "film retrieved", map[string]any{
 		"film_id": input.FilmID,
 	})
 

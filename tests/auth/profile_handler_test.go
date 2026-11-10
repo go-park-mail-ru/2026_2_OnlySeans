@@ -22,15 +22,17 @@ import (
 
 func profileTestHandler(t *testing.T, repo uc.ProfileReader, update domain.UserRepository, posters uc.ProfilePosterStorage, auth router.Authenticator) http.Handler {
 	t.Helper()
-	log := testutil.DiscardLogger()
-	get, err := uc.NewGetProfileUseCase(repo, posters, log)
+	appLogger := testutil.DiscardLogger()
+	get, err := uc.NewGetProfileUseCase(repo, posters, appLogger)
 	require.NoError(t, err)
-	handler := delivery.NewProfileHandler(get, uc.NewUpdateProfileUseCase(update), log)
+	updateProfile, err := uc.NewUpdateProfileUseCase(update)
+	require.NoError(t, err)
+	handler := delivery.NewProfileHandler(get, updateProfile, appLogger)
 	routes := mux.NewRouter()
 	routes.HandleFunc("/api/me/profile", router.RequireAuth(auth)(handler.Get)).Methods(http.MethodGet)
 	routes.HandleFunc("/api/me/profile", router.RequireAuth(auth)(handler.Update)).Methods(http.MethodPut)
 	routes.HandleFunc("/api/me", router.RequireAuth(auth)(handler.Update)).Methods(http.MethodPut)
-	return router.WithRequestID(router.WithLogging(routes, log))
+	return router.WithRequestID(router.WithLogging(routes, appLogger))
 }
 
 func TestProfileGetHTTP(t *testing.T) {

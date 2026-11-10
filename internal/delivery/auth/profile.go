@@ -12,19 +12,19 @@ import (
 )
 
 type ProfileHandler struct {
-	get    *usecase.GetProfileUseCase
-	update *usecase.UpdateProfileUseCase
-	log    logger.Logger
+	get       *usecase.GetProfileUseCase
+	update    *usecase.UpdateProfileUseCase
+	appLogger logger.Logger
 }
 
-func NewProfileHandler(get *usecase.GetProfileUseCase, update *usecase.UpdateProfileUseCase, log logger.Logger) *ProfileHandler {
-	return &ProfileHandler{get: get, update: update, log: log}
+func NewProfileHandler(get *usecase.GetProfileUseCase, update *usecase.UpdateProfileUseCase, appLogger logger.Logger) *ProfileHandler {
+	return &ProfileHandler{get: get, update: update, appLogger: appLogger}
 }
 
 func (h *ProfileHandler) Get(w http.ResponseWriter, r *http.Request) {
 	id, ok := UserIDFromContext(r.Context())
 	if !ok {
-		httpresponse.WriteErrorContext(r.Context(), w, http.StatusUnauthorized, domain.ErrUnauthorized.Error(), h.log)
+		httpresponse.WriteErrorContext(r.Context(), w, http.StatusUnauthorized, domain.ErrUnauthorized.Error(), h.appLogger)
 		return
 	}
 	profile, err := h.get.Run(r.Context(), id)
@@ -34,17 +34,17 @@ func (h *ProfileHandler) Get(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, domain.ErrUserNotFound) || errors.Is(err, domain.ErrUnauthorized) {
 			status, message = http.StatusUnauthorized, domain.ErrUnauthorized.Error()
 		}
-		httpresponse.WriteErrorContext(r.Context(), w, status, message, h.log)
+		httpresponse.WriteErrorContext(r.Context(), w, status, message, h.appLogger)
 		return
 	}
 	w.Header().Set("Cache-Control", "no-store")
-	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, toProfileResponse(profile), h.log)
+	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, toProfileResponse(profile), h.appLogger)
 }
 
 func (h *ProfileHandler) Update(w http.ResponseWriter, r *http.Request) {
 	id, ok := UserIDFromContext(r.Context())
 	if !ok {
-		httpresponse.WriteErrorContext(r.Context(), w, http.StatusUnauthorized, domain.ErrUnauthorized.Error(), h.log)
+		httpresponse.WriteErrorContext(r.Context(), w, http.StatusUnauthorized, domain.ErrUnauthorized.Error(), h.appLogger)
 		return
 	}
 	var body struct {
@@ -52,7 +52,7 @@ func (h *ProfileHandler) Update(w http.ResponseWriter, r *http.Request) {
 		Username string `json:"username"`
 	}
 	if err := httprequest.DecodeJSON(w, r, &body); err != nil {
-		httpresponse.WriteErrorContext(r.Context(), w, http.StatusBadRequest, "Проверьте имя и почту.", h.log)
+		httpresponse.WriteErrorContext(r.Context(), w, http.StatusBadRequest, "Проверьте имя и почту.", h.appLogger)
 		return
 	}
 	user, err := h.update.Run(r.Context(), id, body.Email, body.Username)
@@ -76,13 +76,13 @@ func (h *ProfileHandler) Update(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, domain.ErrUserNotFound), errors.Is(err, domain.ErrUnauthorized):
 			status, message = http.StatusUnauthorized, domain.ErrUnauthorized.Error()
 		default:
-			h.log.ErrorContext(r.Context(), "update profile failed", map[string]any{"error": err.Error()})
+			h.appLogger.ErrorContext(r.Context(), "update profile failed", map[string]any{"error": err.Error()})
 		}
-		httpresponse.WriteErrorContext(r.Context(), w, status, message, h.log)
+		httpresponse.WriteErrorContext(r.Context(), w, status, message, h.appLogger)
 		return
 	}
 	dto := usecase.NewUserDTO(user.ID, user.Email, user.Username)
 	dto.AvatarFilename = user.AvatarFilename
 	w.Header().Set("Cache-Control", "no-store")
-	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, toAuthResponse(dto), h.log)
+	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, toAuthResponse(dto), h.appLogger)
 }

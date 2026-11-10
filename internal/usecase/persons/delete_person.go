@@ -10,8 +10,8 @@ import (
 )
 
 type DeletePersonUseCase struct {
-	persons domain.PersonRepository
-	logger  logger.Logger
+	persons   domain.PersonRepository
+	appLogger logger.Logger
 }
 
 func NewDeletePersonUseCase(persons domain.PersonRepository, appLogger logger.Logger) (*DeletePersonUseCase, error) {
@@ -24,26 +24,26 @@ func NewDeletePersonUseCase(persons domain.PersonRepository, appLogger logger.Lo
 	}
 
 	return &DeletePersonUseCase{
-		persons: persons,
-		logger:  appLogger,
+		persons:   persons,
+		appLogger: appLogger,
 	}, nil
 }
 
 func (uc *DeletePersonUseCase) Run(ctx context.Context, input DeletePersonInput) error {
-	uc.logger.DebugContext(ctx, "delete person started", map[string]any{
+	uc.appLogger.DebugContext(ctx, "delete person started", map[string]any{
 		"person_id": input.PersonID,
 	})
 
 	err := uc.persons.Delete(ctx, input.PersonID)
 	if err != nil {
-		logging.Failure(ctx, uc.logger, "delete person failed", err, map[string]any{
+		logging.Failure(ctx, uc.appLogger, "delete person failed", err, map[string]any{
 			"person_id": input.PersonID,
 		})
 
 		return fmt.Errorf("delete person %d: %w", input.PersonID, err)
 	}
 
-	uc.logger.InfoContext(ctx, "person deleted", map[string]any{
+	uc.appLogger.InfoContext(ctx, "person deleted", map[string]any{
 		"person_id": input.PersonID,
 	})
 

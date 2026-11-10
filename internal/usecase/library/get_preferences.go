@@ -9,8 +9,12 @@ import (
 
 type GetPreferencesUseCase struct{ repo domain.LibraryRepository }
 
-func NewGetPreferencesUseCase(repo domain.LibraryRepository) *GetPreferencesUseCase {
-	return &GetPreferencesUseCase{repo: repo}
+func NewGetPreferencesUseCase(repo domain.LibraryRepository) (*GetPreferencesUseCase, error) {
+	if repo == nil {
+		return nil, domain.ErrNilRepo
+	}
+
+	return &GetPreferencesUseCase{repo: repo}, nil
 }
 
 func (uc *GetPreferencesUseCase) Run(ctx context.Context, user domain.UserID) (json.RawMessage, error) {

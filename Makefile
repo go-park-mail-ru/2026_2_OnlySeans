@@ -16,9 +16,8 @@ test:
 cover:
 	bash scripts/coverage.sh
 
-# Генератор и библиотека gomock используют одну версию из go.mod.
 mocks:
-	bash scripts/generate_mocks.sh
+	go generate
 
 # Сборка приложения
 build:

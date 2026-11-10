@@ -10,8 +10,8 @@ import (
 )
 
 type UpdateReviewUseCase struct {
-	reviews domain.ReviewRepository
-	logger  logger.Logger
+	reviews   domain.ReviewRepository
+	appLogger logger.Logger
 }
 
 func NewUpdateReviewUseCase(
@@ -26,40 +26,50 @@ func NewUpdateReviewUseCase(
 	}
 
 	return &UpdateReviewUseCase{
-		reviews: reviews,
-		logger:  appLogger,
+		reviews:   reviews,
+		appLogger: appLogger,
 	}, nil
 }
 
 func (uc *UpdateReviewUseCase) Run(ctx context.Context, input UpdateReviewInput) (*ReviewOutput, error) {
-	uc.logger.DebugContext(ctx, "update review started", map[string]any{
+	uc.appLogger.DebugContext(ctx, "update review started", map[string]any{
 		"user_id":   input.UserID,
 		"review_id": input.ReviewID,
 	})
 
 	changes, err := prepareReview(input.Review)
 	if err != nil {
-		logging.Validation(ctx, uc.logger, "update review rejected: invalid input", err, map[string]any{"user_id": input.UserID, "review_id": input.ReviewID})
+		logging.Validation(ctx, uc.appLogger, "update review rejected: invalid input", err, map[string]any{
+			"user_id":   input.UserID,
+			"review_id": input.ReviewID,
+		})
 		return nil, err
 	}
 
 	review, err := uc.reviews.GetByID(ctx, input.ReviewID)
 	if err != nil {
-		logging.Failure(ctx, uc.logger, "get review for update failed", err, map[string]any{
+		logging.Failure(ctx, uc.appLogger, "get review for update failed", err, map[string]any{
 			"review_id": input.ReviewID,
 		})
 		return nil, fmt.Errorf("get review %d: %w", input.ReviewID, err)
 	}
 
 	if review.AuthorID != input.UserID {
-		uc.logger.WarnContext(ctx, "review update forbidden", map[string]any{
+		uc.appLogger.WarnContext(ctx, "review update forbidden", map[string]any{
 			"user_id":   input.UserID,
 			"review_id": input.ReviewID,
 		})
 		return nil, domain.ErrForbidden
 	}
 	if input.Version <= 0 {
-		logging.Validation(ctx, uc.logger, "update review rejected: invalid version", domain.ErrInvalidVersion, map[string]any{"user_id": input.UserID, "review_id": input.ReviewID})
+		logging.Validation(
+			ctx, uc.appLogger, "update review rejected: invalid version",
+			domain.ErrInvalidVersion,
+			map[string]any{
+				"user_id":   input.UserID,
+				"review_id": input.ReviewID,
+			},
+		)
 		return nil, domain.ErrInvalidVersion
 	}
 
@@ -68,14 +78,14 @@ func (uc *UpdateReviewUseCase) Run(ctx context.Context, input UpdateReviewInput)
 		Version: input.Version,
 	})
 	if err != nil {
-		logging.Failure(ctx, uc.logger, "update review failed", err, map[string]any{
+		logging.Failure(ctx, uc.appLogger, "update review failed", err, map[string]any{
 			"user_id":   input.UserID,
 			"review_id": input.ReviewID,
 		})
 		return nil, fmt.Errorf("update review %d: %w", input.ReviewID, err)
 	}
 
-	uc.logger.InfoContext(ctx, "review updated", map[string]any{
+	uc.appLogger.InfoContext(ctx, "review updated", map[string]any{
 		"user_id":   input.UserID,
 		"review_id": input.ReviewID,
 	})

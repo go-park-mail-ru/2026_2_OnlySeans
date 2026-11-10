@@ -29,10 +29,10 @@ func TestDatabaseOperationLogs(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			var buffer bytes.Buffer
-			log, err := logger.NewLogger(&buffer, logger.LogLevelInfo, "json")
+			appLogger, err := logger.NewLogger(&buffer, logger.LogLevelInfo, "json")
 			require.NoError(t, err)
 			fields := map[string]any{"user_id": 7}
-			op := storage.StartOperation(logger.ContextWithRequestID(context.Background(), "request-123"), log, tc.backend, "account.get_by_id", fields)
+			op := storage.StartOperation(logger.ContextWithRequestID(context.Background(), "request-123"), appLogger, tc.backend, "account.get_by_id", fields)
 			op.Stage = "query"
 			op.Finish(tc.err)
 			var record map[string]any

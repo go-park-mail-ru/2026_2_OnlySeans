@@ -14,28 +14,28 @@ import (
 )
 
 type Operation struct {
-	Stage    string
-	NotFound bool
-	log      logger.Logger
-	ctx      context.Context
-	fields   map[string]any
-	started  time.Time
+	Stage     string
+	NotFound  bool
+	appLogger logger.Logger
+	ctx       context.Context
+	fields    map[string]any
+	started   time.Time
 }
 
-func StartOperation(ctx context.Context, log logger.Logger, backend, operation string, fields map[string]any) *Operation {
+func StartOperation(ctx context.Context, appLogger logger.Logger, backend, operation string, fields map[string]any) *Operation {
 	attrs := make(map[string]any, len(fields)+6)
 	maps.Copy(attrs, fields)
 	attrs["backend"] = backend
 	attrs["operation"] = operation
-	op := &Operation{Stage: "start", log: log, ctx: ctx, fields: attrs, started: time.Now()}
-	if log != nil {
-		log.DebugContext(ctx, "database operation started", maps.Clone(attrs))
+	op := &Operation{Stage: "start", appLogger: appLogger, ctx: ctx, fields: attrs, started: time.Now()}
+	if appLogger != nil {
+		appLogger.DebugContext(ctx, "database operation started", maps.Clone(attrs))
 	}
 	return op
 }
 
 func (op *Operation) Finish(err error) {
-	if op.log == nil {
+	if op.appLogger == nil {
 		return
 	}
 	fields := maps.Clone(op.fields)
@@ -46,14 +46,14 @@ func (op *Operation) Finish(err error) {
 		if op.NotFound {
 			fields["outcome"] = "not_found"
 		}
-		op.log.InfoContext(op.ctx, "database operation completed", fields)
+		op.appLogger.InfoContext(op.ctx, "database operation completed", fields)
 		return
 	}
 	fields["outcome"] = "error"
 	for _, missing := range []error{sql.ErrNoRows, domain.ErrUserNotFound, domain.ErrFilmNotFound, domain.ErrPersonNotFound, domain.ErrCollectionNotFound, domain.ErrReviewNotFound, domain.ErrFileNotFound, domain.ErrSessionNotFound, domain.ErrRatingNotFound} {
 		if errors.Is(err, missing) {
 			fields["outcome"] = "not_found"
-			op.log.InfoContext(op.ctx, "database operation completed", fields)
+			op.appLogger.InfoContext(op.ctx, "database operation completed", fields)
 			return
 		}
 	}
@@ -61,7 +61,7 @@ func (op *Operation) Finish(err error) {
 		if errors.Is(err, rejected) {
 			fields["outcome"] = "rejected"
 			fields["error"] = rejected.Error()
-			op.log.WarnContext(op.ctx, "database operation rejected", fields)
+			op.appLogger.WarnContext(op.ctx, "database operation rejected", fields)
 			return
 		}
 	}
@@ -82,5 +82,5 @@ func (op *Operation) Finish(err error) {
 			fields["error_type"] = fmt.Sprintf("%T", err)
 		}
 	}
-	op.log.ErrorContext(op.ctx, "database operation failed", fields)
+	op.appLogger.ErrorContext(op.ctx, "database operation failed", fields)
 }

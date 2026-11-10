@@ -32,9 +32,13 @@ type Handlers struct {
 }
 
 func NewRouter(handlers Handlers, allowedOrigins []string, appLogger logger.Logger) (http.Handler, error) {
-	authHandler, filmsHandler, reviewsHandler := handlers.Auth, handlers.Films, handlers.Reviews
-	personsHandler, filesHandler := handlers.Persons, handlers.Files
-	postersHandler, ratingsHandler := handlers.Posters, handlers.Ratings
+	authHandler := handlers.Auth
+	filmsHandler := handlers.Films
+	reviewsHandler := handlers.Reviews
+	personsHandler := handlers.Persons
+	filesHandler := handlers.Files
+	postersHandler := handlers.Posters
+	ratingsHandler := handlers.Ratings
 	r := mux.NewRouter()
 	authenticatedMiddlewares := []Middleware{RequireAuth(authHandler)}
 	adminMiddlewares := []Middleware{RequireAuth(authHandler), authHandler.RequireAdmin}

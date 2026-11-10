@@ -27,7 +27,7 @@ func testAvatarOptions() filesusecase.UploadAvatarOptions {
 
 func testAccountAvatar(t *testing.T, storage filesusecase.AvatarURLStorage) *filesusecase.AccountAvatarUseCase {
 	t.Helper()
-	uc, err := filesusecase.NewAccountAvatarUseCase(mocks.NewMockAccountAvatarRepository(gomock.NewController(t)), storage, testFilesLogger(t))
+	uc, err := filesusecase.NewAccountAvatarUseCase(mocks.NewMockAvatarRepository(gomock.NewController(t)), storage, testFilesLogger(t))
 	require.NoError(t, err)
 	return uc
 }

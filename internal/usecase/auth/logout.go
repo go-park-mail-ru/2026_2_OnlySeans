@@ -11,8 +11,8 @@ import (
 )
 
 type LogoutUserUseCase struct {
-	sessions domain.SessionStore
-	logger   logger.Logger
+	sessions  domain.SessionStore
+	appLogger logger.Logger
 }
 
 func NewLogoutUserUseCase(sessions domain.SessionStore, appLogger logger.Logger) (*LogoutUserUseCase, error) {
@@ -24,19 +24,19 @@ func NewLogoutUserUseCase(sessions domain.SessionStore, appLogger logger.Logger)
 		return nil, domain.ErrInvalidAppLogger
 	}
 
-	return &LogoutUserUseCase{sessions: sessions, logger: appLogger}, nil
+	return &LogoutUserUseCase{sessions: sessions, appLogger: appLogger}, nil
 }
 
 func (uc *LogoutUserUseCase) Run(ctx context.Context, input LogoutInput) error {
-	uc.logger.DebugContext(ctx, "logout started", nil)
+	uc.appLogger.DebugContext(ctx, "logout started", nil)
 
 	if err := uc.sessions.Delete(ctx, input.SessionID); err != nil {
-		logging.Failure(ctx, uc.logger, "session deletion failed", err, map[string]any{})
+		logging.Failure(ctx, uc.appLogger, "session deletion failed", err, map[string]any{})
 
 		return fmt.Errorf("delete session: %w", err)
 	}
 
-	uc.logger.InfoContext(ctx, "user logged out", nil)
+	uc.appLogger.InfoContext(ctx, "user logged out", nil)
 
 	return nil
 }

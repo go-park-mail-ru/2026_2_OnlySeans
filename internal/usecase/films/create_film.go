@@ -12,7 +12,7 @@ import (
 
 type CreateFilmUseCase struct {
 	repository domain.FilmRepository
-	logger     logger.Logger
+	appLogger  logger.Logger
 }
 
 func NewCreateFilmUseCase(repository domain.FilmRepository, appLogger logger.Logger) (*CreateFilmUseCase, error) {
@@ -22,24 +22,24 @@ func NewCreateFilmUseCase(repository domain.FilmRepository, appLogger logger.Log
 	if appLogger == nil {
 		return nil, domain.ErrInvalidAppLogger
 	}
-	return &CreateFilmUseCase{repository: repository, logger: appLogger}, nil
+	return &CreateFilmUseCase{repository: repository, appLogger: appLogger}, nil
 }
 
 func (uc *CreateFilmUseCase) Run(ctx context.Context, input domain.CreateFilmInput) (domain.FilmID, error) {
-	uc.logger.DebugContext(ctx, "create film started", nil)
+	uc.appLogger.DebugContext(ctx, "create film started", nil)
 	input.Title = strings.TrimSpace(input.Title)
 
 	if err := input.Validate(); err != nil {
-		uc.logger.WarnContext(ctx, "create film rejected: invalid input", map[string]any{"error": err})
+		uc.appLogger.WarnContext(ctx, "create film rejected: invalid input", map[string]any{"error": err})
 		return 0, fmt.Errorf("validate film input: %w", err)
 	}
 
 	id, err := uc.repository.CreateFilm(ctx, input)
 	if err != nil {
-		logging.Failure(ctx, uc.logger, "create film failed", err, nil)
+		logging.Failure(ctx, uc.appLogger, "create film failed", err, nil)
 		return 0, fmt.Errorf("create film: %w", err)
 	}
 
-	uc.logger.InfoContext(ctx, "film created", map[string]any{"film_id": id})
+	uc.appLogger.InfoContext(ctx, "film created", map[string]any{"film_id": id})
 	return id, nil
 }

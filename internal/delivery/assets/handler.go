@@ -13,13 +13,13 @@ import (
 )
 
 type Handler struct {
-	client *s3.Client
-	bucket string
-	log    logger.Logger
+	client    *s3.Client
+	bucket    string
+	appLogger logger.Logger
 }
 
-func NewHandler(client *s3.Client, bucket string, log logger.Logger) *Handler {
-	return &Handler{client: client, bucket: bucket, log: log}
+func NewHandler(client *s3.Client, bucket string, appLogger logger.Logger) *Handler {
+	return &Handler{client: client, bucket: bucket, appLogger: appLogger}
 }
 
 func (h *Handler) GetAsset(w http.ResponseWriter, r *http.Request) {
@@ -29,7 +29,7 @@ func (h *Handler) GetAsset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	operation := storage.StartOperation(r.Context(), h.log, "s3", "asset.get", map[string]any{"bucket": h.bucket, "storage_key": key})
+	operation := storage.StartOperation(r.Context(), h.appLogger, "s3", "asset.get", map[string]any{"bucket": h.bucket, "storage_key": key})
 	var operationErr error
 	defer func() { operation.Finish(operationErr) }()
 	object, err := h.client.GetObject(r.Context(), &s3.GetObjectInput{Bucket: aws.String(h.bucket), Key: aws.String(key)})
@@ -47,6 +47,6 @@ func (h *Handler) GetAsset(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "public, max-age=3600")
 	if _, err := io.Copy(w, object.Body); err != nil {
 		operationErr = err
-		h.log.ErrorContext(r.Context(), "write asset failed", map[string]any{"error": err})
+		h.appLogger.ErrorContext(r.Context(), "write asset failed", map[string]any{"error": err})
 	}
 }

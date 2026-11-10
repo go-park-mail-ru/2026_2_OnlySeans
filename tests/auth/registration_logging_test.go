@@ -62,7 +62,7 @@ func TestRegistrationStageLogs(t *testing.T) {
 		for _, level := range []logger.LogLevelType{logger.LogLevelInfo, logger.LogLevelDebug} {
 			t.Run(tt.name+"/"+string(level), func(t *testing.T) {
 				var output bytes.Buffer
-				log, err := logger.NewLogger(&output, level, "json")
+				appLogger, err := logger.NewLogger(&output, level, "json")
 				require.NoError(t, err)
 				ctrl := gomock.NewController(t)
 				repo := mocks.NewMockUserRepository(ctrl)
@@ -84,7 +84,7 @@ func TestRegistrationStageLogs(t *testing.T) {
 					}
 					gomock.InOrder(calls...)
 				}
-				uc, err := authusecase.NewRegisterUserUseCase(repo, sessions, hasher, log)
+				uc, err := authusecase.NewRegisterUserUseCase(repo, sessions, hasher, appLogger)
 				require.NoError(t, err)
 				result, err := uc.Run(t.Context(), input)
 				failed := tt.invalid || tt.hashErr != nil || tt.createErr != nil || tt.getErr != nil || tt.sessionErr != nil

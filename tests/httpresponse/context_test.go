@@ -21,13 +21,13 @@ func (w failingResponseWriter) Write([]byte) (int, error) { return 0, errors.New
 func TestResponseFailureLogsKeepRequestID(t *testing.T) {
 	for _, encodeFailure := range []bool{true, false} {
 		var buffer bytes.Buffer
-		log, err := logger.NewLogger(&buffer, logger.LogLevelInfo, "json")
+		appLogger, err := logger.NewLogger(&buffer, logger.LogLevelInfo, "json")
 		require.NoError(t, err)
 		ctx := logger.ContextWithRequestID(context.Background(), "request-123")
 		if encodeFailure {
-			httpresponse.WriteJSONContext(ctx, httptest.NewRecorder(), http.StatusOK, make(chan int), log)
+			httpresponse.WriteJSONContext(ctx, httptest.NewRecorder(), http.StatusOK, make(chan int), appLogger)
 		} else {
-			httpresponse.WriteErrorContext(ctx, failingResponseWriter{httptest.NewRecorder()}, http.StatusBadRequest, "invalid body", log)
+			httpresponse.WriteErrorContext(ctx, failingResponseWriter{httptest.NewRecorder()}, http.StatusBadRequest, "invalid body", appLogger)
 		}
 		var record map[string]any
 		require.NoError(t, json.Unmarshal(buffer.Bytes(), &record))

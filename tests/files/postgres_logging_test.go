@@ -21,9 +21,9 @@ func TestPosterTransactionLogsActualOutcome(t *testing.T) {
 			require.NoError(t, err)
 			defer db.Close()
 			var buffer bytes.Buffer
-			log, err := logger.NewLogger(&buffer, logger.LogLevelInfo, "json")
+			appLogger, err := logger.NewLogger(&buffer, logger.LogLevelInfo, "json")
 			require.NoError(t, err)
-			repo, err := files.NewPostgresPosterRepo(db, log)
+			repo, err := files.NewPostgresPosterRepo(db, appLogger)
 			require.NoError(t, err)
 			failure := errors.New("database unavailable")
 			begin := mock.ExpectBegin()

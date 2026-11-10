@@ -102,13 +102,13 @@ func TestRequestRejectionLogs(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			log := newSpyLogger(t)
-			handler := newTestRouterWithLogger(t, log)
+			appLogger := newSpyLogger(t)
+			handler := newTestRouterWithLogger(t, appLogger)
 			rec := httptest.NewRecorder()
 			handler.ServeHTTP(rec, httptest.NewRequest(tt.method, tt.path, strings.NewReader(tt.body)))
 			require.Equal(t, http.StatusBadRequest, rec.Code)
 			found := 0
-			for _, entry := range log.entries {
+			for _, entry := range appLogger.entries {
 				require.NotEqual(t, "error", entry.level)
 				if entry.msg == tt.message {
 					found++

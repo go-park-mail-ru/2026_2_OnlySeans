@@ -56,7 +56,7 @@ func TestAccountAvatarUseCase(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
-			repo := mocks.NewMockAccountAvatarRepository(ctrl)
+			repo := mocks.NewMockAvatarRepository(ctrl)
 			storage := mocks.NewMockAvatarURLStorage(ctrl)
 			if tt.userID > 0 {
 				lookup := repo.EXPECT().GetAvatar(gomock.Any(), tt.userID).Return(&domain.AvatarFile{Filename: "test.png"}, tt.repoErr)

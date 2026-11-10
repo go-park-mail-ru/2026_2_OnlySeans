@@ -10,8 +10,8 @@ import (
 )
 
 type GetPersonUseCase struct {
-	persons domain.PersonRepository
-	logger  logger.Logger
+	persons   domain.PersonRepository
+	appLogger logger.Logger
 }
 
 func NewGetPersonUseCase(persons domain.PersonRepository, appLogger logger.Logger) (*GetPersonUseCase, error) {
@@ -24,26 +24,26 @@ func NewGetPersonUseCase(persons domain.PersonRepository, appLogger logger.Logge
 	}
 
 	return &GetPersonUseCase{
-		persons: persons,
-		logger:  appLogger,
+		persons:   persons,
+		appLogger: appLogger,
 	}, nil
 }
 
 func (uc *GetPersonUseCase) Run(ctx context.Context, id domain.PersonID) (*PersonOutput, error) {
-	uc.logger.DebugContext(ctx, "get person started", map[string]any{
+	uc.appLogger.DebugContext(ctx, "get person started", map[string]any{
 		"person_id": id,
 	})
 
 	person, err := uc.persons.GetByID(ctx, id)
 	if err != nil {
-		logging.Failure(ctx, uc.logger, "get person failed", err, map[string]any{
+		logging.Failure(ctx, uc.appLogger, "get person failed", err, map[string]any{
 			"person_id": id,
 		})
 
 		return nil, fmt.Errorf("get person %d: %w", id, err)
 	}
 
-	uc.logger.InfoContext(ctx, "person retrieved", map[string]any{
+	uc.appLogger.InfoContext(ctx, "person retrieved", map[string]any{
 		"person_id": id,
 	})
 

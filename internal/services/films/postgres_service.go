@@ -36,10 +36,10 @@ const (
 		 WHERE f.id = $1`
 
 	listFilmsQuery = `
-	SELECT ` + filmColumns +
+		SELECT ` + filmColumns +
 		` FROM film AS f 
-	  ORDER BY f.id
-	  LIMIT $1 OFFSET $2`
+		ORDER BY f.id
+		LIMIT $1 OFFSET $2`
 
 	countFilmsQuery = `
 		SELECT count(*) FROM film`
@@ -102,12 +102,12 @@ const (
 )
 
 type PostgresService struct {
-	log logger.Logger
-	db  *sql.DB
+	appLogger logger.Logger
+	db        *sql.DB
 }
 
 func NewPostgresService(db *sql.DB, appLogger logger.Logger) *PostgresService {
-	return &PostgresService{log: appLogger, db: db}
+	return &PostgresService{appLogger: appLogger, db: db}
 }
 
 type rowScanner interface {
@@ -170,28 +170,28 @@ func attachGenresTx(ctx context.Context, q querier, films []domain.Film, appLogg
 }
 
 func (s *PostgresService) GetFilmByID(ctx context.Context, id domain.FilmID) (_ domain.Film, operationErr error) {
-	operationLog := storage.StartOperation(ctx, s.log, "postgres", "film.get_film_by_id", map[string]any{"film_id": id})
+	operationLog := storage.StartOperation(ctx, s.appLogger, "postgres", "film.get_film_by_id", map[string]any{"film_id": id})
 	defer func() { operationLog.Finish(operationErr) }()
 
 	operationLog.Stage = "query"
 	film, err := scanFilm(s.db.QueryRowContext(ctx, getFilmQuery, id))
 
 	if errors.Is(err, sql.ErrNoRows) {
-		return domain.Film{}, ErrFilmNotFound
+		return domain.Film{}, domain.ErrFilmNotFound
 	}
 	if err != nil {
 		return domain.Film{}, fmt.Errorf("get film %d: %w", id, err)
 	}
 
 	films := []domain.Film{film}
-	if err := attachGenresTx(ctx, s.db, films, s.log); err != nil {
+	if err := attachGenresTx(ctx, s.db, films, s.appLogger); err != nil {
 		return domain.Film{}, err
 	}
 	return films[0], nil
 }
 
 func (s *PostgresService) CreateFilm(ctx context.Context, input domain.CreateFilmInput) (_ domain.FilmID, operationErr error) {
-	operationLog := storage.StartOperation(ctx, s.log, "postgres", "film.create_film", map[string]any{})
+	operationLog := storage.StartOperation(ctx, s.appLogger, "postgres", "film.create_film", map[string]any{})
 	defer func() { operationLog.Finish(operationErr) }()
 
 	var id domain.FilmID
@@ -212,7 +212,7 @@ func (s *PostgresService) CreateFilm(ctx context.Context, input domain.CreateFil
 }
 
 func (s *PostgresService) UpdateFilm(ctx context.Context, id domain.FilmID, input domain.CreateFilmInput) (operationErr error) {
-	operationLog := storage.StartOperation(ctx, s.log, "postgres", "film.update_film", map[string]any{"film_id": id})
+	operationLog := storage.StartOperation(ctx, s.appLogger, "postgres", "film.update_film", map[string]any{"film_id": id})
 	defer func() { operationLog.Finish(operationErr) }()
 
 	operationLog.Stage = "query"
@@ -233,7 +233,7 @@ func (s *PostgresService) UpdateFilm(ctx context.Context, id domain.FilmID, inpu
 }
 
 func (s *PostgresService) DeleteFilm(ctx context.Context, id domain.FilmID) (operationErr error) {
-	operationLog := storage.StartOperation(ctx, s.log, "postgres", "film.delete_film", map[string]any{"film_id": id})
+	operationLog := storage.StartOperation(ctx, s.appLogger, "postgres", "film.delete_film", map[string]any{"film_id": id})
 	defer func() { operationLog.Finish(operationErr) }()
 
 	operationLog.Stage = "query"
@@ -254,7 +254,7 @@ func (s *PostgresService) DeleteFilm(ctx context.Context, id domain.FilmID) (ope
 }
 
 func (s *PostgresService) ListFilms(ctx context.Context, limit, offset int) (_ []domain.Film, _ int, operationErr error) {
-	operationLog := storage.StartOperation(ctx, s.log, "postgres", "film.list_films", map[string]any{"limit": limit, "offset": offset})
+	operationLog := storage.StartOperation(ctx, s.appLogger, "postgres", "film.list_films", map[string]any{"limit": limit, "offset": offset})
 	defer func() { operationLog.Finish(operationErr) }()
 
 	operationLog.Stage = "begin"
@@ -288,7 +288,7 @@ func (s *PostgresService) ListFilms(ctx context.Context, limit, offset int) (_ [
 	if err := rows.Err(); err != nil {
 		return nil, 0, fmt.Errorf("list films: %w", err)
 	}
-	if err := attachGenresTx(ctx, tx, list, s.log); err != nil {
+	if err := attachGenresTx(ctx, tx, list, s.appLogger); err != nil {
 		return nil, 0, err
 	}
 
@@ -312,14 +312,14 @@ func scanCollection(row rowScanner) (domain.Collection, error) {
 }
 
 func (s *PostgresService) GetCollectionByID(ctx context.Context, id domain.CollectionID) (_ domain.Collection, operationErr error) {
-	operationLog := storage.StartOperation(ctx, s.log, "postgres", "film.get_collection_by_id", map[string]any{"collection_id": id})
+	operationLog := storage.StartOperation(ctx, s.appLogger, "postgres", "film.get_collection_by_id", map[string]any{"collection_id": id})
 	defer func() { operationLog.Finish(operationErr) }()
 
 	operationLog.Stage = "query"
 	collection, err := scanCollection(s.db.QueryRowContext(ctx, getCollectionQuery, id))
 
 	if errors.Is(err, sql.ErrNoRows) {
-		return domain.Collection{}, ErrCollectionNotFound
+		return domain.Collection{}, domain.ErrCollectionNotFound
 	}
 	if err != nil {
 		return domain.Collection{}, fmt.Errorf("get collection %d: %w", id, err)
@@ -328,7 +328,7 @@ func (s *PostgresService) GetCollectionByID(ctx context.Context, id domain.Colle
 }
 
 func (s *PostgresService) ListCollections(ctx context.Context, limit, offset int) (_ []domain.Collection, _ int, operationErr error) {
-	operationLog := storage.StartOperation(ctx, s.log, "postgres", "film.list_collections", map[string]any{"limit": limit, "offset": offset})
+	operationLog := storage.StartOperation(ctx, s.appLogger, "postgres", "film.list_collections", map[string]any{"limit": limit, "offset": offset})
 	defer func() { operationLog.Finish(operationErr) }()
 
 	operationLog.Stage = "begin"
@@ -372,7 +372,7 @@ func (s *PostgresService) ListCollections(ctx context.Context, limit, offset int
 }
 
 func (s *PostgresService) ListCollectionFilms(ctx context.Context, collectionID domain.CollectionID, limit, offset int) (_ []domain.Film, _ int, operationErr error) {
-	operationLog := storage.StartOperation(ctx, s.log, "postgres", "film.list_collection_films", map[string]any{"collection_id": collectionID, "limit": limit, "offset": offset})
+	operationLog := storage.StartOperation(ctx, s.appLogger, "postgres", "film.list_collection_films", map[string]any{"collection_id": collectionID, "limit": limit, "offset": offset})
 	defer func() { operationLog.Finish(operationErr) }()
 
 	if _, err := s.GetCollectionByID(ctx, collectionID); err != nil {
@@ -409,7 +409,7 @@ func (s *PostgresService) ListCollectionFilms(ctx context.Context, collectionID 
 	if err := rows.Err(); err != nil {
 		return nil, 0, fmt.Errorf("list collection films: %w", err)
 	}
-	if err := attachGenresTx(ctx, tx, list, s.log); err != nil {
+	if err := attachGenresTx(ctx, tx, list, s.appLogger); err != nil {
 		return nil, 0, err
 	}
 

@@ -11,7 +11,7 @@ import (
 
 type ListFilmsUseCase struct {
 	repository domain.FilmRepository
-	logger     logger.Logger
+	appLogger  logger.Logger
 }
 
 func NewListFilmsUseCase(
@@ -27,26 +27,26 @@ func NewListFilmsUseCase(
 
 	return &ListFilmsUseCase{
 		repository: repository,
-		logger:     appLogger,
+		appLogger:  appLogger,
 	}, nil
 }
 
 func (uc *ListFilmsUseCase) Run(ctx context.Context, input ListFilmsInput) (*ListFilmsOutput, error) {
-	uc.logger.DebugContext(ctx, "list films started", map[string]any{
+	uc.appLogger.DebugContext(ctx, "list films started", map[string]any{
 		"limit":  input.Limit,
 		"offset": input.Offset,
 	})
 
 	films, total, err := uc.repository.ListFilms(ctx, input.Limit, input.Offset)
 	if err != nil {
-		logging.Failure(ctx, uc.logger, "list films failed", err, map[string]any{
+		logging.Failure(ctx, uc.appLogger, "list films failed", err, map[string]any{
 			"limit":  input.Limit,
 			"offset": input.Offset,
 		})
 		return nil, fmt.Errorf("list films: %w", err)
 	}
 
-	uc.logger.InfoContext(ctx, "films listed", map[string]any{
+	uc.appLogger.InfoContext(ctx, "films listed", map[string]any{
 		"limit":  input.Limit,
 		"offset": input.Offset,
 		"total":  total,

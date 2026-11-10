@@ -10,8 +10,8 @@ import (
 )
 
 type ListPersonsUseCase struct {
-	persons domain.PersonRepository
-	logger  logger.Logger
+	persons   domain.PersonRepository
+	appLogger logger.Logger
 }
 
 func NewListPersonsUseCase(persons domain.PersonRepository, appLogger logger.Logger) (*ListPersonsUseCase, error) {
@@ -24,13 +24,13 @@ func NewListPersonsUseCase(persons domain.PersonRepository, appLogger logger.Log
 	}
 
 	return &ListPersonsUseCase{
-		persons: persons,
-		logger:  appLogger,
+		persons:   persons,
+		appLogger: appLogger,
 	}, nil
 }
 
 func (uc *ListPersonsUseCase) Run(ctx context.Context, input ListPersonsInput) (*ListPersonsOutput, error) {
-	uc.logger.DebugContext(ctx, "list persons started", map[string]any{
+	uc.appLogger.DebugContext(ctx, "list persons started", map[string]any{
 		"limit":  input.Limit,
 		"offset": input.Offset,
 	})
@@ -41,7 +41,7 @@ func (uc *ListPersonsUseCase) Run(ctx context.Context, input ListPersonsInput) (
 		input.Offset,
 	)
 	if err != nil {
-		logging.Failure(ctx, uc.logger, "list persons failed", err, map[string]any{
+		logging.Failure(ctx, uc.appLogger, "list persons failed", err, map[string]any{
 			"limit":  input.Limit,
 			"offset": input.Offset,
 		})
@@ -49,7 +49,7 @@ func (uc *ListPersonsUseCase) Run(ctx context.Context, input ListPersonsInput) (
 		return nil, fmt.Errorf("list persons: %w", err)
 	}
 
-	uc.logger.InfoContext(ctx, "persons listed", map[string]any{
+	uc.appLogger.InfoContext(ctx, "persons listed", map[string]any{
 		"limit":  input.Limit,
 		"offset": input.Offset,
 		"total":  total,

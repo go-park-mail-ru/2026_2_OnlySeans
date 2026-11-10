@@ -37,18 +37,18 @@ const (
 )
 
 type PostgresUserRepo struct {
-	log logger.Logger
-	db  *sql.DB
+	appLogger logger.Logger
+	db        *sql.DB
 }
 
 func NewPostgresUserRepo(db *sql.DB, appLogger logger.Logger) domain.UserRepository {
-	return &PostgresUserRepo{log: appLogger,
+	return &PostgresUserRepo{appLogger: appLogger,
 		db: db,
 	}
 }
 
 func (r *PostgresUserRepo) GetUser(ctx context.Context, id domain.UserID) (_ *domain.User, operationErr error) {
-	operationLog := storage.StartOperation(ctx, r.log, "postgres", "account.get_user", map[string]any{"user_id": id})
+	operationLog := storage.StartOperation(ctx, r.appLogger, "postgres", "account.get_user", map[string]any{"user_id": id})
 	defer func() { operationLog.Finish(operationErr) }()
 
 	var user domain.User
@@ -69,7 +69,7 @@ func (r *PostgresUserRepo) GetUser(ctx context.Context, id domain.UserID) (_ *do
 }
 
 func (r *PostgresUserRepo) GetByEmail(ctx context.Context, email string) (_ *domain.User, operationErr error) {
-	operationLog := storage.StartOperation(ctx, r.log, "postgres", "account.get_by_email", map[string]any{})
+	operationLog := storage.StartOperation(ctx, r.appLogger, "postgres", "account.get_by_email", map[string]any{})
 	defer func() { operationLog.Finish(operationErr) }()
 
 	var user domain.User
@@ -90,7 +90,7 @@ func (r *PostgresUserRepo) GetByEmail(ctx context.Context, email string) (_ *dom
 }
 
 func (r *PostgresUserRepo) Create(ctx context.Context, email, username, passwordHash string) (_ domain.UserID, operationErr error) {
-	operationLog := storage.StartOperation(ctx, r.log, "postgres", "account.create", map[string]any{})
+	operationLog := storage.StartOperation(ctx, r.appLogger, "postgres", "account.create", map[string]any{})
 	defer func() { operationLog.Finish(operationErr) }()
 
 	var id domain.UserID

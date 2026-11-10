@@ -50,11 +50,11 @@ type UploadPosterOutput struct {
 }
 
 type UploadPosterUseCase struct {
-	storage PosterStorage
-	posters domain.PosterRepository
-	films   PosterFilmReader
-	options UploadPosterOptions
-	logger  logger.Logger
+	storage   PosterStorage
+	posters   domain.PosterRepository
+	films     PosterFilmReader
+	options   UploadPosterOptions
+	appLogger logger.Logger
 }
 
 func NewUploadPosterUseCase(storage PosterStorage, posters domain.PosterRepository, films PosterFilmReader, options UploadPosterOptions, appLogger logger.Logger) (*UploadPosterUseCase, error) {
@@ -74,11 +74,11 @@ func NewUploadPosterUseCase(storage PosterStorage, posters domain.PosterReposito
 		return nil, errors.New("poster limits and cleanup timeout must be positive and size must leave room for multipart overhead")
 	}
 	return &UploadPosterUseCase{
-		storage: storage,
-		posters: posters,
-		films:   films,
-		options: options,
-		logger:  appLogger,
+		storage:   storage,
+		posters:   posters,
+		films:     films,
+		options:   options,
+		appLogger: appLogger,
 	}, nil
 }
 
@@ -88,25 +88,25 @@ func (uc *UploadPosterUseCase) MaxSize() int64 {
 
 func (uc *UploadPosterUseCase) Run(ctx context.Context, input UploadPosterInput) (*UploadPosterOutput, error) {
 	fields := map[string]any{"user_id": input.UserID, "film_id": input.FilmID}
-	uc.logger.DebugContext(ctx, "poster upload started", fields)
+	uc.appLogger.DebugContext(ctx, "poster upload started", fields)
 	if input.UserID <= 0 {
-		uc.logger.WarnContext(ctx, "poster upload rejected: invalid user", fields)
+		uc.appLogger.WarnContext(ctx, "poster upload rejected: invalid user", fields)
 		return nil, domain.ErrUnauthorized
 	}
 	if input.FilmID <= 0 {
-		uc.logger.WarnContext(ctx, "poster upload rejected: invalid film ID", fields)
+		uc.appLogger.WarnContext(ctx, "poster upload rejected: invalid film ID", fields)
 		return nil, ErrInvalidPosterFilmID
 	}
 	if err := ctx.Err(); err != nil {
-		uc.logger.DebugContext(ctx, "poster upload canceled", fields)
+		uc.appLogger.DebugContext(ctx, "poster upload canceled", fields)
 		return nil, err
 	}
 
 	if _, err := uc.films.GetFilmByID(ctx, input.FilmID); err != nil {
-		logging.Failure(ctx, uc.logger, "get film for poster failed", err, fields)
+		logging.Failure(ctx, uc.appLogger, "get film for poster failed", err, fields)
 		return nil, fmt.Errorf("get film for poster: %w", err)
 	}
-	uc.logger.DebugContext(ctx, "poster film found", fields)
+	uc.appLogger.DebugContext(ctx, "poster film found", fields)
 
 	imageErrors := imageUploadErrors{
 		missing:            ErrPosterMissing,
@@ -119,13 +119,13 @@ func (uc *UploadPosterUseCase) Run(ctx context.Context, input UploadPosterInput)
 	if err != nil {
 		fields["error"] = err
 		if imageErrors.contains(err) {
-			uc.logger.WarnContext(ctx, "poster upload rejected: invalid file", fields)
+			uc.appLogger.WarnContext(ctx, "poster upload rejected: invalid file", fields)
 		} else {
-			uc.logger.ErrorContext(ctx, "read poster failed", fields)
+			uc.appLogger.ErrorContext(ctx, "read poster failed", fields)
 		}
 		return nil, err
 	}
-	uc.logger.DebugContext(ctx, "poster image validated", map[string]any{
+	uc.appLogger.DebugContext(ctx, "poster image validated", map[string]any{
 		"user_id": input.UserID,
 		"film_id": input.FilmID,
 		"size":    len(image.data),
@@ -136,7 +136,7 @@ func (uc *UploadPosterUseCase) Run(ctx context.Context, input UploadPosterInput)
 	filename, err := newImageFilename(image.extension)
 	if err != nil {
 		fields["error"] = err
-		uc.logger.ErrorContext(ctx, "generate poster name failed", fields)
+		uc.appLogger.ErrorContext(ctx, "generate poster name failed", fields)
 		return nil, err
 	}
 	fields["filename"] = filename
@@ -145,10 +145,10 @@ func (uc *UploadPosterUseCase) Run(ctx context.Context, input UploadPosterInput)
 
 	if err := uc.storage.Upload(ctx, filename, image.contentType, bytes.NewReader(image.data)); err != nil {
 		fields["error"] = err
-		uc.logger.ErrorContext(ctx, "upload poster object failed", fields)
+		uc.appLogger.ErrorContext(ctx, "upload poster object failed", fields)
 		return nil, fmt.Errorf("upload poster object: %w", err)
 	}
-	uc.logger.InfoContext(ctx, "poster object uploaded", fields)
+	uc.appLogger.InfoContext(ctx, "poster object uploaded", fields)
 
 	err = uc.posters.SavePoster(ctx, input.FilmID, input.UserID, domain.PosterFile{
 		Filename:    filename,
@@ -156,9 +156,9 @@ func (uc *UploadPosterUseCase) Run(ctx context.Context, input UploadPosterInput)
 		Size:        int64(len(image.data)),
 	})
 	if err != nil {
-		logging.Failure(ctx, uc.logger, "save film poster failed", err, fields)
+		logging.Failure(ctx, uc.appLogger, "save film poster failed", err, fields)
 		if errors.Is(err, domain.ErrCommitUnknown) {
-			uc.logger.WarnContext(ctx, "poster object retained: commit outcome unknown", fields)
+			uc.appLogger.WarnContext(ctx, "poster object retained: commit outcome unknown", fields)
 			return nil, fmt.Errorf("attach poster: %w", err)
 		}
 
@@ -167,13 +167,13 @@ func (uc *UploadPosterUseCase) Run(ctx context.Context, input UploadPosterInput)
 		cancel()
 		if cleanupErr != nil {
 			fields["error"] = cleanupErr
-			uc.logger.ErrorContext(ctx, "remove unlinked poster object failed", fields)
+			uc.appLogger.ErrorContext(ctx, "remove unlinked poster object failed", fields)
 			return nil, errors.Join(fmt.Errorf("attach poster: %w", err), fmt.Errorf("remove unlinked poster: %w", cleanupErr))
 		}
-		uc.logger.DebugContext(ctx, "unlinked poster object removed", fields)
+		uc.appLogger.DebugContext(ctx, "unlinked poster object removed", fields)
 		return nil, fmt.Errorf("attach poster: %w", err)
 	}
 
-	uc.logger.InfoContext(ctx, "film poster saved", fields)
+	uc.appLogger.InfoContext(ctx, "film poster saved", fields)
 	return &UploadPosterOutput{Filename: filename}, nil
 }

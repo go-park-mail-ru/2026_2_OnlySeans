@@ -12,7 +12,7 @@ import (
 
 type UpdateFilmUseCase struct {
 	repository domain.FilmRepository
-	logger     logger.Logger
+	appLogger  logger.Logger
 }
 
 func NewUpdateFilmUseCase(repository domain.FilmRepository, appLogger logger.Logger) (*UpdateFilmUseCase, error) {
@@ -22,22 +22,22 @@ func NewUpdateFilmUseCase(repository domain.FilmRepository, appLogger logger.Log
 	if appLogger == nil {
 		return nil, domain.ErrInvalidAppLogger
 	}
-	return &UpdateFilmUseCase{repository: repository, logger: appLogger}, nil
+	return &UpdateFilmUseCase{repository: repository, appLogger: appLogger}, nil
 }
 
 func (uc *UpdateFilmUseCase) Run(ctx context.Context, id domain.FilmID, input domain.CreateFilmInput) error {
-	uc.logger.DebugContext(ctx, "update film started", map[string]any{"film_id": id})
+	uc.appLogger.DebugContext(ctx, "update film started", map[string]any{"film_id": id})
 	input.Title = strings.TrimSpace(input.Title)
 	err := input.Validate()
 	if err != nil {
-		uc.logger.WarnContext(ctx, "update film rejected: invalid input", map[string]any{"error": err, "film_id": id})
+		uc.appLogger.WarnContext(ctx, "update film rejected: invalid input", map[string]any{"error": err, "film_id": id})
 		return fmt.Errorf("validate film input: %w", err)
 	}
 	err = uc.repository.UpdateFilm(ctx, id, input)
 	if err != nil {
-		logging.Failure(ctx, uc.logger, "update film failed", err, map[string]any{"film_id": id})
+		logging.Failure(ctx, uc.appLogger, "update film failed", err, map[string]any{"film_id": id})
 		return fmt.Errorf("update film: %w", err)
 	}
-	uc.logger.InfoContext(ctx, "film updated", map[string]any{"film_id": id})
+	uc.appLogger.InfoContext(ctx, "film updated", map[string]any{"film_id": id})
 	return nil
 }

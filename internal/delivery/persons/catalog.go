@@ -18,11 +18,11 @@ import (
 type CatalogHandler struct {
 	getFilmPersons *personusecase.GetFilmPersonsUseCase
 	getPerson      *personusecase.GetPersonCatalogUseCase
-	log            logger.Logger
+	appLogger      logger.Logger
 }
 
-func NewCatalogHandler(getFilmPersons *personusecase.GetFilmPersonsUseCase, getPerson *personusecase.GetPersonCatalogUseCase, log logger.Logger) *CatalogHandler {
-	return &CatalogHandler{getFilmPersons: getFilmPersons, getPerson: getPerson, log: log}
+func NewCatalogHandler(getFilmPersons *personusecase.GetFilmPersonsUseCase, getPerson *personusecase.GetPersonCatalogUseCase, appLogger logger.Logger) *CatalogHandler {
+	return &CatalogHandler{getFilmPersons: getFilmPersons, getPerson: getPerson, appLogger: appLogger}
 }
 
 func (h *CatalogHandler) fail(ctx context.Context, w http.ResponseWriter, err error) {
@@ -31,15 +31,15 @@ func (h *CatalogHandler) fail(ctx context.Context, w http.ResponseWriter, err er
 		status = http.StatusNotFound
 	}
 	if status == http.StatusInternalServerError {
-		h.log.ErrorContext(ctx, "persons catalog failed", map[string]any{"error": err})
+		h.appLogger.ErrorContext(ctx, "persons catalog failed", map[string]any{"error": err})
 	}
-	httpresponse.WriteErrorContext(ctx, w, status, "Не удалось загрузить участников фильма.", h.log)
+	httpresponse.WriteErrorContext(ctx, w, status, "Не удалось загрузить участников фильма.", h.appLogger)
 }
 
 func (h *CatalogHandler) GetFilmPersons(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(mux.Vars(r)["id"], 10, 64)
 	if err != nil || id < 1 {
-		httpresponse.WriteErrorContext(r.Context(), w, http.StatusBadRequest, "invalid id", h.log)
+		httpresponse.WriteErrorContext(r.Context(), w, http.StatusBadRequest, "invalid id", h.appLogger)
 		return
 	}
 	persons, err := h.getFilmPersons.Run(r.Context(), domain.FilmID(id))
@@ -47,13 +47,13 @@ func (h *CatalogHandler) GetFilmPersons(w http.ResponseWriter, r *http.Request) 
 		h.fail(r.Context(), w, err)
 		return
 	}
-	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, map[string]any{"people": persons}, h.log)
+	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, map[string]any{"people": persons}, h.appLogger)
 }
 
 func (h *CatalogHandler) GetPersonCatalog(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(mux.Vars(r)["id"], 10, 64)
 	if err != nil || id < 1 {
-		httpresponse.WriteErrorContext(r.Context(), w, http.StatusBadRequest, "invalid id", h.log)
+		httpresponse.WriteErrorContext(r.Context(), w, http.StatusBadRequest, "invalid id", h.appLogger)
 		return
 	}
 	result, err := h.getPerson.Run(r.Context(), domain.PersonID(id))
@@ -65,5 +65,5 @@ func (h *CatalogHandler) GetPersonCatalog(w http.ResponseWriter, r *http.Request
 	for _, credit := range result.Films {
 		items = append(items, map[string]any{"film": filmdto.FromFilm(credit.Film), "role": credit.Role, "character": credit.Character})
 	}
-	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, map[string]any{"person": result.Person, "films": items}, h.log)
+	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, map[string]any{"person": result.Person, "films": items}, h.appLogger)
 }

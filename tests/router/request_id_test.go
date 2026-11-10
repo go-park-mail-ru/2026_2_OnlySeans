@@ -24,20 +24,20 @@ func TestAccessUsecaseAndDatabaseLogsShareRequestID(t *testing.T) {
 	require.NoError(t, err)
 	defer db.Close()
 	var buffer bytes.Buffer
-	log, err := logger.NewLogger(&buffer, logger.LogLevelDebug, "json")
+	appLogger, err := logger.NewLogger(&buffer, logger.LogLevelDebug, "json")
 	require.NoError(t, err)
-	uc, err := authuc.NewGetUserUseCase(authrepo.NewPostgresUserRepo(db, log), log)
+	uc, err := authuc.NewGetUserUseCase(authrepo.NewPostgresUserRepo(db, appLogger), appLogger)
 	require.NoError(t, err)
 	handler := router.WithRequestID(router.WithLogging(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user, err := uc.Run(r.Context(), authuc.GetUserInput{UserID: 7})
 		if err != nil {
-			log.WarnContext(r.Context(), "handler failed", nil)
-			httpresponse.WriteErrorContext(r.Context(), w, http.StatusNotFound, "user not found", log)
+			appLogger.WarnContext(r.Context(), "handler failed", nil)
+			httpresponse.WriteErrorContext(r.Context(), w, http.StatusNotFound, "user not found", appLogger)
 			return
 		}
-		log.InfoContext(r.Context(), "handler completed", nil)
-		httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, user, log)
-	}), log))
+		appLogger.InfoContext(r.Context(), "handler completed", nil)
+		httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, user, appLogger)
+	}), appLogger))
 	var previous string
 	for _, found := range []bool{true, false} {
 		buffer.Reset()

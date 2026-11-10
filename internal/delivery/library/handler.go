@@ -31,12 +31,12 @@ type HandlerUseCases struct {
 }
 
 type Handler struct {
-	useCases HandlerUseCases
-	log      logger.Logger
+	useCases  HandlerUseCases
+	appLogger logger.Logger
 }
 
-func NewHandler(cases HandlerUseCases, log logger.Logger) *Handler {
-	return &Handler{useCases: cases, log: log}
+func NewHandler(cases HandlerUseCases, appLogger logger.Logger) *Handler {
+	return &Handler{useCases: cases, appLogger: appLogger}
 }
 
 func user(r *http.Request) domain.UserID {
@@ -54,9 +54,9 @@ func (h *Handler) fail(ctx context.Context, w http.ResponseWriter, err error) {
 	case errors.Is(err, domain.ErrFilmNotFound):
 		status, message = http.StatusNotFound, filmNotFoundMsg
 	default:
-		h.log.ErrorContext(ctx, "library request failed", map[string]any{"error": err.Error()})
+		h.appLogger.ErrorContext(ctx, "library request failed", map[string]any{"error": err.Error()})
 	}
-	httpresponse.WriteErrorContext(ctx, w, status, message, h.log)
+	httpresponse.WriteErrorContext(ctx, w, status, message, h.appLogger)
 }
 
 func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
@@ -65,7 +65,7 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 		h.fail(r.Context(), w, err)
 		return
 	}
-	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, data, h.log)
+	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, data, h.appLogger)
 }
 
 func (h *Handler) SetSaved(w http.ResponseWriter, r *http.Request) {

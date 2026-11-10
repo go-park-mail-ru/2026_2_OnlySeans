@@ -9,14 +9,6 @@ import (
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 )
 
-var (
-	ErrFilmNotFound            = domain.ErrFilmNotFound
-	ErrFilmExists              = domain.ErrFilmExists
-	ErrCollectionNotFound      = domain.ErrCollectionNotFound
-	ErrCollectionExists        = domain.ErrCollectionExists
-	ErrDuplicateCollectionFilm = domain.ErrDuplicateCollectionFilm
-)
-
 type InMemoryService struct {
 	mu              sync.RWMutex
 	films           map[domain.FilmID]domain.Film
@@ -39,7 +31,7 @@ func (s *InMemoryService) AddFilm(film domain.Film) error {
 
 	pos, found := slices.BinarySearch(s.filmIDs, film.ID)
 	if found {
-		return fmt.Errorf("%w: id %d", ErrFilmExists, film.ID)
+		return fmt.Errorf("%w: id %d", domain.ErrFilmExists, film.ID)
 	}
 
 	s.filmIDs = slices.Insert(s.filmIDs, pos, film.ID)
@@ -123,17 +115,17 @@ func (s *InMemoryService) AddCollection(collection domain.Collection, filmIDs ..
 
 	for _, existing := range s.collections {
 		if existing.ID == collection.ID || existing.Slug == collection.Slug {
-			return fmt.Errorf("%w: %q", ErrCollectionExists, collection.Slug)
+			return fmt.Errorf("%w: %q", domain.ErrCollectionExists, collection.Slug)
 		}
 	}
 
 	seen := make(map[domain.FilmID]struct{}, len(filmIDs))
 	for _, id := range filmIDs {
 		if _, ok := s.films[id]; !ok {
-			return fmt.Errorf("%w: id %d", ErrFilmNotFound, id)
+			return fmt.Errorf("%w: id %d", domain.ErrFilmNotFound, id)
 		}
 		if _, dup := seen[id]; dup {
-			return fmt.Errorf("%w: id %d", ErrDuplicateCollectionFilm, id)
+			return fmt.Errorf("%w: id %d", domain.ErrDuplicateCollectionFilm, id)
 		}
 		seen[id] = struct{}{}
 	}
@@ -156,7 +148,7 @@ func (s *InMemoryService) GetFilmByID(_ context.Context, id domain.FilmID) (doma
 
 	film, ok := s.films[id]
 	if !ok {
-		return domain.Film{}, ErrFilmNotFound
+		return domain.Film{}, domain.ErrFilmNotFound
 	}
 	return cloneFilm(film), nil
 }
@@ -180,7 +172,7 @@ func (s *InMemoryService) GetCollectionByID(_ context.Context, id domain.Collect
 			return collection, nil
 		}
 	}
-	return domain.Collection{}, ErrCollectionNotFound
+	return domain.Collection{}, domain.ErrCollectionNotFound
 }
 
 func (s *InMemoryService) ListCollectionFilms(_ context.Context, collectionID domain.CollectionID, limit, offset int) ([]domain.Film, int, error) {
@@ -189,7 +181,7 @@ func (s *InMemoryService) ListCollectionFilms(_ context.Context, collectionID do
 
 	ids, ok := s.collectionFilms[collectionID]
 	if !ok {
-		return nil, 0, ErrCollectionNotFound
+		return nil, 0, domain.ErrCollectionNotFound
 	}
 
 	return s.filmsPage(ids, limit, offset), len(ids), nil

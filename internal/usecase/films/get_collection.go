@@ -12,7 +12,7 @@ import (
 
 type GetCollectionUseCase struct {
 	repository domain.CollectionRepository
-	logger     logger.Logger
+	appLogger  logger.Logger
 }
 
 func NewGetCollectionUseCase(
@@ -28,12 +28,12 @@ func NewGetCollectionUseCase(
 
 	return &GetCollectionUseCase{
 		repository: repository,
-		logger:     appLogger,
+		appLogger:  appLogger,
 	}, nil
 }
 
 func (uc *GetCollectionUseCase) Run(ctx context.Context, input GetCollectionInput) (*GetCollectionOutput, error) {
-	uc.logger.DebugContext(ctx, "get collection started", map[string]any{
+	uc.appLogger.DebugContext(ctx, "get collection started", map[string]any{
 		"collection_id": input.CollectionID,
 		"limit":         input.Limit,
 		"offset":        input.Offset,
@@ -41,7 +41,7 @@ func (uc *GetCollectionUseCase) Run(ctx context.Context, input GetCollectionInpu
 
 	collection, err := uc.repository.GetCollectionByID(ctx, input.CollectionID)
 	if err != nil {
-		logging.Failure(ctx, uc.logger, "get collection failed", err, map[string]any{
+		logging.Failure(ctx, uc.appLogger, "get collection failed", err, map[string]any{
 			"collection_id": input.CollectionID,
 		})
 		return nil, fmt.Errorf("get collection %d: %w", input.CollectionID, err)
@@ -49,13 +49,13 @@ func (uc *GetCollectionUseCase) Run(ctx context.Context, input GetCollectionInpu
 
 	films, total, err := uc.repository.ListCollectionFilms(ctx, input.CollectionID, input.Limit, input.Offset)
 	if err != nil {
-		logging.Failure(ctx, uc.logger, "list films of collection failed", err, map[string]any{
+		logging.Failure(ctx, uc.appLogger, "list films of collection failed", err, map[string]any{
 			"collection_id": input.CollectionID,
 		})
 		return nil, fmt.Errorf("list films of collection %d: %w", input.CollectionID, err)
 	}
 
-	uc.logger.InfoContext(ctx, "collection retrieved", map[string]any{
+	uc.appLogger.InfoContext(ctx, "collection retrieved", map[string]any{
 		"collection_id": input.CollectionID,
 		"limit":         input.Limit,
 		"offset":        input.Offset,

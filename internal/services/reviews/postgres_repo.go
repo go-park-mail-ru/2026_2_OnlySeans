@@ -54,12 +54,12 @@ const (
 )
 
 type PostgresReviewRepo struct {
-	log logger.Logger
-	db  *sql.DB
+	appLogger logger.Logger
+	db        *sql.DB
 }
 
 func NewPostgresReviewRepo(db *sql.DB, appLogger logger.Logger) domain.ReviewRepository {
-	return &PostgresReviewRepo{log: appLogger, db: db}
+	return &PostgresReviewRepo{appLogger: appLogger, db: db}
 }
 
 type rowScanner interface {
@@ -83,7 +83,7 @@ func scanReview(row rowScanner) (domain.Review, error) {
 }
 
 func (r *PostgresReviewRepo) GetByID(ctx context.Context, id domain.ReviewID) (_ *domain.Review, operationErr error) {
-	operationLog := storage.StartOperation(ctx, r.log, "postgres", "review.get_by_id", map[string]any{"review_id": id})
+	operationLog := storage.StartOperation(ctx, r.appLogger, "postgres", "review.get_by_id", map[string]any{"review_id": id})
 	defer func() { operationLog.Finish(operationErr) }()
 
 	operationLog.Stage = "query"
@@ -98,7 +98,7 @@ func (r *PostgresReviewRepo) GetByID(ctx context.Context, id domain.ReviewID) (_
 }
 
 func (r *PostgresReviewRepo) Update(ctx context.Context, id domain.ReviewID, changes domain.ReviewUpdate) (_ *domain.Review, operationErr error) {
-	operationLog := storage.StartOperation(ctx, r.log, "postgres", "review.update", map[string]any{"review_id": id})
+	operationLog := storage.StartOperation(ctx, r.appLogger, "postgres", "review.update", map[string]any{"review_id": id})
 	defer func() { operationLog.Finish(operationErr) }()
 
 	operationLog.Stage = "begin"
@@ -137,7 +137,7 @@ func (r *PostgresReviewRepo) Update(ctx context.Context, id domain.ReviewID, cha
 }
 
 func (r *PostgresReviewRepo) Delete(ctx context.Context, id domain.ReviewID, deletedBy domain.UserID) (operationErr error) {
-	operationLog := storage.StartOperation(ctx, r.log, "postgres", "review.delete", map[string]any{"review_id": id})
+	operationLog := storage.StartOperation(ctx, r.appLogger, "postgres", "review.delete", map[string]any{"review_id": id})
 	defer func() { operationLog.Finish(operationErr) }()
 
 	operationLog.Stage = "query"
@@ -156,7 +156,7 @@ func (r *PostgresReviewRepo) Delete(ctx context.Context, id domain.ReviewID, del
 }
 
 func (r *PostgresReviewRepo) Create(ctx context.Context, authorID domain.UserID, filmID domain.FilmID, input domain.ReviewInput) (_ *domain.Review, operationErr error) {
-	operationLog := storage.StartOperation(ctx, r.log, "postgres", "review.create", map[string]any{"user_id": authorID, "film_id": filmID})
+	operationLog := storage.StartOperation(ctx, r.appLogger, "postgres", "review.create", map[string]any{"user_id": authorID, "film_id": filmID})
 	defer func() { operationLog.Finish(operationErr) }()
 
 	operationLog.Stage = "query"
@@ -177,7 +177,7 @@ func (r *PostgresReviewRepo) Create(ctx context.Context, authorID domain.UserID,
 }
 
 func (r *PostgresReviewRepo) ListByFilm(ctx context.Context, filmID domain.FilmID, limit, offset int) (_ []domain.Review, _ int, operationErr error) {
-	operationLog := storage.StartOperation(ctx, r.log, "postgres", "review.list_by_film", map[string]any{"film_id": filmID, "limit": limit, "offset": offset})
+	operationLog := storage.StartOperation(ctx, r.appLogger, "postgres", "review.list_by_film", map[string]any{"film_id": filmID, "limit": limit, "offset": offset})
 	defer func() { operationLog.Finish(operationErr) }()
 
 	operationLog.Stage = "begin"

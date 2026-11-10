@@ -11,8 +11,8 @@ import (
 )
 
 type MyRatingHandler struct {
-	useCase *usecase.GetMyFilmRatingUseCase
-	logger  logger.Logger
+	useCase   *usecase.GetMyFilmRatingUseCase
+	appLogger logger.Logger
 }
 
 type personalScoreDTO struct {
@@ -25,19 +25,19 @@ type personalRatingResponse struct {
 func (h *MyRatingHandler) GetPersonalRating(w http.ResponseWriter, r *http.Request) {
 	filmID, ok := pathID(r)
 	if !ok {
-		writeError(r.Context(), w, ErrInvalidFilmID, h.logger)
+		writeError(r.Context(), w, ErrInvalidFilmID, h.appLogger)
 		return
 	}
 
 	userID, ok := authdelivery.UserIDFromContext(r.Context())
 	if !ok {
-		writeError(r.Context(), w, domain.ErrUnauthorized, h.logger)
+		writeError(r.Context(), w, domain.ErrUnauthorized, h.appLogger)
 		return
 	}
 
 	result, err := h.useCase.Run(r.Context(), usecase.GetMyFilmRatingInput{AccountID: userID, FilmID: domain.FilmID(filmID)})
 	if err != nil {
-		writeError(r.Context(), w, err, h.logger)
+		writeError(r.Context(), w, err, h.appLogger)
 		return
 	}
 
@@ -47,9 +47,9 @@ func (h *MyRatingHandler) GetPersonalRating(w http.ResponseWriter, r *http.Reque
 		response.Rating = &personalScoreDTO{Score: *result.Score}
 	}
 
-	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, response, h.logger)
+	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, response, h.appLogger)
 }
 
-func NewMyRatingHandler(uc *usecase.GetMyFilmRatingUseCase, log logger.Logger) *MyRatingHandler {
-	return &MyRatingHandler{useCase: uc, logger: log}
+func NewMyRatingHandler(uc *usecase.GetMyFilmRatingUseCase, appLogger logger.Logger) *MyRatingHandler {
+	return &MyRatingHandler{useCase: uc, appLogger: appLogger}
 }

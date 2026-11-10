@@ -10,7 +10,7 @@ import (
 
 type GetCollectionRatingsUseCase struct {
 	repository domain.CollectionFilmRatingRepository
-	logger     logger.Logger
+	appLogger  logger.Logger
 }
 
 func NewGetCollectionRatingsUseCase(repository domain.CollectionFilmRatingRepository, appLogger logger.Logger) (*GetCollectionRatingsUseCase, error) {
@@ -22,7 +22,7 @@ func NewGetCollectionRatingsUseCase(repository domain.CollectionFilmRatingReposi
 	}
 	return &GetCollectionRatingsUseCase{
 		repository: repository,
-		logger:     appLogger,
+		appLogger:  appLogger,
 	}, nil
 }
 
@@ -32,14 +32,14 @@ func (uc *GetCollectionRatingsUseCase) Run(ctx context.Context, input GetCollect
 		"limit":         input.Limit,
 		"offset":        input.Offset,
 	}
-	uc.logger.DebugContext(ctx, "get collection ratings started", fields)
-	uc.logger.DebugContext(ctx, "loading collection film rating summaries", fields)
+	uc.appLogger.DebugContext(ctx, "get collection ratings started", fields)
+	uc.appLogger.DebugContext(ctx, "loading collection film rating summaries", fields)
 	ratings, total, err := uc.repository.GetCollectionFilmRatingSummaries(ctx, input.CollectionID, input.Limit, input.Offset)
 	if err != nil {
-		logging.Failure(ctx, uc.logger, "loading collection film rating summaries failed", err, fields)
+		logging.Failure(ctx, uc.appLogger, "loading collection film rating summaries failed", err, fields)
 		return nil, err
 	}
-	uc.logger.DebugContext(ctx, "collection film rating summaries loaded", map[string]any{
+	uc.appLogger.DebugContext(ctx, "collection film rating summaries loaded", map[string]any{
 		"collection_id": input.CollectionID,
 		"count":         len(ratings),
 		"total":         total,

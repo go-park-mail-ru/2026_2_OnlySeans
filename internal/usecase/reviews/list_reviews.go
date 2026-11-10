@@ -10,9 +10,9 @@ import (
 )
 
 type ListReviewsUseCase struct {
-	reviews domain.ReviewRepository
-	films   domain.FilmRepository
-	logger  logger.Logger
+	reviews   domain.ReviewRepository
+	films     domain.FilmRepository
+	appLogger logger.Logger
 }
 
 func NewListReviewsUseCase(
@@ -31,21 +31,21 @@ func NewListReviewsUseCase(
 	}
 
 	return &ListReviewsUseCase{
-		reviews: reviews,
-		films:   films,
-		logger:  appLogger,
+		reviews:   reviews,
+		films:     films,
+		appLogger: appLogger,
 	}, nil
 }
 
 func (uc *ListReviewsUseCase) Run(ctx context.Context, input ListReviewsInput) (*ListReviewsOutput, error) {
-	uc.logger.DebugContext(ctx, "list reviews started", map[string]any{
+	uc.appLogger.DebugContext(ctx, "list reviews started", map[string]any{
 		"film_id": input.FilmID,
 		"limit":   input.Limit,
 		"offset":  input.Offset,
 	})
 
 	if _, err := uc.films.GetFilmByID(ctx, input.FilmID); err != nil {
-		logging.Failure(ctx, uc.logger, "get film for reviews failed", err, map[string]any{
+		logging.Failure(ctx, uc.appLogger, "get film for reviews failed", err, map[string]any{
 			"film_id": input.FilmID,
 		})
 		return nil, fmt.Errorf("get film %d: %w", input.FilmID, err)
@@ -53,7 +53,7 @@ func (uc *ListReviewsUseCase) Run(ctx context.Context, input ListReviewsInput) (
 
 	reviews, total, err := uc.reviews.ListByFilm(ctx, input.FilmID, input.Limit, input.Offset)
 	if err != nil {
-		logging.Failure(ctx, uc.logger, "list reviews failed", err, map[string]any{
+		logging.Failure(ctx, uc.appLogger, "list reviews failed", err, map[string]any{
 			"film_id": input.FilmID,
 			"limit":   input.Limit,
 			"offset":  input.Offset,
@@ -61,7 +61,7 @@ func (uc *ListReviewsUseCase) Run(ctx context.Context, input ListReviewsInput) (
 		return nil, fmt.Errorf("list reviews of film %d: %w", input.FilmID, err)
 	}
 
-	uc.logger.InfoContext(ctx, "reviews listed", map[string]any{
+	uc.appLogger.InfoContext(ctx, "reviews listed", map[string]any{
 		"film_id": input.FilmID,
 		"limit":   input.Limit,
 		"offset":  input.Offset,

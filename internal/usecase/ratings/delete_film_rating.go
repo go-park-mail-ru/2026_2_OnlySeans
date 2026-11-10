@@ -10,9 +10,9 @@ import (
 )
 
 type DeleteFilmRatingUseCase struct {
-	ratings domain.FilmRatingRepository
-	films   domain.FilmRepository
-	logger  logger.Logger
+	ratings   domain.FilmRatingRepository
+	films     domain.FilmRepository
+	appLogger logger.Logger
 }
 
 func NewDeleteFilmRatingUseCase(ratings domain.FilmRatingRepository, films domain.FilmRepository, appLogger logger.Logger) (*DeleteFilmRatingUseCase, error) {
@@ -25,7 +25,7 @@ func NewDeleteFilmRatingUseCase(ratings domain.FilmRatingRepository, films domai
 	if appLogger == nil {
 		return nil, domain.ErrInvalidAppLogger
 	}
-	return &DeleteFilmRatingUseCase{ratings: ratings, films: films, logger: appLogger}, nil
+	return &DeleteFilmRatingUseCase{ratings: ratings, films: films, appLogger: appLogger}, nil
 }
 
 func (uc *DeleteFilmRatingUseCase) Run(ctx context.Context, input DeleteFilmRatingInput) error {
@@ -33,27 +33,27 @@ func (uc *DeleteFilmRatingUseCase) Run(ctx context.Context, input DeleteFilmRati
 		"account_id": input.AccountID,
 		"film_id":    input.FilmID,
 	}
-	uc.logger.DebugContext(ctx, "delete film rating started", fields)
-	uc.logger.DebugContext(ctx, "checking film before rating deletion", fields)
+	uc.appLogger.DebugContext(ctx, "delete film rating started", fields)
+	uc.appLogger.DebugContext(ctx, "checking film before rating deletion", fields)
 
 	film, err := uc.films.GetFilmByID(ctx, input.FilmID)
 	if err != nil {
-		logging.Failure(ctx, uc.logger, "film lookup before rating deletion failed", err, fields)
+		logging.Failure(ctx, uc.appLogger, "film lookup before rating deletion failed", err, fields)
 		if errors.Is(err, domain.ErrFilmNotFound) {
 			return domain.ErrFilmNotFound
 		}
 		return err
 	}
-	uc.logger.DebugContext(ctx, "film found before rating deletion", map[string]any{
+	uc.appLogger.DebugContext(ctx, "film found before rating deletion", map[string]any{
 		"film_id": film.ID,
 		"title":   film.Title,
 	})
 
-	uc.logger.DebugContext(ctx, "deleting film rating", fields)
+	uc.appLogger.DebugContext(ctx, "deleting film rating", fields)
 	if err := uc.ratings.DeleteFilmRating(ctx, input.AccountID, input.FilmID); err != nil {
-		logging.Failure(ctx, uc.logger, "film rating deletion failed", err, fields)
+		logging.Failure(ctx, uc.appLogger, "film rating deletion failed", err, fields)
 		return err
 	}
-	uc.logger.InfoContext(ctx, "film rating deleted", fields)
+	uc.appLogger.InfoContext(ctx, "film rating deleted", fields)
 	return nil
 }

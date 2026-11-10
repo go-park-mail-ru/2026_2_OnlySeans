@@ -11,7 +11,7 @@ import (
 
 type ListCollectionsUseCase struct {
 	repository domain.CollectionRepository
-	logger     logger.Logger
+	appLogger  logger.Logger
 }
 
 func NewListCollectionsUseCase(
@@ -27,26 +27,26 @@ func NewListCollectionsUseCase(
 
 	return &ListCollectionsUseCase{
 		repository: repository,
-		logger:     appLogger,
+		appLogger:  appLogger,
 	}, nil
 }
 
 func (uc *ListCollectionsUseCase) Run(ctx context.Context, input ListCollectionsInput) (*ListCollectionsOutput, error) {
-	uc.logger.DebugContext(ctx, "list collections started", map[string]any{
+	uc.appLogger.DebugContext(ctx, "list collections started", map[string]any{
 		"limit":  input.Limit,
 		"offset": input.Offset,
 	})
 
 	collections, total, err := uc.repository.ListCollections(ctx, input.Limit, input.Offset)
 	if err != nil {
-		logging.Failure(ctx, uc.logger, "list collections failed", err, map[string]any{
+		logging.Failure(ctx, uc.appLogger, "list collections failed", err, map[string]any{
 			"limit":  input.Limit,
 			"offset": input.Offset,
 		})
 		return nil, fmt.Errorf("list collections: %w", err)
 	}
 
-	uc.logger.InfoContext(ctx, "collections listed", map[string]any{
+	uc.appLogger.InfoContext(ctx, "collections listed", map[string]any{
 		"limit":  input.Limit,
 		"offset": input.Offset,
 		"total":  total,

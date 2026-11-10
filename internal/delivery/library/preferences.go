@@ -14,7 +14,7 @@ func (h *Handler) Preferences(w http.ResponseWriter, r *http.Request) {
 		h.fail(r.Context(), w, err)
 		return
 	}
-	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, data, h.log)
+	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, data, h.appLogger)
 }
 
 func (h *Handler) SavePreference(w http.ResponseWriter, r *http.Request) {

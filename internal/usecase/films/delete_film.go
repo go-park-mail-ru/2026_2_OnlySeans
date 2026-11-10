@@ -11,7 +11,7 @@ import (
 
 type DeleteFilmUseCase struct {
 	repository domain.FilmRepository
-	logger     logger.Logger
+	appLogger  logger.Logger
 }
 
 func NewDeleteFilmUseCase(repository domain.FilmRepository, appLogger logger.Logger) (*DeleteFilmUseCase, error) {
@@ -21,15 +21,15 @@ func NewDeleteFilmUseCase(repository domain.FilmRepository, appLogger logger.Log
 	if appLogger == nil {
 		return nil, domain.ErrInvalidAppLogger
 	}
-	return &DeleteFilmUseCase{repository: repository, logger: appLogger}, nil
+	return &DeleteFilmUseCase{repository: repository, appLogger: appLogger}, nil
 }
 
 func (uc *DeleteFilmUseCase) Run(ctx context.Context, id domain.FilmID) error {
-	uc.logger.DebugContext(ctx, "delete film started", map[string]any{"film_id": id})
+	uc.appLogger.DebugContext(ctx, "delete film started", map[string]any{"film_id": id})
 	if err := uc.repository.DeleteFilm(ctx, id); err != nil {
-		logging.Failure(ctx, uc.logger, "delete film failed", err, map[string]any{"film_id": id})
+		logging.Failure(ctx, uc.appLogger, "delete film failed", err, map[string]any{"film_id": id})
 		return fmt.Errorf("delete film: %w", err)
 	}
-	uc.logger.InfoContext(ctx, "film deleted", map[string]any{"film_id": id})
+	uc.appLogger.InfoContext(ctx, "film deleted", map[string]any{"film_id": id})
 	return nil
 }

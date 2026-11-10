@@ -8,8 +8,12 @@ import (
 
 type SetSavedUseCase struct{ repo domain.LibraryRepository }
 
-func NewSetSavedUseCase(repo domain.LibraryRepository) *SetSavedUseCase {
-	return &SetSavedUseCase{repo: repo}
+func NewSetSavedUseCase(repo domain.LibraryRepository) (*SetSavedUseCase, error) {
+	if repo == nil {
+		return nil, domain.ErrNilRepo
+	}
+
+	return &SetSavedUseCase{repo: repo}, nil
 }
 
 func (uc *SetSavedUseCase) Run(ctx context.Context, user domain.UserID, list domain.List, film int64, saved bool) error {

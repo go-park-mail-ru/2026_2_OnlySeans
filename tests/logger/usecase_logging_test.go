@@ -80,10 +80,10 @@ func TestUseCaseFailureLevels(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var output bytes.Buffer
-			log, err := applogger.NewLogger(&output, applogger.LogLevelDebug, "json")
+			appLogger, err := applogger.NewLogger(&output, applogger.LogLevelDebug, "json")
 			require.NoError(t, err)
 			fields := map[string]any{"user_id": 7}
-			usecaselogging.Failure(context.Background(), log, "operation failed", tt.err, fields)
+			usecaselogging.Failure(context.Background(), appLogger, "operation failed", tt.err, fields)
 			require.NotContains(t, fields, "error")
 			var entry map[string]any
 			require.NoError(t, json.Unmarshal(output.Bytes(), &entry))
@@ -118,9 +118,9 @@ func TestValidationLoggingOmitsSubmittedValues(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var output bytes.Buffer
-			log, err := applogger.NewLogger(&output, applogger.LogLevelDebug, "json")
+			appLogger, err := applogger.NewLogger(&output, applogger.LogLevelDebug, "json")
 			require.NoError(t, err)
-			usecaselogging.Validation(context.Background(), log, "invalid input", tt.err, nil)
+			usecaselogging.Validation(context.Background(), appLogger, "invalid input", tt.err, nil)
 			var entry map[string]any
 			require.NoError(t, json.Unmarshal(output.Bytes(), &entry))
 			require.Equal(t, "WARN", entry["level"])

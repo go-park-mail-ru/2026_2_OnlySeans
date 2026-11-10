@@ -34,7 +34,7 @@ func TestCatalogRoutes(t *testing.T) {
 		{"filmography film failure", "/api/people/7", nil, errors.New("database unavailable"), 500},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			log, err := logger.NewLogger(io.Discard, logger.LogLevelInfo, "text")
+			appLogger, err := logger.NewLogger(io.Discard, logger.LogLevelInfo, "text")
 			require.NoError(t, err)
 			ctrl := gomock.NewController(t)
 			repo := mocks.NewMockPersonCatalogRepository(ctrl)
@@ -54,7 +54,7 @@ func TestCatalogRoutes(t *testing.T) {
 				}
 			}
 			router := mux.NewRouter()
-			h := delivery.NewCatalogHandler(uc.NewGetFilmPersonsUseCase(repo, films), uc.NewGetPersonCatalogUseCase(repo, films), log)
+			h := delivery.NewCatalogHandler(uc.NewGetFilmPersonsUseCase(repo, films), uc.NewGetPersonCatalogUseCase(repo, films), appLogger)
 			router.HandleFunc("/api/films/{id}/people", h.GetFilmPersons).Methods(http.MethodGet)
 			router.HandleFunc("/api/people/{id}", h.GetPersonCatalog).Methods(http.MethodGet)
 			rec := httptest.NewRecorder()

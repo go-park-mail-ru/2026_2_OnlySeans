@@ -10,8 +10,8 @@ import (
 )
 
 type DeleteReviewUseCase struct {
-	reviews domain.ReviewRepository
-	logger  logger.Logger
+	reviews   domain.ReviewRepository
+	appLogger logger.Logger
 }
 
 func NewDeleteReviewUseCase(
@@ -26,27 +26,27 @@ func NewDeleteReviewUseCase(
 	}
 
 	return &DeleteReviewUseCase{
-		reviews: reviews,
-		logger:  appLogger,
+		reviews:   reviews,
+		appLogger: appLogger,
 	}, nil
 }
 
 func (uc *DeleteReviewUseCase) Run(ctx context.Context, input DeleteReviewInput) error {
-	uc.logger.DebugContext(ctx, "delete review started", map[string]any{
+	uc.appLogger.DebugContext(ctx, "delete review started", map[string]any{
 		"user_id":   input.UserID,
 		"review_id": input.ReviewID,
 	})
 
 	review, err := uc.reviews.GetByID(ctx, input.ReviewID)
 	if err != nil {
-		logging.Failure(ctx, uc.logger, "get review for deletion failed", err, map[string]any{
+		logging.Failure(ctx, uc.appLogger, "get review for deletion failed", err, map[string]any{
 			"review_id": input.ReviewID,
 		})
 		return fmt.Errorf("get review %d: %w", input.ReviewID, err)
 	}
 
 	if review.AuthorID != input.UserID {
-		uc.logger.WarnContext(ctx, "review deletion forbidden", map[string]any{
+		uc.appLogger.WarnContext(ctx, "review deletion forbidden", map[string]any{
 			"user_id":   input.UserID,
 			"review_id": input.ReviewID,
 		})
@@ -54,14 +54,14 @@ func (uc *DeleteReviewUseCase) Run(ctx context.Context, input DeleteReviewInput)
 	}
 
 	if err := uc.reviews.Delete(ctx, input.ReviewID, input.UserID); err != nil {
-		logging.Failure(ctx, uc.logger, "delete review failed", err, map[string]any{
+		logging.Failure(ctx, uc.appLogger, "delete review failed", err, map[string]any{
 			"user_id":   input.UserID,
 			"review_id": input.ReviewID,
 		})
 		return fmt.Errorf("delete review %d: %w", input.ReviewID, err)
 	}
 
-	uc.logger.InfoContext(ctx, "review deleted", map[string]any{
+	uc.appLogger.InfoContext(ctx, "review deleted", map[string]any{
 		"user_id":   input.UserID,
 		"review_id": input.ReviewID,
 	})

@@ -143,7 +143,7 @@ func TestPostgresService_GetFilmByIDErrors(t *testing.T) {
 	}{
 		{"фильма нет", func(m sqlmock.Sqlmock) {
 			m.ExpectQuery(`WHERE f.id = \$1`).WillReturnRows(filmRows())
-		}, films.ErrFilmNotFound},
+		}, domain.ErrFilmNotFound},
 		{"база недоступна", func(m sqlmock.Sqlmock) {
 			m.ExpectQuery(`WHERE f.id = \$1`).WillReturnError(errStorage)
 		}, errStorage},
@@ -271,7 +271,7 @@ func TestPostgresService_GetCollectionByIDErrors(t *testing.T) {
 		dbErr   error
 		wantErr error
 	}{
-		{"подборки нет", sqlmock.NewRows(collectionColumns), nil, films.ErrCollectionNotFound},
+		{"подборки нет", sqlmock.NewRows(collectionColumns), nil, domain.ErrCollectionNotFound},
 		{"база недоступна", nil, errStorage, errStorage},
 	}
 
@@ -384,7 +384,7 @@ func TestPostgresService_ListCollectionFilmsMissingCollection(t *testing.T) {
 	mock.ExpectQuery(`FROM collection AS c WHERE c.id = \$1`).WillReturnRows(sqlmock.NewRows(collectionColumns))
 
 	list, total, err := service.ListCollectionFilms(context.Background(), 999, 10, 0)
-	assert.ErrorIs(t, err, films.ErrCollectionNotFound)
+	assert.ErrorIs(t, err, domain.ErrCollectionNotFound)
 	assert.Nil(t, list)
 	assert.Zero(t, total)
 }

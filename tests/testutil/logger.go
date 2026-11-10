@@ -6,9 +6,9 @@ import (
 )
 
 func DiscardLogger() logger.Logger {
-	log, err := logger.NewLogger(io.Discard, logger.LogLevelDebug, "json")
+	appLogger, err := logger.NewLogger(io.Discard, logger.LogLevelDebug, "json")
 	if err != nil {
 		panic(err)
 	}
-	return log
+	return appLogger
 }

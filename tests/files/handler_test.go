@@ -272,7 +272,7 @@ func TestAccountAvatarHandlers(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			repo := mocks.NewMockAccountAvatarRepository(gomock.NewController(t))
+			repo := mocks.NewMockAvatarRepository(gomock.NewController(t))
 			storage := mocks.NewMockAvatarURLStorage(gomock.NewController(t))
 			if tt.userID > 0 {
 				if tt.method == http.MethodGet {

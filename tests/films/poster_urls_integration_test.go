@@ -50,7 +50,8 @@ func TestPostgresPosterURLSelection(t *testing.T) {
 	}
 	appLogger, err := logger.NewLogger(io.Discard, logger.LogLevelDebug, "json")
 	require.NoError(t, err)
-	repo, err := filmsservice.NewRepositoryWithPosterURLs(filmsservice.NewPostgresService(db, nil), integrationPosterSigner{}, appLogger)
+	filmsRepo := filmsservice.NewPostgresService(db, appLogger)
+	repo, err := filmsservice.NewRepositoryWithPosterURLs(filmsRepo, filmsRepo, integrationPosterSigner{}, appLogger)
 	require.NoError(t, err)
 	tests := []struct {
 		name  string

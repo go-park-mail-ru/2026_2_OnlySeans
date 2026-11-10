@@ -17,9 +17,9 @@ const (
 )
 
 type RedisSessionStore struct {
-	log    logger.Logger
-	client rueidis.Client
-	ttl    time.Duration
+	appLogger logger.Logger
+	client    rueidis.Client
+	ttl       time.Duration
 }
 
 func NewRedisSessionStore(
@@ -27,7 +27,7 @@ func NewRedisSessionStore(
 	ttl time.Duration,
 	appLogger logger.Logger,
 ) *RedisSessionStore {
-	return &RedisSessionStore{log: appLogger,
+	return &RedisSessionStore{appLogger: appLogger,
 		client: client,
 		ttl:    ttl,
 	}
@@ -38,7 +38,7 @@ func sessionKey(id string) string {
 }
 
 func (s *RedisSessionStore) Create(ctx context.Context, userID domain.UserID) (_ *domain.Session, operationErr error) {
-	operationLog := storage.StartOperation(ctx, s.log, "redis", "session.create", map[string]any{"user_id": userID})
+	operationLog := storage.StartOperation(ctx, s.appLogger, "redis", "session.create", map[string]any{"user_id": userID})
 	defer func() { operationLog.Finish(operationErr) }()
 
 	id, err := generateSessionID()
@@ -69,7 +69,7 @@ func (s *RedisSessionStore) Create(ctx context.Context, userID domain.UserID) (_
 }
 
 func (s *RedisSessionStore) Get(ctx context.Context, sessionID string) (_ *domain.Session, operationErr error) {
-	operationLog := storage.StartOperation(ctx, s.log, "redis", "session.get", map[string]any{})
+	operationLog := storage.StartOperation(ctx, s.appLogger, "redis", "session.get", map[string]any{})
 	defer func() { operationLog.Finish(operationErr) }()
 
 	cmd := s.client.B().
@@ -101,7 +101,7 @@ func (s *RedisSessionStore) Get(ctx context.Context, sessionID string) (_ *domai
 }
 
 func (s *RedisSessionStore) Delete(ctx context.Context, sessionID string) (operationErr error) {
-	operationLog := storage.StartOperation(ctx, s.log, "redis", "session.delete", map[string]any{})
+	operationLog := storage.StartOperation(ctx, s.appLogger, "redis", "session.delete", map[string]any{})
 	defer func() { operationLog.Finish(operationErr) }()
 
 	cmd := s.client.B().

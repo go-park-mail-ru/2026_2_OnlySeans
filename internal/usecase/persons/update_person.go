@@ -10,8 +10,8 @@ import (
 )
 
 type UpdatePersonUseCase struct {
-	persons domain.PersonRepository
-	logger  logger.Logger
+	persons   domain.PersonRepository
+	appLogger logger.Logger
 }
 
 func NewUpdatePersonUseCase(persons domain.PersonRepository, appLogger logger.Logger) (*UpdatePersonUseCase, error) {
@@ -24,19 +24,19 @@ func NewUpdatePersonUseCase(persons domain.PersonRepository, appLogger logger.Lo
 	}
 
 	return &UpdatePersonUseCase{
-		persons: persons,
-		logger:  appLogger,
+		persons:   persons,
+		appLogger: appLogger,
 	}, nil
 }
 
 func (uc *UpdatePersonUseCase) Run(ctx context.Context, input UpdatePersonInput) (*PersonOutput, error) {
-	uc.logger.DebugContext(ctx, "update person started", map[string]any{
+	uc.appLogger.DebugContext(ctx, "update person started", map[string]any{
 		"person_id": input.PersonID,
 	})
 
 	person, err := preparePerson(input.Person)
 	if err != nil {
-		logging.Validation(ctx, uc.logger, "update person rejected: invalid input", err, map[string]any{"person_id": input.PersonID})
+		logging.Validation(ctx, uc.appLogger, "update person rejected: invalid input", err, map[string]any{"person_id": input.PersonID})
 		return nil, err
 	}
 
@@ -46,14 +46,14 @@ func (uc *UpdatePersonUseCase) Run(ctx context.Context, input UpdatePersonInput)
 		*person,
 	)
 	if err != nil {
-		logging.Failure(ctx, uc.logger, "update person failed", err, map[string]any{
+		logging.Failure(ctx, uc.appLogger, "update person failed", err, map[string]any{
 			"person_id": input.PersonID,
 		})
 
 		return nil, fmt.Errorf("update person %d: %w", input.PersonID, err)
 	}
 
-	uc.logger.InfoContext(ctx, "person updated", map[string]any{
+	uc.appLogger.InfoContext(ctx, "person updated", map[string]any{
 		"person_id": updated.ID,
 	})
 

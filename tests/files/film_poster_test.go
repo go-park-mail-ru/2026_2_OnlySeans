@@ -79,7 +79,7 @@ func TestPostgresGetFilmPoster(t *testing.T) {
 			db, mock, err := sqlmock.New()
 			require.NoError(t, err)
 			defer db.Close()
-			posters, err := repo.NewPostgresPosterRepo(db, nil)
+			posters, err := repo.NewPostgresPosterRepo(db, testFilesLogger(t))
 			require.NoError(t, err)
 			q := mock.ExpectQuery(`SELECT COALESCE\(fl.storage_key`).WithArgs(domain.FilmID(9))
 			if tc.repoErr != nil {
@@ -104,7 +104,7 @@ func TestPostgresDeleteFilmPoster(t *testing.T) {
 			db, mock, err := sqlmock.New()
 			require.NoError(t, err)
 			defer db.Close()
-			posters, err := repo.NewPostgresPosterRepo(db, nil)
+			posters, err := repo.NewPostgresPosterRepo(db, testFilesLogger(t))
 			require.NoError(t, err)
 			mock.ExpectBegin()
 			lock := mock.ExpectQuery(`SELECT id FROM film WHERE id = \$1 FOR UPDATE`).WithArgs(domain.FilmID(9))

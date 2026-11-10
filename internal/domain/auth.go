@@ -16,9 +16,6 @@ const (
 )
 
 func (role *Role) CanEditPersons() bool {
-	if role == nil {
-		return false
-	}
 	switch *role {
 	case RoleAdmin, RoleEditor:
 		return true

@@ -21,14 +21,14 @@ type reviewCases struct {
 func newReviewCases(t *testing.T, films domain.FilmRepository) reviewCases {
 	t.Helper()
 	repo := reviewsservice.NewInMemoryReviewRepo()
-	log := newReviewsTestLogger()
-	list, err := usecase.NewListReviewsUseCase(repo, films, log)
+	appLogger := newReviewsTestLogger()
+	list, err := usecase.NewListReviewsUseCase(repo, films, appLogger)
 	require.NoError(t, err)
-	create, err := usecase.NewCreateReviewUseCase(repo, films, log)
+	create, err := usecase.NewCreateReviewUseCase(repo, films, appLogger)
 	require.NoError(t, err)
-	update, err := usecase.NewUpdateReviewUseCase(repo, log)
+	update, err := usecase.NewUpdateReviewUseCase(repo, appLogger)
 	require.NoError(t, err)
-	remove, err := usecase.NewDeleteReviewUseCase(repo, log)
+	remove, err := usecase.NewDeleteReviewUseCase(repo, appLogger)
 	require.NoError(t, err)
 	return reviewCases{repo: repo, list: list, create: create, update: update, delete: remove}
 }

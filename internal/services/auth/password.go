@@ -15,6 +15,7 @@ func (*BcryptPasswordService) Hash(password string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	return string(hash), nil
 }
 
@@ -23,5 +24,6 @@ func (*BcryptPasswordService) Verify(password, hash string) error {
 	if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
 		return authusecase.ErrPasswordMismatch
 	}
+
 	return err
 }

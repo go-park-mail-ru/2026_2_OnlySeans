@@ -118,51 +118,6 @@ func (mr *MockAvatarURLStorageMockRecorder) GetURL(ctx, key any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetURL", reflect.TypeOf((*MockAvatarURLStorage)(nil).GetURL), ctx, key)
 }
 
-type MockAccountAvatarRepository struct {
-	ctrl     *gomock.Controller
-	recorder *MockAccountAvatarRepositoryMockRecorder
-	isgomock struct{}
-}
-
-type MockAccountAvatarRepositoryMockRecorder struct {
-	mock *MockAccountAvatarRepository
-}
-
-func NewMockAccountAvatarRepository(ctrl *gomock.Controller) *MockAccountAvatarRepository {
-	mock := &MockAccountAvatarRepository{ctrl: ctrl}
-	mock.recorder = &MockAccountAvatarRepositoryMockRecorder{mock}
-	return mock
-}
-
-func (m *MockAccountAvatarRepository) EXPECT() *MockAccountAvatarRepositoryMockRecorder {
-	return m.recorder
-}
-
-func (m *MockAccountAvatarRepository) DeleteAvatar(ctx context.Context, userID domain.UserID) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteAvatar", ctx, userID)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (mr *MockAccountAvatarRepositoryMockRecorder) DeleteAvatar(ctx, userID any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteAvatar", reflect.TypeOf((*MockAccountAvatarRepository)(nil).DeleteAvatar), ctx, userID)
-}
-
-func (m *MockAccountAvatarRepository) GetAvatar(ctx context.Context, userID domain.UserID) (*domain.AvatarFile, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAvatar", ctx, userID)
-	ret0, _ := ret[0].(*domain.AvatarFile)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-func (mr *MockAccountAvatarRepositoryMockRecorder) GetAvatar(ctx, userID any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAvatar", reflect.TypeOf((*MockAccountAvatarRepository)(nil).GetAvatar), ctx, userID)
-}
-
 type MockPosterStorage struct {
 	ctrl     *gomock.Controller
 	recorder *MockPosterStorageMockRecorder

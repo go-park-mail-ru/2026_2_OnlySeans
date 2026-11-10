@@ -50,16 +50,16 @@ const (
 )
 
 type PostgresRepo struct {
-	db  *sql.DB
-	log logger.Logger
+	db        *sql.DB
+	appLogger logger.Logger
 }
 
 func NewPostgresRepo(db *sql.DB, appLogger logger.Logger) *PostgresRepo {
-	return &PostgresRepo{log: appLogger, db: db}
+	return &PostgresRepo{appLogger: appLogger, db: db}
 }
 
 func (r *PostgresRepo) Get(ctx context.Context, user domain.UserID) (_ domain.Library, operationErr error) {
-	operationLog := storage.StartOperation(ctx, r.log, "postgres", "library.get", map[string]any{"user_id": user})
+	operationLog := storage.StartOperation(ctx, r.appLogger, "postgres", "library.get", map[string]any{"user_id": user})
 	defer func() { operationLog.Finish(operationErr) }()
 
 	data := domain.Library{Favorite: []int64{}, WatchLater: []int64{}, Watched: []int64{}}
@@ -92,7 +92,7 @@ func (r *PostgresRepo) Get(ctx context.Context, user domain.UserID) (_ domain.Li
 }
 
 func (r *PostgresRepo) SetSaved(ctx context.Context, user domain.UserID, list domain.List, film int64, saved bool) (err error) {
-	operationLog := storage.StartOperation(ctx, r.log, "postgres", "library.set_saved", map[string]any{"user_id": user, "list": list, "film_id": film, "saved": saved})
+	operationLog := storage.StartOperation(ctx, r.appLogger, "postgres", "library.set_saved", map[string]any{"user_id": user, "list": list, "film_id": film, "saved": saved})
 	defer func() { operationLog.Finish(err) }()
 
 	defer func() {

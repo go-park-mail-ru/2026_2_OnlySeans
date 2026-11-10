@@ -11,9 +11,9 @@ import (
 )
 
 type CreateReviewUseCase struct {
-	reviews domain.ReviewRepository
-	films   domain.FilmRepository
-	logger  logger.Logger
+	reviews   domain.ReviewRepository
+	films     domain.FilmRepository
+	appLogger logger.Logger
 }
 
 func NewCreateReviewUseCase(
@@ -32,26 +32,26 @@ func NewCreateReviewUseCase(
 	}
 
 	return &CreateReviewUseCase{
-		reviews: reviews,
-		films:   films,
-		logger:  appLogger,
+		reviews:   reviews,
+		films:     films,
+		appLogger: appLogger,
 	}, nil
 }
 
 func (uc *CreateReviewUseCase) Run(ctx context.Context, input CreateReviewInput) (*CreateReviewOutput, error) {
-	uc.logger.DebugContext(ctx, "create review started", map[string]any{
+	uc.appLogger.DebugContext(ctx, "create review started", map[string]any{
 		"user_id": input.AuthorID,
 		"film_id": input.FilmID,
 	})
 
 	review, err := prepareReview(input.Review)
 	if err != nil {
-		logging.Validation(ctx, uc.logger, "create review rejected: invalid input", err, map[string]any{"user_id": input.AuthorID, "film_id": input.FilmID})
+		logging.Validation(ctx, uc.appLogger, "create review rejected: invalid input", err, map[string]any{"user_id": input.AuthorID, "film_id": input.FilmID})
 		return nil, err
 	}
 
 	if _, err := uc.films.GetFilmByID(ctx, input.FilmID); err != nil {
-		logging.Failure(ctx, uc.logger, "get film for review failed", err, map[string]any{
+		logging.Failure(ctx, uc.appLogger, "get film for review failed", err, map[string]any{
 			"film_id": input.FilmID,
 		})
 		if errors.Is(err, domain.ErrFilmNotFound) {
@@ -62,14 +62,14 @@ func (uc *CreateReviewUseCase) Run(ctx context.Context, input CreateReviewInput)
 
 	created, err := uc.reviews.Create(ctx, input.AuthorID, input.FilmID, *review)
 	if err != nil {
-		logging.Failure(ctx, uc.logger, "create review failed", err, map[string]any{
+		logging.Failure(ctx, uc.appLogger, "create review failed", err, map[string]any{
 			"user_id": input.AuthorID,
 			"film_id": input.FilmID,
 		})
 		return nil, fmt.Errorf("create review: %w", err)
 	}
 
-	uc.logger.InfoContext(ctx, "review created", map[string]any{
+	uc.appLogger.InfoContext(ctx, "review created", map[string]any{
 		"user_id":   input.AuthorID,
 		"film_id":   input.FilmID,
 		"review_id": created.ID,

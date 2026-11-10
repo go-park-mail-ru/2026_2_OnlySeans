@@ -11,7 +11,7 @@ import (
 )
 
 type SlogLogger struct {
-	logger *slog.Logger
+	appLogger *slog.Logger
 }
 
 func NewLogger(w io.Writer, level LogLevelType, format string) (*SlogLogger, error) {
@@ -43,9 +43,9 @@ func NewLogger(w io.Writer, level LogLevelType, format string) (*SlogLogger, err
 		return nil, fmt.Errorf("invalid log format %q: want text or json", format)
 	}
 
-	logger := slog.New(handler)
+	appLogger := slog.New(handler)
 
-	return &SlogLogger{logger: logger}, nil
+	return &SlogLogger{appLogger: appLogger}, nil
 }
 
 func (l *SlogLogger) Info(msg string, fields map[string]any) {
@@ -101,5 +101,5 @@ func (l *SlogLogger) logContext(ctx context.Context, level slog.Level, msg strin
 		attrs = slices.DeleteFunc(attrs, func(attr slog.Attr) bool { return attr.Key == "request_id" })
 		attrs = append(attrs, slog.String("request_id", id))
 	}
-	l.logger.LogAttrs(ctx, level, msg, attrs...)
+	l.appLogger.LogAttrs(ctx, level, msg, attrs...)
 }

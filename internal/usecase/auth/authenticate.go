@@ -11,8 +11,8 @@ import (
 )
 
 type AuthenticateUserUseCase struct {
-	sessions domain.SessionStore
-	logger   logger.Logger
+	sessions  domain.SessionStore
+	appLogger logger.Logger
 }
 
 func NewAuthenticateUserUseCase(sessions domain.SessionStore, appLogger logger.Logger) (*AuthenticateUserUseCase, error) {
@@ -25,34 +25,34 @@ func NewAuthenticateUserUseCase(sessions domain.SessionStore, appLogger logger.L
 	}
 
 	return &AuthenticateUserUseCase{
-		sessions: sessions,
-		logger:   appLogger,
+		sessions:  sessions,
+		appLogger: appLogger,
 	}, nil
 }
 
 func (uc *AuthenticateUserUseCase) Run(ctx context.Context, input AuthenticateInput) (*AuthenticateOutput, error) {
-	uc.logger.DebugContext(ctx, "authenticate started", nil)
+	uc.appLogger.DebugContext(ctx, "authenticate started", nil)
 
 	session, err := uc.sessions.Get(ctx, input.SessionID)
 	if err != nil {
 		if errors.Is(err, domain.ErrSessionNotFound) {
-			uc.logger.WarnContext(ctx, "authentication rejected", nil)
+			uc.appLogger.WarnContext(ctx, "authentication rejected", nil)
 			return nil, domain.ErrUnauthorized
 		}
 
-		logging.Failure(ctx, uc.logger, "get session failed", err, map[string]any{})
+		logging.Failure(ctx, uc.appLogger, "get session failed", err, map[string]any{})
 		return nil, fmt.Errorf("get session: %w", err)
 	}
 
 	if session == nil {
 		err := fmt.Errorf("store returned nil session")
-		logging.Failure(ctx, uc.logger, "get session failed", err, map[string]any{})
+		logging.Failure(ctx, uc.appLogger, "get session failed", err, map[string]any{})
 		return nil, fmt.Errorf("get session: %w", err)
 	}
 
 	output := NewAuthenticateOutput(session.UserID)
 
-	uc.logger.DebugContext(ctx, "user authenticated", map[string]any{
+	uc.appLogger.DebugContext(ctx, "user authenticated", map[string]any{
 		"user_id": session.UserID,
 	})
 
