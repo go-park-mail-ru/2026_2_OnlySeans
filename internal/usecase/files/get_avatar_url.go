@@ -39,19 +39,19 @@ func NewGetAvatarURLUseCase(storage AvatarURLStorage, appLogger logger.Logger) (
 
 func (uc *GetAvatarURLUseCase) Run(ctx context.Context, filename string) (*GetAvatarURLOutput, error) {
 	if !avatarFilenamePattern.MatchString(filename) {
-		uc.logger.Warn("avatar URL request rejected: invalid filename", map[string]any{"filename_length": len(filename)})
+		uc.logger.WarnContext(ctx, "avatar URL request rejected: invalid filename", map[string]any{"filename_length": len(filename)})
 		return nil, ErrInvalidAvatarFilename
 	}
-	uc.logger.Debug("get avatar URL started", map[string]any{"filename": filename})
+	uc.logger.DebugContext(ctx, "get avatar URL started", map[string]any{"filename": filename})
 	url, err := uc.storage.GetURL(ctx, filename)
 	if err != nil {
 		if errors.Is(err, domain.ErrFileNotFound) {
-			uc.logger.Debug("avatar object not found", map[string]any{"filename": filename})
+			uc.logger.DebugContext(ctx, "avatar object not found", map[string]any{"filename": filename})
 		} else {
-			uc.logger.Error("get avatar URL failed", map[string]any{"filename": filename, "error": err})
+			uc.logger.ErrorContext(ctx, "get avatar URL failed", map[string]any{"filename": filename, "error": err})
 		}
 		return nil, fmt.Errorf("get avatar URL: %w", err)
 	}
-	uc.logger.Debug("avatar URL generated", map[string]any{"filename": filename})
+	uc.logger.DebugContext(ctx, "avatar URL generated", map[string]any{"filename": filename})
 	return &GetAvatarURLOutput{URL: url}, nil
 }

@@ -78,8 +78,21 @@ func TestPosterUploadHTTP(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			deps := &posterUploadDependencies{filmErr: tt.filmErr, uploadErr: tt.uploadErr, saveErr: tt.saveErr}
-			uc, err := filesusecase.NewUploadPosterUseCase(deps, deps, deps, filesusecase.UploadPosterOptions{
+			var events []string
+			if !tt.anonymous && tt.id == "9" && !tt.raw && tt.copies == 1 && tt.field == "poster" && len(tt.data) <= (1<<20) {
+				events = append(events, "film")
+				if tt.filmErr == nil && tt.name != "invalid image" && len(tt.data) <= 1024 {
+					events = append(events, "upload")
+					if tt.uploadErr == nil {
+						events = append(events, "save")
+						if tt.saveErr != nil {
+							events = append(events, "delete")
+						}
+					}
+				}
+			}
+			storage, repo, films, deps := expectPosterUpload(t, events, tt.filmErr, tt.uploadErr, tt.saveErr, nil, nil)
+			uc, err := filesusecase.NewUploadPosterUseCase(storage, repo, films, filesusecase.UploadPosterOptions{
 				MaxSize: 1024, MaxDimension: 64, CleanupTimeout: time.Second,
 			}, testFilesLogger(t))
 			require.NoError(t, err)

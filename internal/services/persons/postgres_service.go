@@ -7,6 +7,8 @@ import (
 	"fmt"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/storage"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 )
 
 const (
@@ -47,11 +49,12 @@ const (
 )
 
 type PersonRepo struct {
-	db *sql.DB
+	log logger.Logger
+	db  *sql.DB
 }
 
-func NewPersonRepo(db *sql.DB) domain.PersonRepository {
-	return &PersonRepo{
+func NewPersonRepo(db *sql.DB, appLogger logger.Logger) domain.PersonRepository {
+	return &PersonRepo{log: appLogger,
 		db: db,
 	}
 }
@@ -79,7 +82,11 @@ func scanPerson(row rowScanner) (domain.Person, error) {
 func (r *PersonRepo) GetByID(
 	ctx context.Context,
 	id domain.PersonID,
-) (*domain.Person, error) {
+) (_ *domain.Person, operationErr error) {
+	operationLog := storage.StartOperation(ctx, r.log, "postgres", "person.get_by_id", map[string]any{"person_id": id})
+	defer func() { operationLog.Finish(operationErr) }()
+
+	operationLog.Stage = "query"
 	person, err := scanPerson(
 		r.db.QueryRowContext(ctx, getPersonQuery, id),
 	)
@@ -96,13 +103,18 @@ func (r *PersonRepo) GetByID(
 	return &person, nil
 }
 
-func (s *PersonRepo) List(ctx context.Context, limit, offset int) ([]domain.Person, int, error) {
+func (s *PersonRepo) List(ctx context.Context, limit, offset int) (_ []domain.Person, _ int, operationErr error) {
+	operationLog := storage.StartOperation(ctx, s.log, "postgres", "person.list", map[string]any{"limit": limit, "offset": offset})
+	defer func() { operationLog.Finish(operationErr) }()
+
 	var total int
 
+	operationLog.Stage = "query"
 	if err := s.db.QueryRowContext(ctx, countPersonsQuery).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count persons: %w", err)
 	}
 
+	operationLog.Stage = "query"
 	rows, err := s.db.QueryContext(ctx, listPersonsQuery, limit, offset)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list persons: %w", err)
@@ -130,9 +142,13 @@ func (s *PersonRepo) List(ctx context.Context, limit, offset int) ([]domain.Pers
 func (r *PersonRepo) Create(
 	ctx context.Context,
 	input domain.PersonInput,
-) (domain.PersonID, error) {
+) (_ domain.PersonID, operationErr error) {
+	operationLog := storage.StartOperation(ctx, r.log, "postgres", "person.create", map[string]any{})
+	defer func() { operationLog.Finish(operationErr) }()
+
 	var id domain.PersonID
 
+	operationLog.Stage = "query"
 	err := r.db.QueryRowContext(
 		ctx,
 		createPersonQuery,
@@ -151,7 +167,11 @@ func (r *PersonRepo) Update(
 	ctx context.Context,
 	id domain.PersonID,
 	input domain.PersonInput,
-) (*domain.Person, error) {
+) (_ *domain.Person, operationErr error) {
+	operationLog := storage.StartOperation(ctx, r.log, "postgres", "person.update", map[string]any{"person_id": id})
+	defer func() { operationLog.Finish(operationErr) }()
+
+	operationLog.Stage = "query"
 	person, err := scanPerson(
 		r.db.QueryRowContext(
 			ctx,
@@ -178,7 +198,11 @@ func (r *PersonRepo) Update(
 func (r *PersonRepo) Delete(
 	ctx context.Context,
 	id domain.PersonID,
-) error {
+) (operationErr error) {
+	operationLog := storage.StartOperation(ctx, r.log, "postgres", "person.delete", map[string]any{"person_id": id})
+	defer func() { operationLog.Finish(operationErr) }()
+
+	operationLog.Stage = "query"
 	result, err := r.db.ExecContext(ctx, deletePersonQuery, id)
 	if err != nil {
 

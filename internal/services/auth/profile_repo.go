@@ -6,15 +6,26 @@ import (
 	"errors"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/storage"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-type ProfileRepo struct{ db *sql.DB }
+type ProfileRepo struct {
+	db  *sql.DB
+	log logger.Logger
+}
 
-func NewProfileRepo(db *sql.DB) *ProfileRepo { return &ProfileRepo{db: db} }
+func NewProfileRepo(db *sql.DB, appLogger logger.Logger) *ProfileRepo {
+	return &ProfileRepo{log: appLogger, db: db}
+}
 
-func (r *ProfileRepo) UpdateProfile(ctx context.Context, id domain.UserID, email, username string) (*domain.User, error) {
+func (r *ProfileRepo) UpdateProfile(ctx context.Context, id domain.UserID, email, username string) (_ *domain.User, operationErr error) {
+	operationLog := storage.StartOperation(ctx, r.log, "postgres", "profile.update_profile", map[string]any{"user_id": id})
+	defer func() { operationLog.Finish(operationErr) }()
+
 	var user domain.User
+	operationLog.Stage = "query"
 	err := r.db.QueryRowContext(ctx, `UPDATE account SET email=$2,username=$3
 		WHERE id=$1 AND deleted_at IS NULL
 		RETURNING id,email,username,password_hash,
@@ -25,11 +36,13 @@ func (r *ProfileRepo) UpdateProfile(ctx context.Context, id domain.UserID, email
 		return nil, domain.ErrUserNotFound
 	}
 	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-		if pgErr.ConstraintName == "account_username_key" {
+	if errors.As(err, &pgErr) && pgErr.Code == storage.UniqueViolation {
+		switch pgErr.ConstraintName {
+		case "account_username_key":
 			return nil, domain.ErrUsernameTaken
+		case "account_email_key":
+			return nil, domain.ErrUserExists
 		}
-		return nil, domain.ErrUserExists
 	}
 	if err != nil {
 		return nil, err

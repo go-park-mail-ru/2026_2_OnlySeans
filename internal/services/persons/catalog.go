@@ -4,37 +4,20 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"time"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/storage"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 )
 
-type CatalogPerson struct {
-	ID           int64      `json:"id"`
-	Name         string     `json:"name"`
-	OriginalName string     `json:"original_name"`
-	PhotoURL     *string    `json:"photo_url,omitempty"`
-	PhotoSource  string     `json:"photo_source"`
-	PhotoCredit  string     `json:"photo_credit"`
-	BirthDate    *time.Time `json:"birth_date,omitempty"`
-	DeathDate    *time.Time `json:"death_date,omitempty"`
-	BirthPlace   string     `json:"birth_place"`
-	Biography    string     `json:"biography"`
-	SourceURL    string     `json:"source_url"`
+type CatalogRepo struct {
+	db  *sql.DB
+	log logger.Logger
 }
-type PersonCredit struct {
-	Person    CatalogPerson `json:"person"`
-	Role      string        `json:"role"`
-	Character string        `json:"character"`
-}
-type FilmCredit struct {
-	FilmID    domain.FilmID
-	Role      string `json:"role"`
-	Character string `json:"character"`
-}
-type CatalogRepo struct{ db *sql.DB }
 
-func NewCatalogRepo(db *sql.DB) *CatalogRepo { return &CatalogRepo{db: db} }
+func NewCatalogRepo(db *sql.DB, appLogger logger.Logger) *CatalogRepo {
+	return &CatalogRepo{log: appLogger, db: db}
+}
 
 const (
 	catalogColumns = `
@@ -44,7 +27,7 @@ const (
 		p.birth_date, p.death_date, COALESCE(p.birth_place, ''), COALESCE(p.biography, ''), COALESCE(p.source_url, '')`
 	catalogFrom = ` FROM person AS p LEFT JOIN file AS ph ON ph.id = p.photo_file_id`
 
-	filmPeopleQuery = `SELECT ` + catalogColumns + `, rt.code, COALESCE(fp.character_name, '')` + catalogFrom + `
+	filmPersonsQuery = `SELECT ` + catalogColumns + `, rt.code, COALESCE(fp.character_name, '')` + catalogFrom + `
 		JOIN film_person AS fp ON fp.person_id = p.id
 		JOIN role_type AS rt ON rt.id = fp.role_type_id
 		WHERE fp.film_id = $1
@@ -62,29 +45,37 @@ const (
 
 type catalogScanner interface{ Scan(...any) error }
 
-func scanCatalogPerson(row catalogScanner) (CatalogPerson, error) {
-	var p CatalogPerson
+func scanCatalogPerson(row catalogScanner) (domain.CatalogPerson, error) {
+	var p domain.CatalogPerson
 	err := row.Scan(&p.ID, &p.Name, &p.OriginalName, &p.PhotoURL, &p.PhotoSource, &p.PhotoCredit, &p.BirthDate, &p.DeathDate, &p.BirthPlace, &p.Biography, &p.SourceURL)
 	return p, err
 }
-func (r *CatalogRepo) FilmPeople(ctx context.Context, id int64) ([]PersonCredit, error) {
-	people := []PersonCredit{}
-	rows, err := r.db.QueryContext(ctx, filmPeopleQuery, id)
+func (r *CatalogRepo) FilmPersons(ctx context.Context, id int64) (_ []domain.PersonCredit, operationErr error) {
+	operationLog := storage.StartOperation(ctx, r.log, "postgres", "person_catalog.film_persons", map[string]any{"person_id": id})
+	defer func() { operationLog.Finish(operationErr) }()
+
+	persons := []domain.PersonCredit{}
+	operationLog.Stage = "query"
+	rows, err := r.db.QueryContext(ctx, filmPersonsQuery, id)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var item PersonCredit
+		var item domain.PersonCredit
 		p := &item.Person
 		if err = rows.Scan(&p.ID, &p.Name, &p.OriginalName, &p.PhotoURL, &p.PhotoSource, &p.PhotoCredit, &p.BirthDate, &p.DeathDate, &p.BirthPlace, &p.Biography, &p.SourceURL, &item.Role, &item.Character); err != nil {
 			return nil, err
 		}
-		people = append(people, item)
+		persons = append(persons, item)
 	}
-	return people, rows.Err()
+	return persons, rows.Err()
 }
-func (r *CatalogRepo) Get(ctx context.Context, id int64) (CatalogPerson, []FilmCredit, error) {
+func (r *CatalogRepo) Get(ctx context.Context, id int64) (_ domain.CatalogPerson, _ []domain.FilmCredit, operationErr error) {
+	operationLog := storage.StartOperation(ctx, r.log, "postgres", "person_catalog.get", map[string]any{"person_id": id})
+	defer func() { operationLog.Finish(operationErr) }()
+
+	operationLog.Stage = "query"
 	person, err := scanCatalogPerson(r.db.QueryRowContext(ctx, personQuery, id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return person, nil, domain.ErrPersonNotFound
@@ -92,14 +83,15 @@ func (r *CatalogRepo) Get(ctx context.Context, id int64) (CatalogPerson, []FilmC
 	if err != nil {
 		return person, nil, err
 	}
-	credits := []FilmCredit{}
+	credits := []domain.FilmCredit{}
+	operationLog.Stage = "query"
 	rows, err := r.db.QueryContext(ctx, personFilmsQuery, id)
 	if err != nil {
 		return person, nil, err
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var credit FilmCredit
+		var credit domain.FilmCredit
 		if err = rows.Scan(&credit.FilmID, &credit.Role, &credit.Character); err != nil {
 			return person, nil, err
 		}

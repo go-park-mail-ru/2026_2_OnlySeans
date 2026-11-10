@@ -49,7 +49,7 @@ func LogRejected(appLogger logger.Logger, r *http.Request, field string, err err
 	if errors.Is(err, ErrInvalidBody) {
 		reason = ErrInvalidBody.Error()
 	}
-	appLogger.Warn("request rejected", map[string]any{
+	appLogger.WarnContext(r.Context(), "request rejected", map[string]any{
 		"method": r.Method,
 		"path":   r.URL.Path,
 		"field":  field,

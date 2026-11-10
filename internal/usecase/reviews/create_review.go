@@ -40,19 +40,19 @@ func NewCreateReviewUseCase(
 
 // Повторный отзыв того же автора на тот же фильм отклоняет хранилище, без отдельной проверки заранее.
 func (uc *CreateReviewUseCase) Run(ctx context.Context, input CreateReviewInput) (*CreateReviewOutput, error) {
-	uc.logger.Debug("create review started", map[string]any{
+	uc.logger.DebugContext(ctx, "create review started", map[string]any{
 		"user_id": input.AuthorID,
 		"film_id": input.FilmID,
 	})
 
 	review, err := prepareReview(input.Review)
 	if err != nil {
-		logging.Validation(uc.logger, "create review rejected: invalid input", err, map[string]any{"user_id": input.AuthorID, "film_id": input.FilmID})
+		logging.Validation(ctx, uc.logger, "create review rejected: invalid input", err, map[string]any{"user_id": input.AuthorID, "film_id": input.FilmID})
 		return nil, err
 	}
 
 	if _, err := uc.films.GetFilmByID(ctx, input.FilmID); err != nil {
-		logging.Failure(uc.logger, "get film for review failed", err, map[string]any{
+		logging.Failure(ctx, uc.logger, "get film for review failed", err, map[string]any{
 			"film_id": input.FilmID,
 		})
 		if errors.Is(err, domain.ErrFilmNotFound) {
@@ -63,14 +63,14 @@ func (uc *CreateReviewUseCase) Run(ctx context.Context, input CreateReviewInput)
 
 	created, err := uc.reviews.Create(ctx, input.AuthorID, input.FilmID, *review)
 	if err != nil {
-		logging.Failure(uc.logger, "create review failed", err, map[string]any{
+		logging.Failure(ctx, uc.logger, "create review failed", err, map[string]any{
 			"user_id": input.AuthorID,
 			"film_id": input.FilmID,
 		})
 		return nil, fmt.Errorf("create review: %w", err)
 	}
 
-	uc.logger.Info("review created", map[string]any{
+	uc.logger.InfoContext(ctx, "review created", map[string]any{
 		"user_id":   input.AuthorID,
 		"film_id":   input.FilmID,
 		"review_id": created.ID,

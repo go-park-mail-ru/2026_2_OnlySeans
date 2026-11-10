@@ -32,34 +32,34 @@ func NewUpdateReviewUseCase(
 }
 
 func (uc *UpdateReviewUseCase) Run(ctx context.Context, input UpdateReviewInput) (*ReviewOutput, error) {
-	uc.logger.Debug("update review started", map[string]any{
+	uc.logger.DebugContext(ctx, "update review started", map[string]any{
 		"user_id":   input.UserID,
 		"review_id": input.ReviewID,
 	})
 
 	changes, err := prepareReview(input.Review)
 	if err != nil {
-		logging.Validation(uc.logger, "update review rejected: invalid input", err, map[string]any{"user_id": input.UserID, "review_id": input.ReviewID})
+		logging.Validation(ctx, uc.logger, "update review rejected: invalid input", err, map[string]any{"user_id": input.UserID, "review_id": input.ReviewID})
 		return nil, err
 	}
 
 	review, err := uc.reviews.GetByID(ctx, input.ReviewID)
 	if err != nil {
-		logging.Failure(uc.logger, "get review for update failed", err, map[string]any{
+		logging.Failure(ctx, uc.logger, "get review for update failed", err, map[string]any{
 			"review_id": input.ReviewID,
 		})
 		return nil, fmt.Errorf("get review %d: %w", input.ReviewID, err)
 	}
 
 	if review.AuthorID != input.UserID {
-		uc.logger.Warn("review update forbidden", map[string]any{
+		uc.logger.WarnContext(ctx, "review update forbidden", map[string]any{
 			"user_id":   input.UserID,
 			"review_id": input.ReviewID,
 		})
 		return nil, domain.ErrForbidden
 	}
 	if input.Version <= 0 {
-		logging.Validation(uc.logger, "update review rejected: invalid version", domain.ErrInvalidVersion, map[string]any{"user_id": input.UserID, "review_id": input.ReviewID})
+		logging.Validation(ctx, uc.logger, "update review rejected: invalid version", domain.ErrInvalidVersion, map[string]any{"user_id": input.UserID, "review_id": input.ReviewID})
 		return nil, domain.ErrInvalidVersion
 	}
 
@@ -68,14 +68,14 @@ func (uc *UpdateReviewUseCase) Run(ctx context.Context, input UpdateReviewInput)
 		Version: input.Version,
 	})
 	if err != nil {
-		logging.Failure(uc.logger, "update review failed", err, map[string]any{
+		logging.Failure(ctx, uc.logger, "update review failed", err, map[string]any{
 			"user_id":   input.UserID,
 			"review_id": input.ReviewID,
 		})
 		return nil, fmt.Errorf("update review %d: %w", input.ReviewID, err)
 	}
 
-	uc.logger.Info("review updated", map[string]any{
+	uc.logger.InfoContext(ctx, "review updated", map[string]any{
 		"user_id":   input.UserID,
 		"review_id": input.ReviewID,
 	})

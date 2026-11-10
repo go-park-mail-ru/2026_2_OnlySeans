@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/storage"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 	"github.com/redis/rueidis"
 )
 
@@ -15,6 +17,7 @@ const (
 )
 
 type RedisSessionStore struct {
+	log    logger.Logger
 	client rueidis.Client
 	ttl    time.Duration
 }
@@ -22,8 +25,9 @@ type RedisSessionStore struct {
 func NewRedisSessionStore(
 	client rueidis.Client,
 	ttl time.Duration,
+	appLogger logger.Logger,
 ) *RedisSessionStore {
-	return &RedisSessionStore{
+	return &RedisSessionStore{log: appLogger,
 		client: client,
 		ttl:    ttl,
 	}
@@ -33,7 +37,10 @@ func sessionKey(id string) string {
 	return sessionKeyPrefix + id
 }
 
-func (s *RedisSessionStore) Create(ctx context.Context, userID domain.UserID) (*domain.Session, error) {
+func (s *RedisSessionStore) Create(ctx context.Context, userID domain.UserID) (_ *domain.Session, operationErr error) {
+	operationLog := storage.StartOperation(ctx, s.log, "redis", "session.create", map[string]any{"user_id": userID})
+	defer func() { operationLog.Finish(operationErr) }()
+
 	id, err := generateSessionID()
 	if err != nil {
 		return nil, fmt.Errorf("generate session id: %w", err)
@@ -46,6 +53,7 @@ func (s *RedisSessionStore) Create(ctx context.Context, userID domain.UserID) (*
 		ExSeconds(int64(s.ttl.Seconds())).
 		Build()
 
+	operationLog.Stage = "command"
 	res := s.client.Do(ctx, cmd)
 	if res.Error() != nil {
 		return nil, fmt.Errorf("create session: %w", res.Error())
@@ -60,12 +68,16 @@ func (s *RedisSessionStore) Create(ctx context.Context, userID domain.UserID) (*
 	return session, nil
 }
 
-func (s *RedisSessionStore) Get(ctx context.Context, sessionID string) (*domain.Session, error) {
+func (s *RedisSessionStore) Get(ctx context.Context, sessionID string) (_ *domain.Session, operationErr error) {
+	operationLog := storage.StartOperation(ctx, s.log, "redis", "session.get", map[string]any{})
+	defer func() { operationLog.Finish(operationErr) }()
+
 	cmd := s.client.B().
 		Get().
 		Key(sessionKey(sessionID)).
 		Build()
 
+	operationLog.Stage = "command"
 	rawUserID, err := s.client.Do(ctx, cmd).ToString()
 	if err != nil {
 		if rueidis.IsRedisNil(err) {
@@ -88,12 +100,16 @@ func (s *RedisSessionStore) Get(ctx context.Context, sessionID string) (*domain.
 	return session, nil
 }
 
-func (s *RedisSessionStore) Delete(ctx context.Context, sessionID string) error {
+func (s *RedisSessionStore) Delete(ctx context.Context, sessionID string) (operationErr error) {
+	operationLog := storage.StartOperation(ctx, s.log, "redis", "session.delete", map[string]any{})
+	defer func() { operationLog.Finish(operationErr) }()
+
 	cmd := s.client.B().
 		Del().
 		Key(sessionKey(sessionID)).
 		Build()
 
+	operationLog.Stage = "command"
 	err := s.client.Do(ctx, cmd).Error()
 	if err != nil {
 		return fmt.Errorf("delete session: %w", err)

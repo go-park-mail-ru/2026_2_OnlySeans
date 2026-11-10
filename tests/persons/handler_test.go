@@ -12,83 +12,20 @@ import (
 	persondelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/persons"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	personusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/persons"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/tests/mocks"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/tests/testutil"
 	"github.com/gorilla/mux"
+	"go.uber.org/mock/gomock"
 )
 
 // Тестовый логгер. Ничего не записывает.
-type handlerTestLogger struct{}
-
-func (l *handlerTestLogger) Info(string, map[string]any)  {}
-func (l *handlerTestLogger) Debug(string, map[string]any) {}
-func (l *handlerTestLogger) Warn(string, map[string]any)  {}
-func (l *handlerTestLogger) Error(string, map[string]any) {}
 
 // Тестовый репозиторий.
-type handlerTestRepository struct {
-	createFn func(context.Context, domain.PersonInput) (domain.PersonID, error)
-	getFn    func(context.Context, domain.PersonID) (*domain.Person, error)
-	listFn   func(context.Context, int, int) ([]domain.Person, int, error)
-	updateFn func(context.Context, domain.PersonID, domain.PersonInput) (*domain.Person, error)
-	deleteFn func(context.Context, domain.PersonID) error
-}
-
-func (r *handlerTestRepository) Create(
-	ctx context.Context,
-	input domain.PersonInput,
-) (domain.PersonID, error) {
-	if r.createFn != nil {
-		return r.createFn(ctx, input)
-	}
-	return 0, nil
-}
-
-func (r *handlerTestRepository) GetByID(
-	ctx context.Context,
-	id domain.PersonID,
-) (*domain.Person, error) {
-	if r.getFn != nil {
-		return r.getFn(ctx, id)
-	}
-	return nil, nil
-}
-
-func (r *handlerTestRepository) List(
-	ctx context.Context,
-	limit, offset int,
-) ([]domain.Person, int, error) {
-	if r.listFn != nil {
-		return r.listFn(ctx, limit, offset)
-	}
-	return nil, 0, nil
-}
-
-func (r *handlerTestRepository) Update(
-	ctx context.Context,
-	id domain.PersonID,
-	input domain.PersonInput,
-) (*domain.Person, error) {
-	if r.updateFn != nil {
-		return r.updateFn(ctx, id, input)
-	}
-	return nil, nil
-}
-
-func (r *handlerTestRepository) Delete(
-	ctx context.Context,
-	id domain.PersonID,
-) error {
-	if r.deleteFn != nil {
-		return r.deleteFn(ctx, id)
-	}
-	return nil
-}
-
 // Создаём хэндлер со всеми необходимыми usecase.
 func newHandlerTest(t *testing.T, repo domain.PersonRepository) *persondelivery.Handler {
 	t.Helper()
 
-	appLogger := logger.Logger(&handlerTestLogger{})
+	appLogger := testutil.DiscardLogger()
 
 	create, err := personusecase.NewCreatePersonUseCase(repo, appLogger)
 	if err != nil {
@@ -251,8 +188,9 @@ func TestCreatePersonHandler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			repo := &handlerTestRepository{
-				createFn: tt.createFn,
+			repo := mocks.NewMockPersonRepository(gomock.NewController(t))
+			if tt.createFn != nil {
+				repo.EXPECT().Create(gomock.Any(), gomock.Any()).DoAndReturn(tt.createFn).Times(1)
 			}
 
 			handler := newHandlerTest(t, repo)
@@ -328,8 +266,9 @@ func TestGetPersonHandler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			repo := &handlerTestRepository{
-				getFn: tt.getFn,
+			repo := mocks.NewMockPersonRepository(gomock.NewController(t))
+			if tt.getFn != nil {
+				repo.EXPECT().GetByID(gomock.Any(), gomock.Any()).DoAndReturn(tt.getFn).Times(1)
 			}
 
 			handler := newHandlerTest(t, repo)
@@ -416,8 +355,9 @@ func TestListPersonsHandler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			repo := &handlerTestRepository{
-				listFn: tt.listFn,
+			repo := mocks.NewMockPersonRepository(gomock.NewController(t))
+			if tt.listFn != nil {
+				repo.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(tt.listFn).Times(1)
 			}
 
 			handler := newHandlerTest(t, repo)
@@ -514,8 +454,9 @@ func TestUpdatePersonHandler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			repo := &handlerTestRepository{
-				updateFn: tt.updateFn,
+			repo := mocks.NewMockPersonRepository(gomock.NewController(t))
+			if tt.updateFn != nil {
+				repo.EXPECT().Update(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(tt.updateFn).Times(1)
 			}
 
 			handler := newHandlerTest(t, repo)
@@ -582,8 +523,9 @@ func TestDeletePersonHandler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			repo := &handlerTestRepository{
-				deleteFn: tt.deleteFn,
+			repo := mocks.NewMockPersonRepository(gomock.NewController(t))
+			if tt.deleteFn != nil {
+				repo.EXPECT().Delete(gomock.Any(), gomock.Any()).DoAndReturn(tt.deleteFn).Times(1)
 			}
 
 			handler := newHandlerTest(t, repo)

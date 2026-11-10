@@ -1,7 +1,6 @@
 package router_test
 
 import (
-	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -11,17 +10,10 @@ import (
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/router"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/tests/mocks"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
-
-type catalogPermissionStub struct {
-	role domain.Role
-	err  error
-}
-
-func (s catalogPermissionStub) CanEditPersons(context.Context, domain.UserID) (bool, error) {
-	return s.role.CanEditPersons(), s.err
-}
 
 func TestRequireCatalogEditor(t *testing.T) {
 	tests := []struct {
@@ -42,9 +34,13 @@ func TestRequireCatalogEditor(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			called := false
-			appLogger := &spyLogger{}
+			checker := mocks.NewMockCatalogEditor(gomock.NewController(t))
+			if tt.authenticated {
+				checker.EXPECT().CanEditPersons(gomock.Any(), domain.UserID(1)).Return(tt.role.CanEditPersons(), tt.err).Times(1)
+			}
+			appLogger := newSpyLogger(t)
 			handler := router.RequireCatalogEditor(
-				catalogPermissionStub{role: tt.role, err: tt.err},
+				checker,
 				appLogger,
 			)(func(w http.ResponseWriter, _ *http.Request) {
 				called = true

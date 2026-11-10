@@ -86,9 +86,9 @@ func (uc *UploadAvatarUseCase) MaxSize() int64 {
 }
 
 func (uc *UploadAvatarUseCase) Run(ctx context.Context, input UploadAvatarInput) (*UploadAvatarOutput, error) {
-	uc.logger.Debug("avatar upload started", map[string]any{"user_id": input.UserID, "size": input.Size})
+	uc.logger.DebugContext(ctx, "avatar upload started", map[string]any{"user_id": input.UserID, "size": input.Size})
 	if input.UserID <= 0 {
-		uc.logger.Warn("avatar upload rejected: invalid user", nil)
+		uc.logger.WarnContext(ctx, "avatar upload rejected: invalid user", nil)
 		return nil, domain.ErrUnauthorized
 	}
 	imageErrors := imageUploadErrors{
@@ -102,13 +102,13 @@ func (uc *UploadAvatarUseCase) Run(ctx context.Context, input UploadAvatarInput)
 	if err != nil {
 		fields := map[string]any{"user_id": input.UserID, "error": err, "size": input.Size}
 		if imageErrors.contains(err) {
-			uc.logger.Warn("avatar upload rejected: invalid file", fields)
+			uc.logger.WarnContext(ctx, "avatar upload rejected: invalid file", fields)
 		} else {
-			uc.logger.Error("read avatar failed", fields)
+			uc.logger.ErrorContext(ctx, "read avatar failed", fields)
 		}
 		return nil, err
 	}
-	uc.logger.Debug("avatar image validated", map[string]any{
+	uc.logger.DebugContext(ctx, "avatar image validated", map[string]any{
 		"user_id": input.UserID,
 		"size":    len(image.data),
 		"width":   image.width,
@@ -117,7 +117,7 @@ func (uc *UploadAvatarUseCase) Run(ctx context.Context, input UploadAvatarInput)
 
 	filename, err := newImageFilename(image.extension)
 	if err != nil {
-		uc.logger.Error("generate avatar name failed", map[string]any{"user_id": input.UserID, "error": err})
+		uc.logger.ErrorContext(ctx, "generate avatar name failed", map[string]any{"user_id": input.UserID, "error": err})
 		return nil, err
 	}
 	data, contentType := image.data, image.contentType
@@ -128,34 +128,34 @@ func (uc *UploadAvatarUseCase) Run(ctx context.Context, input UploadAvatarInput)
 		contentType,
 		bytes.NewReader(data),
 	); err != nil {
-		uc.logger.Error("upload avatar object failed", map[string]any{"user_id": input.UserID, "filename": filename, "error": err})
+		uc.logger.ErrorContext(ctx, "upload avatar object failed", map[string]any{"user_id": input.UserID, "filename": filename, "error": err})
 		return nil, fmt.Errorf("save avatar: %w", err)
 	}
 
-	uc.logger.Debug("avatar object uploaded", map[string]any{"user_id": input.UserID, "filename": filename, "size": len(data)})
+	uc.logger.DebugContext(ctx, "avatar object uploaded", map[string]any{"user_id": input.UserID, "filename": filename, "size": len(data)})
 	err = uc.avatars.SaveAvatar(ctx, input.UserID, domain.AvatarFile{
 		Filename:    filename,
 		ContentType: contentType,
 		Size:        int64(len(data)),
 	})
 	if err != nil {
-		uc.logger.Error("save account avatar failed", map[string]any{"user_id": input.UserID, "filename": filename, "error": err})
+		uc.logger.ErrorContext(ctx, "save account avatar failed", map[string]any{"user_id": input.UserID, "filename": filename, "error": err})
 		if !errors.Is(err, domain.ErrAvatarCommitUnknown) {
-			cleanupCtx, cancel := context.WithTimeout(context.Background(), uc.options.CleanupTimeout)
+			cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), uc.options.CleanupTimeout)
 			cleanupErr := uc.storage.Delete(cleanupCtx, filename)
 			cancel()
 			if cleanupErr != nil {
-				uc.logger.Error("remove unlinked avatar object failed", map[string]any{"user_id": input.UserID, "filename": filename, "error": cleanupErr})
+				uc.logger.ErrorContext(ctx, "remove unlinked avatar object failed", map[string]any{"user_id": input.UserID, "filename": filename, "error": cleanupErr})
 				return nil, errors.Join(fmt.Errorf("attach avatar: %w", err), cleanupErr)
 			}
-			uc.logger.Debug("unlinked avatar object removed", map[string]any{"user_id": input.UserID, "filename": filename})
+			uc.logger.DebugContext(ctx, "unlinked avatar object removed", map[string]any{"user_id": input.UserID, "filename": filename})
 		} else {
-			uc.logger.Warn("avatar object retained: commit outcome unknown", map[string]any{"user_id": input.UserID, "filename": filename})
+			uc.logger.WarnContext(ctx, "avatar object retained: commit outcome unknown", map[string]any{"user_id": input.UserID, "filename": filename})
 		}
 		return nil, fmt.Errorf("attach avatar: %w", err)
 	}
 
-	uc.logger.Info("account avatar saved", map[string]any{"user_id": input.UserID, "filename": filename, "size": len(data), "content_type": contentType})
+	uc.logger.InfoContext(ctx, "account avatar saved", map[string]any{"user_id": input.UserID, "filename": filename, "size": len(data), "content_type": contentType})
 	return &UploadAvatarOutput{
 		Filename: filename,
 	}, nil

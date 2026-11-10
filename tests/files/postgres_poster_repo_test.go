@@ -68,7 +68,7 @@ func TestPostgresPosterRepoSave(t *testing.T) {
 			db, mock, err := sqlmock.New()
 			require.NoError(t, err)
 			defer db.Close()
-			repo, err := filesservice.NewPostgresPosterRepo(db)
+			repo, err := filesservice.NewPostgresPosterRepo(db, nil)
 			require.NoError(t, err)
 			poster := domain.PosterFile{Filename: "poster.png", ContentType: "image/png", Size: 123}
 

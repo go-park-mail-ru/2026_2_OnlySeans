@@ -9,12 +9,12 @@ import (
 )
 
 func (h *Handler) Preferences(w http.ResponseWriter, r *http.Request) {
-	data, err := h.repo.Preferences(r.Context(), user(r))
+	data, err := h.useCases.GetPreferences.Run(r.Context(), user(r))
 	if err != nil {
-		h.fail(w, err)
+		h.fail(r.Context(), w, err)
 		return
 	}
-	httpresponse.WriteJSON(w, http.StatusOK, data, h.log)
+	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, data, h.log)
 }
 
 func (h *Handler) SavePreference(w http.ResponseWriter, r *http.Request) {
@@ -23,11 +23,11 @@ func (h *Handler) SavePreference(w http.ResponseWriter, r *http.Request) {
 		Value json.RawMessage `json:"value"`
 	}
 	if err := httprequest.DecodeJSON(w, r, &body); err != nil {
-		h.fail(w, err)
+		h.fail(r.Context(), w, err)
 		return
 	}
-	if err := h.repo.SavePreference(r.Context(), user(r), body.Key, body.Value); err != nil {
-		h.fail(w, err)
+	if err := h.useCases.SavePreference.Run(r.Context(), user(r), body.Key, body.Value); err != nil {
+		h.fail(r.Context(), w, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

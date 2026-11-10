@@ -28,15 +28,15 @@ func NewLogoutUserUseCase(sessions domain.SessionStore, appLogger logger.Logger)
 }
 
 func (uc *LogoutUserUseCase) Run(ctx context.Context, input LogoutInput) error {
-	uc.logger.Debug("logout started", nil)
+	uc.logger.DebugContext(ctx, "logout started", nil)
 
 	if err := uc.sessions.Delete(ctx, input.SessionID); err != nil {
-		logging.Failure(uc.logger, "session deletion failed", err, map[string]any{})
+		logging.Failure(ctx, uc.logger, "session deletion failed", err, map[string]any{})
 
 		return fmt.Errorf("delete session: %w", err)
 	}
 
-	uc.logger.Info("user logged out", nil)
+	uc.logger.InfoContext(ctx, "user logged out", nil)
 
 	return nil
 }

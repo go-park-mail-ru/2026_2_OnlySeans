@@ -1,6 +1,8 @@
 package reviews
 
 import (
+	"context"
+
 	"errors"
 	"fmt"
 	"net/http"
@@ -151,13 +153,13 @@ func (h *Handler) ListByFilm(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(r)
 	if !ok {
 		httprequest.LogRejected(h.appLogger, r, "id", ErrInvalidID)
-		writeError(w, ErrInvalidID, h.appLogger)
+		writeError(r.Context(), w, ErrInvalidID, h.appLogger)
 		return
 	}
 	limit, offset, err := pagination(r)
 	if err != nil {
 		httprequest.LogRejected(h.appLogger, r, "pagination", err)
-		writeError(w, err, h.appLogger)
+		writeError(r.Context(), w, err, h.appLogger)
 		return
 	}
 
@@ -168,11 +170,11 @@ func (h *Handler) ListByFilm(w http.ResponseWriter, r *http.Request) {
 	)
 	result, err := h.useCases.List.Run(r.Context(), input)
 	if err != nil {
-		writeError(w, err, h.appLogger)
+		writeError(r.Context(), w, err, h.appLogger)
 		return
 	}
 
-	httpresponse.WriteJSON(w, http.StatusOK, reviewsPage{
+	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, reviewsPage{
 		Reviews: toReviewResponseDTOs(result.Reviews),
 		Total:   result.Total,
 		Limit:   limit,
@@ -184,19 +186,19 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(r)
 	if !ok {
 		httprequest.LogRejected(h.appLogger, r, "id", ErrInvalidID)
-		writeError(w, ErrInvalidID, h.appLogger)
+		writeError(r.Context(), w, ErrInvalidID, h.appLogger)
 		return
 	}
 	userID, ok := authdelivery.UserIDFromContext(r.Context())
 	if !ok {
 		httprequest.LogRejected(h.appLogger, r, "session", domain.ErrUnauthorized)
-		writeError(w, domain.ErrUnauthorized, h.appLogger)
+		writeError(r.Context(), w, domain.ErrUnauthorized, h.appLogger)
 		return
 	}
 	input, _, err := decodeReview(w, r)
 	if err != nil {
 		httprequest.LogRejected(h.appLogger, r, "body", err)
-		writeError(w, err, h.appLogger)
+		writeError(r.Context(), w, err, h.appLogger)
 		return
 	}
 
@@ -207,30 +209,30 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	)
 	result, err := h.useCases.Create.Run(r.Context(), inputCreateReview)
 	if err != nil {
-		writeError(w, err, h.appLogger)
+		writeError(r.Context(), w, err, h.appLogger)
 		return
 	}
 
-	httpresponse.WriteJSON(w, http.StatusCreated, createReviewResponse{ID: result.ID}, h.appLogger)
+	httpresponse.WriteJSONContext(r.Context(), w, http.StatusCreated, createReviewResponse{ID: result.ID}, h.appLogger)
 }
 
 func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(r)
 	if !ok {
 		httprequest.LogRejected(h.appLogger, r, "id", ErrInvalidID)
-		writeError(w, ErrInvalidID, h.appLogger)
+		writeError(r.Context(), w, ErrInvalidID, h.appLogger)
 		return
 	}
 	userID, ok := authdelivery.UserIDFromContext(r.Context())
 	if !ok {
 		httprequest.LogRejected(h.appLogger, r, "session", domain.ErrUnauthorized)
-		writeError(w, domain.ErrUnauthorized, h.appLogger)
+		writeError(r.Context(), w, domain.ErrUnauthorized, h.appLogger)
 		return
 	}
 	input, version, err := decodeReview(w, r)
 	if err != nil {
 		httprequest.LogRejected(h.appLogger, r, "body", err)
-		writeError(w, err, h.appLogger)
+		writeError(r.Context(), w, err, h.appLogger)
 		return
 	}
 
@@ -242,24 +244,24 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	)
 	result, err := h.useCases.Update.Run(r.Context(), inputUpdateReview)
 	if err != nil {
-		writeError(w, err, h.appLogger)
+		writeError(r.Context(), w, err, h.appLogger)
 		return
 	}
 
-	httpresponse.WriteJSON(w, http.StatusOK, reviewResponse{Review: toReviewResponseDTO(result.Review)}, h.appLogger)
+	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, reviewResponse{Review: toReviewResponseDTO(result.Review)}, h.appLogger)
 }
 
 func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(r)
 	if !ok {
 		httprequest.LogRejected(h.appLogger, r, "id", ErrInvalidID)
-		writeError(w, ErrInvalidID, h.appLogger)
+		writeError(r.Context(), w, ErrInvalidID, h.appLogger)
 		return
 	}
 	userID, ok := authdelivery.UserIDFromContext(r.Context())
 	if !ok {
 		httprequest.LogRejected(h.appLogger, r, "session", domain.ErrUnauthorized)
-		writeError(w, domain.ErrUnauthorized, h.appLogger)
+		writeError(r.Context(), w, domain.ErrUnauthorized, h.appLogger)
 		return
 	}
 
@@ -269,7 +271,7 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	)
 	err := h.useCases.Delete.Run(r.Context(), input)
 	if err != nil {
-		writeError(w, err, h.appLogger)
+		writeError(r.Context(), w, err, h.appLogger)
 		return
 	}
 
@@ -318,13 +320,13 @@ func queryInt(r *http.Request, key string, fallback int) (int, bool) {
 	return value, err == nil
 }
 
-func writeError(w http.ResponseWriter, err error, appLogger logger.Logger) {
+func writeError(ctx context.Context, w http.ResponseWriter, err error, appLogger logger.Logger) {
 	for _, known := range clientErrors {
 		if errors.Is(err, known.err) {
-			httpresponse.WriteError(w, known.status, known.message, appLogger)
+			httpresponse.WriteErrorContext(ctx, w, known.status, known.message, appLogger)
 			return
 		}
 	}
 
-	httpresponse.WriteError(w, http.StatusInternalServerError, httpresponse.InternalErrorMessage, appLogger)
+	httpresponse.WriteErrorContext(ctx, w, http.StatusInternalServerError, httpresponse.InternalErrorMessage, appLogger)
 }

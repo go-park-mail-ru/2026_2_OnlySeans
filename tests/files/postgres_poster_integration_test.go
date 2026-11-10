@@ -55,7 +55,7 @@ func TestPostgresPosterRepoLifecycle(t *testing.T) {
 		_, err := db.ExecContext(ctx, query)
 		require.NoError(t, err)
 	}
-	repo, err := filesservice.NewPostgresPosterRepo(db)
+	repo, err := filesservice.NewPostgresPosterRepo(db, nil)
 	require.NoError(t, err)
 	tests := []struct {
 		name           string

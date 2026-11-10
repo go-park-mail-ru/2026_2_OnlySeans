@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/storage"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
@@ -56,11 +57,12 @@ const (
 
 // пул соединений
 type PostgresReviewRepo struct {
-	db *sql.DB
+	log logger.Logger
+	db  *sql.DB
 }
 
-func NewPostgresReviewRepo(db *sql.DB) domain.ReviewRepository {
-	return &PostgresReviewRepo{db: db}
+func NewPostgresReviewRepo(db *sql.DB, appLogger logger.Logger) domain.ReviewRepository {
+	return &PostgresReviewRepo{log: appLogger, db: db}
 }
 
 // превратить строку из базы в domain.Review
@@ -84,7 +86,11 @@ func scanReview(row rowScanner) (domain.Review, error) {
 	return review, err
 }
 
-func (r *PostgresReviewRepo) GetByID(ctx context.Context, id domain.ReviewID) (*domain.Review, error) {
+func (r *PostgresReviewRepo) GetByID(ctx context.Context, id domain.ReviewID) (_ *domain.Review, operationErr error) {
+	operationLog := storage.StartOperation(ctx, r.log, "postgres", "review.get_by_id", map[string]any{"review_id": id})
+	defer func() { operationLog.Finish(operationErr) }()
+
+	operationLog.Stage = "query"
 	review, err := scanReview(r.db.QueryRowContext(ctx, getReviewQuery, id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, domain.ErrReviewNotFound
@@ -95,18 +101,24 @@ func (r *PostgresReviewRepo) GetByID(ctx context.Context, id domain.ReviewID) (*
 	return &review, nil
 }
 
-func (r *PostgresReviewRepo) Update(ctx context.Context, id domain.ReviewID, changes domain.ReviewUpdate) (*domain.Review, error) {
+func (r *PostgresReviewRepo) Update(ctx context.Context, id domain.ReviewID, changes domain.ReviewUpdate) (_ *domain.Review, operationErr error) {
+	operationLog := storage.StartOperation(ctx, r.log, "postgres", "review.update", map[string]any{"review_id": id})
+	defer func() { operationLog.Finish(operationErr) }()
+
+	operationLog.Stage = "begin"
 	tx, err := r.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
 	if err != nil {
 		return nil, fmt.Errorf("update review %d: %w", id, err)
 	}
 	defer tx.Rollback()
 
+	operationLog.Stage = "query"
 	review, err := scanReview(tx.QueryRowContext(ctx, updateReviewQuery,
 		id, changes.Input.Title, changes.Input.Content, changes.Input.ContainsSpoilers, changes.Version))
 
 	if errors.Is(err, sql.ErrNoRows) {
 		var current int
+		operationLog.Stage = "query"
 		switch err := tx.QueryRowContext(ctx, reviewVersionQuery, id).Scan(&current); {
 		case errors.Is(err, sql.ErrNoRows):
 			return nil, domain.ErrReviewNotFound
@@ -121,13 +133,18 @@ func (r *PostgresReviewRepo) Update(ctx context.Context, id domain.ReviewID, cha
 		return nil, fmt.Errorf("update review %d: %w", id, err)
 	}
 
+	operationLog.Stage = "commit"
 	if err := tx.Commit(); err != nil {
 		return nil, fmt.Errorf("update review %d: %w", id, err)
 	}
 	return &review, nil
 }
 
-func (r *PostgresReviewRepo) Delete(ctx context.Context, id domain.ReviewID, deletedBy domain.UserID) error {
+func (r *PostgresReviewRepo) Delete(ctx context.Context, id domain.ReviewID, deletedBy domain.UserID) (operationErr error) {
+	operationLog := storage.StartOperation(ctx, r.log, "postgres", "review.delete", map[string]any{"review_id": id})
+	defer func() { operationLog.Finish(operationErr) }()
+
+	operationLog.Stage = "query"
 	result, err := r.db.ExecContext(ctx, deleteReviewQuery, id, deletedBy)
 	if err != nil {
 		return fmt.Errorf("delete review %d: %w", id, err)
@@ -142,7 +159,11 @@ func (r *PostgresReviewRepo) Delete(ctx context.Context, id domain.ReviewID, del
 	return nil
 }
 
-func (r *PostgresReviewRepo) Create(ctx context.Context, authorID domain.UserID, filmID domain.FilmID, input domain.ReviewInput) (*domain.Review, error) {
+func (r *PostgresReviewRepo) Create(ctx context.Context, authorID domain.UserID, filmID domain.FilmID, input domain.ReviewInput) (_ *domain.Review, operationErr error) {
+	operationLog := storage.StartOperation(ctx, r.log, "postgres", "review.create", map[string]any{"user_id": authorID, "film_id": filmID})
+	defer func() { operationLog.Finish(operationErr) }()
+
+	operationLog.Stage = "query"
 	review, err := scanReview(r.db.QueryRowContext(ctx, createReviewQuery, authorID, filmID, input.Title, input.Content, input.ContainsSpoilers))
 	if err == nil {
 		return &review, nil
@@ -159,7 +180,11 @@ func (r *PostgresReviewRepo) Create(ctx context.Context, authorID domain.UserID,
 	return nil, fmt.Errorf("create review: %w", err)
 }
 
-func (r *PostgresReviewRepo) ListByFilm(ctx context.Context, filmID domain.FilmID, limit, offset int) ([]domain.Review, int, error) {
+func (r *PostgresReviewRepo) ListByFilm(ctx context.Context, filmID domain.FilmID, limit, offset int) (_ []domain.Review, _ int, operationErr error) {
+	operationLog := storage.StartOperation(ctx, r.log, "postgres", "review.list_by_film", map[string]any{"film_id": filmID, "limit": limit, "offset": offset})
+	defer func() { operationLog.Finish(operationErr) }()
+
+	operationLog.Stage = "begin"
 	tx, err := r.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelRepeatableRead, ReadOnly: true})
 	if err != nil {
 		return nil, 0, fmt.Errorf("list reviews: %w", err)
@@ -167,10 +192,12 @@ func (r *PostgresReviewRepo) ListByFilm(ctx context.Context, filmID domain.FilmI
 	defer tx.Rollback()
 
 	var total int
+	operationLog.Stage = "query"
 	if err := tx.QueryRowContext(ctx, countReviewsQuery, filmID).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count reviews: %w", err)
 	}
 
+	operationLog.Stage = "query"
 	rows, err := tx.QueryContext(ctx, listReviewsQuery, filmID, limit, offset)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list reviews: %w", err)
@@ -189,6 +216,7 @@ func (r *PostgresReviewRepo) ListByFilm(ctx context.Context, filmID domain.FilmI
 		return nil, 0, fmt.Errorf("list reviews: %w", err)
 	}
 
+	operationLog.Stage = "commit"
 	if err := tx.Commit(); err != nil {
 		return nil, 0, fmt.Errorf("list reviews: %w", err)
 	}

@@ -51,12 +51,12 @@ func (uc *GetMyFilmRatingUseCase) Run(ctx context.Context, input GetMyFilmRating
 	}
 	fields := map[string]any{"account_id": input.AccountID, "film_id": input.FilmID}
 	if _, err := uc.films.GetFilmByID(ctx, input.FilmID); err != nil {
-		logging.Failure(uc.logger, "check personal rating film failed", err, fields)
+		logging.Failure(ctx, uc.logger, "check personal rating film failed", err, fields)
 		return nil, err
 	}
 	score, err := uc.ratings.GetMyScore(ctx, input.AccountID, input.FilmID)
 	if err != nil {
-		logging.Failure(uc.logger, "get personal rating failed", err, fields)
+		logging.Failure(ctx, uc.logger, "get personal rating failed", err, fields)
 		return nil, err
 	}
 	return &GetMyFilmRatingOutput{Score: score}, nil

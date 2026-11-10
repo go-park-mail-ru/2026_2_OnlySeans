@@ -33,27 +33,27 @@ func (uc *DeleteFilmRatingUseCase) Run(ctx context.Context, input DeleteFilmRati
 		"account_id": input.AccountID,
 		"film_id":    input.FilmID,
 	}
-	uc.logger.Debug("delete film rating started", fields)
-	uc.logger.Debug("checking film before rating deletion", fields)
+	uc.logger.DebugContext(ctx, "delete film rating started", fields)
+	uc.logger.DebugContext(ctx, "checking film before rating deletion", fields)
 
 	film, err := uc.films.GetFilmByID(ctx, input.FilmID)
 	if err != nil {
-		logging.Failure(uc.logger, "film lookup before rating deletion failed", err, fields)
+		logging.Failure(ctx, uc.logger, "film lookup before rating deletion failed", err, fields)
 		if errors.Is(err, domain.ErrFilmNotFound) {
 			return domain.ErrFilmNotFound
 		}
 		return err
 	}
-	uc.logger.Debug("film found before rating deletion", map[string]any{
+	uc.logger.DebugContext(ctx, "film found before rating deletion", map[string]any{
 		"film_id": film.ID,
 		"title":   film.Title,
 	})
 
-	uc.logger.Debug("deleting film rating", fields)
+	uc.logger.DebugContext(ctx, "deleting film rating", fields)
 	if err := uc.ratings.DeleteFilmRating(ctx, input.AccountID, input.FilmID); err != nil {
-		logging.Failure(uc.logger, "film rating deletion failed", err, fields)
+		logging.Failure(ctx, uc.logger, "film rating deletion failed", err, fields)
 		return err
 	}
-	uc.logger.Info("film rating deleted", fields)
+	uc.logger.InfoContext(ctx, "film rating deleted", fields)
 	return nil
 }

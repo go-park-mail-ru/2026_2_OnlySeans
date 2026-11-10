@@ -83,7 +83,7 @@ func TestRustFSAvatarHTTP(t *testing.T) {
 		_, err = db.ExecContext(setupCtx, query)
 		require.NoError(t, err)
 	}
-	avatarRepo, err := filesservice.NewPostgresAvatarRepo(db)
+	avatarRepo, err := filesservice.NewPostgresAvatarRepo(db, nil)
 	require.NoError(t, err)
 	upload, err := filesusecase.NewUploadAvatarUseCase(objectStorage, avatarRepo, filesusecase.UploadAvatarOptions{MaxSize: cfg.MaxAvatarSize, MaxDimension: cfg.MaxAvatarDimension, CleanupTimeout: cfg.AvatarCleanupTimeout}, testFilesLogger(t))
 	require.NoError(t, err)
@@ -98,7 +98,7 @@ func TestRustFSAvatarHTTP(t *testing.T) {
 	routes := mux.NewRouter()
 	routes.HandleFunc("/api/avatars", router.RequireAuth(integrationAuthenticator{})(handler.UploadAvatar)).Methods(http.MethodPost)
 	routes.HandleFunc("/api/avatars/{filename}", handler.GetAvatarURL).Methods(http.MethodGet)
-	userRepo := authservice.NewPostgresUserRepo(db)
+	userRepo := authservice.NewPostgresUserRepo(db, nil)
 	sessions := authservice.NewInMemorySessionStore(time.Hour)
 	passwords := authservice.BcryptPasswordService{}
 	registerUC, err := authusecase.NewRegisterUserUseCase(userRepo, sessions, passwords, appLogger)

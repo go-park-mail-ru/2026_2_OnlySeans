@@ -32,14 +32,14 @@ func (uc *GetCollectionRatingsUseCase) Run(ctx context.Context, input GetCollect
 		"limit":         input.Limit,
 		"offset":        input.Offset,
 	}
-	uc.logger.Debug("get collection ratings started", fields)
-	uc.logger.Debug("loading collection film rating summaries", fields)
+	uc.logger.DebugContext(ctx, "get collection ratings started", fields)
+	uc.logger.DebugContext(ctx, "loading collection film rating summaries", fields)
 	ratings, total, err := uc.repository.GetCollectionFilmRatingSummaries(ctx, input.CollectionID, input.Limit, input.Offset)
 	if err != nil {
-		logging.Failure(uc.logger, "loading collection film rating summaries failed", err, fields)
+		logging.Failure(ctx, uc.logger, "loading collection film rating summaries failed", err, fields)
 		return nil, err
 	}
-	uc.logger.Debug("collection film rating summaries loaded", map[string]any{
+	uc.logger.DebugContext(ctx, "collection film rating summaries loaded", map[string]any{
 		"collection_id": input.CollectionID,
 		"count":         len(ratings),
 		"total":         total,

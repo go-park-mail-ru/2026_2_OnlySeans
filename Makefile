@@ -1,4 +1,4 @@
-.PHONY: lint fmt test cover build run check test-api
+.PHONY: lint fmt test cover build run check test-api mocks
 
 # Команды для проверки качества кода
 lint:
@@ -15,6 +15,10 @@ test:
 
 cover:
 	bash scripts/coverage.sh
+
+# Генератор и библиотека gomock используют одну версию из go.mod.
+mocks:
+	bash scripts/generate_mocks.sh
 
 # Сборка приложения
 build:

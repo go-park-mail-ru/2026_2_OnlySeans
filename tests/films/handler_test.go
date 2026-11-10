@@ -1,7 +1,6 @@
 package films_test
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -10,13 +9,15 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gorilla/mux"
-
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/films"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	filmsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/films"
 	filmsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/films"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/tests/mocks"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/tests/testutil"
+	"github.com/gorilla/mux"
+	"go.uber.org/mock/gomock"
 )
 
 var errStorage = errors.New("storage is down")
@@ -99,67 +100,9 @@ func responseFilmIDs(films []filmResponseDTO) []domain.FilmID {
 }
 
 // Тестовый логгер для всех тестов пакета films_test.
-type filmsTestLogger struct{}
-
-func (l *filmsTestLogger) Info(string, map[string]any)  {}
-func (l *filmsTestLogger) Debug(string, map[string]any) {}
-func (l *filmsTestLogger) Warn(string, map[string]any)  {}
-func (l *filmsTestLogger) Error(string, map[string]any) {}
-
-var _ logger.Logger = (*filmsTestLogger)(nil)
 
 func newFilmsTestLogger() logger.Logger {
-	return &filmsTestLogger{}
-}
-
-type brokenService struct {
-	failCollectionFilms bool
-}
-
-func (brokenService) CreateFilm(context.Context, domain.CreateFilmInput) (domain.FilmID, error) {
-	return 0, errStorage
-}
-
-func (brokenService) UpdateFilm(context.Context, domain.FilmID, domain.CreateFilmInput) error {
-	return errStorage
-}
-
-func (brokenService) DeleteFilm(context.Context, domain.FilmID) error {
-	return errStorage
-}
-
-func (b brokenService) ListFilms(context.Context, int, int) ([]domain.Film, int, error) {
-	return nil, 0, errStorage
-}
-
-func (b brokenService) GetFilmByID(context.Context, domain.FilmID) (domain.Film, error) {
-	return domain.Film{}, errStorage
-}
-
-func (b brokenService) ListCollections(context.Context, int, int) ([]domain.Collection, int, error) {
-	if b.failCollectionFilms {
-		return []domain.Collection{
-			{
-				ID:   1,
-				Slug: "family",
-			},
-		}, 1, nil
-	}
-	return nil, 0, errStorage
-}
-
-func (b brokenService) GetCollectionByID(_ context.Context, id domain.CollectionID) (domain.Collection, error) {
-	if b.failCollectionFilms {
-		return domain.Collection{
-			ID:   id,
-			Slug: "family",
-		}, nil
-	}
-	return domain.Collection{}, errStorage
-}
-
-func (b brokenService) ListCollectionFilms(context.Context, domain.CollectionID, int, int) ([]domain.Film, int, error) {
-	return nil, 0, errStorage
+	return testutil.DiscardLogger()
 }
 
 func newTestRouter(t testing.TB, service filmsservice.Service) *mux.Router {
@@ -643,40 +586,56 @@ func TestHandler_MethodNotAllowed(t *testing.T) {
 
 func TestHandler_InternalErrorIsHidden(t *testing.T) {
 	tests := []struct {
-		name    string
-		service brokenService
-		target  string
+		name                string
+		failCollectionFilms bool
+		target              string
 	}{
 		{
-			name:    "list films",
-			service: brokenService{},
-			target:  "/api/films",
+			name: "list films",
+
+			target: "/api/films",
 		},
 		{
-			name:    "get film",
-			service: brokenService{},
-			target:  "/api/films/1",
+			name: "get film",
+
+			target: "/api/films/1",
 		},
 		{
-			name:    "list collections",
-			service: brokenService{},
-			target:  "/api/collections",
+			name: "list collections",
+
+			target: "/api/collections",
 		},
 		{
-			name:    "get collection",
-			service: brokenService{},
-			target:  "/api/collections/1",
+			name: "get collection",
+
+			target: "/api/collections/1",
 		},
 		{
-			name:    "get collection: films of collection",
-			service: brokenService{failCollectionFilms: true},
-			target:  "/api/collections/1",
+			name:                "get collection: films of collection",
+			failCollectionFilms: true,
+			target:              "/api/collections/1",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rec := serve(newTestRouter(t, tt.service), http.MethodGet, tt.target)
+			service := mocks.NewMockFilmsRepository(gomock.NewController(t))
+			switch tt.target {
+			case "/api/films":
+				service.EXPECT().ListFilms(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, 0, errStorage)
+			case "/api/films/1":
+				service.EXPECT().GetFilmByID(gomock.Any(), domain.FilmID(1)).Return(domain.Film{}, errStorage)
+			case "/api/collections":
+				service.EXPECT().ListCollections(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, 0, errStorage)
+			case "/api/collections/1":
+				if tt.failCollectionFilms {
+					lookup := service.EXPECT().GetCollectionByID(gomock.Any(), domain.CollectionID(1)).Return(domain.Collection{ID: 1, Slug: "family"}, nil)
+					service.EXPECT().ListCollectionFilms(gomock.Any(), domain.CollectionID(1), gomock.Any(), gomock.Any()).Return(nil, 0, errStorage).After(lookup)
+				} else {
+					service.EXPECT().GetCollectionByID(gomock.Any(), domain.CollectionID(1)).Return(domain.Collection{}, errStorage)
+				}
+			}
+			rec := serve(newTestRouter(t, service), http.MethodGet, tt.target)
 
 			if rec.Code != http.StatusInternalServerError {
 				t.Fatalf("status = %d, want %d", rec.Code, http.StatusInternalServerError)
@@ -690,7 +649,8 @@ func TestHandler_InternalErrorIsHidden(t *testing.T) {
 }
 
 func TestHandler_ListCollectionsDoesNotLoadFilms(t *testing.T) {
-	service := brokenService{failCollectionFilms: true}
+	service := mocks.NewMockFilmsRepository(gomock.NewController(t))
+	service.EXPECT().ListCollections(gomock.Any(), gomock.Any(), gomock.Any()).Return([]domain.Collection{{ID: 1, Slug: "family"}}, 1, nil)
 
 	rec := serve(newTestRouter(t, service), http.MethodGet, "/api/collections")
 

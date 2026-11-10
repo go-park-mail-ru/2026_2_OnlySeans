@@ -30,20 +30,20 @@ func NewDeletePersonUseCase(persons domain.PersonRepository, appLogger logger.Lo
 }
 
 func (uc *DeletePersonUseCase) Run(ctx context.Context, input DeletePersonInput) error {
-	uc.logger.Debug("delete person started", map[string]any{
+	uc.logger.DebugContext(ctx, "delete person started", map[string]any{
 		"person_id": input.PersonID,
 	})
 
 	err := uc.persons.Delete(ctx, input.PersonID)
 	if err != nil {
-		logging.Failure(uc.logger, "delete person failed", err, map[string]any{
+		logging.Failure(ctx, uc.logger, "delete person failed", err, map[string]any{
 			"person_id": input.PersonID,
 		})
 
 		return fmt.Errorf("delete person %d: %w", input.PersonID, err)
 	}
 
-	uc.logger.Info("person deleted", map[string]any{
+	uc.logger.InfoContext(ctx, "person deleted", map[string]any{
 		"person_id": input.PersonID,
 	})
 

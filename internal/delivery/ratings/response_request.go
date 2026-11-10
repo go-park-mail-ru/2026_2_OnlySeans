@@ -60,5 +60,6 @@ func toFilmRatingSummaryResponseDTOs(summaries []domain.FilmRatingSummary) []fil
 	for i, summary := range summaries {
 		result[i] = toFilmRatingSummaryResponseDTO(summary)
 	}
+
 	return result
 }

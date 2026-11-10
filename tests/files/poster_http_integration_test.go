@@ -78,8 +78,8 @@ func TestRustFSPosterHTTP(t *testing.T) {
 		require.NoError(t, err)
 	}
 	appLogger := testFilesLogger(t)
-	filmRepo := filmsservice.NewPostgresService(db)
-	posterRepo, err := filesservice.NewPostgresPosterRepo(db)
+	filmRepo := filmsservice.NewPostgresService(db, nil)
+	posterRepo, err := filesservice.NewPostgresPosterRepo(db, nil)
 	require.NoError(t, err)
 	upload, err := filesusecase.NewUploadPosterUseCase(objects, posterRepo, filmRepo, filesusecase.UploadPosterOptions{
 		MaxSize: cfg.MaxPosterSize, MaxDimension: cfg.MaxPosterDimension, CleanupTimeout: cfg.PosterCleanupTimeout,

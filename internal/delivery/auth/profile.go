@@ -13,24 +13,47 @@ import (
 )
 
 type ProfileHandler struct {
+	get    *usecase.GetProfileUseCase
 	update *usecase.UpdateProfileUseCase
 	log    logger.Logger
 }
 
-func NewProfileHandler(update *usecase.UpdateProfileUseCase, log logger.Logger) *ProfileHandler {
-	return &ProfileHandler{update: update, log: log}
+func NewProfileHandler(get *usecase.GetProfileUseCase, update *usecase.UpdateProfileUseCase, log logger.Logger) *ProfileHandler {
+	return &ProfileHandler{get: get, update: update, log: log}
 }
 
 func (h *ProfileHandler) Register(protect func(http.HandlerFunc) http.HandlerFunc) func(*mux.Router) {
 	return func(r *mux.Router) {
+		r.HandleFunc("/api/me/profile", protect(h.Get)).Methods(http.MethodGet)
+		r.HandleFunc("/api/me/profile", protect(h.Update)).Methods(http.MethodPut)
 		r.HandleFunc("/api/me", protect(h.Update)).Methods(http.MethodPut)
 	}
+}
+
+func (h *ProfileHandler) Get(w http.ResponseWriter, r *http.Request) {
+	id, ok := UserIDFromContext(r.Context())
+	if !ok {
+		httpresponse.WriteErrorContext(r.Context(), w, http.StatusUnauthorized, domain.ErrUnauthorized.Error(), h.log)
+		return
+	}
+	profile, err := h.get.Run(r.Context(), id)
+	if err != nil {
+		status := http.StatusInternalServerError
+		message := httpresponse.InternalErrorMessage
+		if errors.Is(err, domain.ErrUserNotFound) || errors.Is(err, domain.ErrUnauthorized) {
+			status, message = http.StatusUnauthorized, domain.ErrUnauthorized.Error()
+		}
+		httpresponse.WriteErrorContext(r.Context(), w, status, message, h.log)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, toProfileResponse(profile), h.log)
 }
 
 func (h *ProfileHandler) Update(w http.ResponseWriter, r *http.Request) {
 	id, ok := UserIDFromContext(r.Context())
 	if !ok {
-		httpresponse.WriteError(w, http.StatusUnauthorized, domain.ErrUnauthorized.Error(), h.log)
+		httpresponse.WriteErrorContext(r.Context(), w, http.StatusUnauthorized, domain.ErrUnauthorized.Error(), h.log)
 		return
 	}
 	var body struct {
@@ -38,7 +61,7 @@ func (h *ProfileHandler) Update(w http.ResponseWriter, r *http.Request) {
 		Username string `json:"username"`
 	}
 	if err := httprequest.DecodeJSON(w, r, &body); err != nil {
-		httpresponse.WriteError(w, http.StatusBadRequest, "Проверьте имя и почту.", h.log)
+		httpresponse.WriteErrorContext(r.Context(), w, http.StatusBadRequest, "Проверьте имя и почту.", h.log)
 		return
 	}
 	user, err := h.update.Run(r.Context(), id, body.Email, body.Username)
@@ -51,17 +74,24 @@ func (h *ProfileHandler) Update(w http.ResponseWriter, r *http.Request) {
 			status, message = http.StatusBadRequest, "Имя должно содержать от 2 до 32 допустимых символов."
 		case errors.Is(err, domain.ErrUserExists):
 			status, message = http.StatusConflict, "Эта почта уже используется."
+			if r.URL.Path == "/api/me/profile" {
+				message = "email taken"
+			}
 		case errors.Is(err, domain.ErrUsernameTaken):
 			status, message = http.StatusConflict, "Это имя уже используется."
+			if r.URL.Path == "/api/me/profile" {
+				message = "username taken"
+			}
 		case errors.Is(err, domain.ErrUserNotFound), errors.Is(err, domain.ErrUnauthorized):
 			status, message = http.StatusUnauthorized, domain.ErrUnauthorized.Error()
 		default:
-			h.log.Error("update profile failed", map[string]any{"error": err.Error()})
+			h.log.ErrorContext(r.Context(), "update profile failed", map[string]any{"error": err.Error()})
 		}
-		httpresponse.WriteError(w, status, message, h.log)
+		httpresponse.WriteErrorContext(r.Context(), w, status, message, h.log)
 		return
 	}
 	dto := usecase.NewUserDTO(user.ID, user.Email, user.Username)
 	dto.AvatarFilename = user.AvatarFilename
-	httpresponse.WriteJSON(w, http.StatusOK, toAuthResponse(dto), h.log)
+	w.Header().Set("Cache-Control", "no-store")
+	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, toAuthResponse(dto), h.log)
 }

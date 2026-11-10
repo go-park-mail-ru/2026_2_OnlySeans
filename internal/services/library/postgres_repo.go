@@ -6,16 +6,9 @@ import (
 	"errors"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
-)
-
-var ErrInvalid = errors.New("invalid library data")
-
-type List string
-
-const (
-	Favorite   List = "favorite"
-	WatchLater List = "watchlater"
-	Watched    List = "watched"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/storage"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type folder struct {
@@ -23,10 +16,10 @@ type folder struct {
 	title      string
 }
 
-var folders = map[List]folder{
-	Favorite:   {folderType: "favorite", title: "Избранное"},
-	WatchLater: {folderType: "watch_later", title: "Буду смотреть"},
-	Watched:    {folderType: "watched", title: "Просмотрено"},
+var folders = map[domain.List]folder{
+	domain.Favorite:   {folderType: "favorite", title: "Избранное"},
+	domain.WatchLater: {folderType: "watch_later", title: "Буду смотреть"},
+	domain.Watched:    {folderType: "watched", title: "Просмотрено"},
 }
 
 const (
@@ -56,65 +49,95 @@ const (
 		)`
 )
 
-type Library struct {
-	Favorite   []int64 `json:"favorite"`
-	WatchLater []int64 `json:"watchlater"`
-	Watched    []int64 `json:"watched"`
+type PostgresRepo struct {
+	db  *sql.DB
+	log logger.Logger
 }
 
-type PostgresRepo struct{ db *sql.DB }
+func NewPostgresRepo(db *sql.DB, appLogger logger.Logger) *PostgresRepo {
+	return &PostgresRepo{log: appLogger, db: db}
+}
 
-func NewPostgresRepo(db *sql.DB) *PostgresRepo { return &PostgresRepo{db: db} }
+func (r *PostgresRepo) Get(ctx context.Context, user domain.UserID) (_ domain.Library, operationErr error) {
+	operationLog := storage.StartOperation(ctx, r.log, "postgres", "library.get", map[string]any{"user_id": user})
+	defer func() { operationLog.Finish(operationErr) }()
 
-func (r *PostgresRepo) Get(ctx context.Context, user domain.UserID) (Library, error) {
-	data := Library{Favorite: []int64{}, WatchLater: []int64{}, Watched: []int64{}}
+	data := domain.Library{Favorite: []int64{}, WatchLater: []int64{}, Watched: []int64{}}
+	operationLog.Stage = "query"
 	rows, err := r.db.QueryContext(ctx, libraryQuery, user)
 	if err != nil {
 		return data, err
 	}
 	defer rows.Close()
+
 	for rows.Next() {
 		var folderType string
 		var film int64
+
 		if err := rows.Scan(&folderType, &film); err != nil {
 			return data, err
 		}
+
 		switch folderType {
-		case folders[Favorite].folderType:
+		case folders[domain.Favorite].folderType:
 			data.Favorite = append(data.Favorite, film)
-		case folders[WatchLater].folderType:
+		case folders[domain.WatchLater].folderType:
 			data.WatchLater = append(data.WatchLater, film)
-		case folders[Watched].folderType:
+		case folders[domain.Watched].folderType:
 			data.Watched = append(data.Watched, film)
 		}
 	}
+
 	return data, rows.Err()
 }
 
-func (r *PostgresRepo) SetSaved(ctx context.Context, user domain.UserID, list List, film int64, saved bool) error {
+func (r *PostgresRepo) SetSaved(ctx context.Context, user domain.UserID, list domain.List, film int64, saved bool) (err error) {
+	operationLog := storage.StartOperation(ctx, r.log, "postgres", "library.set_saved", map[string]any{"user_id": user, "list": list, "film_id": film, "saved": saved})
+	defer func() { operationLog.Finish(err) }()
+
+	defer func() {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23503" && pgErr.ConstraintName == "folder_item_film_id_fkey" {
+			err = domain.ErrFilmNotFound
+		}
+	}()
+
 	target, ok := folders[list]
 	if !ok || film < 1 {
-		return ErrInvalid
+		return domain.ErrInvalidLibraryData
 	}
+
+	operationLog.Stage = "begin"
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
+
+	operationLog.Stage = "query"
 	if _, err = tx.ExecContext(ctx, lockAccountQuery, user); err != nil {
 		return err
 	}
+
 	var folderID int64
+
+	operationLog.Stage = "query"
 	if err = tx.QueryRowContext(ctx, folderQuery, user, target.title, target.folderType).Scan(&folderID); err != nil {
 		return err
 	}
+
 	if !saved {
+		operationLog.Stage = "query"
 		_, err = tx.ExecContext(ctx, removeFilmQuery, folderID, film)
-	} else if _, err = tx.ExecContext(ctx, addFilmQuery, folderID, film); err == nil && list == Watched {
+	} else if _, err = tx.ExecContext(ctx, addFilmQuery, folderID, film); err == nil && list == domain.Watched {
+		operationLog.Stage = "query"
 		_, err = tx.ExecContext(ctx, removeFromWatchLaterQuery, user, film)
 	}
+
 	if err != nil {
 		return err
 	}
+
+	operationLog.Stage = "commit"
 	return tx.Commit()
 }

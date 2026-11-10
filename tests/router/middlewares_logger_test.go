@@ -1,13 +1,16 @@
 package router_test
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"sync"
 	"testing"
 
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/tests/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
 type logEntry struct {
@@ -18,6 +21,7 @@ type logEntry struct {
 
 // spyLogger запоминает всё, что в него писали (реализует logger.Logger).
 type spyLogger struct {
+	*mocks.MockLogger
 	mu      sync.Mutex
 	entries []logEntry
 }
@@ -27,11 +31,6 @@ func (s *spyLogger) add(level, msg string, fields map[string]any) {
 	defer s.mu.Unlock()
 	s.entries = append(s.entries, logEntry{level: level, msg: msg, fields: fields})
 }
-
-func (s *spyLogger) Info(msg string, f map[string]any)  { s.add("info", msg, f) }
-func (s *spyLogger) Debug(msg string, f map[string]any) { s.add("debug", msg, f) }
-func (s *spyLogger) Warn(msg string, f map[string]any)  { s.add("warn", msg, f) }
-func (s *spyLogger) Error(msg string, f map[string]any) { s.add("error", msg, f) }
 
 func TestWithCORS(t *testing.T) {
 	tests := []struct {
@@ -94,7 +93,7 @@ func TestWithLogging(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			spy := &spyLogger{}
+			spy := newSpyLogger(t)
 			handler := newTestRouterWithLogger(t, spy)
 
 			rec := httptest.NewRecorder()
@@ -120,4 +119,18 @@ func TestWithLogging(t *testing.T) {
 			assert.Contains(t, entry.fields, "duration_ms")
 		})
 	}
+}
+
+func newSpyLogger(t *testing.T) *spyLogger {
+	t.Helper()
+	result := &spyLogger{MockLogger: mocks.NewMockLogger(gomock.NewController(t))}
+	result.EXPECT().Info(gomock.Any(), gomock.Any()).Do(func(msg string, fields map[string]any) { result.add("info", msg, fields) }).AnyTimes()
+	result.EXPECT().InfoContext(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, msg string, fields map[string]any) { result.add("info", msg, fields) }).AnyTimes()
+	result.EXPECT().Debug(gomock.Any(), gomock.Any()).Do(func(msg string, fields map[string]any) { result.add("debug", msg, fields) }).AnyTimes()
+	result.EXPECT().DebugContext(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, msg string, fields map[string]any) { result.add("debug", msg, fields) }).AnyTimes()
+	result.EXPECT().Warn(gomock.Any(), gomock.Any()).Do(func(msg string, fields map[string]any) { result.add("warn", msg, fields) }).AnyTimes()
+	result.EXPECT().WarnContext(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, msg string, fields map[string]any) { result.add("warn", msg, fields) }).AnyTimes()
+	result.EXPECT().Error(gomock.Any(), gomock.Any()).Do(func(msg string, fields map[string]any) { result.add("error", msg, fields) }).AnyTimes()
+	result.EXPECT().ErrorContext(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, msg string, fields map[string]any) { result.add("error", msg, fields) }).AnyTimes()
+	return result
 }

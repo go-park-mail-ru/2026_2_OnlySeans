@@ -78,13 +78,13 @@ func (r *RepositoryWithPosterURLs) attachPosterURL(ctx context.Context, film *do
 	}
 	url, err := r.storage.GetURL(ctx, *film.PosterStorageKey)
 	if errors.Is(err, domain.ErrFileNotFound) {
-		r.logger.Warn("film poster object not found", map[string]any{"film_id": film.ID, "storage_key": *film.PosterStorageKey})
+		r.logger.WarnContext(ctx, "film poster object not found", map[string]any{"film_id": film.ID, "storage_key": *film.PosterStorageKey})
 		return nil
 	}
 	if err != nil {
 		return fmt.Errorf("get poster URL for film %d: %w", film.ID, err)
 	}
 	film.PosterURL = &url
-	r.logger.Debug("film poster URL generated", map[string]any{"film_id": film.ID})
+	r.logger.DebugContext(ctx, "film poster URL generated", map[string]any{"film_id": film.ID})
 	return nil
 }

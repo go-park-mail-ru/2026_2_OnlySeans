@@ -2,6 +2,7 @@ package router
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"net/http"
@@ -88,17 +89,17 @@ func RequireAuth(authn Authenticator) Middleware {
 		return func(w http.ResponseWriter, r *http.Request) {
 			cookie, err := r.Cookie(auth.SessionCookieName)
 			if err != nil {
-				writeError(w, http.StatusUnauthorized, domain.ErrUnauthorized)
+				writeError(r.Context(), w, http.StatusUnauthorized, domain.ErrUnauthorized)
 				return
 			}
 
 			userID, err := authn.Authenticate(r.Context(), cookie.Value)
 			if err != nil {
 				if errors.Is(err, domain.ErrUnauthorized) {
-					writeError(w, http.StatusUnauthorized, domain.ErrUnauthorized)
+					writeError(r.Context(), w, http.StatusUnauthorized, domain.ErrUnauthorized)
 					return
 				}
-				writeError(w, http.StatusInternalServerError, domain.ErrInternal)
+				writeError(r.Context(), w, http.StatusInternalServerError, domain.ErrInternal)
 				return
 			}
 
@@ -119,7 +120,7 @@ func newCSRFMiddleware(allowedOrigins []string) (*csrfMiddleware, error) {
 		}
 	}
 	protection.SetDenyHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		writeError(w, http.StatusForbidden, domain.ErrForbidden)
+		writeError(r.Context(), w, http.StatusForbidden, domain.ErrForbidden)
 	}))
 	return &csrfMiddleware{protection: protection}, nil
 }
@@ -128,14 +129,32 @@ func (m *csrfMiddleware) withCSRF(next http.Handler) http.Handler {
 	return m.protection.Handler(next)
 }
 
-func writeError(w http.ResponseWriter, status int, err error) {
-	httpresponse.WriteError(w, status, err.Error(), nil)
+func writeError(ctx context.Context, w http.ResponseWriter, status int, err error) {
+	httpresponse.WriteErrorContext(ctx, w, status, err.Error(), nil)
+}
+
+func WithRequestID(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r = requestWithID(w, r)
+		next.ServeHTTP(w, r)
+	})
+}
+
+func requestWithID(w http.ResponseWriter, r *http.Request) *http.Request {
+	id := logger.RequestID(r.Context())
+	if id == "" {
+		id = rand.Text()
+		r = r.WithContext(logger.ContextWithRequestID(r.Context(), id))
+	}
+	w.Header().Set("X-Request-ID", id)
+	return r
 }
 
 func WithLogging(next http.Handler, appLogger logger.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-		appLogger.Debug("request started", map[string]any{
+		r = requestWithID(w, r)
+		appLogger.DebugContext(r.Context(), "request started", map[string]any{
 			"method": r.Method,
 			"path":   r.URL.Path,
 		})
@@ -152,11 +171,11 @@ func WithLogging(next http.Handler, appLogger logger.Logger) http.Handler {
 
 		switch {
 		case wrapped.status >= 500:
-			appLogger.Error("request handled", appLogMap)
+			appLogger.ErrorContext(r.Context(), "request handled", appLogMap)
 		case wrapped.status >= 400:
-			appLogger.Warn("request handled", appLogMap)
+			appLogger.WarnContext(r.Context(), "request handled", appLogMap)
 		default:
-			appLogger.Info("request handled", appLogMap)
+			appLogger.InfoContext(r.Context(), "request handled", appLogMap)
 		}
 	})
 }
@@ -169,13 +188,13 @@ func WithRecover(next http.Handler, appLogger logger.Logger) http.Handler {
 		}
 		defer func() {
 			if rec := recover(); rec != nil {
-				appLogger.Error("panic recovered", map[string]any{
+				appLogger.ErrorContext(r.Context(), "panic recovered", map[string]any{
 					"panic":  fmt.Sprint(rec),
 					"method": r.Method,
 					"path":   r.URL.Path,
 				})
 				if !tracked.wroteHeader {
-					httpresponse.WriteError(tracked, http.StatusInternalServerError, httpresponse.InternalErrorMessage, appLogger)
+					httpresponse.WriteErrorContext(r.Context(), tracked, http.StatusInternalServerError, httpresponse.InternalErrorMessage, appLogger)
 				}
 			}
 		}()
@@ -193,21 +212,21 @@ func RequireCatalogEditor(checker CatalogEditor, appLogger logger.Logger) Middle
 		return func(w http.ResponseWriter, r *http.Request) {
 			userID, ok := auth.UserIDFromContext(r.Context())
 			if !ok {
-				appLogger.Warn(
+				appLogger.WarnContext(r.Context(),
 					"catalog modification rejected: missing user context",
 					map[string]any{
 						"method": r.Method,
 						"path":   r.URL.Path,
 					},
 				)
-				writeError(w, http.StatusUnauthorized, domain.ErrUnauthorized)
+				writeError(r.Context(), w, http.StatusUnauthorized, domain.ErrUnauthorized)
 				return
 			}
 
 			allowed, err := checker.CanEditPersons(r.Context(), userID)
 			if err != nil {
 				if errors.Is(err, domain.ErrUserNotFound) {
-					appLogger.Warn(
+					appLogger.WarnContext(r.Context(),
 						"catalog modification rejected: user not found",
 						map[string]any{
 							"user_id": userID,
@@ -215,17 +234,17 @@ func RequireCatalogEditor(checker CatalogEditor, appLogger logger.Logger) Middle
 							"path":    r.URL.Path,
 						},
 					)
-					writeError(w, http.StatusUnauthorized, domain.ErrUnauthorized)
+					writeError(r.Context(), w, http.StatusUnauthorized, domain.ErrUnauthorized)
 					return
 				}
 
-				appLogger.Error("catalog permission check failed", map[string]any{"error": err, "user_id": userID, "method": r.Method, "path": r.URL.Path})
-				writeError(w, http.StatusInternalServerError, domain.ErrInternal)
+				appLogger.ErrorContext(r.Context(), "catalog permission check failed", map[string]any{"error": err, "user_id": userID, "method": r.Method, "path": r.URL.Path})
+				writeError(r.Context(), w, http.StatusInternalServerError, domain.ErrInternal)
 				return
 			}
 
 			if !allowed {
-				appLogger.Warn(
+				appLogger.WarnContext(r.Context(),
 					"catalog modification forbidden",
 					map[string]any{
 						"user_id": userID,
@@ -233,7 +252,7 @@ func RequireCatalogEditor(checker CatalogEditor, appLogger logger.Logger) Middle
 						"path":    r.URL.Path,
 					},
 				)
-				writeError(w, http.StatusForbidden, domain.ErrForbidden)
+				writeError(r.Context(), w, http.StatusForbidden, domain.ErrForbidden)
 				return
 			}
 

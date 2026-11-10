@@ -1,26 +1,12 @@
 package films
 
-import entities "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
+import (
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/filmdto"
+	entities "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
+)
 
-type genreResponseDTO struct {
-	ID   entities.GenreID `json:"id"`
-	Name string           `json:"name"`
-	Slug string           `json:"slug"`
-}
-
-type filmResponseDTO struct {
-	ID            entities.FilmID    `json:"id"`
-	Title         string             `json:"title"`
-	OriginalTitle *string            `json:"original_title,omitempty"`
-	FilmType      entities.FilmType  `json:"film_type"`
-	ReleaseYear   int16              `json:"release_year"`
-	DurationMin   *int16             `json:"duration_min,omitempty"`
-	AgeLimit      int16              `json:"age_limit"`
-	Description   *string            `json:"description,omitempty"`
-	PosterURL     *string            `json:"poster_url,omitempty"`
-	TrailerURL    *string            `json:"trailer_url,omitempty"`
-	Genres        []genreResponseDTO `json:"genres"`
-}
+type genreResponseDTO = filmdto.Genre
+type filmResponseDTO = filmdto.Film
 
 type filmCardResponseDTO struct {
 	ID          entities.FilmID    `json:"id"`
@@ -52,19 +38,7 @@ type createFilmResponse struct {
 }
 
 func toFilmResponseDTO(film entities.Film) filmResponseDTO {
-	return filmResponseDTO{
-		ID:            film.ID,
-		Title:         film.Title,
-		OriginalTitle: film.OriginalTitle,
-		FilmType:      film.FilmType,
-		ReleaseYear:   film.ReleaseYear,
-		DurationMin:   film.DurationMin,
-		AgeLimit:      film.AgeLimit,
-		Description:   film.Description,
-		PosterURL:     film.PosterURL,
-		TrailerURL:    film.TrailerURL,
-		Genres:        toGenreResponseDTOs(film.Genres),
-	}
+	return filmdto.FromFilm(film)
 }
 
 func toFilmCardResponseDTO(film entities.Film) filmCardResponseDTO {
@@ -81,7 +55,9 @@ func toGenreResponseDTOs(genres []entities.Genre) []genreResponseDTO {
 	if genres == nil {
 		return nil
 	}
+
 	result := make([]genreResponseDTO, len(genres))
+
 	for i, genre := range genres {
 		result[i] = genreResponseDTO{
 			ID:   genre.ID,
@@ -89,6 +65,7 @@ func toGenreResponseDTOs(genres []entities.Genre) []genreResponseDTO {
 			Slug: genre.Slug,
 		}
 	}
+
 	return result
 }
 
@@ -96,10 +73,13 @@ func toFilmCardResponseDTOs(films []entities.Film) []filmCardResponseDTO {
 	if films == nil {
 		return nil
 	}
+
 	result := make([]filmCardResponseDTO, len(films))
+
 	for i, film := range films {
 		result[i] = toFilmCardResponseDTO(film)
 	}
+
 	return result
 }
 
@@ -117,10 +97,13 @@ func toCollectionResponseDTOs(collections []entities.Collection) []collectionRes
 	if collections == nil {
 		return nil
 	}
+
 	result := make([]collectionResponseDTO, len(collections))
+
 	for i, collection := range collections {
 		result[i] = toCollectionResponseDTO(collection)
 	}
+
 	return result
 }
 

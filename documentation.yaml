@@ -13,6 +13,7 @@ servers:
 tags:
   - name: Регистрация
   - name: Авторизация
+  - name: Профиль
   - name: Фильмы
   - name: Подборки
   - name: Рейтинги
@@ -45,6 +46,96 @@ x-rate-limits:
   description: |-
     Лимитов запросов пока нет. Сервер не возвращает 429 и Retry-After.
 paths:
+  /api/me/profile:
+    get:
+      tags: [Профиль]
+      operationId: getMyProfile
+      summary: Получить свой профиль, избранное, оценки и число отзывов
+      description: |-
+        ID пользователя берётся из сессии. Возвращает только его данные.
+        favorites и ratings всегда массивы, включая пустые; reviews — число активных отзывов.
+        Постеры возвращаются внешними или подписанными ссылками. Ответ не кешируется.
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Данные страницы профиля.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    put:
+      tags: [Профиль]
+      operationId: updateMyProfile
+      summary: Изменить своё имя и email
+      description: |-
+        Оба поля обязательны. ID пользователя берётся из сессии; пробелы по краям обрезаются.
+        Загрузка аватарки выполняется отдельно через PUT /api/me/avatar.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileUpdate'
+      responses:
+        '200':
+          description: Обновлённые данные пользователя.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadBody'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: Имя или email уже используются.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                username:
+                  value: {error: username taken}
+                email:
+                  value: {error: email taken}
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/me:
+    put:
+      tags: [Профиль]
+      operationId: updateMyProfileLegacy
+      summary: Совместимый маршрут обновления имени и email
+      description: Сохранён для существующих клиентов. Ошибки конфликтов возвращаются на русском языке.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileUpdate'
+      responses:
+        '200':
+          description: Обновлённые данные пользователя.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadBody'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: Имя или email уже используются.
+        '500':
+          $ref: '#/components/responses/InternalError'
   /api/me/avatar:
     get:
       tags:
@@ -1064,6 +1155,71 @@ components:
         minimum: 0
         default: 0
   schemas:
+    ProfileUpdate:
+      type: object
+      additionalProperties: false
+      required: [email, username]
+      properties:
+        email:
+          type: string
+          format: email
+        username:
+          type: string
+          minLength: 2
+          maxLength: 32
+    Profile:
+      type: object
+      required: [user, favorites, ratings, reviews]
+      properties:
+        user:
+          allOf:
+            - $ref: '#/components/schemas/User'
+            - type: object
+              required: [created_at]
+              properties:
+                created_at:
+                  type: string
+                  format: date-time
+        favorites:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProfileFilm'
+        ratings:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProfileFilm'
+        reviews:
+          type: integer
+          minimum: 0
+    ProfileFilm:
+      type: object
+      required: [id, title, year, type, age_limit, genres, poster, average]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        year:
+          type: integer
+        type:
+          type: string
+          enum: [movie, series]
+        age_limit:
+          type: integer
+        genres:
+          type: string
+          description: Названия жанров через запятую.
+        poster:
+          type: string
+          nullable: true
+        average:
+          type: number
+          format: double
+        score:
+          type: integer
+          minimum: 1
+          maximum: 10
+          description: Собственная оценка пользователя; присутствует в ratings.
     PersonInput:
       type: object
       additionalProperties: false

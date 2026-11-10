@@ -30,20 +30,20 @@ func NewGetUserUseCase(users domain.UserRepository, appLogger logger.Logger) (*G
 }
 
 func (uc *GetUserUseCase) Run(ctx context.Context, input GetUserInput) (*GetUserOutput, error) {
-	uc.logger.Debug("get user started", map[string]any{
+	uc.logger.DebugContext(ctx, "get user started", map[string]any{
 		"user_id": input.UserID,
 	})
 
 	user, err := uc.users.GetUser(ctx, input.UserID)
 	if err != nil {
-		logging.Failure(uc.logger, "get user failed", err, map[string]any{
+		logging.Failure(ctx, uc.logger, "get user failed", err, map[string]any{
 			"user_id": input.UserID,
 		})
 		return nil, fmt.Errorf("get user: %w", err)
 	}
 
 	if user == nil {
-		uc.logger.Warn("user not found", map[string]any{
+		uc.logger.WarnContext(ctx, "user not found", map[string]any{
 			"user_id": input.UserID,
 		})
 		return nil, domain.ErrUserNotFound
@@ -53,7 +53,7 @@ func (uc *GetUserUseCase) Run(ctx context.Context, input GetUserInput) (*GetUser
 	output.Role = user.Role
 	output.AvatarFilename = user.AvatarFilename
 
-	uc.logger.Info("user retrieved", map[string]any{
+	uc.logger.InfoContext(ctx, "user retrieved", map[string]any{
 		"user_id": user.ID,
 	})
 

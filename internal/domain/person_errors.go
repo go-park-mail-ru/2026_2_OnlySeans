@@ -3,6 +3,7 @@ package domain
 import "errors"
 
 var (
+	ErrInvalidPersonID  = errors.New("person ID is invalid")
 	ErrInvalidFirstName = errors.New("first_name is invalid")
 	ErrInvalidLastName  = errors.New("last_name is invalid")
 	ErrInvalidBirthDate = errors.New("birth_date is invalid")

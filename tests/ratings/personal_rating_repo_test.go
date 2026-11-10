@@ -1,8 +1,9 @@
-package ratings
+package ratings_test
 
 import (
 	"context"
 	"errors"
+	ratingsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/ratings"
 	"regexp"
 	"testing"
 
@@ -35,7 +36,7 @@ func TestPersonalScoreIsScopedToAccountAndFilm(t *testing.T) {
 				}
 				expected.WillReturnRows(rows)
 			}
-			score, err := (&PostgresRepo{db: db}).GetMyScore(context.Background(), 7, 42)
+			score, err := ratingsservice.NewPostgresRepo(db, nil).GetMyScore(context.Background(), 7, 42)
 			if tc.fail {
 				if !errors.Is(err, storageErr) {
 					t.Fatalf("error=%v", err)

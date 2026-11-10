@@ -7,12 +7,13 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	authservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/auth"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/tests/mocks"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
 func TestHandler_RequireAdmin(t *testing.T) {
@@ -39,7 +40,10 @@ func TestHandler_RequireAdmin(t *testing.T) {
 
 			switch {
 			case tt.getUserErr != nil:
-				handler, _ = newFlakyHandler(t, flakyRepo{getUserErr: tt.getUserErr}, flakyStore{})
+				ctrl := gomock.NewController(t)
+				users := mocks.NewMockUserRepository(ctrl)
+				users.EXPECT().GetUser(gomock.Any(), domain.UserID(42)).Return(nil, tt.getUserErr)
+				handler = newMockAuthHandler(t, users, mocks.NewMockSessionStore(ctrl), mocks.NewMockPasswordHasher(ctrl))
 				ctx = auth.ContextWithUserID(ctx, 42)
 			case tt.withUserID && tt.role == "":
 				handler = newTestHandler(t)

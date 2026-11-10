@@ -32,21 +32,21 @@ func NewListCollectionsUseCase(
 }
 
 func (uc *ListCollectionsUseCase) Run(ctx context.Context, input ListCollectionsInput) (*ListCollectionsOutput, error) {
-	uc.logger.Debug("list collections started", map[string]any{
+	uc.logger.DebugContext(ctx, "list collections started", map[string]any{
 		"limit":  input.Limit,
 		"offset": input.Offset,
 	})
 
 	collections, total, err := uc.repository.ListCollections(ctx, input.Limit, input.Offset)
 	if err != nil {
-		logging.Failure(uc.logger, "list collections failed", err, map[string]any{
+		logging.Failure(ctx, uc.logger, "list collections failed", err, map[string]any{
 			"limit":  input.Limit,
 			"offset": input.Offset,
 		})
 		return nil, fmt.Errorf("list collections: %w", err)
 	}
 
-	uc.logger.Info("collections listed", map[string]any{
+	uc.logger.InfoContext(ctx, "collections listed", map[string]any{
 		"limit":  input.Limit,
 		"offset": input.Offset,
 		"total":  total,

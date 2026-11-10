@@ -38,14 +38,14 @@ func NewListReviewsUseCase(
 }
 
 func (uc *ListReviewsUseCase) Run(ctx context.Context, input ListReviewsInput) (*ListReviewsOutput, error) {
-	uc.logger.Debug("list reviews started", map[string]any{
+	uc.logger.DebugContext(ctx, "list reviews started", map[string]any{
 		"film_id": input.FilmID,
 		"limit":   input.Limit,
 		"offset":  input.Offset,
 	})
 
 	if _, err := uc.films.GetFilmByID(ctx, input.FilmID); err != nil {
-		logging.Failure(uc.logger, "get film for reviews failed", err, map[string]any{
+		logging.Failure(ctx, uc.logger, "get film for reviews failed", err, map[string]any{
 			"film_id": input.FilmID,
 		})
 		return nil, fmt.Errorf("get film %d: %w", input.FilmID, err)
@@ -53,7 +53,7 @@ func (uc *ListReviewsUseCase) Run(ctx context.Context, input ListReviewsInput) (
 
 	reviews, total, err := uc.reviews.ListByFilm(ctx, input.FilmID, input.Limit, input.Offset)
 	if err != nil {
-		logging.Failure(uc.logger, "list reviews failed", err, map[string]any{
+		logging.Failure(ctx, uc.logger, "list reviews failed", err, map[string]any{
 			"film_id": input.FilmID,
 			"limit":   input.Limit,
 			"offset":  input.Offset,
@@ -61,7 +61,7 @@ func (uc *ListReviewsUseCase) Run(ctx context.Context, input ListReviewsInput) (
 		return nil, fmt.Errorf("list reviews of film %d: %w", input.FilmID, err)
 	}
 
-	uc.logger.Info("reviews listed", map[string]any{
+	uc.logger.InfoContext(ctx, "reviews listed", map[string]any{
 		"film_id": input.FilmID,
 		"limit":   input.Limit,
 		"offset":  input.Offset,

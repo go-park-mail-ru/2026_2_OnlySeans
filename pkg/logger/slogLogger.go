@@ -64,6 +64,22 @@ func (l *SlogLogger) Error(msg string, fields map[string]any) {
 	l.log(slog.LevelError, msg, fields)
 }
 
+func (l *SlogLogger) InfoContext(ctx context.Context, msg string, fields map[string]any) {
+	l.logContext(ctx, slog.LevelInfo, msg, fields)
+}
+
+func (l *SlogLogger) DebugContext(ctx context.Context, msg string, fields map[string]any) {
+	l.logContext(ctx, slog.LevelDebug, msg, fields)
+}
+
+func (l *SlogLogger) WarnContext(ctx context.Context, msg string, fields map[string]any) {
+	l.logContext(ctx, slog.LevelWarn, msg, fields)
+}
+
+func (l *SlogLogger) ErrorContext(ctx context.Context, msg string, fields map[string]any) {
+	l.logContext(ctx, slog.LevelError, msg, fields)
+}
+
 func toAttrs(fields map[string]any) []slog.Attr {
 	slogFields := make([]slog.Attr, 0, len(fields))
 
@@ -76,5 +92,14 @@ func toAttrs(fields map[string]any) []slog.Attr {
 }
 
 func (l *SlogLogger) log(level slog.Level, msg string, fields map[string]any) {
-	l.logger.LogAttrs(context.Background(), level, msg, toAttrs(fields)...)
+	l.logContext(context.Background(), level, msg, fields)
+}
+
+func (l *SlogLogger) logContext(ctx context.Context, level slog.Level, msg string, fields map[string]any) {
+	attrs := toAttrs(fields)
+	if id := RequestID(ctx); id != "" {
+		attrs = slices.DeleteFunc(attrs, func(attr slog.Attr) bool { return attr.Key == "request_id" })
+		attrs = append(attrs, slog.String("request_id", id))
+	}
+	l.logger.LogAttrs(ctx, level, msg, attrs...)
 }

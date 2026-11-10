@@ -25,11 +25,11 @@ func NewDeleteFilmUseCase(repository domain.FilmDeleter, appLogger logger.Logger
 }
 
 func (uc *DeleteFilmUseCase) Run(ctx context.Context, id domain.FilmID) error {
-	uc.logger.Debug("delete film started", map[string]any{"film_id": id})
+	uc.logger.DebugContext(ctx, "delete film started", map[string]any{"film_id": id})
 	if err := uc.repository.DeleteFilm(ctx, id); err != nil {
-		logging.Failure(uc.logger, "delete film failed", err, map[string]any{"film_id": id})
+		logging.Failure(ctx, uc.logger, "delete film failed", err, map[string]any{"film_id": id})
 		return fmt.Errorf("delete film: %w", err)
 	}
-	uc.logger.Info("film deleted", map[string]any{"film_id": id})
+	uc.logger.InfoContext(ctx, "film deleted", map[string]any{"film_id": id})
 	return nil
 }

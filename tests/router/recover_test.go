@@ -1,6 +1,7 @@
 package router_test
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -11,8 +12,10 @@ import (
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/router"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/tests/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
 type recoverLogEntry struct {
@@ -22,6 +25,7 @@ type recoverLogEntry struct {
 }
 
 type recoverSpyLogger struct {
+	*mocks.MockLogger
 	mu      sync.Mutex
 	entries []recoverLogEntry
 }
@@ -31,11 +35,6 @@ func (s *recoverSpyLogger) add(level, msg string, f map[string]any) {
 	defer s.mu.Unlock()
 	s.entries = append(s.entries, recoverLogEntry{level, msg, f})
 }
-
-func (s *recoverSpyLogger) Info(msg string, f map[string]any)  { s.add("info", msg, f) }
-func (s *recoverSpyLogger) Debug(msg string, f map[string]any) { s.add("debug", msg, f) }
-func (s *recoverSpyLogger) Warn(msg string, f map[string]any)  { s.add("warn", msg, f) }
-func (s *recoverSpyLogger) Error(msg string, f map[string]any) { s.add("error", msg, f) }
 
 func TestWithRecover(t *testing.T) {
 	tests := []struct {
@@ -69,7 +68,7 @@ func TestWithRecover(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			spy := &recoverSpyLogger{}
+			spy := newRecoverSpyLogger(t)
 			handler := router.WithRecover(tt.handler, spy)
 
 			req := httptest.NewRequest(http.MethodGet, "/api/films", nil)
@@ -128,7 +127,7 @@ func TestWithLogging_WithRecover(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			spy := &recoverSpyLogger{}
+			spy := newRecoverSpyLogger(t)
 			handler := router.WithLogging(router.WithRecover(tt.handler, spy), spy)
 
 			rec := httptest.NewRecorder()
@@ -169,7 +168,7 @@ func TestWithLogging_Level(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(strconv.Itoa(tt.status), func(t *testing.T) {
-			spy := &recoverSpyLogger{}
+			spy := newRecoverSpyLogger(t)
 			next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(tt.status) })
 			handler := router.WithLogging(next, spy)
 
@@ -222,7 +221,7 @@ func TestRecoveryAfterResponseStarted(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			spy := &recoverSpyLogger{}
+			spy := newRecoverSpyLogger(t)
 			handler := router.WithLogging(router.WithRecover(tt.handler, spy), spy)
 			rec := httptest.NewRecorder()
 			handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
@@ -235,4 +234,18 @@ func TestRecoveryAfterResponseStarted(t *testing.T) {
 			}
 		})
 	}
+}
+
+func newRecoverSpyLogger(t *testing.T) *recoverSpyLogger {
+	t.Helper()
+	result := &recoverSpyLogger{MockLogger: mocks.NewMockLogger(gomock.NewController(t))}
+	result.EXPECT().Info(gomock.Any(), gomock.Any()).Do(func(msg string, fields map[string]any) { result.add("info", msg, fields) }).AnyTimes()
+	result.EXPECT().InfoContext(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, msg string, fields map[string]any) { result.add("info", msg, fields) }).AnyTimes()
+	result.EXPECT().Debug(gomock.Any(), gomock.Any()).Do(func(msg string, fields map[string]any) { result.add("debug", msg, fields) }).AnyTimes()
+	result.EXPECT().DebugContext(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, msg string, fields map[string]any) { result.add("debug", msg, fields) }).AnyTimes()
+	result.EXPECT().Warn(gomock.Any(), gomock.Any()).Do(func(msg string, fields map[string]any) { result.add("warn", msg, fields) }).AnyTimes()
+	result.EXPECT().WarnContext(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, msg string, fields map[string]any) { result.add("warn", msg, fields) }).AnyTimes()
+	result.EXPECT().Error(gomock.Any(), gomock.Any()).Do(func(msg string, fields map[string]any) { result.add("error", msg, fields) }).AnyTimes()
+	result.EXPECT().ErrorContext(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, msg string, fields map[string]any) { result.add("error", msg, fields) }).AnyTimes()
+	return result
 }

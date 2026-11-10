@@ -13,7 +13,7 @@ import (
 )
 
 func TestRequireAuth_SessionFlow(t *testing.T) {
-	h := newTestAuthHandler(t, &spyLogger{})
+	h := newTestAuthHandler(t, newSpyLogger(t))
 
 	body := `{"email":"flow@example.com","username":"flowuser","password":"Password1"}`
 	rec := httptest.NewRecorder()

@@ -38,7 +38,7 @@ func TestPostgresPersonRepoUpdate(t *testing.T) {
 		_, err := db.ExecContext(ctx, query)
 		require.NoError(t, err)
 	}
-	repo := personsservice.NewPersonRepo(db)
+	repo := personsservice.NewPersonRepo(db, nil)
 	birthDate := time.Date(1990, time.January, 2, 0, 0, 0, 0, time.UTC)
 	tests := []struct {
 		name    string

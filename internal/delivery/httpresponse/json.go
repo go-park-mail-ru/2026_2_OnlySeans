@@ -1,6 +1,7 @@
 package httpresponse
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 
@@ -14,28 +15,36 @@ type ErrorResponse struct {
 }
 
 func WriteJSON(w http.ResponseWriter, status int, body any, appLogger logger.Logger) {
+	WriteJSONContext(context.Background(), w, status, body, appLogger)
+}
+
+func WriteJSONContext(ctx context.Context, w http.ResponseWriter, status int, body any, appLogger logger.Logger) {
 	data, err := json.Marshal(body)
 	if err != nil {
-		logError(appLogger, "encode response failed", err)
+		logError(ctx, appLogger, "encode response failed", err)
 		status = http.StatusInternalServerError
 		data, _ = json.Marshal(ErrorResponse{Error: InternalErrorMessage})
 	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
 	if _, err := w.Write(append(data, '\n')); err != nil {
-		logError(appLogger, "write response failed", err)
+		logError(ctx, appLogger, "write response failed", err)
 	}
 }
 
 func WriteError(w http.ResponseWriter, status int, message string, appLogger logger.Logger) {
+	WriteErrorContext(context.Background(), w, status, message, appLogger)
+}
+
+func WriteErrorContext(ctx context.Context, w http.ResponseWriter, status int, message string, appLogger logger.Logger) {
 	if status >= http.StatusInternalServerError {
 		message = InternalErrorMessage
 	}
-	WriteJSON(w, status, ErrorResponse{Error: message}, appLogger)
+	WriteJSONContext(ctx, w, status, ErrorResponse{Error: message}, appLogger)
 }
 
-func logError(appLogger logger.Logger, message string, err error) {
+func logError(ctx context.Context, appLogger logger.Logger, message string, err error) {
 	if appLogger != nil {
-		appLogger.Error(message, map[string]any{"error": err})
+		appLogger.ErrorContext(ctx, message, map[string]any{"error": err})
 	}
 }

@@ -19,28 +19,11 @@ import (
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	fileusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/files"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/tests/mocks"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
-
-type avatarStorage struct {
-	err         error
-	calls       int
-	key         string
-	contentType string
-	data        []byte
-}
-
-func (s *avatarStorage) Upload(_ context.Context, key, contentType string, body io.ReadSeeker) error {
-	s.calls++
-	s.key, s.contentType = key, contentType
-	var err error
-	s.data, err = io.ReadAll(body)
-	if err != nil {
-		return err
-	}
-	return s.err
-}
 
 func TestUploadAvatar(t *testing.T) {
 	var pngData, jpegData, wideData bytes.Buffer
@@ -129,14 +112,30 @@ func TestUploadAvatar(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			storage := &avatarStorage{err: tt.storageErr}
-			uc, err := fileusecase.NewUploadAvatarUseCase(storage, &avatarMetadataRepo{}, testAvatarOptions(), testFilesLogger(t))
+			ctrl := gomock.NewController(t)
+			storage := mocks.NewMockAvatarStorage(ctrl)
+			repo := mocks.NewMockAvatarWriter(ctrl)
+			var key, contentType string
+			var captured []byte
+			if tt.wantCalls > 0 {
+				upload := storage.EXPECT().Upload(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, name, mime string, body io.ReadSeeker) error {
+					key, contentType = name, mime
+					data, err := io.ReadAll(body)
+					require.NoError(t, err)
+					captured = data
+					return tt.storageErr
+				}).Times(tt.wantCalls)
+				if tt.storageErr == nil {
+					repo.EXPECT().SaveAvatar(gomock.Any(), domain.UserID(1), gomock.Any()).Return(nil).After(upload)
+				}
+			}
+			uc, err := fileusecase.NewUploadAvatarUseCase(storage, repo, testAvatarOptions(), testFilesLogger(t))
 			require.NoError(t, err)
 			appLogger, err := logger.NewLogger(io.Discard, logger.LogLevelInfo, "text")
 			require.NoError(t, err)
-			urlUC, err := fileusecase.NewGetAvatarURLUseCase(&avatarURLStorage{}, testFilesLogger(t))
+			urlUC, err := fileusecase.NewGetAvatarURLUseCase(mocks.NewMockAvatarURLStorage(gomock.NewController(t)), testFilesLogger(t))
 			require.NoError(t, err)
-			handler, err := filesdelivery.NewHandler(uc, urlUC, testAccountAvatar(t, &avatarURLStorage{}), appLogger)
+			handler, err := filesdelivery.NewHandler(uc, urlUC, testAccountAvatar(t, mocks.NewMockAvatarURLStorage(gomock.NewController(t))), appLogger)
 			require.NoError(t, err)
 
 			var body bytes.Buffer
@@ -158,7 +157,6 @@ func TestUploadAvatar(t *testing.T) {
 			req = req.WithContext(authdelivery.ContextWithUserID(req.Context(), 1))
 			handler.UploadAvatar(rec, req)
 			require.Equal(t, tt.wantStatus, rec.Code, rec.Body.String())
-			require.Equal(t, tt.wantCalls, storage.calls)
 			var response map[string]any
 			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
 			if tt.wantStatus == http.StatusCreated {
@@ -166,9 +164,9 @@ func TestUploadAvatar(t *testing.T) {
 				filename, ok := response["filename"].(string)
 				require.True(t, ok)
 				require.Regexp(t, `^[0-9a-f]{32}\.`+tt.wantExtension+`$`, filename)
-				require.Equal(t, filename, storage.key)
-				require.Equal(t, tt.wantType, storage.contentType)
-				require.Equal(t, tt.data, storage.data)
+				require.Equal(t, filename, key)
+				require.Equal(t, tt.wantType, contentType)
+				require.Equal(t, tt.data, captured)
 			} else {
 				require.NotContains(t, response, "filename")
 			}
@@ -178,17 +176,6 @@ func TestUploadAvatar(t *testing.T) {
 			require.NotContains(t, rec.Body.String(), "private storage failure")
 		})
 	}
-}
-
-type avatarURLStorage struct {
-	url   string
-	err   error
-	calls int
-}
-
-func (s *avatarURLStorage) GetURL(context.Context, string) (string, error) {
-	s.calls++
-	return s.url, s.err
 }
 
 func TestGetAvatarURL(t *testing.T) {
@@ -239,25 +226,25 @@ func TestGetAvatarURL(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			upload, err := fileusecase.NewUploadAvatarUseCase(&avatarStorage{}, &avatarMetadataRepo{}, testAvatarOptions(), testFilesLogger(t))
+			upload, err := fileusecase.NewUploadAvatarUseCase(mocks.NewMockAvatarStorage(gomock.NewController(t)), mocks.NewMockAvatarWriter(gomock.NewController(t)), testAvatarOptions(), testFilesLogger(t))
 			require.NoError(t, err)
-			storage := &avatarURLStorage{url: "https://media.example/avatar.png?signature=test", err: tt.err}
+			storage := mocks.NewMockAvatarURLStorage(gomock.NewController(t))
+			storage.EXPECT().GetURL(gomock.Any(), tt.filename).Return("https://media.example/avatar.png?signature=test", tt.err).Times(tt.wantCalls)
 			getURL, err := fileusecase.NewGetAvatarURLUseCase(storage, testFilesLogger(t))
 			require.NoError(t, err)
 			appLogger, err := logger.NewLogger(io.Discard, logger.LogLevelInfo, "text")
 			require.NoError(t, err)
-			handler, err := filesdelivery.NewHandler(upload, getURL, testAccountAvatar(t, &avatarURLStorage{}), appLogger)
+			handler, err := filesdelivery.NewHandler(upload, getURL, testAccountAvatar(t, mocks.NewMockAvatarURLStorage(gomock.NewController(t))), appLogger)
 			require.NoError(t, err)
 			req := httptest.NewRequest(http.MethodGet, "/api/avatars/test", nil)
 			req = mux.SetURLVars(req, map[string]string{"filename": tt.filename})
 			rec := httptest.NewRecorder()
 			handler.GetAvatarURL(rec, req)
 			require.Equal(t, tt.wantStatus, rec.Code)
-			require.Equal(t, tt.wantCalls, storage.calls)
 			var response map[string]any
 			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
 			if tt.wantStatus == http.StatusOK {
-				require.Equal(t, storage.url, response["url"])
+				require.Equal(t, "https://media.example/avatar.png?signature=test", response["url"])
 				require.Equal(t, "no-store", rec.Header().Get("Cache-Control"))
 			} else {
 				require.NotContains(t, response, "url")
@@ -265,14 +252,6 @@ func TestGetAvatarURL(t *testing.T) {
 			require.NotContains(t, rec.Body.String(), "private storage failure")
 		})
 	}
-}
-
-func (s *avatarStorage) Delete(context.Context, string) error { return nil }
-
-type avatarMetadataRepo struct{}
-
-func (*avatarMetadataRepo) SaveAvatar(context.Context, domain.UserID, domain.AvatarFile) error {
-	return nil
 }
 
 func TestAccountAvatarHandlers(t *testing.T) {
@@ -293,11 +272,22 @@ func TestAccountAvatarHandlers(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			repo := &accountAvatarStub{file: &domain.AvatarFile{Filename: "avatar.png"}, err: tt.repoErr}
-			storage := &avatarURLStorage{url: "https://example.com/avatar"}
+			repo := mocks.NewMockAccountAvatarRepository(gomock.NewController(t))
+			storage := mocks.NewMockAvatarURLStorage(gomock.NewController(t))
+			if tt.userID > 0 {
+				if tt.method == http.MethodGet {
+					lookup := repo.EXPECT().GetAvatar(gomock.Any(), tt.userID).Return(&domain.AvatarFile{Filename: "avatar.png"}, tt.repoErr)
+					if tt.repoErr == nil {
+						storage.EXPECT().GetURL(gomock.Any(), "avatar.png").Return("https://example.com/avatar", nil).After(lookup)
+					}
+				} else {
+					repo.EXPECT().DeleteAvatar(gomock.Any(), tt.userID).Return(tt.repoErr)
+				}
+			}
+
 			account, err := fileusecase.NewAccountAvatarUseCase(repo, storage, testFilesLogger(t))
 			require.NoError(t, err)
-			upload, err := fileusecase.NewUploadAvatarUseCase(&avatarStorage{}, &avatarMetadataRepo{}, testAvatarOptions(), testFilesLogger(t))
+			upload, err := fileusecase.NewUploadAvatarUseCase(mocks.NewMockAvatarStorage(gomock.NewController(t)), mocks.NewMockAvatarWriter(gomock.NewController(t)), testAvatarOptions(), testFilesLogger(t))
 			require.NoError(t, err)
 			getURL, err := fileusecase.NewGetAvatarURLUseCase(storage, testFilesLogger(t))
 			require.NoError(t, err)
@@ -322,9 +312,6 @@ func TestAccountAvatarHandlers(t *testing.T) {
 			}
 			if tt.wantStatus == http.StatusOK {
 				require.Equal(t, "no-store", rec.Header().Get("Cache-Control"))
-			}
-			if tt.userID > 0 {
-				require.Equal(t, tt.userID, repo.userID)
 			}
 		})
 	}

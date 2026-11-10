@@ -15,11 +15,10 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/config"
 	assetsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/assets"
-	librarydelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/library"
-	libraryservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/library"
 	authdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
 	filesdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/files"
 	filmsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/films"
+	librarydelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/library"
 	persondelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/persons"
 	ratingsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/ratings"
 	reviewsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/reviews"
@@ -28,6 +27,7 @@ import (
 	authservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/auth"
 	filesservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/files"
 	filmsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/films"
+	libraryservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/library"
 	personservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/persons"
 	ratingsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/ratings"
 	reviewsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/reviews"
@@ -35,6 +35,7 @@ import (
 	authusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/auth"
 	filesusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/files"
 	filmsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/films"
+	libraryusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/library"
 	personusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/persons"
 	ratingsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/ratings"
 	reviewsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/reviews"
@@ -133,7 +134,7 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 	appLogger.Info("database connected", nil)
 	defer db.Close()
 
-	avatarRepo, err := filesservice.NewPostgresAvatarRepo(db)
+	avatarRepo, err := filesservice.NewPostgresAvatarRepo(db, appLogger)
 	if err != nil {
 		appLogger.Error("create avatar repository failed", map[string]any{"error": err})
 		return fmt.Errorf("create avatar repository: %w", err)
@@ -163,14 +164,14 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 		return fmt.Errorf("create files handler: %w", err)
 	}
 
-	userRepo = authservice.NewPostgresUserRepo(db)
-	filmsRepo = filmsservice.NewPostgresService(db)
-	reviewsRepo = reviewsservice.NewPostgresReviewRepo(db)
-	personsRepo = personservice.NewPersonRepo(db)
+	userRepo = authservice.NewPostgresUserRepo(db, appLogger)
+	filmsRepo = filmsservice.NewPostgresService(db, appLogger)
+	reviewsRepo = reviewsservice.NewPostgresReviewRepo(db, appLogger)
+	personsRepo = personservice.NewPersonRepo(db, appLogger)
 	postgresRatingsRepo := ratingsservice.NewPostgresRepo(db, appLogger)
 	ratingsRepo = postgresRatingsRepo
 
-	posterRepo, err := filesservice.NewPostgresPosterRepo(db)
+	posterRepo, err := filesservice.NewPostgresPosterRepo(db, appLogger)
 	if err != nil {
 		return fmt.Errorf("create poster repository: %w", err)
 	}
@@ -195,7 +196,7 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 	appLogger.Info("redis connected", nil)
 	defer newClient.Close()
 
-	sessions := authservice.NewRedisSessionStore(newClient, cfg.Server.SessionTTL)
+	sessions := authservice.NewRedisSessionStore(newClient, cfg.Server.SessionTTL, appLogger)
 
 	passwordService := authservice.BcryptPasswordService{}
 
@@ -386,10 +387,24 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 	}
 
 	getMyRatingUC, err := ratingsusecase.NewGetMyFilmRatingUseCase(postgresRatingsRepo, filmsRepo, appLogger)
-	if err != nil { return fmt.Errorf("create personal rating use case: %w", err) }
+	if err != nil {
+		return fmt.Errorf("create personal rating use case: %w", err)
+	}
 
-	libraryHandler := librarydelivery.NewHandler(libraryservice.NewPostgresRepo(db), appLogger)
-	profileHandler := authdelivery.NewProfileHandler(authusecase.NewUpdateProfileUseCase(authservice.NewProfileRepo(db)), appLogger)
+	libraryRepo := libraryservice.NewPostgresRepo(db, appLogger)
+	libraryHandler := librarydelivery.NewHandler(librarydelivery.HandlerUseCases{
+		GetLibrary:     libraryusecase.NewGetLibraryUseCase(libraryRepo),
+		SetSaved:       libraryusecase.NewSetSavedUseCase(libraryRepo),
+		GetPreferences: libraryusecase.NewGetPreferencesUseCase(libraryRepo),
+		SavePreference: libraryusecase.NewSavePreferenceUseCase(libraryRepo),
+	}, appLogger)
+	personCatalogRepo := personservice.NewCatalogRepo(db, appLogger)
+	profileRepo := authservice.NewProfileRepo(db, appLogger)
+	getProfileUC, err := authusecase.NewGetProfileUseCase(profileRepo, objectStorages[s3Cfg.PostersBucket], appLogger)
+	if err != nil {
+		return fmt.Errorf("create profile use case: %w", err)
+	}
+	profileHandler := authdelivery.NewProfileHandler(getProfileUC, authusecase.NewUpdateProfileUseCase(profileRepo), appLogger)
 	httpHandler, err := router.NewRouter(
 		authHandler,
 		filmsHandler,
@@ -404,7 +419,11 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 		ratingsdelivery.RegisterMine(getMyRatingUC, appLogger, router.RequireAuth(authHandler)),
 		profileHandler.Register(router.RequireAuth(authHandler)),
 		assetsdelivery.Register(s3Client, s3Cfg.Bucket),
-		filmsdelivery.RegisterPeople(personservice.NewCatalogRepo(db), filmsRepo, appLogger),
+		persondelivery.RegisterCatalog(
+			personusecase.NewGetFilmPersonsUseCase(personCatalogRepo, filmsRepo),
+			personusecase.NewGetPersonCatalogUseCase(personCatalogRepo, filmsRepo),
+			appLogger,
+		),
 	)
 	if err != nil {
 		return fmt.Errorf("create router: %w", err)

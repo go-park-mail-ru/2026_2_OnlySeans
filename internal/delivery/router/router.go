@@ -79,5 +79,5 @@ func NewRouter(
 	}
 
 	protected := csrf.withCSRF(r)
-	return WithLogging(WithRecover(withSecurityHeaders(withCORS(protected, allowedOrigins)), appLogger), appLogger), nil
+	return WithRequestID(WithLogging(WithRecover(withSecurityHeaders(withCORS(protected, allowedOrigins)), appLogger), appLogger)), nil
 }

@@ -1,5 +1,7 @@
 package logger
 
+import "context"
+
 type LogLevelType string
 
 const (
@@ -14,4 +16,8 @@ type Logger interface {
 	Debug(msg string, fields map[string]any)
 	Warn(msg string, fields map[string]any)
 	Error(msg string, fields map[string]any)
+	InfoContext(ctx context.Context, msg string, fields map[string]any)
+	DebugContext(ctx context.Context, msg string, fields map[string]any)
+	WarnContext(ctx context.Context, msg string, fields map[string]any)
+	ErrorContext(ctx context.Context, msg string, fields map[string]any)
 }

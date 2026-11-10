@@ -7,48 +7,20 @@ import (
 
 	entities "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	filmsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/films"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/tests/mocks"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/tests/testutil"
+	"go.uber.org/mock/gomock"
 )
 
 // Тестовый логгер.
-type testLogger struct{}
-
-func (l *testLogger) Info(string, map[string]any)  {}
-func (l *testLogger) Debug(string, map[string]any) {}
-func (l *testLogger) Warn(string, map[string]any)  {}
-func (l *testLogger) Error(string, map[string]any) {}
-
-// Заглушка репозитория.
-type filmRepositoryStub struct {
-	films  []entities.Film
-	total  int
-	err    error
-	ctx    context.Context
-	limit  int
-	offset int
-}
-
-func (r *filmRepositoryStub) ListFilms(ctx context.Context, limit, offset int) ([]entities.Film, int, error) {
-	r.ctx = ctx
-	r.limit = limit
-	r.offset = offset
-
-	return r.films, r.total, r.err
-}
-
-func (r *filmRepositoryStub) GetFilmByID(context.Context, entities.FilmID) (entities.Film, error) {
-	return entities.Film{}, r.err
-}
 
 func TestListFilmsUseCaseRun(t *testing.T) {
 	ctx := context.Background()
 	expectedFilms := []entities.Film{{ID: 1}}
 
-	repository := &filmRepositoryStub{
-		films: expectedFilms,
-		total: 5,
-	}
-
-	uc, err := filmsusecase.NewListFilmsUseCase(repository, &testLogger{})
+	repository := mocks.NewMockFilmRepository(gomock.NewController(t))
+	repository.EXPECT().ListFilms(ctx, 2, 1).Return(expectedFilms, 5, nil)
+	uc, err := filmsusecase.NewListFilmsUseCase(repository, testutil.DiscardLogger())
 	if err != nil {
 		t.Fatalf("filmsusecase.NewListFilmsUseCase: %v", err)
 	}
@@ -62,24 +34,18 @@ func TestListFilmsUseCaseRun(t *testing.T) {
 		t.Fatalf("films = %v, want %v", result.Films, expectedFilms)
 	}
 
-	if result.Total != repository.total {
-		t.Fatalf("total = %d, want %d", result.Total, repository.total)
+	if result.Total != 5 {
+		t.Fatalf("total = %d, want %d", result.Total, 5)
 	}
 
-	if repository.ctx != ctx || repository.limit != 2 || repository.offset != 1 {
-		t.Fatalf(
-			"repository received ctx=%v limit=%d offset=%d",
-			repository.ctx,
-			repository.limit,
-			repository.offset,
-		)
-	}
 }
 
 func TestListFilmsUseCaseRunReturnsRepositoryError(t *testing.T) {
 	repositoryErr := errors.New("storage unavailable")
 
-	uc, err := filmsusecase.NewListFilmsUseCase(&filmRepositoryStub{err: repositoryErr}, &testLogger{})
+	repository := mocks.NewMockFilmRepository(gomock.NewController(t))
+	repository.EXPECT().ListFilms(gomock.Any(), 10, 0).Return(nil, 0, repositoryErr)
+	uc, err := filmsusecase.NewListFilmsUseCase(repository, testutil.DiscardLogger())
 	if err != nil {
 		t.Fatalf("filmsusecase.NewListFilmsUseCase: %v", err)
 	}
@@ -96,13 +62,13 @@ func TestListFilmsUseCaseRunReturnsRepositoryError(t *testing.T) {
 }
 
 func TestNewListFilmsUseCaseRejectsNilRepository(t *testing.T) {
-	if _, err := filmsusecase.NewListFilmsUseCase(nil, &testLogger{}); err == nil {
+	if _, err := filmsusecase.NewListFilmsUseCase(nil, testutil.DiscardLogger()); err == nil {
 		t.Fatal("filmsusecase.NewListFilmsUseCase(nil) error = nil, want error")
 	}
 }
 
 func TestNewListFilmsUseCaseRejectsNilLogger(t *testing.T) {
-	repository := &filmRepositoryStub{}
+	repository := mocks.NewMockFilmRepository(gomock.NewController(t))
 
 	if _, err := filmsusecase.NewListFilmsUseCase(repository, nil); err == nil {
 		t.Fatal("filmsusecase.NewListFilmsUseCase with nil logger: expected error")

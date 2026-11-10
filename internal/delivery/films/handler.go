@@ -1,6 +1,8 @@
 package films
 
 import (
+	"context"
+
 	"errors"
 	"fmt"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/httprequest"
@@ -157,7 +159,7 @@ func (h *Handler) ListFilms(w http.ResponseWriter, r *http.Request) {
 	limit, offset, err := pagination(r)
 	if err != nil {
 		httprequest.LogRejected(h.appLogger, r, "pagination", err)
-		writeError(w, err, h.appLogger)
+		writeError(r.Context(), w, err, h.appLogger)
 		return
 	}
 
@@ -165,7 +167,7 @@ func (h *Handler) ListFilms(w http.ResponseWriter, r *http.Request) {
 
 	result, err := h.listFilms.Run(r.Context(), input)
 	if err != nil {
-		writeError(w, err, h.appLogger)
+		writeError(r.Context(), w, err, h.appLogger)
 		return
 	}
 
@@ -174,13 +176,13 @@ func (h *Handler) ListFilms(w http.ResponseWriter, r *http.Request) {
 		for i, film := range result.Films {
 			films[i] = toFilmResponseDTO(film)
 		}
-		httpresponse.WriteJSON(w, http.StatusOK, filmsPage[filmResponseDTO]{
+		httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, filmsPage[filmResponseDTO]{
 			Films: films, Total: result.Total, Limit: limit, Offset: offset,
 		}, h.appLogger)
 		return
 	}
 
-	httpresponse.WriteJSON(w, http.StatusOK, filmsPage[filmCardResponseDTO]{
+	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, filmsPage[filmCardResponseDTO]{
 		Films:  toFilmCardResponseDTOs(result.Films),
 		Total:  result.Total,
 		Limit:  limit,
@@ -192,18 +194,18 @@ func (h *Handler) GetFilm(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(r)
 	if !ok {
 		httprequest.LogRejected(h.appLogger, r, "id", ErrInvalidFilmID)
-		writeError(w, ErrInvalidFilmID, h.appLogger)
+		writeError(r.Context(), w, ErrInvalidFilmID, h.appLogger)
 		return
 	}
 
 	input := usecase.NewGetFilmInput(domain.FilmID(id))
 	result, err := h.getFilm.Run(r.Context(), input)
 	if err != nil {
-		writeError(w, fmt.Errorf("get film %d: %w", id, err), h.appLogger)
+		writeError(r.Context(), w, fmt.Errorf("get film %d: %w", id, err), h.appLogger)
 		return
 	}
 
-	httpresponse.WriteJSON(w, http.StatusOK, filmResponse{Film: toFilmResponseDTO(result.Film)}, h.appLogger)
+	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, filmResponse{Film: toFilmResponseDTO(result.Film)}, h.appLogger)
 }
 
 func (h *Handler) CreateFilm(w http.ResponseWriter, r *http.Request) {
@@ -211,24 +213,24 @@ func (h *Handler) CreateFilm(w http.ResponseWriter, r *http.Request) {
 	input, err := decodeCreateFilm(r)
 	if err != nil {
 		httprequest.LogRejected(h.appLogger, r, "body", err)
-		writeError(w, err, h.appLogger)
+		writeError(r.Context(), w, err, h.appLogger)
 		return
 	}
 
 	id, err := h.createFilm.Run(r.Context(), input)
 	if err != nil {
-		writeError(w, err, h.appLogger)
+		writeError(r.Context(), w, err, h.appLogger)
 		return
 	}
 
-	httpresponse.WriteJSON(w, http.StatusCreated, createFilmResponse{ID: id}, h.appLogger)
+	httpresponse.WriteJSONContext(r.Context(), w, http.StatusCreated, createFilmResponse{ID: id}, h.appLogger)
 }
 
 func (h *Handler) UpdateFilm(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(r)
 	if !ok {
 		httprequest.LogRejected(h.appLogger, r, "id", ErrInvalidFilmID)
-		writeError(w, ErrInvalidFilmID, h.appLogger)
+		writeError(r.Context(), w, ErrInvalidFilmID, h.appLogger)
 		return
 	}
 
@@ -236,12 +238,12 @@ func (h *Handler) UpdateFilm(w http.ResponseWriter, r *http.Request) {
 	input, err := decodeCreateFilm(r)
 	if err != nil {
 		httprequest.LogRejected(h.appLogger, r, "body", err)
-		writeError(w, err, h.appLogger)
+		writeError(r.Context(), w, err, h.appLogger)
 		return
 	}
 
 	if err := h.updateFilm.Run(r.Context(), domain.FilmID(id), input); err != nil {
-		writeError(w, err, h.appLogger)
+		writeError(r.Context(), w, err, h.appLogger)
 		return
 	}
 
@@ -252,12 +254,12 @@ func (h *Handler) DeleteFilm(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(r)
 	if !ok {
 		httprequest.LogRejected(h.appLogger, r, "id", ErrInvalidFilmID)
-		writeError(w, ErrInvalidFilmID, h.appLogger)
+		writeError(r.Context(), w, ErrInvalidFilmID, h.appLogger)
 		return
 	}
 
 	if err := h.deleteFilm.Run(r.Context(), domain.FilmID(id)); err != nil {
-		writeError(w, err, h.appLogger)
+		writeError(r.Context(), w, err, h.appLogger)
 		return
 	}
 
@@ -268,7 +270,7 @@ func (h *Handler) ListCollections(w http.ResponseWriter, r *http.Request) {
 	limit, offset, err := pagination(r)
 	if err != nil {
 		httprequest.LogRejected(h.appLogger, r, "pagination", err)
-		writeError(w, err, h.appLogger)
+		writeError(r.Context(), w, err, h.appLogger)
 		return
 	}
 
@@ -276,11 +278,11 @@ func (h *Handler) ListCollections(w http.ResponseWriter, r *http.Request) {
 
 	result, err := h.listCollections.Run(r.Context(), input)
 	if err != nil {
-		writeError(w, fmt.Errorf("list collections: %w", err), h.appLogger)
+		writeError(r.Context(), w, fmt.Errorf("list collections: %w", err), h.appLogger)
 		return
 	}
 
-	httpresponse.WriteJSON(w, http.StatusOK, collectionsPage{
+	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, collectionsPage{
 		Collections: toCollectionResponseDTOs(result.Collections),
 		Total:       result.Total,
 		Limit:       limit,
@@ -292,13 +294,13 @@ func (h *Handler) GetCollection(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(r)
 	if !ok {
 		httprequest.LogRejected(h.appLogger, r, "id", ErrInvalidCollectionID)
-		writeError(w, ErrInvalidCollectionID, h.appLogger)
+		writeError(r.Context(), w, ErrInvalidCollectionID, h.appLogger)
 		return
 	}
 	limit, offset, err := pagination(r)
 	if err != nil {
 		httprequest.LogRejected(h.appLogger, r, "pagination", err)
-		writeError(w, err, h.appLogger)
+		writeError(r.Context(), w, err, h.appLogger)
 		return
 	}
 
@@ -306,11 +308,11 @@ func (h *Handler) GetCollection(w http.ResponseWriter, r *http.Request) {
 
 	result, err := h.getCollection.Run(r.Context(), input)
 	if err != nil {
-		writeError(w, err, h.appLogger)
+		writeError(r.Context(), w, err, h.appLogger)
 		return
 	}
 
-	httpresponse.WriteJSON(w, http.StatusOK, collectionPage{
+	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, collectionPage{
 		Collection: toCollectionWithFilmsResponseDTO(result.Collection, result.Films),
 		Total:      result.Total,
 		Limit:      limit,
@@ -344,10 +346,10 @@ func queryInt(r *http.Request, key string, fallback int) (int, bool) {
 	return value, err == nil
 }
 
-func writeError(w http.ResponseWriter, err error, appLogger logger.Logger) {
+func writeError(ctx context.Context, w http.ResponseWriter, err error, appLogger logger.Logger) {
 	var sizeErr *http.MaxBytesError
 	if errors.As(err, &sizeErr) {
-		httpresponse.WriteError(w, http.StatusRequestEntityTooLarge, "request body exceeds 1 MiB", appLogger)
+		httpresponse.WriteErrorContext(ctx, w, http.StatusRequestEntityTooLarge, "request body exceeds 1 MiB", appLogger)
 		return
 	}
 
@@ -357,10 +359,10 @@ func writeError(w http.ResponseWriter, err error, appLogger logger.Logger) {
 			if known.status == http.StatusBadRequest {
 				msg = err.Error()
 			}
-			httpresponse.WriteError(w, known.status, msg, appLogger)
+			httpresponse.WriteErrorContext(ctx, w, known.status, msg, appLogger)
 			return
 		}
 	}
 
-	httpresponse.WriteError(w, http.StatusInternalServerError, httpresponse.InternalErrorMessage, appLogger)
+	httpresponse.WriteErrorContext(ctx, w, http.StatusInternalServerError, httpresponse.InternalErrorMessage, appLogger)
 }

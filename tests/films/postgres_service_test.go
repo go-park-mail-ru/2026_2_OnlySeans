@@ -43,7 +43,7 @@ func newPostgresService(t *testing.T) (domain.FilmsRepository, sqlmock.Sqlmock) 
 		db.Close()
 	})
 
-	return films.NewPostgresService(db), mock
+	return films.NewPostgresService(db, nil), mock
 }
 
 var (

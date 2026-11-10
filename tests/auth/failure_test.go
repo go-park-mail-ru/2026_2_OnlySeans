@@ -5,175 +5,58 @@ import (
 	"errors"
 	"net/http"
 	"testing"
-	"time"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	authdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	authservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/auth"
 	authusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/auth"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/tests/mocks"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
 var errBoom = errors.New("boom: connection refused 10.0.0.5:5432")
 
-type flakyRepo struct {
-	*authservice.InMemoryUserRepo
-	createErr  error
-	getUserErr error
-}
-
-func (r flakyRepo) Create(
-	ctx context.Context,
-	email, username, passwordHash string,
-) (domain.UserID, error) {
-	if r.createErr != nil {
-		return 0, r.createErr
-	}
-
-	return r.InMemoryUserRepo.Create(ctx, email, username, passwordHash)
-}
-
-func (r flakyRepo) GetUser(
-	ctx context.Context,
-	id domain.UserID,
-) (*domain.User, error) {
-	if r.getUserErr != nil {
-		return nil, r.getUserErr
-	}
-
-	return r.InMemoryUserRepo.GetUser(ctx, id)
-}
-
-type flakyStore struct {
-	*authservice.InMemorySessionStore
-	createErr error
-	getErr    error
-	deleteErr error
-}
-
-func (s flakyStore) Create(
-	ctx context.Context,
-	userID domain.UserID,
-) (*domain.Session, error) {
-	if s.createErr != nil {
-		return nil, s.createErr
-	}
-
-	return s.InMemorySessionStore.Create(ctx, userID)
-}
-
-func (s flakyStore) Get(
-	ctx context.Context,
-	sessionID string,
-) (*domain.Session, error) {
-	if s.getErr != nil {
-		return nil, s.getErr
-	}
-
-	return s.InMemorySessionStore.Get(ctx, sessionID)
-}
-
-func (s flakyStore) Delete(
-	ctx context.Context,
-	sessionID string,
-) error {
-	if s.deleteErr != nil {
-		return s.deleteErr
-	}
-
-	return s.InMemorySessionStore.Delete(ctx, sessionID)
-}
-
-func newFlakyHandler(
-	t *testing.T,
-	repo flakyRepo,
-	store flakyStore,
-) (*authdelivery.Handler, flakyStore) {
+func newMockAuthHandler(t *testing.T, users domain.UserRepository, sessions domain.SessionStore, hasher domain.PasswordHasher) *authdelivery.Handler {
 	t.Helper()
-
-	repo.InMemoryUserRepo = authservice.NewInMemoryUserRepo()
-	store.InMemorySessionStore = authservice.NewInMemorySessionStore(time.Hour)
-
-	passwordService := authservice.BcryptPasswordService{}
-	appLogger := newTestLogger()
-
-	register, err := authusecase.NewRegisterUserUseCase(
-		repo,
-		store,
-		passwordService,
-		appLogger,
-	)
+	log := newTestLogger()
+	register, err := authusecase.NewRegisterUserUseCase(users, sessions, hasher, log)
 	require.NoError(t, err)
-
-	login, err := authusecase.NewLoginUserUseCase(
-		repo,
-		store,
-		passwordService,
-		appLogger,
-	)
+	login, err := authusecase.NewLoginUserUseCase(users, sessions, authservice.BcryptPasswordService{}, log)
 	require.NoError(t, err)
-
-	logout, err := authusecase.NewLogoutUserUseCase(
-		store,
-		appLogger,
-	)
+	logout, err := authusecase.NewLogoutUserUseCase(sessions, log)
 	require.NoError(t, err)
-
-	authenticate, err := authusecase.NewAuthenticateUserUseCase(
-		store,
-		appLogger,
-	)
+	authenticate, err := authusecase.NewAuthenticateUserUseCase(sessions, log)
 	require.NoError(t, err)
-
-	getUser, err := authusecase.NewGetUserUseCase(
-		repo,
-		appLogger,
-	)
+	get, err := authusecase.NewGetUserUseCase(users, log)
 	require.NoError(t, err)
-
-	h, err := authdelivery.NewHandler(authdelivery.HandlerUseCases{
-		Register:     register,
-		Login:        login,
-		Logout:       logout,
-		Authenticate: authenticate,
-		GetUser:      getUser,
-	}, appLogger)
+	handler, err := authdelivery.NewHandler(authdelivery.HandlerUseCases{Register: register, Login: login, Logout: logout, Authenticate: authenticate, GetUser: get}, log)
 	require.NoError(t, err)
-
-	return h, store
+	return handler
 }
 
 func TestHandler_Register_StorageFailures(t *testing.T) {
-	tests := []struct {
-		name  string
-		repo  flakyRepo
-		store flakyStore
-	}{
-		{
-			name:  "репозиторий не создал пользователя",
-			repo:  flakyRepo{createErr: errBoom},
-			store: flakyStore{},
-		},
-		{
-			name:  "репозиторий не вернул пользователя",
-			repo:  flakyRepo{getUserErr: errBoom},
-			store: flakyStore{},
-		},
-		{
-			name:  "хранилище не создало сессию",
-			repo:  flakyRepo{},
-			store: flakyStore{createErr: errBoom},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			h, _ := newFlakyHandler(t, tt.repo, tt.store)
-
-			rec := rawRequest(h.Register, http.MethodPost, validRegisterBody)
-
+	for _, stage := range []string{"create", "read", "session"} {
+		t.Run(stage, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			users := mocks.NewMockUserRepository(ctrl)
+			sessions := mocks.NewMockSessionStore(ctrl)
+			hasher := mocks.NewMockPasswordHasher(ctrl)
+			calls := []any{hasher.EXPECT().Hash("Password1").Return("hash", nil)}
+			if stage == "create" {
+				calls = append(calls, users.EXPECT().Create(gomock.Any(), "anna@example.com", "anna", "hash").Return(domain.UserID(0), errBoom))
+			} else {
+				calls = append(calls, users.EXPECT().Create(gomock.Any(), "anna@example.com", "anna", "hash").Return(domain.UserID(7), nil))
+				if stage == "read" {
+					calls = append(calls, users.EXPECT().GetUser(gomock.Any(), domain.UserID(7)).Return(nil, errBoom))
+				} else {
+					calls = append(calls, users.EXPECT().GetUser(gomock.Any(), domain.UserID(7)).Return(&domain.User{ID: 7}, nil), sessions.EXPECT().Create(gomock.Any(), domain.UserID(7)).Return(nil, errBoom))
+				}
+			}
+			gomock.InOrder(calls...)
+			handler := newMockAuthHandler(t, users, sessions, hasher)
+			rec := rawRequest(handler.Register, http.MethodPost, validRegisterBody)
 			assert.Equal(t, http.StatusInternalServerError, rec.Code)
 			assert.JSONEq(t, `{"error":"internal server error"}`, rec.Body.String())
 			assert.Empty(t, rec.Result().Cookies())
@@ -182,77 +65,37 @@ func TestHandler_Register_StorageFailures(t *testing.T) {
 }
 
 func TestHandler_Logout_StorageFailure(t *testing.T) {
-	h, _ := newFlakyHandler(
-		t,
-		flakyRepo{},
-		flakyStore{deleteErr: errBoom},
-	)
-
-	cookie := &http.Cookie{
-		Name:  authdelivery.SessionCookieName,
-		Value: "sid",
-	}
-
-	rec := rawRequest(h.Logout, http.MethodPost, "", cookie)
-
+	ctrl := gomock.NewController(t)
+	sessions := mocks.NewMockSessionStore(ctrl)
+	sessions.EXPECT().Delete(gomock.Any(), "sid").Return(errBoom)
+	handler := newMockAuthHandler(t, mocks.NewMockUserRepository(ctrl), sessions, mocks.NewMockPasswordHasher(ctrl))
+	rec := rawRequest(handler.Logout, http.MethodPost, "", &http.Cookie{Name: authdelivery.SessionCookieName, Value: "sid"})
 	assert.Equal(t, http.StatusInternalServerError, rec.Code)
 	assert.JSONEq(t, `{"error":"internal server error"}`, rec.Body.String())
 	assert.Empty(t, rec.Result().Cookies())
 }
 
 func TestHandler_Authenticate(t *testing.T) {
-	tests := []struct {
-		name    string
-		getErr  error
-		wantErr error
+	for _, tc := range []struct {
+		name            string
+		getErr, wantErr error
 	}{
-		{
-			name:    "сессия найдена",
-			getErr:  nil,
-			wantErr: nil,
-		},
-		{
-			name:    "сессия не найдена",
-			getErr:  domain.ErrSessionNotFound,
-			wantErr: domain.ErrUnauthorized,
-		},
-		{
-			name:    "сбой хранилища скрыт",
-			getErr:  errBoom,
-			wantErr: domain.ErrInternal,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			h, store := newFlakyHandler(
-				t,
-				flakyRepo{},
-				flakyStore{getErr: tt.getErr},
-			)
-
-			sid := "sid"
-
-			if tt.getErr == nil {
-				session, err := store.InMemorySessionStore.Create(
-					context.Background(),
-					7,
-				)
-				require.NoError(t, err)
-
-				sid = session.ID
+		{"found", nil, nil},
+		{"not found", domain.ErrSessionNotFound, domain.ErrUnauthorized},
+		{"storage failure", errBoom, domain.ErrInternal},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			sessions := mocks.NewMockSessionStore(ctrl)
+			sessions.EXPECT().Get(gomock.Any(), "sid").Return(&domain.Session{ID: "sid", UserID: 7}, tc.getErr)
+			handler := newMockAuthHandler(t, mocks.NewMockUserRepository(ctrl), sessions, mocks.NewMockPasswordHasher(ctrl))
+			id, err := handler.Authenticate(context.Background(), "sid")
+			require.ErrorIs(t, err, tc.wantErr)
+			if err == nil {
+				require.Equal(t, domain.UserID(7), id)
+			} else {
+				require.Zero(t, id)
 			}
-
-			userID, err := h.Authenticate(context.Background(), sid)
-
-			if tt.wantErr != nil {
-				assert.Zero(t, userID)
-				assert.Equal(t, tt.wantErr, err)
-				return
-			}
-
-			require.NoError(t, err)
-			assert.Equal(t, domain.UserID(7), userID)
 		})
 	}
 }

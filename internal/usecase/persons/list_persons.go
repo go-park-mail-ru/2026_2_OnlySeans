@@ -30,7 +30,7 @@ func NewListPersonsUseCase(persons domain.PersonRepository, appLogger logger.Log
 }
 
 func (uc *ListPersonsUseCase) Run(ctx context.Context, input ListPersonsInput) (*ListPersonsOutput, error) {
-	uc.logger.Debug("list persons started", map[string]any{
+	uc.logger.DebugContext(ctx, "list persons started", map[string]any{
 		"limit":  input.Limit,
 		"offset": input.Offset,
 	})
@@ -41,7 +41,7 @@ func (uc *ListPersonsUseCase) Run(ctx context.Context, input ListPersonsInput) (
 		input.Offset,
 	)
 	if err != nil {
-		logging.Failure(uc.logger, "list persons failed", err, map[string]any{
+		logging.Failure(ctx, uc.logger, "list persons failed", err, map[string]any{
 			"limit":  input.Limit,
 			"offset": input.Offset,
 		})
@@ -49,7 +49,7 @@ func (uc *ListPersonsUseCase) Run(ctx context.Context, input ListPersonsInput) (
 		return nil, fmt.Errorf("list persons: %w", err)
 	}
 
-	uc.logger.Info("persons listed", map[string]any{
+	uc.logger.InfoContext(ctx, "persons listed", map[string]any{
 		"limit":  input.Limit,
 		"offset": input.Offset,
 		"total":  total,

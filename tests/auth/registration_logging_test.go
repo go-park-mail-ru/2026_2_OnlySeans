@@ -8,19 +8,14 @@ import (
 	"time"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
-	authservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/auth"
 	authusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/auth"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/tests/mocks"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
 const registrationTestHash = "private-test-password-hash"
-
-type registrationHasher struct{ err error }
-
-func (h registrationHasher) Hash(string) (string, error) {
-	return registrationTestHash, h.err
-}
 
 func TestRegistrationStageLogs(t *testing.T) {
 	storageErr := errors.New("storage unavailable")
@@ -69,14 +64,28 @@ func TestRegistrationStageLogs(t *testing.T) {
 				var output bytes.Buffer
 				log, err := logger.NewLogger(&output, level, "json")
 				require.NoError(t, err)
-				repo := flakyRepo{InMemoryUserRepo: authservice.NewInMemoryUserRepo(), createErr: tt.createErr, getUserErr: tt.getErr}
-				sessions := flakyStore{InMemorySessionStore: authservice.NewInMemorySessionStore(time.Hour), createErr: tt.sessionErr}
-				uc, err := authusecase.NewRegisterUserUseCase(repo, sessions, registrationHasher{err: tt.hashErr}, log)
-				require.NoError(t, err)
+				ctrl := gomock.NewController(t)
+				repo := mocks.NewMockUserRepository(ctrl)
+				sessions := mocks.NewMockSessionStore(ctrl)
+				hasher := mocks.NewMockPasswordHasher(ctrl)
 				input := authusecase.NewRegisterUserInput("private@example.com", "logtest", "PrivatePassword123")
 				if tt.invalid {
 					input.Password = "Short1"
+				} else {
+					calls := []any{hasher.EXPECT().Hash(input.Password).Return(registrationTestHash, tt.hashErr)}
+					if tt.hashErr == nil {
+						calls = append(calls, repo.EXPECT().Create(gomock.Any(), input.Email, input.Username, registrationTestHash).Return(domain.UserID(1), tt.createErr))
+						if tt.createErr == nil {
+							calls = append(calls, repo.EXPECT().GetUser(gomock.Any(), domain.UserID(1)).Return(&domain.User{ID: 1, Email: input.Email, Username: input.Username}, tt.getErr))
+							if tt.getErr == nil {
+								calls = append(calls, sessions.EXPECT().Create(gomock.Any(), domain.UserID(1)).Return(&domain.Session{ID: "private-session-token", UserID: 1, ExpiresAt: time.Now().Add(time.Hour)}, tt.sessionErr))
+							}
+						}
+					}
+					gomock.InOrder(calls...)
 				}
+				uc, err := authusecase.NewRegisterUserUseCase(repo, sessions, hasher, log)
+				require.NoError(t, err)
 				result, err := uc.Run(t.Context(), input)
 				failed := tt.invalid || tt.hashErr != nil || tt.createErr != nil || tt.getErr != nil || tt.sessionErr != nil
 				require.Equal(t, failed, err != nil)

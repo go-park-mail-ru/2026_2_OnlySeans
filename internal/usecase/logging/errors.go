@@ -1,6 +1,7 @@
 package logging
 
 import (
+	"context"
 	"errors"
 	"maps"
 
@@ -8,7 +9,7 @@ import (
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 )
 
-func Failure(appLogger logger.Logger, message string, err error, fields map[string]any) {
+func Failure(ctx context.Context, appLogger logger.Logger, message string, err error, fields map[string]any) {
 	fields = maps.Clone(fields)
 	if fields == nil {
 		fields = make(map[string]any)
@@ -16,21 +17,21 @@ func Failure(appLogger logger.Logger, message string, err error, fields map[stri
 	fields["error"] = err
 	switch {
 	case matches(err, domain.ErrFilmNotFound, domain.ErrCollectionNotFound, domain.ErrPersonNotFound, domain.ErrReviewNotFound, domain.ErrUserNotFound, domain.ErrSessionNotFound, domain.ErrFileNotFound, domain.ErrRatingNotFound):
-		appLogger.Debug(message, fields)
+		appLogger.DebugContext(ctx, message, fields)
 	case matches(err, domain.ErrUserExists, domain.ErrUsernameTaken, domain.ErrReviewExists, domain.ErrFilmExists, domain.ErrCollectionExists, domain.ErrDuplicateCollectionFilm, domain.ErrForbidden, domain.ErrUnauthorized, domain.ErrInvalidCredentials, domain.ErrInvalidFilmRating, domain.ErrInvalidFilmInput, domain.ErrVersionConflict, domain.ErrInvalidVersion):
-		appLogger.Warn(message, fields)
+		appLogger.WarnContext(ctx, message, fields)
 	default:
-		appLogger.Error(message, fields)
+		appLogger.ErrorContext(ctx, message, fields)
 	}
 }
 
-func Validation(appLogger logger.Logger, message string, err error, fields map[string]any) {
+func Validation(ctx context.Context, appLogger logger.Logger, message string, err error, fields map[string]any) {
 	fields = maps.Clone(fields)
 	if fields == nil {
 		fields = make(map[string]any)
 	}
 	fields["field"] = invalidField(err)
-	appLogger.Warn(message, fields)
+	appLogger.WarnContext(ctx, message, fields)
 }
 
 func invalidField(err error) string {

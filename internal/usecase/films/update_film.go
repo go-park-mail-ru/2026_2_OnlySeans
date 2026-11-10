@@ -27,18 +27,18 @@ func NewUpdateFilmUseCase(repository domain.FilmUpdater, appLogger logger.Logger
 }
 
 func (uc *UpdateFilmUseCase) Run(ctx context.Context, id domain.FilmID, input domain.CreateFilmInput) error {
-	uc.logger.Debug("update film started", map[string]any{"film_id": id})
+	uc.logger.DebugContext(ctx, "update film started", map[string]any{"film_id": id})
 	input.Title = strings.TrimSpace(input.Title)
 	err := input.Validate()
 	if err != nil {
-		uc.logger.Warn("update film rejected: invalid input", map[string]any{"error": err, "film_id": id})
+		uc.logger.WarnContext(ctx, "update film rejected: invalid input", map[string]any{"error": err, "film_id": id})
 		return fmt.Errorf("validate film input: %w", err)
 	}
 	err = uc.repository.UpdateFilm(ctx, id, input)
 	if err != nil {
-		logging.Failure(uc.logger, "update film failed", err, map[string]any{"film_id": id})
+		logging.Failure(ctx, uc.logger, "update film failed", err, map[string]any{"film_id": id})
 		return fmt.Errorf("update film: %w", err)
 	}
-	uc.logger.Info("film updated", map[string]any{"film_id": id})
+	uc.logger.InfoContext(ctx, "film updated", map[string]any{"film_id": id})
 	return nil
 }

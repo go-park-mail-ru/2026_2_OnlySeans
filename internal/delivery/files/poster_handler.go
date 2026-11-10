@@ -1,6 +1,8 @@
 package files
 
 import (
+	"context"
+
 	"errors"
 	"net/http"
 	"strconv"
@@ -28,87 +30,100 @@ func NewPosterHandler(uploadPoster *fileusecase.UploadPosterUseCase, appLogger l
 	if uploadPoster == nil {
 		return nil, errors.New("upload poster use case is nil")
 	}
+
 	if appLogger == nil {
 		return nil, domain.ErrInvalidAppLogger
 	}
+
 	return &PosterHandler{uploadPoster: uploadPoster, logger: appLogger}, nil
 }
 
 func (h *PosterHandler) UploadPoster(w http.ResponseWriter, r *http.Request) {
 	userID, ok := authdelivery.UserIDFromContext(r.Context())
 	if !ok || userID <= 0 {
-		h.logger.Warn("poster request rejected: missing or invalid user context", nil)
-		httpresponse.WriteError(w, http.StatusUnauthorized, domain.ErrUnauthorized.Error(), h.logger)
+		h.logger.WarnContext(r.Context(), "poster request rejected: missing or invalid user context", nil)
+		httpresponse.WriteErrorContext(r.Context(), w, http.StatusUnauthorized, domain.ErrUnauthorized.Error(), h.logger)
 		return
 	}
+
 	filmID, err := strconv.ParseInt(mux.Vars(r)["id"], 10, 64)
 	if err != nil || filmID <= 0 {
-		h.logger.Warn("poster request rejected: invalid film ID", map[string]any{"user_id": userID})
-		httpresponse.WriteError(w, http.StatusBadRequest, fileusecase.ErrInvalidPosterFilmID.Error(), h.logger)
+		h.logger.WarnContext(r.Context(), "poster request rejected: invalid film ID", map[string]any{"user_id": userID})
+		httpresponse.WriteErrorContext(r.Context(), w, http.StatusBadRequest, fileusecase.ErrInvalidPosterFilmID.Error(), h.logger)
 		return
 	}
+
 	fields := map[string]any{"user_id": userID, "film_id": filmID}
 	maxRequestSize := h.uploadPoster.MaxSize() + multipartOverhead
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	err = r.ParseMultipartForm(maxRequestSize)
+
 	if r.MultipartForm != nil {
 		defer func() {
 			if err := r.MultipartForm.RemoveAll(); err != nil {
-				h.logger.Warn("remove poster multipart temporary files failed", map[string]any{"user_id": userID, "film_id": filmID, "error": err})
+				h.logger.WarnContext(r.Context(), "remove poster multipart temporary files failed", map[string]any{"user_id": userID, "film_id": filmID, "error": err})
 			}
 		}()
 	}
+
 	if err != nil {
 		fields["error"] = err
-		h.logger.Warn("invalid poster multipart request", fields)
+		h.logger.WarnContext(r.Context(), "invalid poster multipart request", fields)
 		var sizeErr *http.MaxBytesError
+
 		if errors.As(err, &sizeErr) {
-			httpresponse.WriteError(w, http.StatusRequestEntityTooLarge, "upload request is too large", h.logger)
+			httpresponse.WriteErrorContext(r.Context(), w, http.StatusRequestEntityTooLarge, "upload request is too large", h.logger)
 		} else {
-			httpresponse.WriteError(w, http.StatusBadRequest, "invalid multipart request", h.logger)
+			httpresponse.WriteErrorContext(r.Context(), w, http.StatusBadRequest, "invalid multipart request", h.logger)
 		}
+
 		return
 	}
+
 	if len(r.MultipartForm.File[posterFieldName]) != 1 {
-		h.logger.Warn("poster request rejected: expected one file", fields)
-		httpresponse.WriteError(w, http.StatusBadRequest, "exactly one poster file is required", h.logger)
+		h.logger.WarnContext(r.Context(), "poster request rejected: expected one file", fields)
+		httpresponse.WriteErrorContext(r.Context(), w, http.StatusBadRequest, "exactly one poster file is required", h.logger)
 		return
 	}
+
 	file, header, err := r.FormFile(posterFieldName)
 	if err != nil {
 		fields["error"] = err
-		h.logger.Warn("open poster multipart file failed", fields)
-		httpresponse.WriteError(w, http.StatusBadRequest, fileusecase.ErrPosterMissing.Error(), h.logger)
+		h.logger.WarnContext(r.Context(), "open poster multipart file failed", fields)
+		httpresponse.WriteErrorContext(r.Context(), w, http.StatusBadRequest, fileusecase.ErrPosterMissing.Error(), h.logger)
 		return
 	}
+
 	defer func() {
 		if err := file.Close(); err != nil {
-			h.logger.Warn("close poster upload file failed", map[string]any{"user_id": userID, "film_id": filmID, "error": err})
+			h.logger.WarnContext(r.Context(), "close poster upload file failed", map[string]any{"user_id": userID, "film_id": filmID, "error": err})
 		}
 	}()
+
 	result, err := h.uploadPoster.Run(r.Context(), fileusecase.UploadPosterInput{
 		UserID: userID, FilmID: domain.FilmID(filmID), Body: file, Size: header.Size,
 	})
 	if err != nil {
-		h.writePosterError(w, err)
+		h.writePosterError(r.Context(), w, err)
 		return
 	}
-	httpresponse.WriteJSON(w, http.StatusCreated, uploadPosterResponse{Filename: result.Filename}, h.logger)
+
+	httpresponse.WriteJSONContext(r.Context(), w, http.StatusCreated, uploadPosterResponse{Filename: result.Filename}, h.logger)
 }
 
-func (h *PosterHandler) writePosterError(w http.ResponseWriter, err error) {
+func (h *PosterHandler) writePosterError(ctx context.Context, w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, domain.ErrUnauthorized), errors.Is(err, domain.ErrUserNotFound):
-		httpresponse.WriteError(w, http.StatusUnauthorized, domain.ErrUnauthorized.Error(), h.logger)
+		httpresponse.WriteErrorContext(ctx, w, http.StatusUnauthorized, domain.ErrUnauthorized.Error(), h.logger)
 	case errors.Is(err, domain.ErrFilmNotFound):
-		httpresponse.WriteError(w, http.StatusNotFound, domain.ErrFilmNotFound.Error(), h.logger)
+		httpresponse.WriteErrorContext(ctx, w, http.StatusNotFound, domain.ErrFilmNotFound.Error(), h.logger)
 	case errors.Is(err, fileusecase.ErrPosterTooLarge):
-		httpresponse.WriteError(w, http.StatusRequestEntityTooLarge, fileusecase.ErrPosterTooLarge.Error(), h.logger)
+		httpresponse.WriteErrorContext(ctx, w, http.StatusRequestEntityTooLarge, fileusecase.ErrPosterTooLarge.Error(), h.logger)
 	case errors.Is(err, fileusecase.ErrInvalidPosterFilmID), errors.Is(err, fileusecase.ErrPosterMissing),
 		errors.Is(err, fileusecase.ErrInvalidPosterSize), errors.Is(err, fileusecase.ErrInvalidPosterImage),
 		errors.Is(err, fileusecase.ErrPosterDimensionsTooLarge):
-		httpresponse.WriteError(w, http.StatusBadRequest, err.Error(), h.logger)
+		httpresponse.WriteErrorContext(ctx, w, http.StatusBadRequest, err.Error(), h.logger)
 	default:
-		httpresponse.WriteError(w, http.StatusInternalServerError, httpresponse.InternalErrorMessage, h.logger)
+		httpresponse.WriteErrorContext(ctx, w, http.StatusInternalServerError, httpresponse.InternalErrorMessage, h.logger)
 	}
 }

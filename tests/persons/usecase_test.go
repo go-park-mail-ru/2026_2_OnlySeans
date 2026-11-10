@@ -3,89 +3,16 @@ package persons_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	personusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/persons"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/tests/mocks"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/tests/testutil"
+	"go.uber.org/mock/gomock"
 )
-
-type testLogger struct{}
-
-func (l *testLogger) Info(string, map[string]any)  {}
-func (l *testLogger) Debug(string, map[string]any) {}
-func (l *testLogger) Warn(string, map[string]any)  {}
-func (l *testLogger) Error(string, map[string]any) {}
-
-// Fake-репозиторий
-
-type fakePersonsRepository struct {
-	person  *domain.Person
-	persons []domain.Person
-	total   int
-	err     error
-
-	createCalls int
-	getCalls    int
-	listCalls   int
-	updateCalls int
-	deleteCalls int
-
-	createInput domain.PersonInput
-	updateInput domain.PersonInput
-	getID       domain.PersonID
-	updateID    domain.PersonID
-	deleteID    domain.PersonID
-}
-
-func (r *fakePersonsRepository) Create(
-	ctx context.Context,
-	input domain.PersonInput,
-) (domain.PersonID, error) {
-	r.createCalls++
-	r.createInput = input
-	if r.err != nil {
-		return 0, r.err
-	}
-	return r.person.ID, nil
-}
-
-func (r *fakePersonsRepository) GetByID(
-	ctx context.Context,
-	id domain.PersonID,
-) (*domain.Person, error) {
-	r.getCalls++
-	r.getID = id
-	return r.person, r.err
-}
-
-func (r *fakePersonsRepository) List(
-	ctx context.Context,
-	limit, offset int,
-) ([]domain.Person, int, error) {
-	r.listCalls++
-	return r.persons, r.total, r.err
-}
-
-func (r *fakePersonsRepository) Update(
-	ctx context.Context,
-	id domain.PersonID,
-	input domain.PersonInput,
-) (*domain.Person, error) {
-	r.updateCalls++
-	r.updateID = id
-	r.updateInput = input
-	return r.person, r.err
-}
-
-func (r *fakePersonsRepository) Delete(
-	ctx context.Context,
-	id domain.PersonID,
-) error {
-	r.deleteCalls++
-	r.deleteID = id
-	return r.err
-}
 
 func newTestPerson() *domain.Person {
 	return &domain.Person{
@@ -96,7 +23,7 @@ func newTestPerson() *domain.Person {
 }
 
 func newTestLogger() logger.Logger {
-	return &testLogger{}
+	return testutil.DiscardLogger()
 }
 
 // CREATE
@@ -154,10 +81,12 @@ func TestCreatePersonUseCase(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			repo := &fakePersonsRepository{
-				person: newTestPerson(),
-				err:    tt.repoErr,
-			}
+			repo := mocks.NewMockPersonRepository(gomock.NewController(t))
+			person := newTestPerson()
+			expected := tt.input
+			expected.FirstName = strings.TrimSpace(expected.FirstName)
+			expected.LastName = strings.TrimSpace(expected.LastName)
+			repo.EXPECT().Create(gomock.Any(), expected).Return(person.ID, tt.repoErr).Times(tt.wantCalls)
 
 			uc, err := personusecase.NewCreatePersonUseCase(repo, newTestLogger())
 			if err != nil {
@@ -173,26 +102,14 @@ func TestCreatePersonUseCase(t *testing.T) {
 				t.Errorf("expected error %v, got %v", tt.wantErr, err)
 			}
 
-			if repo.createCalls != tt.wantCalls {
-				t.Errorf("expected %d calls, got %d", tt.wantCalls, repo.createCalls)
-			}
-
 			if tt.wantErr == nil {
 				if result == nil {
 					t.Fatal("expected result, got nil")
 				}
 
-				if result.ID != repo.person.ID {
-					t.Errorf("expected ID %d, got %d", repo.person.ID, result.ID)
+				if result.ID != person.ID {
+					t.Errorf("expected ID %d, got %d", person.ID, result.ID)
 				}
-				if repo.getCalls != 0 {
-					t.Error("creation must not load the person")
-				}
-			}
-
-			if tt.wantCalls > 0 && repo.createInput.FirstName != tt.wantFirstName {
-				t.Errorf("expected repository input first name %q, got %q",
-					tt.wantFirstName, repo.createInput.FirstName)
 			}
 		})
 	}
@@ -233,10 +150,10 @@ func TestGetPersonUseCase(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			repo := &fakePersonsRepository{
-				person: newTestPerson(),
-				err:    tt.repoErr,
-			}
+			repo := mocks.NewMockPersonRepository(gomock.NewController(t))
+			person := newTestPerson()
+			person.ID = tt.id
+			repo.EXPECT().GetByID(gomock.Any(), tt.id).Return(person, tt.repoErr).Times(tt.wantCalls)
 
 			uc, err := personusecase.NewGetPersonUseCase(repo, newTestLogger())
 			if err != nil {
@@ -247,14 +164,6 @@ func TestGetPersonUseCase(t *testing.T) {
 
 			if !errors.Is(err, tt.wantErr) {
 				t.Errorf("expected error %v, got %v", tt.wantErr, err)
-			}
-
-			if repo.getCalls != tt.wantCalls {
-				t.Errorf("expected %d calls, got %d", tt.wantCalls, repo.getCalls)
-			}
-
-			if repo.getID != tt.id {
-				t.Errorf("expected ID %d, got %d", tt.id, repo.getID)
 			}
 
 			if tt.wantErr == nil {
@@ -305,11 +214,8 @@ func TestListPersonsUseCase(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			repo := &fakePersonsRepository{
-				persons: tt.persons,
-				total:   tt.total,
-				err:     tt.repoErr,
-			}
+			repo := mocks.NewMockPersonRepository(gomock.NewController(t))
+			repo.EXPECT().List(gomock.Any(), 10, 0).Return(tt.persons, tt.total, tt.repoErr).Times(1)
 
 			uc, err := personusecase.NewListPersonsUseCase(repo, newTestLogger())
 			if err != nil {
@@ -341,10 +247,6 @@ func TestListPersonsUseCase(t *testing.T) {
 					t.Errorf("expected total %d, got %d",
 						tt.total, result.Total)
 				}
-			}
-
-			if repo.listCalls != 1 {
-				t.Errorf("expected 1 call, got %d", repo.listCalls)
 			}
 		})
 	}
@@ -404,10 +306,12 @@ func TestUpdatePersonUseCase(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			repo := &fakePersonsRepository{
-				person: newTestPerson(),
-				err:    tt.repoErr,
-			}
+			repo := mocks.NewMockPersonRepository(gomock.NewController(t))
+			person := newTestPerson()
+			expected := tt.input
+			expected.FirstName = strings.TrimSpace(expected.FirstName)
+			expected.LastName = strings.TrimSpace(expected.LastName)
+			repo.EXPECT().Update(gomock.Any(), domain.PersonID(1), expected).Return(person, tt.repoErr).Times(tt.wantCalls)
 
 			uc, err := personusecase.NewUpdatePersonUseCase(repo, newTestLogger())
 			if err != nil {
@@ -425,18 +329,9 @@ func TestUpdatePersonUseCase(t *testing.T) {
 				t.Errorf("expected error %v, got %v", tt.wantErr, err)
 			}
 
-			if repo.updateCalls != tt.wantCalls {
-				t.Errorf("expected %d calls, got %d", tt.wantCalls, repo.updateCalls)
-			}
-
 			if tt.wantErr == nil {
 				if result == nil {
 					t.Fatal("expected result, got nil")
-				}
-
-				if repo.updateInput.FirstName != tt.wantName {
-					t.Errorf("expected first name %q, got %q",
-						tt.wantName, repo.updateInput.FirstName)
 				}
 			}
 		})
@@ -474,9 +369,8 @@ func TestDeletePersonUseCase(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			repo := &fakePersonsRepository{
-				err: tt.repoErr,
-			}
+			repo := mocks.NewMockPersonRepository(gomock.NewController(t))
+			repo.EXPECT().Delete(gomock.Any(), tt.id).Return(tt.repoErr).Times(1)
 
 			uc, err := personusecase.NewDeletePersonUseCase(repo, newTestLogger())
 			if err != nil {
@@ -491,14 +385,6 @@ func TestDeletePersonUseCase(t *testing.T) {
 
 			if !errors.Is(err, tt.wantErr) {
 				t.Errorf("expected error %v, got %v", tt.wantErr, err)
-			}
-
-			if repo.deleteCalls != 1 {
-				t.Errorf("expected 1 call, got %d", repo.deleteCalls)
-			}
-
-			if repo.deleteID != tt.id {
-				t.Errorf("expected ID %d, got %d", tt.id, repo.deleteID)
 			}
 		})
 	}

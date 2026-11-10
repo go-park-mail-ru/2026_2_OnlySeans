@@ -30,13 +30,13 @@ func NewUpdatePersonUseCase(persons domain.PersonRepository, appLogger logger.Lo
 }
 
 func (uc *UpdatePersonUseCase) Run(ctx context.Context, input UpdatePersonInput) (*PersonOutput, error) {
-	uc.logger.Debug("update person started", map[string]any{
+	uc.logger.DebugContext(ctx, "update person started", map[string]any{
 		"person_id": input.PersonID,
 	})
 
 	person, err := preparePerson(input.Person)
 	if err != nil {
-		logging.Validation(uc.logger, "update person rejected: invalid input", err, map[string]any{"person_id": input.PersonID})
+		logging.Validation(ctx, uc.logger, "update person rejected: invalid input", err, map[string]any{"person_id": input.PersonID})
 		return nil, err
 	}
 
@@ -46,14 +46,14 @@ func (uc *UpdatePersonUseCase) Run(ctx context.Context, input UpdatePersonInput)
 		*person,
 	)
 	if err != nil {
-		logging.Failure(uc.logger, "update person failed", err, map[string]any{
+		logging.Failure(ctx, uc.logger, "update person failed", err, map[string]any{
 			"person_id": input.PersonID,
 		})
 
 		return nil, fmt.Errorf("update person %d: %w", input.PersonID, err)
 	}
 
-	uc.logger.Info("person updated", map[string]any{
+	uc.logger.InfoContext(ctx, "person updated", map[string]any{
 		"person_id": updated.ID,
 	})
 

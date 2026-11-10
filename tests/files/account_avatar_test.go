@@ -1,29 +1,15 @@
 package files_test
 
 import (
-	"context"
 	"errors"
 	"testing"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	filesusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/files"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/tests/mocks"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
-
-type accountAvatarStub struct {
-	file   *domain.AvatarFile
-	err    error
-	userID domain.UserID
-}
-
-func (r *accountAvatarStub) GetAvatar(_ context.Context, id domain.UserID) (*domain.AvatarFile, error) {
-	r.userID = id
-	return r.file, r.err
-}
-func (r *accountAvatarStub) DeleteAvatar(_ context.Context, id domain.UserID) error {
-	r.userID = id
-	return r.err
-}
 
 func TestAccountAvatarUseCase(t *testing.T) {
 	failure := errors.New("database unavailable")
@@ -69,8 +55,16 @@ func TestAccountAvatarUseCase(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			repo := &accountAvatarStub{file: &domain.AvatarFile{Filename: "test.png"}, err: tt.repoErr}
-			storage := &avatarURLStorage{url: "https://example.com/avatar", err: tt.storageErr}
+			ctrl := gomock.NewController(t)
+			repo := mocks.NewMockAccountAvatarRepository(ctrl)
+			storage := mocks.NewMockAvatarURLStorage(ctrl)
+			if tt.userID > 0 {
+				lookup := repo.EXPECT().GetAvatar(gomock.Any(), tt.userID).Return(&domain.AvatarFile{Filename: "test.png"}, tt.repoErr)
+				if tt.repoErr == nil {
+					storage.EXPECT().GetURL(gomock.Any(), "test.png").Return("https://example.com/avatar", tt.storageErr).After(lookup)
+				}
+				repo.EXPECT().DeleteAvatar(gomock.Any(), tt.userID).Return(tt.repoErr)
+			}
 			uc, err := filesusecase.NewAccountAvatarUseCase(repo, storage, testFilesLogger(t))
 			require.NoError(t, err)
 			url, err := uc.GetURL(t.Context(), tt.userID)
@@ -79,10 +73,7 @@ func TestAccountAvatarUseCase(t *testing.T) {
 				require.Empty(t, url)
 			} else {
 				require.NoError(t, err)
-				require.Equal(t, storage.url, url)
-			}
-			if tt.userID == 0 || tt.repoErr != nil {
-				require.Zero(t, storage.calls)
+				require.Equal(t, "https://example.com/avatar", url)
 			}
 			err = uc.Delete(t.Context(), tt.userID)
 			switch {
@@ -92,7 +83,6 @@ func TestAccountAvatarUseCase(t *testing.T) {
 				require.ErrorIs(t, err, tt.repoErr)
 			default:
 				require.NoError(t, err)
-				require.Equal(t, tt.userID, repo.userID)
 			}
 		})
 	}

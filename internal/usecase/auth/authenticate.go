@@ -31,28 +31,28 @@ func NewAuthenticateUserUseCase(sessions domain.SessionStore, appLogger logger.L
 }
 
 func (uc *AuthenticateUserUseCase) Run(ctx context.Context, input AuthenticateInput) (*AuthenticateOutput, error) {
-	uc.logger.Debug("authenticate started", nil)
+	uc.logger.DebugContext(ctx, "authenticate started", nil)
 
 	session, err := uc.sessions.Get(ctx, input.SessionID)
 	if err != nil {
 		if errors.Is(err, domain.ErrSessionNotFound) {
-			uc.logger.Warn("authentication rejected", nil)
+			uc.logger.WarnContext(ctx, "authentication rejected", nil)
 			return nil, domain.ErrUnauthorized
 		}
 
-		logging.Failure(uc.logger, "get session failed", err, map[string]any{})
+		logging.Failure(ctx, uc.logger, "get session failed", err, map[string]any{})
 		return nil, fmt.Errorf("get session: %w", err)
 	}
 
 	if session == nil {
 		err := fmt.Errorf("store returned nil session")
-		logging.Failure(uc.logger, "get session failed", err, map[string]any{})
+		logging.Failure(ctx, uc.logger, "get session failed", err, map[string]any{})
 		return nil, fmt.Errorf("get session: %w", err)
 	}
 
 	output := NewAuthenticateOutput(session.UserID)
 
-	uc.logger.Debug("user authenticated", map[string]any{
+	uc.logger.DebugContext(ctx, "user authenticated", map[string]any{
 		"user_id": session.UserID,
 	})
 

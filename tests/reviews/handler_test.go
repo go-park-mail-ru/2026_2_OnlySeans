@@ -185,7 +185,7 @@ func TestNewHandler_NilUseCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			useCases := newReviewCases(t, fakeFilms{})
+			useCases := newReviewCases(t, testFilms(t, nil))
 			cases := reviewsdelivery.HandlerUseCases{
 				List:   useCases.list,
 				Create: useCases.create,
@@ -224,7 +224,7 @@ func TestHandler_Create(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			router := newTestRouter(t, fakeFilms{})
+			router := newTestRouter(t, testFilms(t, nil))
 			rec := serve(router, http.MethodPost, filmReviewsPath(existingFilm), reviewBody(validTitle, validContent, tt.spoilers), anna)
 			require.Equal(t, http.StatusCreated, rec.Code, rec.Body.String())
 			assert.Equal(t, "application/json; charset=utf-8", rec.Header().Get("Content-Type"))
@@ -247,7 +247,7 @@ func TestHandler_Create(t *testing.T) {
 }
 
 func TestHandler_CreateEscapesHTML(t *testing.T) {
-	router := newTestRouter(t, fakeFilms{})
+	router := newTestRouter(t, testFilms(t, nil))
 
 	title := "<script>alert(1)</script>"
 	content := `<img src=x onerror="alert(document.cookie)">` + strings.Repeat("а", 50)
@@ -291,14 +291,14 @@ func TestHandler_CreateErrors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rec := serve(newTestRouter(t, fakeFilms{}), http.MethodPost, tt.target, tt.body, tt.user)
+			rec := serve(newTestRouter(t, testFilms(t, nil)), http.MethodPost, tt.target, tt.body, tt.user)
 			assertError(t, rec, tt.status, tt.wantErr)
 		})
 	}
 }
 
 func TestHandler_CreateTwice(t *testing.T) {
-	router := newTestRouter(t, fakeFilms{})
+	router := newTestRouter(t, testFilms(t, nil))
 	createReview(t, router, anna)
 
 	rec := serve(router, http.MethodPost, filmReviewsPath(existingFilm), validBody, anna)
@@ -308,12 +308,12 @@ func TestHandler_CreateTwice(t *testing.T) {
 func TestHandler_CreateBodyTooLarge(t *testing.T) {
 	huge := reviewBody(validTitle, strings.Repeat("a", 2<<20), false)
 
-	rec := serve(newTestRouter(t, fakeFilms{}), http.MethodPost, filmReviewsPath(existingFilm), huge, anna)
+	rec := serve(newTestRouter(t, testFilms(t, nil)), http.MethodPost, filmReviewsPath(existingFilm), huge, anna)
 	assertError(t, rec, http.StatusBadRequest, httprequest.ErrInvalidBody)
 }
 
 func TestHandler_ListByFilm(t *testing.T) {
-	router := newTestRouter(t, fakeFilms{})
+	router := newTestRouter(t, testFilms(t, nil))
 
 	rec := serve(router, http.MethodGet, filmReviewsPath(existingFilm), "", guest)
 	require.Equal(t, http.StatusOK, rec.Code)
@@ -358,14 +358,14 @@ func TestHandler_ListByFilmErrors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rec := serve(newTestRouter(t, fakeFilms{}), http.MethodGet, tt.target, "", guest)
+			rec := serve(newTestRouter(t, testFilms(t, nil)), http.MethodGet, tt.target, "", guest)
 			assertError(t, rec, tt.status, tt.wantErr)
 		})
 	}
 }
 
 func TestHandler_Update(t *testing.T) {
-	router := newTestRouter(t, fakeFilms{})
+	router := newTestRouter(t, testFilms(t, nil))
 	created := createReview(t, router, anna)
 
 	rec := serve(router, http.MethodPut, reviewPath(created.ID),
@@ -407,7 +407,7 @@ func TestHandler_UpdateErrors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			router := newTestRouter(t, fakeFilms{})
+			router := newTestRouter(t, testFilms(t, nil))
 			createReview(t, router, anna)
 
 			rec := serve(router, http.MethodPut, tt.target, tt.body, tt.user)
@@ -417,7 +417,7 @@ func TestHandler_UpdateErrors(t *testing.T) {
 }
 
 func TestHandler_Delete(t *testing.T) {
-	router := newTestRouter(t, fakeFilms{})
+	router := newTestRouter(t, testFilms(t, nil))
 	created := createReview(t, router, anna)
 
 	rec := serve(router, http.MethodDelete, reviewPath(created.ID), "", anna)
@@ -447,7 +447,7 @@ func TestHandler_DeleteErrors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			router := newTestRouter(t, fakeFilms{})
+			router := newTestRouter(t, testFilms(t, nil))
 			createReview(t, router, anna)
 
 			rec := serve(router, http.MethodDelete, tt.target, "", tt.user)
@@ -461,7 +461,7 @@ func TestHandler_DeleteErrors(t *testing.T) {
 
 func TestHandler_InternalErrorIsHidden(t *testing.T) {
 	silenceLog(t)
-	router := newTestRouter(t, brokenFilms{})
+	router := newTestRouter(t, testFilms(t, errStorage))
 
 	for _, rec := range []*httptest.ResponseRecorder{
 		serve(router, http.MethodGet, filmReviewsPath(existingFilm), "", guest),

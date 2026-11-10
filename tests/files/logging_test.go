@@ -11,7 +11,9 @@ import (
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	filesusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/files"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/tests/mocks"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
 func TestUploadAvatarLogging(t *testing.T) {
@@ -77,12 +79,19 @@ func TestUploadAvatarLogging(t *testing.T) {
 			var logs bytes.Buffer
 			appLogger, err := logger.NewLogger(&logs, logger.LogLevelDebug, "json")
 			require.NoError(t, err)
-			uc, err := filesusecase.NewUploadAvatarUseCase(
-				&uploadStorage{uploadErr: tt.uploadErr, deleteErr: tt.cleanupErr},
-				&avatarRepo{err: tt.saveErr},
-				testAvatarOptions(),
-				appLogger,
-			)
+			ctrl := gomock.NewController(t)
+			storage := mocks.NewMockAvatarStorage(ctrl)
+			repo := mocks.NewMockAvatarWriter(ctrl)
+			if tt.owner > 0 {
+				upload := storage.EXPECT().Upload(gomock.Any(), gomock.Any(), "image/png", gomock.Any()).Return(tt.uploadErr)
+				if tt.uploadErr == nil {
+					save := repo.EXPECT().SaveAvatar(gomock.Any(), tt.owner, gomock.Any()).Return(tt.saveErr).After(upload)
+					if tt.saveErr != nil && !errors.Is(tt.saveErr, domain.ErrAvatarCommitUnknown) {
+						storage.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(tt.cleanupErr).After(save)
+					}
+				}
+			}
+			uc, err := filesusecase.NewUploadAvatarUseCase(storage, repo, testAvatarOptions(), appLogger)
 			require.NoError(t, err)
 			_, _ = uc.Run(t.Context(), filesusecase.UploadAvatarInput{
 				UserID: tt.owner,
@@ -130,7 +139,11 @@ func TestAvatarURLLogging(t *testing.T) {
 			var logs bytes.Buffer
 			appLogger, err := logger.NewLogger(&logs, logger.LogLevelDebug, "json")
 			require.NoError(t, err)
-			uc, err := filesusecase.NewGetAvatarURLUseCase(&avatarURLStorage{url: signedURL, err: tt.err}, appLogger)
+			storage := mocks.NewMockAvatarURLStorage(gomock.NewController(t))
+			if tt.filename != "untrusted-input-do-not-log" {
+				storage.EXPECT().GetURL(gomock.Any(), tt.filename).Return(signedURL, tt.err)
+			}
+			uc, err := filesusecase.NewGetAvatarURLUseCase(storage, appLogger)
 			require.NoError(t, err)
 			_, _ = uc.Run(t.Context(), tt.filename)
 			require.Contains(t, logs.String(), `"msg":"`+tt.message+`"`)

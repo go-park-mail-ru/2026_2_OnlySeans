@@ -18,15 +18,18 @@ func Register(client *s3.Client, bucket string) func(*mux.Router) {
 				http.NotFound(w, r)
 				return
 			}
+
 			object, err := client.GetObject(r.Context(), &s3.GetObjectInput{Bucket: aws.String(bucket), Key: aws.String(key)})
 			if err != nil {
 				http.NotFound(w, r)
 				return
 			}
 			defer object.Body.Close()
+
 			if object.ContentType != nil {
 				w.Header().Set("Content-Type", *object.ContentType)
 			}
+
 			w.Header().Set("Cache-Control", "public, max-age=3600")
 			io.Copy(w, object.Body)
 		}).Methods(http.MethodGet)

@@ -7,13 +7,16 @@ import (
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	filmsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/films"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/tests/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
 func TestCreateFilmUseCaseRunRepositoryError(t *testing.T) {
 	storageErr := errors.New("storage unavailable")
-	repo := &filmCreatorStub{err: storageErr}
+	repo := mocks.NewMockFilmCreator(gomock.NewController(t))
+	repo.EXPECT().CreateFilm(gomock.Any(), domain.CreateFilmInput{Title: "Alien", FilmType: domain.FilmTypeMovie, ReleaseYear: 1979, AgeLimit: 16}).Return(domain.FilmID(0), storageErr)
 	uc, err := filmsusecase.NewCreateFilmUseCase(repo, newFilmsTestLogger())
 	require.NoError(t, err)
 
@@ -23,7 +26,6 @@ func TestCreateFilmUseCaseRunRepositoryError(t *testing.T) {
 
 	assert.Equal(t, domain.FilmID(0), id)
 	assert.ErrorIs(t, err, storageErr)
-	assert.True(t, repo.called)
 }
 
 func TestNewCreateFilmUseCaseNilRepository(t *testing.T) {
@@ -32,18 +34,8 @@ func TestNewCreateFilmUseCaseNilRepository(t *testing.T) {
 	assert.ErrorIs(t, err, domain.ErrNilFilmsRepo)
 }
 
-type contextFilmCreator struct {
-	filmCreatorStub
-	ctx context.Context
-}
-
-func (s *contextFilmCreator) CreateFilm(ctx context.Context, input domain.CreateFilmInput) (domain.FilmID, error) {
-	s.ctx = ctx
-	return s.filmCreatorStub.CreateFilm(ctx, input)
-}
-
 func TestCreateFilmUseCasePassesContextAndOptionalFields(t *testing.T) {
-	repo := &contextFilmCreator{filmCreatorStub: filmCreatorStub{id: 42}}
+	repo := mocks.NewMockFilmCreator(gomock.NewController(t))
 	uc, err := filmsusecase.NewCreateFilmUseCase(repo, newFilmsTestLogger())
 	require.NoError(t, err)
 	original, description := "Alien", "Science fiction"
@@ -55,13 +47,12 @@ func TestCreateFilmUseCasePassesContextAndOptionalFields(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	expected := input
+	expected.Title = "Alien"
+	repo.EXPECT().CreateFilm(ctx, expected).Return(domain.FilmID(42), nil)
 	id, err := uc.Run(ctx, input)
 
 	require.NoError(t, err)
 	assert.Equal(t, domain.FilmID(42), id)
-	assert.Same(t, ctx, repo.ctx)
-	expected := input
-	expected.Title = "Alien"
-	assert.Equal(t, expected, repo.input)
 	assert.Equal(t, "  Alien  ", input.Title, "the caller's input value is preserved")
 }

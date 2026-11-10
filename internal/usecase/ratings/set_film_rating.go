@@ -34,30 +34,30 @@ func (uc *SetFilmRatingUseCase) Run(ctx context.Context, input SetFilmRatingInpu
 		"film_id":    input.FilmID,
 		"score":      input.Score,
 	}
-	uc.logger.Debug("set film rating started", fields)
+	uc.logger.DebugContext(ctx, "set film rating started", fields)
 	if input.Score < domain.MinFilmRating || input.Score > domain.MaxFilmRating {
 		err := domain.InvalidFilmRatingLimitsError()
-		logging.Failure(uc.logger, "film rating validation failed", err, fields)
+		logging.Failure(ctx, uc.logger, "film rating validation failed", err, fields)
 		return nil, err
 	}
-	uc.logger.Debug("checking film before setting rating", map[string]any{"film_id": input.FilmID})
+	uc.logger.DebugContext(ctx, "checking film before setting rating", map[string]any{"film_id": input.FilmID})
 	film, err := uc.films.GetFilmByID(ctx, input.FilmID)
 	if err != nil {
-		logging.Failure(uc.logger, "film lookup before setting rating failed", err, fields)
+		logging.Failure(ctx, uc.logger, "film lookup before setting rating failed", err, fields)
 		if errors.Is(err, domain.ErrFilmNotFound) {
 			return nil, domain.ErrFilmNotFound
 		}
 		return nil, err
 	}
-	uc.logger.Debug("film found before setting rating", map[string]any{
+	uc.logger.DebugContext(ctx, "film found before setting rating", map[string]any{
 		"film_id": film.ID,
 		"title":   film.Title,
 	})
 
-	uc.logger.Debug("saving film rating", fields)
+	uc.logger.DebugContext(ctx, "saving film rating", fields)
 	rating, err := uc.ratings.SetFilmRating(ctx, input.AccountID, input.FilmID, input.Score)
 	if err != nil {
-		logging.Failure(uc.logger, "saving film rating failed", err, fields)
+		logging.Failure(ctx, uc.logger, "saving film rating failed", err, fields)
 		switch {
 		case errors.Is(err, domain.ErrFilmNotFound):
 			return nil, domain.ErrFilmNotFound
@@ -67,7 +67,7 @@ func (uc *SetFilmRatingUseCase) Run(ctx context.Context, input SetFilmRatingInpu
 			return nil, err
 		}
 	}
-	uc.logger.Info("film rating set", map[string]any{
+	uc.logger.InfoContext(ctx, "film rating set", map[string]any{
 		"account_id": rating.AccountID,
 		"film_id":    rating.FilmID,
 		"score":      rating.Score,

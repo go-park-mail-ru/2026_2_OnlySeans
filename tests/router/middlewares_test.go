@@ -1,7 +1,6 @@
 package router_test
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -29,20 +28,22 @@ import (
 	ratingsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/ratings"
 	reviewsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/reviews"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/tests/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
 const testOrigin = "http://localhost:3000"
 
 func newTestRouter(t *testing.T) http.Handler {
 	t.Helper()
-	return newTestRouterWithLogger(t, &spyLogger{})
+	return newTestRouterWithLogger(t, newSpyLogger(t))
 }
 
 func newTestRouterWithLogger(t *testing.T, appLogger logger.Logger) http.Handler {
 	t.Helper()
-	return newTestRouterWithAvatarStorage(t, appLogger, &routerAvatarStorage{})
+	return newTestRouterWithAvatarStorage(t, appLogger, newRouterAvatarStorage(t))
 }
 
 func newTestRouterWithAvatarStorage(t *testing.T, appLogger logger.Logger, storage filesusecase.AvatarStorage) http.Handler {
@@ -98,14 +99,14 @@ func newTestRouterWithAvatarStorage(t *testing.T, appLogger logger.Logger, stora
 	require.NoError(t, err)
 
 	getAvatarURL, err := filesusecase.NewGetAvatarURLUseCase(
-		&routerAvatarURLStorage{},
+		testAvatarURLStorage(t),
 		appLogger,
 	)
 	require.NoError(t, err)
 
 	accountAvatar, err := filesusecase.NewAccountAvatarUseCase(
 		users,
-		&routerAvatarURLStorage{},
+		testAvatarURLStorage(t),
 		appLogger,
 	)
 	require.NoError(t, err)
@@ -118,7 +119,7 @@ func newTestRouterWithAvatarStorage(t *testing.T, appLogger logger.Logger, stora
 	)
 	require.NoError(t, err)
 
-	uploadPoster, err := filesusecase.NewUploadPosterUseCase(storage, &routerPosterRepo{}, filmsRepo, filesusecase.UploadPosterOptions{
+	uploadPoster, err := filesusecase.NewUploadPosterUseCase(storage, testPosterRepository(t), filmsRepo, filesusecase.UploadPosterOptions{
 		MaxSize: 5 << 20, MaxDimension: 4096, CleanupTimeout: 5 * time.Second,
 	}, appLogger)
 	require.NoError(t, err)
@@ -257,17 +258,6 @@ func newTestReviewsHandler(t *testing.T, films domain.FilmRepository, appLogger 
 	return handler
 }
 
-type fakeAuthenticator struct {
-	userID       domain.UserID
-	err          error
-	gotSessionID string
-}
-
-func (f *fakeAuthenticator) Authenticate(_ context.Context, sessionID string) (domain.UserID, error) {
-	f.gotSessionID = sessionID
-	return f.userID, f.err
-}
-
 func TestRequireAuth(t *testing.T) {
 	sidCookie := &http.Cookie{Name: auth.SessionCookieName, Value: "sid"}
 
@@ -288,7 +278,10 @@ func TestRequireAuth(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			authn := &fakeAuthenticator{userID: 42, err: tt.authErr}
+			authn := mocks.NewMockAuthenticator(gomock.NewController(t))
+			if tt.cookie != nil {
+				authn.EXPECT().Authenticate(gomock.Any(), tt.cookie.Value).Return(domain.UserID(42), tt.authErr).Times(1)
+			}
 
 			nextCalled := false
 			var gotID domain.UserID
@@ -310,10 +303,6 @@ func TestRequireAuth(t *testing.T) {
 
 			assert.Equal(t, tt.wantStatus, rec.Code)
 			assert.Equal(t, tt.wantNext, nextCalled, "next called")
-
-			if tt.cookie != nil {
-				assert.Equal(t, tt.cookie.Value, authn.gotSessionID, "session ID from cookie must reach Authenticate")
-			}
 
 			if tt.wantNext {
 				assert.True(t, gotOK, "user ID must be in context")
@@ -368,48 +357,12 @@ func TestRouter_LogoutRequiresAuth(t *testing.T) {
 	}
 }
 
-type fakePersonsRepo struct{}
-
-func (f *fakePersonsRepo) Create(
-	ctx context.Context,
-	input domain.PersonInput,
-) (domain.PersonID, error) {
-	return 1, nil
-}
-
-func (f *fakePersonsRepo) GetByID(
-	ctx context.Context,
-	id domain.PersonID,
-) (*domain.Person, error) {
-	return nil, nil
-}
-
-func (f *fakePersonsRepo) List(
-	ctx context.Context,
-	limit, offset int,
-) ([]domain.Person, int, error) {
-	return []domain.Person{}, 0, nil
-}
-
-func (f *fakePersonsRepo) Update(
-	ctx context.Context,
-	id domain.PersonID,
-	input domain.PersonInput,
-) (*domain.Person, error) {
-	return nil, nil
-}
-
-func (f *fakePersonsRepo) Delete(
-	ctx context.Context,
-	id domain.PersonID,
-) error {
-	return nil
-}
-
 func newTestPersonsHandler(t *testing.T, appLogger logger.Logger) *personsdelivery.Handler {
 	t.Helper()
 
-	repo := &fakePersonsRepo{}
+	repo := mocks.NewMockPersonRepository(gomock.NewController(t))
+	repo.EXPECT().Create(gomock.Any(), gomock.Any()).Return(domain.PersonID(1), nil).AnyTimes()
+	repo.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any()).Return([]domain.Person{}, 0, nil).AnyTimes()
 
 	create, err := personusecase.NewCreatePersonUseCase(repo, appLogger)
 	require.NoError(t, err)
@@ -438,8 +391,9 @@ func newTestPersonsHandler(t *testing.T, appLogger logger.Logger) *personsdelive
 	return handler
 }
 
-type routerPosterRepo struct{}
-
-func (*routerPosterRepo) SavePoster(context.Context, domain.FilmID, domain.UserID, domain.PosterFile) error {
-	return nil
+func testPosterRepository(t *testing.T) *mocks.MockPosterRepository {
+	t.Helper()
+	repo := mocks.NewMockPosterRepository(gomock.NewController(t))
+	repo.EXPECT().SavePoster(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	return repo
 }

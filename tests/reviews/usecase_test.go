@@ -3,14 +3,14 @@ package reviews_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
-	reviewsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/reviews"
 	usecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/reviews"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/tests/mocks"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
 const (
@@ -20,247 +20,202 @@ const (
 
 var errStorage = errors.New("storage is down")
 
-// fakeFilms знает только фильм existingFilm.
-type fakeFilms struct{}
-
-func (fakeFilms) GetFilmByID(_ context.Context, id domain.FilmID) (domain.Film, error) {
-	if id != existingFilm {
-		return domain.Film{}, domain.ErrFilmNotFound
-	}
-	return domain.Film{ID: id, Title: "Тестовый фильм"}, nil
-}
-
-func (fakeFilms) ListFilms(context.Context, int, int) ([]domain.Film, int, error) {
-	return nil, 0, nil
-}
-
-// brokenFilms имитирует упавшее хранилище фильмов.
-type brokenFilms struct{}
-
-func (brokenFilms) GetFilmByID(context.Context, domain.FilmID) (domain.Film, error) {
-	return domain.Film{}, errStorage
-}
-
-func (brokenFilms) ListFilms(context.Context, int, int) ([]domain.Film, int, error) {
-	return nil, 0, errStorage
-}
-
-// reviewCases — четыре сценария отзывов над одним хранилищем.
-type reviewCases struct {
-	repo   domain.ReviewRepository
-	list   *usecase.ListReviewsUseCase
-	create *usecase.CreateReviewUseCase
-	update *usecase.UpdateReviewUseCase
-	delete *usecase.DeleteReviewUseCase
-}
-
-func newReviewCases(t *testing.T, films domain.FilmRepository) reviewCases {
+func testFilms(t *testing.T, failure error) *mocks.MockFilmRepository {
 	t.Helper()
-
-	repo := reviewsservice.NewInMemoryReviewRepo()
-	appLogger := newReviewsTestLogger()
-
-	list, err := usecase.NewListReviewsUseCase(repo, films, appLogger)
-	require.NoError(t, err)
-	create, err := usecase.NewCreateReviewUseCase(repo, films, appLogger)
-	require.NoError(t, err)
-	update, err := usecase.NewUpdateReviewUseCase(repo, appLogger)
-	require.NoError(t, err)
-	del, err := usecase.NewDeleteReviewUseCase(repo, appLogger)
-	require.NoError(t, err)
-
-	return reviewCases{repo: repo, list: list, create: create, update: update, delete: del}
-}
-
-func (c reviewCases) createReview(author domain.UserID, film domain.FilmID, in domain.ReviewInput) (domain.Review, error) {
-	out, err := c.create.Run(context.Background(), usecase.NewCreateReviewInput(author, film, in))
-	if err != nil {
-		return domain.Review{}, err
-	}
-	review, err := c.repo.GetByID(context.Background(), out.ID)
-	if err != nil {
-		return domain.Review{}, err
-	}
-	return *review, nil
-}
-
-func (c reviewCases) updateReview(user domain.UserID, id domain.ReviewID, in domain.ReviewInput) (domain.Review, error) {
-	out, err := c.update.Run(context.Background(), usecase.NewUpdateReviewInput(user, id, in, 1))
-	if err != nil {
-		return domain.Review{}, err
-	}
-	return out.Review, nil
-}
-
-func (c reviewCases) listReviews(film domain.FilmID) ([]domain.Review, int, error) {
-	out, err := c.list.Run(context.Background(), usecase.NewListReviewsInput(film, 10, 0))
-	if err != nil {
-		return nil, 0, err
-	}
-	return out.Reviews, out.Total, nil
+	films := mocks.NewMockFilmRepository(gomock.NewController(t))
+	films.EXPECT().GetFilmByID(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, id domain.FilmID) (domain.Film, error) {
+		if failure != nil {
+			return domain.Film{}, failure
+		}
+		if id != existingFilm {
+			return domain.Film{}, domain.ErrFilmNotFound
+		}
+		return domain.Film{ID: id, Title: "Тестовый фильм"}, nil
+	}).AnyTimes()
+	return films
 }
 
 func TestNewReviewUseCases_NilDependencies(t *testing.T) {
-	repo := reviewsservice.NewInMemoryReviewRepo()
-	appLogger := newReviewsTestLogger()
-
-	_, err := usecase.NewListReviewsUseCase(nil, fakeFilms{}, appLogger)
-	assert.ErrorIs(t, err, domain.ErrNilReviewsRepo)
-	_, err = usecase.NewListReviewsUseCase(repo, nil, appLogger)
-	assert.ErrorIs(t, err, domain.ErrNilFilmsRepo)
-
-	_, err = usecase.NewCreateReviewUseCase(nil, fakeFilms{}, appLogger)
-	assert.ErrorIs(t, err, domain.ErrNilReviewsRepo)
-	_, err = usecase.NewCreateReviewUseCase(repo, nil, appLogger)
-	assert.ErrorIs(t, err, domain.ErrNilFilmsRepo)
-
-	_, err = usecase.NewUpdateReviewUseCase(nil, appLogger)
-	assert.ErrorIs(t, err, domain.ErrNilReviewsRepo)
-
-	_, err = usecase.NewDeleteReviewUseCase(nil, appLogger)
-	assert.ErrorIs(t, err, domain.ErrNilReviewsRepo)
+	ctrl := gomock.NewController(t)
+	repo := mocks.NewMockReviewRepository(ctrl)
+	films := mocks.NewMockFilmRepository(ctrl)
+	log := newReviewsTestLogger()
+	_, err := usecase.NewListReviewsUseCase(nil, films, log)
+	require.ErrorIs(t, err, domain.ErrNilReviewsRepo)
+	_, err = usecase.NewListReviewsUseCase(repo, nil, log)
+	require.ErrorIs(t, err, domain.ErrNilFilmsRepo)
+	_, err = usecase.NewCreateReviewUseCase(nil, films, log)
+	require.ErrorIs(t, err, domain.ErrNilReviewsRepo)
+	_, err = usecase.NewCreateReviewUseCase(repo, nil, log)
+	require.ErrorIs(t, err, domain.ErrNilFilmsRepo)
+	_, err = usecase.NewUpdateReviewUseCase(nil, log)
+	require.ErrorIs(t, err, domain.ErrNilReviewsRepo)
+	_, err = usecase.NewDeleteReviewUseCase(nil, log)
+	require.ErrorIs(t, err, domain.ErrNilReviewsRepo)
 }
 
 func TestCreateReviewUseCase(t *testing.T) {
-	tests := []struct {
+	for _, tc := range []struct {
 		name    string
 		film    domain.FilmID
 		input   domain.ReviewInput
 		wantErr error
 	}{
-		{"обычный отзыв", existingFilm, validInput(), nil},
-		{"несуществующий фильм", missingFilm, validInput(), domain.ErrFilmNotFound},
-		{"короткий заголовок", existingFilm, domain.ReviewInput{Title: "ab", Content: validContent}, domain.ErrInvalidTitle},
-		{"заголовок из одних пробелов", existingFilm, domain.ReviewInput{Title: "     ", Content: validContent}, domain.ErrInvalidTitle},
-		{"короткий текст", existingFilm, domain.ReviewInput{Title: validTitle, Content: "мало"}, domain.ErrInvalidContent},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := newReviewCases(t, fakeFilms{}).createReview(7, tt.film, tt.input)
-			if tt.wantErr == nil {
-				assert.NoError(t, err)
-				return
+		{"valid", existingFilm, validInput(), nil},
+		{"missing film", missingFilm, validInput(), domain.ErrFilmNotFound},
+		{"short title", existingFilm, domain.ReviewInput{Title: "ab", Content: validContent}, domain.ErrInvalidTitle},
+		{"blank title", existingFilm, domain.ReviewInput{Title: "     ", Content: validContent}, domain.ErrInvalidTitle},
+		{"short content", existingFilm, domain.ReviewInput{Title: validTitle, Content: "мало"}, domain.ErrInvalidContent},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			repo := mocks.NewMockReviewRepository(ctrl)
+			films := mocks.NewMockFilmRepository(ctrl)
+			if tc.wantErr == nil || errors.Is(tc.wantErr, domain.ErrFilmNotFound) {
+				lookup := films.EXPECT().GetFilmByID(gomock.Any(), tc.film).Return(domain.Film{ID: tc.film}, tc.wantErr)
+				if tc.wantErr == nil {
+					repo.EXPECT().Create(gomock.Any(), domain.UserID(7), tc.film, tc.input).Return(&domain.Review{ID: 1}, nil).After(lookup)
+				}
 			}
-			assert.ErrorIs(t, err, tt.wantErr)
+			uc, err := usecase.NewCreateReviewUseCase(repo, films, newReviewsTestLogger())
+			require.NoError(t, err)
+			out, err := uc.Run(t.Context(), usecase.NewCreateReviewInput(7, tc.film, tc.input))
+			require.ErrorIs(t, err, tc.wantErr)
+			if err == nil {
+				require.Equal(t, domain.ReviewID(1), out.ID)
+			} else {
+				require.Nil(t, out)
+			}
 		})
 	}
 }
 
 func TestCreateReviewUseCase_TrimsSpaces(t *testing.T) {
-	review, err := newReviewCases(t, fakeFilms{}).createReview(7, existingFilm, domain.ReviewInput{
-		Title:   "  " + validTitle + "\n",
-		Content: "\t" + validContent + "  ",
-	})
+	ctrl := gomock.NewController(t)
+	repo := mocks.NewMockReviewRepository(ctrl)
+	films := mocks.NewMockFilmRepository(ctrl)
+	lookup := films.EXPECT().GetFilmByID(gomock.Any(), existingFilm).Return(domain.Film{ID: existingFilm}, nil)
+	repo.EXPECT().Create(gomock.Any(), domain.UserID(7), existingFilm, validInput()).Return(&domain.Review{ID: 1}, nil).After(lookup)
+	uc, err := usecase.NewCreateReviewUseCase(repo, films, newReviewsTestLogger())
 	require.NoError(t, err)
-
-	assert.Equal(t, validTitle, review.Title)
-	assert.Equal(t, validContent, review.Content)
-	assert.Equal(t, domain.UserID(7), review.AuthorID)
+	_, err = uc.Run(t.Context(), usecase.NewCreateReviewInput(7, existingFilm, domain.ReviewInput{Title: "  " + validTitle + "\n", Content: "\t" + validContent + "  "}))
+	require.NoError(t, err)
 }
 
 func TestCreateReviewUseCase_Twice(t *testing.T) {
-	cases := newReviewCases(t, fakeFilms{})
-
-	_, err := cases.createReview(7, existingFilm, validInput())
+	ctrl := gomock.NewController(t)
+	repo := mocks.NewMockReviewRepository(ctrl)
+	films := mocks.NewMockFilmRepository(ctrl)
+	gomock.InOrder(
+		films.EXPECT().GetFilmByID(gomock.Any(), existingFilm).Return(domain.Film{ID: existingFilm}, nil),
+		repo.EXPECT().Create(gomock.Any(), domain.UserID(7), existingFilm, validInput()).Return(&domain.Review{ID: 1}, nil),
+		films.EXPECT().GetFilmByID(gomock.Any(), existingFilm).Return(domain.Film{ID: existingFilm}, nil),
+		repo.EXPECT().Create(gomock.Any(), domain.UserID(7), existingFilm, validInput()).Return(nil, domain.ErrReviewExists),
+	)
+	uc, err := usecase.NewCreateReviewUseCase(repo, films, newReviewsTestLogger())
 	require.NoError(t, err)
-
-	_, err = cases.createReview(7, existingFilm, validInput())
-	assert.ErrorIs(t, err, domain.ErrReviewExists)
+	_, err = uc.Run(t.Context(), usecase.NewCreateReviewInput(7, existingFilm, validInput()))
+	require.NoError(t, err)
+	_, err = uc.Run(t.Context(), usecase.NewCreateReviewInput(7, existingFilm, validInput()))
+	require.ErrorIs(t, err, domain.ErrReviewExists)
 }
 
 func TestReviewUseCases_FilmsFailure(t *testing.T) {
-	cases := newReviewCases(t, brokenFilms{})
-
-	_, err := cases.createReview(7, existingFilm, validInput())
-	assert.ErrorIs(t, err, errStorage)
-
-	_, _, err = cases.listReviews(existingFilm)
-	assert.ErrorIs(t, err, errStorage)
+	ctrl := gomock.NewController(t)
+	repo := mocks.NewMockReviewRepository(ctrl)
+	films := mocks.NewMockFilmRepository(ctrl)
+	films.EXPECT().GetFilmByID(gomock.Any(), existingFilm).Return(domain.Film{}, errStorage).Times(2)
+	create, err := usecase.NewCreateReviewUseCase(repo, films, newReviewsTestLogger())
+	require.NoError(t, err)
+	_, err = create.Run(t.Context(), usecase.NewCreateReviewInput(7, existingFilm, validInput()))
+	require.ErrorIs(t, err, errStorage)
+	list, err := usecase.NewListReviewsUseCase(repo, films, newReviewsTestLogger())
+	require.NoError(t, err)
+	_, err = list.Run(t.Context(), usecase.NewListReviewsInput(existingFilm, 10, 0))
+	require.ErrorIs(t, err, errStorage)
 }
 
 func TestUpdateReviewUseCase(t *testing.T) {
-	changes := domain.ReviewInput{Title: "  Передумала  ", Content: validContent, ContainsSpoilers: true}
-
-	tests := []struct {
+	for _, tc := range []struct {
 		name    string
 		user    domain.UserID
-		review  domain.ReviewID
+		id      domain.ReviewID
 		input   domain.ReviewInput
 		wantErr error
 	}{
-		{"автор меняет свой отзыв", 7, 1, changes, nil},
-		{"чужой отзыв", 8, 1, changes, domain.ErrForbidden},
-		{"несуществующий отзыв", 7, 99, changes, domain.ErrReviewNotFound},
-		{"невалидные данные", 7, 1, domain.ReviewInput{Title: "ab", Content: validContent}, domain.ErrInvalidTitle},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cases := newReviewCases(t, fakeFilms{})
-			created, err := cases.createReview(7, existingFilm, validInput())
-			require.NoError(t, err)
-
-			updated, err := cases.updateReview(tt.user, tt.review, tt.input)
-
-			list, _, listErr := cases.listReviews(existingFilm)
-			require.NoError(t, listErr)
-			require.Len(t, list, 1)
-
-			if tt.wantErr != nil {
-				assert.ErrorIs(t, err, tt.wantErr)
-				assert.Equal(t, created, list[0], "при ошибке отзыв не должен меняться")
-				return
+		{"author", 7, 1, domain.ReviewInput{Title: "  Передумала  ", Content: validContent, ContainsSpoilers: true}, nil},
+		{"other author", 8, 1, validInput(), domain.ErrForbidden},
+		{"missing review", 7, 99, validInput(), domain.ErrReviewNotFound},
+		{"invalid input", 7, 1, domain.ReviewInput{Title: "ab", Content: validContent}, domain.ErrInvalidTitle},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := mocks.NewMockReviewRepository(gomock.NewController(t))
+			normalized := tc.input
+			normalized.Title = strings.TrimSpace(normalized.Title)
+			normalized.Content = strings.TrimSpace(normalized.Content)
+			if !errors.Is(tc.wantErr, domain.ErrInvalidTitle) {
+				getErr := error(nil)
+				if tc.id == 99 {
+					getErr = domain.ErrReviewNotFound
+				}
+				lookup := repo.EXPECT().GetByID(gomock.Any(), tc.id).Return(&domain.Review{ID: tc.id, AuthorID: 7}, getErr)
+				if tc.wantErr == nil {
+					repo.EXPECT().Update(gomock.Any(), tc.id, domain.ReviewUpdate{Input: normalized, Version: 1}).Return(&domain.Review{ID: tc.id, AuthorID: 7, Title: normalized.Title, Content: normalized.Content, ContainsSpoilers: normalized.ContainsSpoilers}, nil).After(lookup)
+				}
 			}
+			uc, err := usecase.NewUpdateReviewUseCase(repo, newReviewsTestLogger())
 			require.NoError(t, err)
-			assert.Equal(t, "Передумала", updated.Title, "пробелы по краям обрезаются")
-			assert.True(t, updated.ContainsSpoilers)
-			assert.Equal(t, updated, list[0])
+			out, err := uc.Run(t.Context(), usecase.NewUpdateReviewInput(tc.user, tc.id, tc.input, 1))
+			require.ErrorIs(t, err, tc.wantErr)
+			if err == nil {
+				require.Equal(t, normalized.Title, out.Review.Title)
+				require.Equal(t, normalized.ContainsSpoilers, out.Review.ContainsSpoilers)
+			} else {
+				require.Nil(t, out)
+			}
 		})
 	}
 }
 
 func TestDeleteReviewUseCase(t *testing.T) {
-	tests := []struct {
-		name      string
-		user      domain.UserID
-		review    domain.ReviewID
-		wantErr   error
-		wantTotal int
+	for _, tc := range []struct {
+		name    string
+		user    domain.UserID
+		id      domain.ReviewID
+		wantErr error
 	}{
-		{"автор удаляет свой отзыв", 7, 1, nil, 0},
-		{"чужой отзыв", 8, 1, domain.ErrForbidden, 1},
-		{"несуществующий отзыв", 7, 99, domain.ErrReviewNotFound, 1},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cases := newReviewCases(t, fakeFilms{})
-			_, err := cases.createReview(7, existingFilm, validInput())
-			require.NoError(t, err)
-
-			err = cases.delete.Run(context.Background(), usecase.NewDeleteReviewInput(tt.user, tt.review))
-			if tt.wantErr == nil {
-				assert.NoError(t, err)
-			} else {
-				assert.ErrorIs(t, err, tt.wantErr)
+		{"author", 7, 1, nil}, {"other author", 8, 1, domain.ErrForbidden}, {"missing", 7, 99, domain.ErrReviewNotFound},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := mocks.NewMockReviewRepository(gomock.NewController(t))
+			getErr := error(nil)
+			if tc.id == 99 {
+				getErr = domain.ErrReviewNotFound
 			}
-
-			_, total, err := cases.listReviews(existingFilm)
+			lookup := repo.EXPECT().GetByID(gomock.Any(), tc.id).Return(&domain.Review{ID: tc.id, AuthorID: 7}, getErr)
+			if tc.wantErr == nil {
+				repo.EXPECT().Delete(gomock.Any(), tc.id, tc.user).Return(nil).After(lookup)
+			}
+			uc, err := usecase.NewDeleteReviewUseCase(repo, newReviewsTestLogger())
 			require.NoError(t, err)
-			assert.Equal(t, tt.wantTotal, total)
+			require.ErrorIs(t, uc.Run(t.Context(), usecase.NewDeleteReviewInput(tc.user, tc.id)), tc.wantErr)
 		})
 	}
 }
 
 func TestListReviewsUseCase(t *testing.T) {
-	cases := newReviewCases(t, fakeFilms{})
-
-	list, total, err := cases.listReviews(existingFilm)
+	ctrl := gomock.NewController(t)
+	repo := mocks.NewMockReviewRepository(ctrl)
+	films := mocks.NewMockFilmRepository(ctrl)
+	lookup := films.EXPECT().GetFilmByID(gomock.Any(), existingFilm).Return(domain.Film{ID: existingFilm}, nil)
+	repo.EXPECT().ListByFilm(gomock.Any(), existingFilm, 10, 0).Return([]domain.Review{}, 0, nil).After(lookup)
+	films.EXPECT().GetFilmByID(gomock.Any(), missingFilm).Return(domain.Film{}, domain.ErrFilmNotFound)
+	uc, err := usecase.NewListReviewsUseCase(repo, films, newReviewsTestLogger())
 	require.NoError(t, err)
-	assert.Empty(t, list)
-	assert.Zero(t, total)
-
-	_, _, err = cases.listReviews(missingFilm)
-	assert.ErrorIs(t, err, domain.ErrFilmNotFound)
+	out, err := uc.Run(t.Context(), usecase.NewListReviewsInput(existingFilm, 10, 0))
+	require.NoError(t, err)
+	require.Empty(t, out.Reviews)
+	require.Zero(t, out.Total)
+	_, err = uc.Run(t.Context(), usecase.NewListReviewsInput(missingFilm, 10, 0))
+	require.ErrorIs(t, err, domain.ErrFilmNotFound)
 }

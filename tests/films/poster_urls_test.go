@@ -1,7 +1,6 @@
 package films_test
 
 import (
-	"context"
 	"errors"
 	"io"
 	"net/http"
@@ -17,31 +16,10 @@ import (
 	filesservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/files"
 	filmsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/films"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/tests/mocks"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
-
-type posterFilmsRepo struct {
-	domain.FilmsRepository
-	films         []domain.Film
-	err           error
-	limit, offset int
-	id            domain.CollectionID
-}
-
-func (r *posterFilmsRepo) GetFilmByID(_ context.Context, id domain.FilmID) (domain.Film, error) {
-	if r.err != nil {
-		return domain.Film{}, r.err
-	}
-	return r.films[0], nil
-}
-func (r *posterFilmsRepo) ListFilms(_ context.Context, limit, offset int) ([]domain.Film, int, error) {
-	r.limit, r.offset = limit, offset
-	return r.films, 12, r.err
-}
-func (r *posterFilmsRepo) ListCollectionFilms(_ context.Context, id domain.CollectionID, limit, offset int) ([]domain.Film, int, error) {
-	r.id = id
-	return r.ListFilms(context.Background(), limit, offset)
-}
 
 func TestFilmPosterSignedURLs(t *testing.T) {
 	tests := []struct {
@@ -94,7 +72,16 @@ func TestFilmPosterSignedURLs(t *testing.T) {
 				appLogger, err := logger.NewLogger(io.Discard, logger.LogLevelDebug, "json")
 				require.NoError(t, err)
 				original := domain.Film{ID: 9, PosterURL: tt.external, PosterStorageKey: tt.key}
-				repo := &posterFilmsRepo{films: []domain.Film{original}, err: tt.repoErr}
+				repo := mocks.NewMockFilmsRepository(gomock.NewController(t))
+				source := []domain.Film{original}
+				switch operation {
+				case "get":
+					repo.EXPECT().GetFilmByID(gomock.Any(), domain.FilmID(9)).Return(original, tt.repoErr)
+				case "list":
+					repo.EXPECT().ListFilms(gomock.Any(), 3, 4).Return(source, 12, tt.repoErr)
+				case "collection":
+					repo.EXPECT().ListCollectionFilms(gomock.Any(), domain.CollectionID(5), 3, 4).Return(source, 12, tt.repoErr)
+				}
 				reader, err := filmsservice.NewRepositoryWithPosterURLs(repo, storage, appLogger)
 				require.NoError(t, err)
 				var films []domain.Film
@@ -133,11 +120,6 @@ func TestFilmPosterSignedURLs(t *testing.T) {
 					}
 					if operation != "get" {
 						require.Equal(t, 12, total)
-						require.Equal(t, 3, repo.limit)
-						require.Equal(t, 4, repo.offset)
-						if operation == "collection" {
-							require.Equal(t, domain.CollectionID(5), repo.id)
-						}
 					}
 				}
 				if tt.wantRequest {
@@ -145,7 +127,7 @@ func TestFilmPosterSignedURLs(t *testing.T) {
 				} else {
 					require.Zero(t, requests)
 				}
-				require.Equal(t, original, repo.films[0], "signed URL must not be saved in repository data")
+				require.Equal(t, original, source[0], "signed URL must not be saved in repository data")
 			})
 		}
 	}

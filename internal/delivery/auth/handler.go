@@ -68,14 +68,14 @@ func NewHandler(cases HandlerUseCases, appLogger logger.Logger) (*Handler, error
 
 func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		httpresponse.WriteError(w, http.StatusMethodNotAllowed, "method not supported", h.appLogger)
+		httpresponse.WriteErrorContext(r.Context(), w, http.StatusMethodNotAllowed, "method not supported", h.appLogger)
 		return
 	}
 
 	var req registerRequest
 	if err := httprequest.DecodeJSON(w, r, &req); err != nil {
 		httprequest.LogRejected(h.appLogger, r, "body", err)
-		httpresponse.WriteError(w, http.StatusBadRequest, "invalid request body", h.appLogger)
+		httpresponse.WriteErrorContext(r.Context(), w, http.StatusBadRequest, "invalid request body", h.appLogger)
 		return
 	}
 	req.Email = strings.TrimSpace(req.Email)
@@ -83,76 +83,76 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 
 	result, err := h.register.Run(r.Context(), toRegisterUserInput(req))
 	if err != nil {
-		writeRegisterError(w, err, h.appLogger)
+		writeRegisterError(r.Context(), w, err, h.appLogger)
 		return
 	}
 
 	h.setSessionCookie(w, result.Session.ID, result.Session.ExpiresAt)
-	httpresponse.WriteJSON(w, http.StatusCreated, toAuthResponse(result.User), h.appLogger)
+	httpresponse.WriteJSONContext(r.Context(), w, http.StatusCreated, toAuthResponse(result.User), h.appLogger)
 }
 
-func writeRegisterError(w http.ResponseWriter, err error, appLogger logger.Logger) {
+func writeRegisterError(ctx context.Context, w http.ResponseWriter, err error, appLogger logger.Logger) {
 	switch {
 	case errors.Is(err, domain.ErrInvalidEmail),
 		errors.Is(err, domain.ErrInvalidUsername),
 		errors.Is(err, domain.ErrInvalidPassword):
-		httpresponse.WriteError(w, http.StatusBadRequest, err.Error(), appLogger)
+		httpresponse.WriteErrorContext(ctx, w, http.StatusBadRequest, err.Error(), appLogger)
 	case errors.Is(err, domain.ErrUserExists):
-		httpresponse.WriteError(w, http.StatusConflict, domain.ErrUserExists.Error(), appLogger)
+		httpresponse.WriteErrorContext(ctx, w, http.StatusConflict, domain.ErrUserExists.Error(), appLogger)
 	case errors.Is(err, domain.ErrUsernameTaken):
-		httpresponse.WriteError(w, http.StatusConflict, domain.ErrUsernameTaken.Error(), appLogger)
+		httpresponse.WriteErrorContext(ctx, w, http.StatusConflict, domain.ErrUsernameTaken.Error(), appLogger)
 	default:
 
-		httpresponse.WriteError(w, http.StatusInternalServerError, domain.ErrInternal.Error(), appLogger)
+		httpresponse.WriteErrorContext(ctx, w, http.StatusInternalServerError, domain.ErrInternal.Error(), appLogger)
 	}
 }
 
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		httpresponse.WriteError(w, http.StatusMethodNotAllowed, "method not supported", h.appLogger)
+		httpresponse.WriteErrorContext(r.Context(), w, http.StatusMethodNotAllowed, "method not supported", h.appLogger)
 		return
 	}
 
 	var req loginRequest
 	if err := httprequest.DecodeJSON(w, r, &req); err != nil {
 		httprequest.LogRejected(h.appLogger, r, "body", err)
-		httpresponse.WriteError(w, http.StatusBadRequest, "invalid request body", h.appLogger)
+		httpresponse.WriteErrorContext(r.Context(), w, http.StatusBadRequest, "invalid request body", h.appLogger)
 		return
 	}
 	req.Email = strings.TrimSpace(req.Email)
 
 	result, err := h.login.Run(r.Context(), toLoginUserInput(req))
 	if err != nil {
-		writeLoginError(w, err, h.appLogger)
+		writeLoginError(r.Context(), w, err, h.appLogger)
 		return
 	}
 
 	h.setSessionCookie(w, result.Session.ID, result.Session.ExpiresAt)
-	httpresponse.WriteJSON(w, http.StatusOK, toAuthResponse(result.User), h.appLogger)
+	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, toAuthResponse(result.User), h.appLogger)
 }
 
-func writeLoginError(w http.ResponseWriter, err error, appLogger logger.Logger) {
+func writeLoginError(ctx context.Context, w http.ResponseWriter, err error, appLogger logger.Logger) {
 	switch {
 	case errors.Is(err, domain.ErrInvalidEmail),
 		errors.Is(err, domain.ErrInvalidPassword):
-		httpresponse.WriteError(w, http.StatusBadRequest, err.Error(), appLogger)
+		httpresponse.WriteErrorContext(ctx, w, http.StatusBadRequest, err.Error(), appLogger)
 	case errors.Is(err, domain.ErrInvalidCredentials):
-		httpresponse.WriteError(w, http.StatusUnauthorized, domain.ErrInvalidCredentials.Error(), appLogger)
+		httpresponse.WriteErrorContext(ctx, w, http.StatusUnauthorized, domain.ErrInvalidCredentials.Error(), appLogger)
 	default:
 
-		httpresponse.WriteError(w, http.StatusInternalServerError, domain.ErrInternal.Error(), appLogger)
+		httpresponse.WriteErrorContext(ctx, w, http.StatusInternalServerError, domain.ErrInternal.Error(), appLogger)
 	}
 }
 
 func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		httpresponse.WriteError(w, http.StatusMethodNotAllowed, "method not supported", h.appLogger)
+		httpresponse.WriteErrorContext(r.Context(), w, http.StatusMethodNotAllowed, "method not supported", h.appLogger)
 		return
 	}
 
 	if cookie, err := r.Cookie(SessionCookieName); err == nil {
 		if err := h.logout.Run(r.Context(), usecase.NewLogoutInput(cookie.Value)); err != nil {
-			httpresponse.WriteError(w, http.StatusInternalServerError, domain.ErrInternal.Error(), h.appLogger)
+			httpresponse.WriteErrorContext(r.Context(), w, http.StatusInternalServerError, domain.ErrInternal.Error(), h.appLogger)
 			return
 		}
 	}
@@ -189,25 +189,25 @@ func (h *Handler) RequireAdmin(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, ok := UserIDFromContext(r.Context())
 		if !ok {
-			h.appLogger.Warn("admin access rejected: missing user context", map[string]any{"method": r.Method, "path": r.URL.Path})
-			httpresponse.WriteError(w, http.StatusUnauthorized, domain.ErrUnauthorized.Error(), h.appLogger)
+			h.appLogger.WarnContext(r.Context(), "admin access rejected: missing user context", map[string]any{"method": r.Method, "path": r.URL.Path})
+			httpresponse.WriteErrorContext(r.Context(), w, http.StatusUnauthorized, domain.ErrUnauthorized.Error(), h.appLogger)
 			return
 		}
 
 		role, err := h.getUserRole(r.Context(), userID)
 		if err != nil {
 			if errors.Is(err, domain.ErrUserNotFound) {
-				h.appLogger.Warn("admin access rejected: user not found", map[string]any{"user_id": userID, "method": r.Method, "path": r.URL.Path})
-				httpresponse.WriteError(w, http.StatusUnauthorized, domain.ErrUnauthorized.Error(), h.appLogger)
+				h.appLogger.WarnContext(r.Context(), "admin access rejected: user not found", map[string]any{"user_id": userID, "method": r.Method, "path": r.URL.Path})
+				httpresponse.WriteErrorContext(r.Context(), w, http.StatusUnauthorized, domain.ErrUnauthorized.Error(), h.appLogger)
 				return
 			}
-			h.appLogger.Error("get user role failed", map[string]any{"error": err, "user_id": userID, "method": r.Method, "path": r.URL.Path})
-			httpresponse.WriteError(w, http.StatusInternalServerError, domain.ErrInternal.Error(), h.appLogger)
+			h.appLogger.ErrorContext(r.Context(), "get user role failed", map[string]any{"error": err, "user_id": userID, "method": r.Method, "path": r.URL.Path})
+			httpresponse.WriteErrorContext(r.Context(), w, http.StatusInternalServerError, domain.ErrInternal.Error(), h.appLogger)
 			return
 		}
 		if role != domain.RoleAdmin {
-			h.appLogger.Warn("admin access forbidden", map[string]any{"user_id": userID, "method": r.Method, "path": r.URL.Path})
-			httpresponse.WriteError(w, http.StatusForbidden, domain.ErrForbidden.Error(), h.appLogger)
+			h.appLogger.WarnContext(r.Context(), "admin access forbidden", map[string]any{"user_id": userID, "method": r.Method, "path": r.URL.Path})
+			httpresponse.WriteErrorContext(r.Context(), w, http.StatusForbidden, domain.ErrForbidden.Error(), h.appLogger)
 			return
 		}
 
@@ -242,24 +242,24 @@ func (h *Handler) clearSessionCookie(w http.ResponseWriter) {
 func (h *Handler) Authorised(w http.ResponseWriter, r *http.Request) {
 	id, ok := UserIDFromContext(r.Context())
 	if !ok {
-		httpresponse.WriteError(w, http.StatusUnauthorized, domain.ErrUnauthorized.Error(), h.appLogger)
+		httpresponse.WriteErrorContext(r.Context(), w, http.StatusUnauthorized, domain.ErrUnauthorized.Error(), h.appLogger)
 		return
 	}
 
 	user, err := h.getUser.Run(r.Context(), usecase.NewGetUserInput(id))
 	if err != nil {
-		httpresponse.WriteError(w, http.StatusInternalServerError, domain.ErrInternal.Error(), h.appLogger)
+		httpresponse.WriteErrorContext(r.Context(), w, http.StatusInternalServerError, domain.ErrInternal.Error(), h.appLogger)
 		return
 	}
 	if user == nil {
-		h.appLogger.Error("get authorised user returned nil user", map[string]any{"user_id": id})
-		httpresponse.WriteError(w, http.StatusInternalServerError, domain.ErrInternal.Error(), h.appLogger)
+		h.appLogger.ErrorContext(r.Context(), "get authorised user returned nil user", map[string]any{"user_id": id})
+		httpresponse.WriteErrorContext(r.Context(), w, http.StatusInternalServerError, domain.ErrInternal.Error(), h.appLogger)
 		return
 	}
 
 	userDTO := usecase.NewUserDTO(user.ID, user.Email, user.Username)
 	userDTO.AvatarFilename = user.AvatarFilename
-	httpresponse.WriteJSON(w, http.StatusOK, toAuthResponse(userDTO), h.appLogger)
+	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, toAuthResponse(userDTO), h.appLogger)
 }
 
 func (h *Handler) CanEditPersons(ctx context.Context, userID domain.UserID) (bool, error) {

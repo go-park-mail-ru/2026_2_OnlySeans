@@ -31,7 +31,7 @@ func TestPostgresPersonRepoCreate(t *testing.T) {
 			db, mock, err := sqlmock.New()
 			require.NoError(t, err)
 			defer db.Close()
-			repo := personsservice.NewPersonRepo(db)
+			repo := personsservice.NewPersonRepo(db, nil)
 			query := mock.ExpectQuery("INSERT INTO person").WithArgs("Ada", "Lovelace", nil)
 			if tt.dbErr != nil {
 				query.WillReturnError(tt.dbErr)

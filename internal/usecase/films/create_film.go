@@ -26,20 +26,20 @@ func NewCreateFilmUseCase(repository domain.FilmCreator, appLogger logger.Logger
 }
 
 func (uc *CreateFilmUseCase) Run(ctx context.Context, input domain.CreateFilmInput) (domain.FilmID, error) {
-	uc.logger.Debug("create film started", nil)
+	uc.logger.DebugContext(ctx, "create film started", nil)
 	input.Title = strings.TrimSpace(input.Title)
 
 	if err := input.Validate(); err != nil {
-		uc.logger.Warn("create film rejected: invalid input", map[string]any{"error": err})
+		uc.logger.WarnContext(ctx, "create film rejected: invalid input", map[string]any{"error": err})
 		return 0, fmt.Errorf("validate film input: %w", err)
 	}
 
 	id, err := uc.repository.CreateFilm(ctx, input)
 	if err != nil {
-		logging.Failure(uc.logger, "create film failed", err, nil)
+		logging.Failure(ctx, uc.logger, "create film failed", err, nil)
 		return 0, fmt.Errorf("create film: %w", err)
 	}
 
-	uc.logger.Info("film created", map[string]any{"film_id": id})
+	uc.logger.InfoContext(ctx, "film created", map[string]any{"film_id": id})
 	return id, nil
 }

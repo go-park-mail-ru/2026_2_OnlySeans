@@ -1,6 +1,8 @@
 package persons
 
 import (
+	"context"
+
 	"errors"
 	"fmt"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/httprequest"
@@ -77,7 +79,7 @@ func (h *Handler) ListPersons(w http.ResponseWriter, r *http.Request) {
 	limit, offset, err := pagination(r)
 	if err != nil {
 		httprequest.LogRejected(h.logger, r, "pagination", err)
-		h.writeError(w, err)
+		h.writeError(r.Context(), w, err)
 		return
 	}
 
@@ -86,7 +88,7 @@ func (h *Handler) ListPersons(w http.ResponseWriter, r *http.Request) {
 		Offset: offset,
 	})
 	if err != nil {
-		h.writeError(w, err)
+		h.writeError(r.Context(), w, err)
 		return
 	}
 
@@ -97,20 +99,20 @@ func (h *Handler) ListPersons(w http.ResponseWriter, r *http.Request) {
 		Offset:  offset,
 	}
 
-	httpresponse.WriteJSON(w, http.StatusOK, response, h.logger)
+	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, response, h.logger)
 }
 
 func (h *Handler) GetPerson(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r)
 	if err != nil {
 		httprequest.LogRejected(h.logger, r, "id", err)
-		h.writeError(w, err)
+		h.writeError(r.Context(), w, err)
 		return
 	}
 
 	result, err := h.useCases.GetPerson.Run(r.Context(), id)
 	if err != nil {
-		h.writeError(w, err)
+		h.writeError(r.Context(), w, err)
 		return
 	}
 
@@ -118,7 +120,7 @@ func (h *Handler) GetPerson(w http.ResponseWriter, r *http.Request) {
 		Person: toPersonResponseDTO(result.Person),
 	}
 
-	httpresponse.WriteJSON(w, http.StatusOK, response, h.logger)
+	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, response, h.logger)
 }
 
 type personRequest struct {
@@ -132,14 +134,14 @@ func (h *Handler) CreatePerson(w http.ResponseWriter, r *http.Request) {
 
 	if err := httprequest.DecodeJSON(w, r, &request); err != nil {
 		httprequest.LogRejected(h.logger, r, "body", err)
-		h.writeError(w, err)
+		h.writeError(r.Context(), w, err)
 		return
 	}
 
 	birthDate, err := parseBirthDate(request.BirthDate)
 	if err != nil {
 		httprequest.LogRejected(h.logger, r, "birth_date", err)
-		h.writeError(w, err)
+		h.writeError(r.Context(), w, err)
 		return
 	}
 
@@ -151,20 +153,20 @@ func (h *Handler) CreatePerson(w http.ResponseWriter, r *http.Request) {
 		},
 	})
 	if err != nil {
-		h.writeError(w, err)
+		h.writeError(r.Context(), w, err)
 		return
 	}
 
 	response := createPersonResponse{ID: result.ID}
 
-	httpresponse.WriteJSON(w, http.StatusCreated, response, h.logger)
+	httpresponse.WriteJSONContext(r.Context(), w, http.StatusCreated, response, h.logger)
 }
 
 func (h *Handler) UpdatePerson(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r)
 	if err != nil {
 		httprequest.LogRejected(h.logger, r, "id", err)
-		h.writeError(w, err)
+		h.writeError(r.Context(), w, err)
 		return
 	}
 
@@ -172,14 +174,14 @@ func (h *Handler) UpdatePerson(w http.ResponseWriter, r *http.Request) {
 
 	if err := httprequest.DecodeJSON(w, r, &request); err != nil {
 		httprequest.LogRejected(h.logger, r, "body", err)
-		h.writeError(w, err)
+		h.writeError(r.Context(), w, err)
 		return
 	}
 
 	birthDate, err := parseBirthDate(request.BirthDate)
 	if err != nil {
 		httprequest.LogRejected(h.logger, r, "birth_date", err)
-		h.writeError(w, err)
+		h.writeError(r.Context(), w, err)
 		return
 	}
 
@@ -192,7 +194,7 @@ func (h *Handler) UpdatePerson(w http.ResponseWriter, r *http.Request) {
 		},
 	})
 	if err != nil {
-		h.writeError(w, err)
+		h.writeError(r.Context(), w, err)
 		return
 	}
 
@@ -200,14 +202,14 @@ func (h *Handler) UpdatePerson(w http.ResponseWriter, r *http.Request) {
 		Person: toPersonResponseDTO(result.Person),
 	}
 
-	httpresponse.WriteJSON(w, http.StatusOK, response, h.logger)
+	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, response, h.logger)
 }
 
 func (h *Handler) DeletePerson(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r)
 	if err != nil {
 		httprequest.LogRejected(h.logger, r, "id", err)
-		h.writeError(w, err)
+		h.writeError(r.Context(), w, err)
 		return
 	}
 
@@ -215,7 +217,7 @@ func (h *Handler) DeletePerson(w http.ResponseWriter, r *http.Request) {
 		PersonID: id,
 	})
 	if err != nil {
-		h.writeError(w, err)
+		h.writeError(r.Context(), w, err)
 		return
 	}
 
@@ -269,7 +271,7 @@ func parseBirthDate(value string) (*time.Time, error) {
 	return &date, nil
 }
 
-func (h *Handler) writeError(w http.ResponseWriter, err error) {
+func (h *Handler) writeError(ctx context.Context, w http.ResponseWriter, err error) {
 	status := http.StatusInternalServerError
 	message := httpresponse.InternalErrorMessage
 
@@ -289,5 +291,5 @@ func (h *Handler) writeError(w http.ResponseWriter, err error) {
 		message = err.Error()
 	}
 
-	httpresponse.WriteError(w, status, message, h.logger)
+	httpresponse.WriteErrorContext(ctx, w, status, message, h.logger)
 }

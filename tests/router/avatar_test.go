@@ -14,21 +14,30 @@ import (
 	"testing"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/tests/mocks"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
 type routerAvatarStorage struct {
+	*mocks.MockAvatarStorage
 	calls int
 	key   string
 	data  []byte
 }
 
-func (s *routerAvatarStorage) Upload(_ context.Context, key, _ string, body io.ReadSeeker) error {
-	s.calls++
-	s.key = key
-	var err error
-	s.data, err = io.ReadAll(body)
-	return err
+func newRouterAvatarStorage(t *testing.T) *routerAvatarStorage {
+	t.Helper()
+	result := &routerAvatarStorage{MockAvatarStorage: mocks.NewMockAvatarStorage(gomock.NewController(t))}
+	result.EXPECT().Upload(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, key, _ string, body io.ReadSeeker) error {
+		result.calls++
+		result.key = key
+		data, err := io.ReadAll(body)
+		result.data = data
+		return err
+	}).AnyTimes()
+	result.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	return result
 }
 
 func TestAvatarUploadRoute(t *testing.T) {
@@ -78,8 +87,8 @@ func TestAvatarUploadRoute(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			storage := &routerAvatarStorage{}
-			handler := newTestRouterWithAvatarStorage(t, &spyLogger{}, storage)
+			storage := newRouterAvatarStorage(t)
+			handler := newTestRouterWithAvatarStorage(t, newSpyLogger(t), storage)
 			var cookie *http.Cookie
 			switch tt.session {
 			case "valid":
@@ -155,10 +164,13 @@ func TestAvatarUploadRoute(t *testing.T) {
 	}
 }
 
-type routerAvatarURLStorage struct{}
-
-func (*routerAvatarURLStorage) GetURL(_ context.Context, key string) (string, error) {
-	return "https://storage.example/avatars/" + key, nil
+func testAvatarURLStorage(t *testing.T) *mocks.MockAvatarURLStorage {
+	t.Helper()
+	result := mocks.NewMockAvatarURLStorage(gomock.NewController(t))
+	result.EXPECT().GetURL(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, key string) (string, error) {
+		return "https://storage.example/avatars/" + key, nil
+	}).AnyTimes()
+	return result
 }
 
 func TestAvatarURLRoute(t *testing.T) {
@@ -170,8 +182,6 @@ func TestAvatarURLRoute(t *testing.T) {
 	require.JSONEq(t, `{"url":"https://storage.example/avatars/`+filename+`"}`, rec.Body.String())
 	require.Equal(t, "no-store", rec.Header().Get("Cache-Control"))
 }
-
-func (s *routerAvatarStorage) Delete(context.Context, string) error { return nil }
 
 func TestOwnAvatarRequiresSession(t *testing.T) {
 	tests := []struct{ name, method, session string }{
@@ -248,8 +258,8 @@ func TestAvatarUpdateRoute(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			storage := &routerAvatarStorage{}
-			handler := newTestRouterWithAvatarStorage(t, &spyLogger{}, storage)
+			storage := newRouterAvatarStorage(t)
+			handler := newTestRouterWithAvatarStorage(t, newSpyLogger(t), storage)
 			var cookie *http.Cookie
 			if tt.session == "valid" {
 				register := httptest.NewRecorder()

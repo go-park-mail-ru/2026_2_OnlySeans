@@ -7,25 +7,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/config"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/storage"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/tests/testutil"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-type storageTestLogger struct{}
-
-func (l *storageTestLogger) Info(string, map[string]any)  {}
-func (l *storageTestLogger) Debug(string, map[string]any) {}
-func (l *storageTestLogger) Warn(string, map[string]any)  {}
-func (l *storageTestLogger) Error(string, map[string]any) {}
-
-var _ logger.Logger = (*storageTestLogger)(nil)
-
 func newStorageTestLogger() logger.Logger {
-	return &storageTestLogger{}
+	return testutil.DiscardLogger()
 }
 
 // testDatabaseURLEnv задаёт адрес настоящей базы для проверки успешного подключения.

@@ -1,6 +1,8 @@
 package ratings
 
 import (
+	"context"
+
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -76,67 +78,67 @@ func (h *Handler) SetFilmRating(w http.ResponseWriter, r *http.Request) {
 	filmID, ok := pathID(r)
 	if !ok {
 		httprequest.LogRejected(h.appLogger, r, "id", ErrInvalidFilmID)
-		writeError(w, ErrInvalidFilmID, h.appLogger)
+		writeError(r.Context(), w, ErrInvalidFilmID, h.appLogger)
 		return
 	}
 	accountID, ok := authdelivery.UserIDFromContext(r.Context())
 	if !ok {
 		httprequest.LogRejected(h.appLogger, r, "user_id", domain.ErrUnauthorized)
-		writeError(w, domain.ErrUnauthorized, h.appLogger)
+		writeError(r.Context(), w, domain.ErrUnauthorized, h.appLogger)
 		return
 	}
 
 	score, err := decodeScore(w, r)
 	if err != nil {
 		httprequest.LogRejected(h.appLogger, r, "body", err)
-		writeError(w, err, h.appLogger)
+		writeError(r.Context(), w, err, h.appLogger)
 		return
 	}
 
 	result, err := h.useCases.SetRating.Run(r.Context(), *usecase.NewSetFilmRatingInput(accountID, domain.FilmID(filmID), score))
 	if err != nil {
-		writeError(w, fmt.Errorf("set rating for film %d: %w", filmID, err), h.appLogger)
+		writeError(r.Context(), w, fmt.Errorf("set rating for film %d: %w", filmID, err), h.appLogger)
 		return
 	}
-	httpresponse.WriteJSON(w, http.StatusOK, ratingResponse{Rating: toFilmRatingResponseDTO(result.Rating)}, h.appLogger)
+	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, ratingResponse{Rating: toFilmRatingResponseDTO(result.Rating)}, h.appLogger)
 }
 
 func (h *Handler) GetFilmRating(w http.ResponseWriter, r *http.Request) {
 	filmID, ok := pathID(r)
 	if !ok {
 		httprequest.LogRejected(h.appLogger, r, "id", ErrInvalidFilmID)
-		writeError(w, ErrInvalidFilmID, h.appLogger)
+		writeError(r.Context(), w, ErrInvalidFilmID, h.appLogger)
 		return
 	}
 
 	result, err := h.useCases.GetRating.Run(r.Context(), *usecase.NewGetFilmRatingInput(domain.FilmID(filmID)))
 	if err != nil {
-		writeError(w, fmt.Errorf("get rating for film %d: %w", filmID, err), h.appLogger)
+		writeError(r.Context(), w, fmt.Errorf("get rating for film %d: %w", filmID, err), h.appLogger)
 		return
 	}
-	httpresponse.WriteJSON(w, http.StatusOK, ratingSummaryResponse{Rating: toFilmRatingSummaryResponseDTO(result.Summary)}, h.appLogger)
+	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, ratingSummaryResponse{Rating: toFilmRatingSummaryResponseDTO(result.Summary)}, h.appLogger)
 }
 
 func (h *Handler) GetRatingsForCollection(w http.ResponseWriter, r *http.Request) {
 	collectionID, ok := pathID(r)
 	if !ok {
 		httprequest.LogRejected(h.appLogger, r, "id", ErrInvalidCollectionID)
-		writeError(w, ErrInvalidCollectionID, h.appLogger)
+		writeError(r.Context(), w, ErrInvalidCollectionID, h.appLogger)
 		return
 	}
 	limit, offset, err := pagination(r)
 	if err != nil {
 		httprequest.LogRejected(h.appLogger, r, "pagination", err)
-		writeError(w, err, h.appLogger)
+		writeError(r.Context(), w, err, h.appLogger)
 		return
 	}
 
 	result, err := h.useCases.GetRatingsForCollection.Run(r.Context(), *usecase.NewGetCollectionRatingsInput(domain.CollectionID(collectionID), limit, offset))
 	if err != nil {
-		writeError(w, fmt.Errorf("get ratings for collection %d: %w", collectionID, err), h.appLogger)
+		writeError(r.Context(), w, fmt.Errorf("get ratings for collection %d: %w", collectionID, err), h.appLogger)
 		return
 	}
-	httpresponse.WriteJSON(w, http.StatusOK, collectionRatingsResponse{
+	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, collectionRatingsResponse{
 		Ratings: toFilmRatingSummaryResponseDTOs(result.Ratings),
 		Total:   result.Total,
 		Limit:   limit,
@@ -148,19 +150,19 @@ func (h *Handler) DeleteFilmRating(w http.ResponseWriter, r *http.Request) {
 	filmID, ok := pathID(r)
 	if !ok {
 		httprequest.LogRejected(h.appLogger, r, "id", ErrInvalidFilmID)
-		writeError(w, ErrInvalidFilmID, h.appLogger)
+		writeError(r.Context(), w, ErrInvalidFilmID, h.appLogger)
 		return
 	}
 
 	accountID, ok := authdelivery.UserIDFromContext(r.Context())
 	if !ok {
 		httprequest.LogRejected(h.appLogger, r, "user_id", domain.ErrUnauthorized)
-		writeError(w, domain.ErrUnauthorized, h.appLogger)
+		writeError(r.Context(), w, domain.ErrUnauthorized, h.appLogger)
 		return
 	}
 
 	if err := h.useCases.DeleteRating.Run(r.Context(), *usecase.NewDeleteFilmRatingInput(accountID, domain.FilmID(filmID))); err != nil {
-		writeError(w, fmt.Errorf("delete rating for film %d: %w", filmID, err), h.appLogger)
+		writeError(r.Context(), w, fmt.Errorf("delete rating for film %d: %w", filmID, err), h.appLogger)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -208,27 +210,27 @@ func queryInt(r *http.Request, key string, fallback int) (int, bool) {
 	return value, err == nil
 }
 
-func writeError(w http.ResponseWriter, err error, appLogger logger.Logger) {
+func writeError(ctx context.Context, w http.ResponseWriter, err error, appLogger logger.Logger) {
 	switch {
 	case errors.Is(err, ErrInvalidFilmID):
-		httpresponse.WriteError(w, http.StatusBadRequest, ErrInvalidFilmID.Error(), appLogger)
+		httpresponse.WriteErrorContext(ctx, w, http.StatusBadRequest, ErrInvalidFilmID.Error(), appLogger)
 	case errors.Is(err, ErrInvalidCollectionID):
-		httpresponse.WriteError(w, http.StatusBadRequest, ErrInvalidCollectionID.Error(), appLogger)
+		httpresponse.WriteErrorContext(ctx, w, http.StatusBadRequest, ErrInvalidCollectionID.Error(), appLogger)
 	case errors.Is(err, ErrInvalidLimit), errors.Is(err, ErrInvalidOffset):
-		httpresponse.WriteError(w, http.StatusBadRequest, err.Error(), appLogger)
+		httpresponse.WriteErrorContext(ctx, w, http.StatusBadRequest, err.Error(), appLogger)
 	case errors.Is(err, ErrInvalidBody):
-		httpresponse.WriteError(w, http.StatusBadRequest, ErrInvalidBody.Error(), appLogger)
+		httpresponse.WriteErrorContext(ctx, w, http.StatusBadRequest, ErrInvalidBody.Error(), appLogger)
 	case errors.Is(err, domain.ErrInvalidFilmRating):
-		httpresponse.WriteError(w, http.StatusBadRequest, err.Error(), appLogger)
+		httpresponse.WriteErrorContext(ctx, w, http.StatusBadRequest, err.Error(), appLogger)
 	case errors.Is(err, domain.ErrUnauthorized):
-		httpresponse.WriteError(w, http.StatusUnauthorized, domain.ErrUnauthorized.Error(), appLogger)
+		httpresponse.WriteErrorContext(ctx, w, http.StatusUnauthorized, domain.ErrUnauthorized.Error(), appLogger)
 	case errors.Is(err, domain.ErrFilmNotFound):
-		httpresponse.WriteError(w, http.StatusNotFound, domain.ErrFilmNotFound.Error(), appLogger)
+		httpresponse.WriteErrorContext(ctx, w, http.StatusNotFound, domain.ErrFilmNotFound.Error(), appLogger)
 	case errors.Is(err, domain.ErrCollectionNotFound):
-		httpresponse.WriteError(w, http.StatusNotFound, domain.ErrCollectionNotFound.Error(), appLogger)
+		httpresponse.WriteErrorContext(ctx, w, http.StatusNotFound, domain.ErrCollectionNotFound.Error(), appLogger)
 	case errors.Is(err, domain.ErrRatingNotFound):
-		httpresponse.WriteError(w, http.StatusNotFound, domain.ErrRatingNotFound.Error(), appLogger)
+		httpresponse.WriteErrorContext(ctx, w, http.StatusNotFound, domain.ErrRatingNotFound.Error(), appLogger)
 	default:
-		httpresponse.WriteError(w, http.StatusInternalServerError, internalErrMsg, appLogger)
+		httpresponse.WriteErrorContext(ctx, w, http.StatusInternalServerError, internalErrMsg, appLogger)
 	}
 }

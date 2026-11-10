@@ -30,20 +30,20 @@ func NewGetPersonUseCase(persons domain.PersonRepository, appLogger logger.Logge
 }
 
 func (uc *GetPersonUseCase) Run(ctx context.Context, id domain.PersonID) (*PersonOutput, error) {
-	uc.logger.Debug("get person started", map[string]any{
+	uc.logger.DebugContext(ctx, "get person started", map[string]any{
 		"person_id": id,
 	})
 
 	person, err := uc.persons.GetByID(ctx, id)
 	if err != nil {
-		logging.Failure(uc.logger, "get person failed", err, map[string]any{
+		logging.Failure(ctx, uc.logger, "get person failed", err, map[string]any{
 			"person_id": id,
 		})
 
 		return nil, fmt.Errorf("get person %d: %w", id, err)
 	}
 
-	uc.logger.Info("person retrieved", map[string]any{
+	uc.logger.InfoContext(ctx, "person retrieved", map[string]any{
 		"person_id": id,
 	})
 

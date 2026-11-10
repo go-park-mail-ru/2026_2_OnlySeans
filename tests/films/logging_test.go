@@ -2,34 +2,17 @@ package films_test
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"testing"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
-	filmsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/films"
 	filmsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/films"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/tests/mocks"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
-
-type filmLoggingRepository struct {
-	*filmsservice.InMemoryService
-	err error
-}
-
-func (r filmLoggingRepository) CreateFilm(context.Context, domain.CreateFilmInput) (domain.FilmID, error) {
-	return 42, r.err
-}
-
-func (r filmLoggingRepository) UpdateFilm(context.Context, domain.FilmID, domain.CreateFilmInput) error {
-	return r.err
-}
-
-func (r filmLoggingRepository) DeleteFilm(context.Context, domain.FilmID) error {
-	return r.err
-}
 
 func TestFilmMutationLogs(t *testing.T) {
 	tests := []struct {
@@ -55,10 +38,20 @@ func TestFilmMutationLogs(t *testing.T) {
 			var output bytes.Buffer
 			appLogger, err := logger.NewLogger(&output, logger.LogLevelDebug, "json")
 			require.NoError(t, err)
-			repo := filmLoggingRepository{InMemoryService: filmsservice.NewInMemoryService(), err: tt.repoErr}
+			repo := mocks.NewMockFilmsRepository(gomock.NewController(t))
 			input := domain.CreateFilmInput{Title: "Alien", FilmType: domain.FilmTypeMovie, ReleaseYear: 1979, AgeLimit: 16}
 			if tt.invalid {
 				input.Title = ""
+			}
+			if !tt.invalid {
+				switch tt.action {
+				case "create":
+					repo.EXPECT().CreateFilm(gomock.Any(), input).Return(domain.FilmID(42), tt.repoErr)
+				case "update":
+					repo.EXPECT().UpdateFilm(gomock.Any(), domain.FilmID(42), input).Return(tt.repoErr)
+				case "delete":
+					repo.EXPECT().DeleteFilm(gomock.Any(), domain.FilmID(42)).Return(tt.repoErr)
+				}
 			}
 			switch tt.action {
 			case "create":

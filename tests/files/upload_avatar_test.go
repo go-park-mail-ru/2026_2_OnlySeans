@@ -11,45 +11,10 @@ import (
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	filesusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/files"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/tests/mocks"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
-
-type uploadStorage struct {
-	uploads   int
-	deletes   int
-	key       string
-	uploadErr error
-	deleteErr error
-}
-
-func (s *uploadStorage) Upload(_ context.Context, key, _ string, _ io.ReadSeeker) error {
-	s.uploads++
-	s.key = key
-	return s.uploadErr
-}
-func (s *uploadStorage) Delete(ctx context.Context, key string) error {
-	s.deletes++
-	if ctx.Err() != nil {
-		return ctx.Err()
-	}
-	if key != s.key {
-		return errors.New("cleanup key differs from uploaded key")
-	}
-	return s.deleteErr
-}
-
-type avatarRepo struct {
-	calls int
-	owner domain.UserID
-	file  domain.AvatarFile
-	err   error
-}
-
-func (r *avatarRepo) SaveAvatar(_ context.Context, userID domain.UserID, file domain.AvatarFile) error {
-	r.calls++
-	r.owner, r.file = userID, file
-	return r.err
-}
 
 func TestUploadAvatarAttachesToAccount(t *testing.T) {
 	var imageData bytes.Buffer
@@ -98,8 +63,36 @@ func TestUploadAvatarAttachesToAccount(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			storage := &uploadStorage{uploadErr: tt.uploadErr, deleteErr: tt.cleanupErr}
-			repo := &avatarRepo{err: tt.saveErr}
+			ctrl := gomock.NewController(t)
+			storage := mocks.NewMockAvatarStorage(ctrl)
+			repo := mocks.NewMockAvatarWriter(ctrl)
+			var key string
+			var metadata domain.AvatarFile
+			var calls []any
+			if tt.wantUploads > 0 {
+				calls = append(calls, storage.EXPECT().Upload(gomock.Any(), gomock.Any(), "image/png", gomock.Any()).DoAndReturn(func(_ context.Context, name, mime string, body io.ReadSeeker) error {
+					key = name
+					actual, err := io.ReadAll(body)
+					require.NoError(t, err)
+					require.Equal(t, imageData.Bytes(), actual)
+					return tt.uploadErr
+				}).Times(tt.wantUploads))
+			}
+			if tt.wantSaves > 0 {
+				calls = append(calls, repo.EXPECT().SaveAvatar(gomock.Any(), tt.owner, gomock.Any()).DoAndReturn(func(_ context.Context, _ domain.UserID, file domain.AvatarFile) error {
+					metadata = file
+					require.Equal(t, key, file.Filename)
+					return tt.saveErr
+				}).Times(tt.wantSaves))
+			}
+			if tt.wantDeletes > 0 {
+				calls = append(calls, storage.EXPECT().Delete(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, name string) error {
+					require.NoError(t, ctx.Err())
+					require.Equal(t, key, name)
+					return tt.cleanupErr
+				}).Times(tt.wantDeletes))
+			}
+			gomock.InOrder(calls...)
 			uc, err := filesusecase.NewUploadAvatarUseCase(storage, repo, testAvatarOptions(), testFilesLogger(t))
 			require.NoError(t, err)
 			result, err := uc.Run(t.Context(), filesusecase.UploadAvatarInput{
@@ -107,9 +100,6 @@ func TestUploadAvatarAttachesToAccount(t *testing.T) {
 				Body:   bytes.NewReader(imageData.Bytes()),
 				Size:   int64(imageData.Len()),
 			})
-			require.Equal(t, tt.wantUploads, storage.uploads)
-			require.Equal(t, tt.wantSaves, repo.calls)
-			require.Equal(t, tt.wantDeletes, storage.deletes)
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
 				require.Nil(t, result)
@@ -118,11 +108,10 @@ func TestUploadAvatarAttachesToAccount(t *testing.T) {
 				}
 			} else {
 				require.NoError(t, err)
-				require.Equal(t, storage.key, result.Filename)
-				require.Equal(t, tt.owner, repo.owner)
-				require.Equal(t, result.Filename, repo.file.Filename)
-				require.Equal(t, "image/png", repo.file.ContentType)
-				require.Equal(t, int64(imageData.Len()), repo.file.Size)
+				require.Equal(t, key, result.Filename)
+				require.Equal(t, result.Filename, metadata.Filename)
+				require.Equal(t, "image/png", metadata.ContentType)
+				require.Equal(t, int64(imageData.Len()), metadata.Size)
 			}
 		})
 	}
@@ -160,8 +149,14 @@ func TestUploadAvatarConfiguredLimits(t *testing.T) {
 			options := testAvatarOptions()
 			options.MaxSize = tt.maxSize
 			options.MaxDimension = tt.maxDimension
-			storage := &uploadStorage{}
-			uc, err := filesusecase.NewUploadAvatarUseCase(storage, &avatarRepo{}, options, testFilesLogger(t))
+			ctrl := gomock.NewController(t)
+			storage := mocks.NewMockAvatarStorage(ctrl)
+			repo := mocks.NewMockAvatarWriter(ctrl)
+			if tt.wantErr == nil {
+				upload := storage.EXPECT().Upload(gomock.Any(), gomock.Any(), "image/png", gomock.Any()).Return(nil)
+				repo.EXPECT().SaveAvatar(gomock.Any(), domain.UserID(7), gomock.Any()).Return(nil).After(upload)
+			}
+			uc, err := filesusecase.NewUploadAvatarUseCase(storage, repo, options, testFilesLogger(t))
 			require.NoError(t, err)
 			_, err = uc.Run(t.Context(), filesusecase.UploadAvatarInput{
 				UserID: 7,
@@ -170,10 +165,8 @@ func TestUploadAvatarConfiguredLimits(t *testing.T) {
 			})
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
-				require.Zero(t, storage.uploads)
 			} else {
 				require.NoError(t, err)
-				require.Equal(t, 1, storage.uploads)
 			}
 		})
 	}

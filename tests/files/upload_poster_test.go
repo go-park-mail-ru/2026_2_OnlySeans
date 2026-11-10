@@ -13,50 +13,68 @@ import (
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	filesusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/files"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/tests/mocks"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
-type posterUploadDependencies struct {
-	events                                 []string
-	filmErr, uploadErr, saveErr, deleteErr error
-	cancel                                 context.CancelFunc
-	filmID                                 domain.FilmID
-	userID                                 domain.UserID
-	file                                   domain.PosterFile
-	key, contentType                       string
-	data                                   []byte
-	cleanupContextErr                      error
-	cleanupHasDeadline                     bool
+type posterCapture struct {
+	events             []string
+	filmID             domain.FilmID
+	userID             domain.UserID
+	file               domain.PosterFile
+	key, contentType   string
+	data               []byte
+	cleanupContextErr  error
+	cleanupHasDeadline bool
 }
 
-func (d *posterUploadDependencies) GetFilmByID(_ context.Context, id domain.FilmID) (domain.Film, error) {
-	d.events = append(d.events, "film")
-	d.filmID = id
-	return domain.Film{}, d.filmErr
-}
-func (d *posterUploadDependencies) Upload(_ context.Context, key, contentType string, body io.ReadSeeker) error {
-	d.events = append(d.events, "upload")
-	d.key, d.contentType = key, contentType
-	var err error
-	d.data, err = io.ReadAll(body)
-	return errors.Join(err, d.uploadErr)
-}
-func (d *posterUploadDependencies) SavePoster(_ context.Context, filmID domain.FilmID, userID domain.UserID, file domain.PosterFile) error {
-	d.events = append(d.events, "save")
-	d.filmID, d.userID, d.file = filmID, userID, file
-	if d.cancel != nil {
-		d.cancel()
+func expectPosterUpload(t *testing.T, events []string, filmErr, uploadErr, saveErr, deleteErr error, cancel context.CancelFunc) (*mocks.MockPosterStorage, *mocks.MockPosterRepository, *mocks.MockPosterFilmReader, *posterCapture) {
+	t.Helper()
+	ctrl := gomock.NewController(t)
+	storage := mocks.NewMockPosterStorage(ctrl)
+	repo := mocks.NewMockPosterRepository(ctrl)
+	films := mocks.NewMockPosterFilmReader(ctrl)
+	capture := &posterCapture{}
+	var calls []any
+	for _, event := range events {
+		switch event {
+		case "film":
+			calls = append(calls, films.EXPECT().GetFilmByID(gomock.Any(), domain.FilmID(9)).DoAndReturn(func(_ context.Context, id domain.FilmID) (domain.Film, error) {
+				capture.events = append(capture.events, "film")
+				capture.filmID = id
+				return domain.Film{}, filmErr
+			}))
+		case "upload":
+			calls = append(calls, storage.EXPECT().Upload(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, key, mime string, body io.ReadSeeker) error {
+				capture.events = append(capture.events, "upload")
+				capture.key, capture.contentType = key, mime
+				data, err := io.ReadAll(body)
+				capture.data = data
+				return errors.Join(err, uploadErr)
+			}))
+		case "save":
+			calls = append(calls, repo.EXPECT().SavePoster(gomock.Any(), domain.FilmID(9), domain.UserID(7), gomock.Any()).DoAndReturn(func(_ context.Context, film domain.FilmID, user domain.UserID, file domain.PosterFile) error {
+				capture.events = append(capture.events, "save")
+				capture.filmID, capture.userID, capture.file = film, user, file
+				require.Equal(t, capture.key, file.Filename)
+				if cancel != nil {
+					cancel()
+				}
+				return saveErr
+			}))
+		case "delete":
+			calls = append(calls, storage.EXPECT().Delete(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, key string) error {
+				capture.events = append(capture.events, "delete")
+				require.Equal(t, capture.key, key)
+				capture.cleanupContextErr = ctx.Err()
+				_, capture.cleanupHasDeadline = ctx.Deadline()
+				return deleteErr
+			}))
+		}
 	}
-	return d.saveErr
-}
-func (d *posterUploadDependencies) Delete(ctx context.Context, key string) error {
-	d.events = append(d.events, "delete")
-	d.cleanupContextErr = ctx.Err()
-	_, d.cleanupHasDeadline = ctx.Deadline()
-	if key != d.key {
-		return errors.New("cleanup key differs from uploaded key")
-	}
-	return d.deleteErr
+	gomock.InOrder(calls...)
+	return storage, repo, films, capture
 }
 
 func TestUploadPoster(t *testing.T) {
@@ -160,12 +178,12 @@ func TestUploadPoster(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			deps := &posterUploadDependencies{filmErr: tt.filmErr, uploadErr: tt.uploadErr, saveErr: tt.saveErr, deleteErr: tt.deleteErr}
+			var cancelOnSave context.CancelFunc
 			if tt.cancelBefore {
 				cancel()
 			}
 			if tt.cancelOnSave {
-				deps.cancel = cancel
+				cancelOnSave = cancel
 			}
 			options := filesusecase.UploadPosterOptions{MaxSize: 1 << 20, MaxDimension: 4096, CleanupTimeout: time.Second}
 			if tt.maxSize != 0 {
@@ -174,7 +192,8 @@ func TestUploadPoster(t *testing.T) {
 			if tt.maxDimension != 0 {
 				options.MaxDimension = tt.maxDimension
 			}
-			uc, err := filesusecase.NewUploadPosterUseCase(deps, deps, deps, options, testFilesLogger(t))
+			storage, repo, films, deps := expectPosterUpload(t, tt.events, tt.filmErr, tt.uploadErr, tt.saveErr, tt.deleteErr, cancelOnSave)
+			uc, err := filesusecase.NewUploadPosterUseCase(storage, repo, films, options, testFilesLogger(t))
 			require.NoError(t, err)
 			data := tt.data
 			if data == nil {

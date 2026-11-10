@@ -11,29 +11,14 @@ import (
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/films"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
-	filmsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/films"
 	usecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/films"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/tests/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
 const testMaxFilmRequestBodyBytes = 1 << 20
-
-type createHandlerRepository struct {
-	*filmsservice.InMemoryService
-	called bool
-	input  domain.CreateFilmInput
-	err    error
-}
-
-func (s *createHandlerRepository) CreateFilm(_ context.Context, input domain.CreateFilmInput) (domain.FilmID, error) {
-	s.called = true
-	s.input = input
-	if s.err != nil {
-		return 0, s.err
-	}
-	return 42, nil
-}
 
 func TestCreateFilmHandler(t *testing.T) {
 	const valid = `{"title":"  Alien  ","film_type":"movie","release_year":1979,"age_limit":0}`
@@ -69,7 +54,17 @@ func TestCreateFilmHandler(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			repo := &createHandlerRepository{InMemoryService: filmsservice.NewInMemoryService(), err: tt.storageErr}
+			repo := mocks.NewMockFilmsRepository(gomock.NewController(t))
+			var captured domain.CreateFilmInput
+			if tt.called {
+				repo.EXPECT().CreateFilm(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, input domain.CreateFilmInput) (domain.FilmID, error) {
+					captured = input
+					if tt.storageErr != nil {
+						return domain.FilmID(0), tt.storageErr
+					}
+					return domain.FilmID(42), nil
+				}).Times(1)
+			}
 			uc, err := usecase.NewCreateFilmUseCase(repo, newFilmsTestLogger())
 			require.NoError(t, err)
 			appLogger := newFilmsTestLogger()
@@ -96,7 +91,6 @@ func TestCreateFilmHandler(t *testing.T) {
 			handler.CreateFilm(rec, req)
 
 			assert.Equal(t, tt.status, rec.Code, rec.Body.String())
-			assert.Equal(t, tt.called, repo.called)
 			assert.Equal(t, "application/json; charset=utf-8", rec.Header().Get("Content-Type"))
 			if tt.status == http.StatusCreated {
 				var body struct {
@@ -104,14 +98,14 @@ func TestCreateFilmHandler(t *testing.T) {
 				}
 				require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
 				assert.Equal(t, domain.FilmID(42), body.ID)
-				assert.Equal(t, "Alien", repo.input.Title)
+				assert.Equal(t, "Alien", captured.Title)
 				if tt.name == "all fields" {
-					require.NotNil(t, repo.input.OriginalTitle)
-					require.NotNil(t, repo.input.DurationMin)
-					require.NotNil(t, repo.input.Description)
-					assert.Equal(t, "Alien", *repo.input.OriginalTitle)
-					assert.Equal(t, int16(117), *repo.input.DurationMin)
-					assert.Equal(t, "Space", *repo.input.Description)
+					require.NotNil(t, captured.OriginalTitle)
+					require.NotNil(t, captured.DurationMin)
+					require.NotNil(t, captured.Description)
+					assert.Equal(t, "Alien", *captured.OriginalTitle)
+					assert.Equal(t, int16(117), *captured.DurationMin)
+					assert.Equal(t, "Space", *captured.Description)
 				}
 			} else {
 				var body map[string]string

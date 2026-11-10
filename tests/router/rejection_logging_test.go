@@ -102,7 +102,7 @@ func TestRequestRejectionLogs(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			log := &spyLogger{}
+			log := newSpyLogger(t)
 			handler := newTestRouterWithLogger(t, log)
 			rec := httptest.NewRecorder()
 			handler.ServeHTTP(rec, httptest.NewRequest(tt.method, tt.path, strings.NewReader(tt.body)))

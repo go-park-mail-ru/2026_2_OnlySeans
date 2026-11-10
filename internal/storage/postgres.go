@@ -18,7 +18,7 @@ func Open(
 ) (_ *sql.DB, err error) {
 	db, err := sql.Open("pgx", cfg.URL)
 	if err != nil {
-		appLogger.Error("open database failed", map[string]any{
+		appLogger.ErrorContext(ctx, "open database failed", map[string]any{
 			"error": err,
 		})
 		return nil, fmt.Errorf("open database: %w", err)
@@ -28,7 +28,7 @@ func Open(
 	defer func() {
 		if err != nil {
 			if closeErr := db.Close(); closeErr != nil {
-				appLogger.Error("close database after initialization failure", map[string]any{
+				appLogger.ErrorContext(ctx, "close database after initialization failure", map[string]any{
 					"error": closeErr,
 				})
 			}
@@ -46,7 +46,7 @@ func Open(
 
 	// Проверяем, что база отвечает.
 	if err := db.PingContext(pingCtx); err != nil {
-		appLogger.Error("database ping failed", map[string]any{
+		appLogger.ErrorContext(ctx, "database ping failed", map[string]any{
 			"error": err,
 		})
 		return nil, fmt.Errorf("ping database: %w", err)

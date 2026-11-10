@@ -30,22 +30,22 @@ func NewCreatePersonUseCase(persons domain.PersonRepository, appLogger logger.Lo
 }
 
 func (uc *CreatePersonUseCase) Run(ctx context.Context, input CreatePersonInput) (*CreatePersonOutput, error) {
-	uc.logger.Debug("create person started", nil)
+	uc.logger.DebugContext(ctx, "create person started", nil)
 
 	person, err := preparePerson(input.Person)
 	if err != nil {
-		logging.Validation(uc.logger, "create person rejected: invalid input", err, nil)
+		logging.Validation(ctx, uc.logger, "create person rejected: invalid input", err, nil)
 		return nil, err
 	}
 
 	id, err := uc.persons.Create(ctx, *person)
 	if err != nil {
-		logging.Failure(uc.logger, "create person failed", err, map[string]any{})
+		logging.Failure(ctx, uc.logger, "create person failed", err, map[string]any{})
 
 		return nil, fmt.Errorf("create person: %w", err)
 	}
 
-	uc.logger.Info("person created", map[string]any{
+	uc.logger.InfoContext(ctx, "person created", map[string]any{
 		"person_id": id,
 	})
 

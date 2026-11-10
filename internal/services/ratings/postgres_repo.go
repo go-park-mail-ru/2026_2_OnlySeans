@@ -7,11 +7,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jackc/pgx/v5/pgconn"
-
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/storage"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 const (
@@ -80,15 +79,12 @@ func NewPostgresRepo(db *sql.DB, appLogger logger.Logger) *PostgresRepo {
 	return &PostgresRepo{db: db, appLogger: appLogger}
 }
 
-func (r *PostgresRepo) SetFilmRating(ctx context.Context, accountID domain.UserID, filmID domain.FilmID, score int) (domain.FilmRating, error) {
-	fields := map[string]any{
-		"account_id": accountID,
-		"film_id":    filmID,
-		"score":      score,
-	}
-	r.appLogger.Debug("postgres set film rating started", fields)
+func (r *PostgresRepo) SetFilmRating(ctx context.Context, accountID domain.UserID, filmID domain.FilmID, score int) (_ domain.FilmRating, operationErr error) {
+	operationLog := storage.StartOperation(ctx, r.appLogger, "postgres", "rating.set_film_rating", map[string]any{"user_id": accountID, "film_id": filmID, "score": score})
+	defer func() { operationLog.Finish(operationErr) }()
 
 	var rating domain.FilmRating
+	operationLog.Stage = "query"
 	err := r.db.QueryRowContext(ctx, setFilmRatingQuery, accountID, filmID, score).Scan(
 		&rating.AccountID,
 		&rating.FilmID,
@@ -97,62 +93,38 @@ func (r *PostgresRepo) SetFilmRating(ctx context.Context, accountID domain.UserI
 		&rating.UpdatedAt,
 	)
 	if err == nil {
-		r.appLogger.Debug("postgres film rating set", map[string]any{
-			"account_id": rating.AccountID,
-			"film_id":    rating.FilmID,
-			"score":      rating.Score,
-		})
 		return rating, nil
 	}
 
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == storage.ForeignKeyViolation && pgErr.ConstraintName == "film_rating_film_id_fkey" {
-		r.appLogger.Debug("postgres set film rating failed: film not found", map[string]any{
-			"film_id": filmID,
-			"error":   err,
-		})
 		return domain.FilmRating{}, domain.ErrFilmNotFound
 	}
 	if errors.As(err, &pgErr) && pgErr.Code == storage.CheckViolation && pgErr.ConstraintName == "film_rating_score_check" {
-		r.appLogger.Debug("postgres set film rating failed: invalid score", map[string]any{
-			"film_id": filmID,
-			"score":   score,
-			"error":   err,
-		})
 		return domain.FilmRating{}, domain.InvalidFilmRatingLimitsError()
 	}
-	r.appLogger.Debug("postgres set film rating failed", map[string]any{
-		"account_id": accountID,
-		"film_id":    filmID,
-		"error":      err,
-	})
 	return domain.FilmRating{}, fmt.Errorf("set film rating: %w", err)
 }
 
-func (r *PostgresRepo) GetFilmRatingSummary(ctx context.Context, filmID domain.FilmID) (domain.FilmRatingSummary, error) {
-	r.appLogger.Debug("postgres get film rating summary started", map[string]any{"film_id": filmID})
+func (r *PostgresRepo) GetFilmRatingSummary(ctx context.Context, filmID domain.FilmID) (_ domain.FilmRatingSummary, operationErr error) {
+	operationLog := storage.StartOperation(ctx, r.appLogger, "postgres", "rating.get_film_rating_summary", map[string]any{"film_id": filmID})
+	defer func() { operationLog.Finish(operationErr) }()
+
 	summary := domain.FilmRatingSummary{FilmID: filmID}
+	operationLog.Stage = "query"
 	err := r.db.QueryRowContext(ctx, getFilmRatingSummaryQuery, filmID).Scan(&summary.AverageScore, &summary.Votes)
 	if err != nil {
-		r.appLogger.Debug("postgres get film rating summary failed", map[string]any{
-			"film_id": filmID,
-			"error":   err,
-		})
 		return domain.FilmRatingSummary{}, fmt.Errorf("get film rating summary: %w", err)
 	}
-	r.appLogger.Debug("postgres film rating summary retrieved", map[string]any{
-		"film_id":       summary.FilmID,
-		"average_score": summary.AverageScore,
-		"votes":         summary.Votes,
-	})
 	return summary, nil
 }
 
-func (r *PostgresRepo) GetFilmRatingsSummaries(ctx context.Context, filmIDs []domain.FilmID) ([]domain.FilmRatingSummary, error) {
-	r.appLogger.Debug("postgres get film rating summaries started", map[string]any{"film_count": len(filmIDs)})
+func (r *PostgresRepo) GetFilmRatingsSummaries(ctx context.Context, filmIDs []domain.FilmID) (_ []domain.FilmRatingSummary, operationErr error) {
+	operationLog := storage.StartOperation(ctx, r.appLogger, "postgres", "rating.get_film_ratings_summaries", map[string]any{})
+	defer func() { operationLog.Finish(operationErr) }()
+
 	summaries := make([]domain.FilmRatingSummary, 0, len(filmIDs))
 	if len(filmIDs) == 0 {
-		r.appLogger.Debug("postgres get film rating summaries skipped: no film ids", nil)
 		return summaries, nil
 	}
 
@@ -167,12 +139,9 @@ func (r *PostgresRepo) GetFilmRatingsSummaries(ctx context.Context, filmIDs []do
 	}
 
 	query := fmt.Sprintf(getFilmRatingSummariesQuery, values.String())
+	operationLog.Stage = "query"
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
-		r.appLogger.Debug("postgres get film rating summaries failed", map[string]any{
-			"film_count": len(filmIDs),
-			"error":      err,
-		})
 		return nil, fmt.Errorf("get film rating summaries: %w", err)
 	}
 	defer rows.Close()
@@ -180,39 +149,23 @@ func (r *PostgresRepo) GetFilmRatingsSummaries(ctx context.Context, filmIDs []do
 	for rows.Next() {
 		var summary domain.FilmRatingSummary
 		if err := rows.Scan(&summary.FilmID, &summary.AverageScore, &summary.Votes); err != nil {
-			r.appLogger.Debug("postgres scan film rating summary failed", map[string]any{
-				"error": err,
-			})
 			return nil, fmt.Errorf("scan film rating summary: %w", err)
 		}
 		summaries = append(summaries, summary)
 	}
 	if err := rows.Err(); err != nil {
-		r.appLogger.Debug("postgres iterate film rating summaries failed", map[string]any{
-			"error": err,
-		})
 		return nil, fmt.Errorf("get film rating summaries: %w", err)
 	}
-	r.appLogger.Debug("postgres film rating summaries retrieved", map[string]any{
-		"film_count":   len(filmIDs),
-		"result_count": len(summaries),
-	})
 	return summaries, nil
 }
 
-func (r *PostgresRepo) GetCollectionFilmRatingSummaries(ctx context.Context, collectionID domain.CollectionID, limit, offset int) ([]domain.FilmRatingSummary, int, error) {
-	fields := map[string]any{
-		"collection_id": collectionID,
-		"limit":         limit,
-		"offset":        offset,
-	}
-	r.appLogger.Debug("postgres get collection film rating summaries started", fields)
+func (r *PostgresRepo) GetCollectionFilmRatingSummaries(ctx context.Context, collectionID domain.CollectionID, limit, offset int) (_ []domain.FilmRatingSummary, _ int, operationErr error) {
+	operationLog := storage.StartOperation(ctx, r.appLogger, "postgres", "rating.get_collection_film_rating_summaries", map[string]any{"collection_id": collectionID, "limit": limit, "offset": offset})
+	defer func() { operationLog.Finish(operationErr) }()
+
+	operationLog.Stage = "query"
 	rows, err := r.db.QueryContext(ctx, getCollectionFilmRatingSummariesQuery, collectionID, limit, offset)
 	if err != nil {
-		r.appLogger.Debug("postgres get collection film rating summaries failed", map[string]any{
-			"collection_id": collectionID,
-			"error":         err,
-		})
 		return nil, 0, fmt.Errorf("get collection film rating summaries: %w", err)
 	}
 	defer rows.Close()
@@ -226,10 +179,6 @@ func (r *PostgresRepo) GetCollectionFilmRatingSummaries(ctx context.Context, col
 		var filmID sql.NullInt64
 		var summary domain.FilmRatingSummary
 		if err := rows.Scan(&rowCollectionID, &rowTotal, &filmID, &summary.AverageScore, &summary.Votes); err != nil {
-			r.appLogger.Debug("postgres scan collection film rating summary failed", map[string]any{
-				"collection_id": collectionID,
-				"error":         err,
-			})
 			return nil, 0, fmt.Errorf("scan collection film rating summary: %w", err)
 		}
 		foundCollection = true
@@ -240,60 +189,29 @@ func (r *PostgresRepo) GetCollectionFilmRatingSummaries(ctx context.Context, col
 		}
 	}
 	if err := rows.Err(); err != nil {
-		r.appLogger.Debug("postgres iterate collection film rating summaries failed", map[string]any{
-			"collection_id": collectionID,
-			"error":         err,
-		})
 		return nil, 0, fmt.Errorf("get collection film rating summaries: %w", err)
 	}
 	if !foundCollection {
-		r.appLogger.Debug("postgres collection for rating summaries not found", map[string]any{
-			"collection_id": collectionID,
-		})
 		return nil, 0, domain.ErrCollectionNotFound
 	}
-	r.appLogger.Debug("postgres collection film rating summaries retrieved", map[string]any{
-		"collection_id": collectionID,
-		"result_count":  len(summaries),
-		"total":         total,
-		"limit":         limit,
-		"offset":        offset,
-	})
 	return summaries, total, nil
 }
 
-func (r *PostgresRepo) DeleteFilmRating(ctx context.Context, accountID domain.UserID, filmID domain.FilmID) error {
-	fields := map[string]any{
-		"account_id": accountID,
-		"film_id":    filmID,
-	}
-	r.appLogger.Debug("postgres delete film rating started", fields)
+func (r *PostgresRepo) DeleteFilmRating(ctx context.Context, accountID domain.UserID, filmID domain.FilmID) (operationErr error) {
+	operationLog := storage.StartOperation(ctx, r.appLogger, "postgres", "rating.delete_film_rating", map[string]any{"user_id": accountID, "film_id": filmID})
+	defer func() { operationLog.Finish(operationErr) }()
+
+	operationLog.Stage = "query"
 	result, err := r.db.ExecContext(ctx, deleteFilmRatingQuery, accountID, filmID)
 	if err != nil {
-		r.appLogger.Debug("postgres delete film rating failed", map[string]any{
-			"account_id": accountID,
-			"film_id":    filmID,
-			"error":      err,
-		})
 		return fmt.Errorf("delete film rating: %w", err)
 	}
 	affected, err := result.RowsAffected()
 	if err != nil {
-		r.appLogger.Debug("postgres get deleted film rating count failed", map[string]any{
-			"account_id": accountID,
-			"film_id":    filmID,
-			"error":      err,
-		})
 		return fmt.Errorf("get deleted film rating count: %w", err)
 	}
 	if affected == 0 {
-		r.appLogger.Debug("postgres film rating to delete not found", fields)
 		return domain.ErrRatingNotFound
 	}
-	r.appLogger.Debug("postgres film rating deleted", map[string]any{
-		"account_id":    accountID,
-		"film_id":       filmID,
-		"rows_affected": affected,
-	})
 	return nil
 }
