@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/logger"
 )
 
 const InternalErrorMessage = "internal server error"

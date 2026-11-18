@@ -2,11 +2,9 @@ package router
 
 import (
 	"context"
-	"crypto/rand"
 	"errors"
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/httpresponse"
@@ -53,31 +51,6 @@ func (w *responseWriter) Write(data []byte) (int, error) {
 
 func (w *responseWriter) Unwrap() http.ResponseWriter {
 	return w.ResponseWriter
-}
-
-func withCORS(next http.Handler, allowedOrigins []string) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Add("Vary", "Origin")
-		origin := r.Header.Get("Origin")
-
-		for _, allowedOrigin := range allowedOrigins {
-			if origin == allowedOrigin {
-				w.Header().Set("Access-Control-Allow-Origin", origin)
-				w.Header().Set("Access-Control-Allow-Credentials", "true")
-				break
-			}
-		}
-
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-
-		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusNoContent)
-			return
-		}
-
-		next.ServeHTTP(w, r)
-	})
 }
 
 func withSecurityHeaders(next http.Handler) http.Handler {
@@ -140,55 +113,6 @@ func (m *csrfMiddleware) withCSRF(next http.Handler) http.Handler {
 
 func writeError(ctx context.Context, w http.ResponseWriter, status int, err error) {
 	httpresponse.WriteErrorContext(ctx, w, status, err.Error(), nil)
-}
-
-func WithRequestID(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		r = requestWithID(w, r)
-
-		next.ServeHTTP(w, r)
-	})
-}
-
-func requestWithID(w http.ResponseWriter, r *http.Request) *http.Request {
-	id := logger.RequestID(r.Context())
-	if id == "" {
-		id = rand.Text()
-		r = r.WithContext(logger.ContextWithRequestID(r.Context(), id))
-	}
-
-	w.Header().Set("X-Request-ID", id)
-	return r
-}
-
-func WithLogging(next http.Handler, appLogger logger.Logger) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
-		r = requestWithID(w, r)
-		appLogger.DebugContext(r.Context(), "request started", map[string]any{
-			"method": r.Method,
-			"path":   r.URL.Path,
-		})
-
-		wrapped := &responseWriter{ResponseWriter: w, status: http.StatusOK}
-		next.ServeHTTP(wrapped, r)
-
-		appLogMap := map[string]any{
-			"method":      r.Method,
-			"path":        r.URL.Path,
-			"status":      wrapped.status,
-			"duration_ms": time.Since(start).Milliseconds(),
-		}
-
-		switch {
-		case wrapped.status >= 500:
-			appLogger.ErrorContext(r.Context(), "request handled", appLogMap)
-		case wrapped.status >= 400:
-			appLogger.WarnContext(r.Context(), "request handled", appLogMap)
-		default:
-			appLogger.InfoContext(r.Context(), "request handled", appLogMap)
-		}
-	})
 }
 
 func WithRecover(next http.Handler, appLogger logger.Logger) http.Handler {

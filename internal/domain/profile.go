@@ -1,20 +1,10 @@
 package domain
 
-import "time"
-
-type ProfileUser struct {
-	ID             UserID
-	Email          string
-	Username       string
-	AvatarFilename *string
-	CreatedAt      time.Time
-}
-
 type ProfileFilm struct {
-	ID               FilmID
+	ID               int64
 	Title            string
 	Year             int16
-	Type             FilmType
+	Type             string
 	AgeLimit         int16
 	Genres           string
 	PosterURL        *string
@@ -24,7 +14,7 @@ type ProfileFilm struct {
 }
 
 type Profile struct {
-	User      ProfileUser
+	User      User
 	Favorites []ProfileFilm
 	Ratings   []ProfileFilm
 	Reviews   int
