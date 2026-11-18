@@ -1,5 +1,5 @@
 package usecase
 
-import "errors"
+import "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/password"
 
-var ErrPasswordMismatch = errors.New("password does not match")
+var ErrPasswordMismatch = password.ErrPasswordMismatch

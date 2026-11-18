@@ -1,9 +1,5 @@
 package auth
 
-import (
-	usecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/auth"
-)
-
 type registerRequest struct {
 	Email    string `json:"email"`
 	Username string `json:"username"`
@@ -16,7 +12,7 @@ type loginRequest struct {
 }
 
 type userResponse struct {
-	ID             int     `json:"id"`
+	ID             int64   `json:"id"`
 	Email          string  `json:"email"`
 	Username       string  `json:"username"`
 	AvatarFilename *string `json:"avatar_filename,omitempty"`
@@ -26,18 +22,10 @@ type authResponse struct {
 	User userResponse `json:"user"`
 }
 
-func toRegisterUserInput(request registerRequest) usecase.RegisterUserInput {
-	return usecase.NewRegisterUserInput(request.Email, request.Username, request.Password)
-}
-
-func toLoginUserInput(request loginRequest) usecase.LoginUserInput {
-	return usecase.NewLoginUserInput(request.Email, request.Password)
-}
-
-func toAuthResponse(user usecase.UserDTO) authResponse {
+func toAuthResponse(user *pbUser.User) authResponse {
 	return authResponse{
 		User: userResponse{
-			ID:             int(user.ID),
+			ID:             user.ID,
 			Email:          user.Email,
 			Username:       user.Username,
 			AvatarFilename: user.AvatarFilename,

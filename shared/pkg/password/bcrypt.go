@@ -1,12 +1,12 @@
-package auth
+package password
 
 import (
 	"errors"
 
 	"golang.org/x/crypto/bcrypt"
-
-	authusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/auth"
 )
+
+var ErrPasswordMismatch = errors.New("password does not match")
 
 type BcryptPasswordService struct{}
 
@@ -22,7 +22,7 @@ func (*BcryptPasswordService) Hash(password string) (string, error) {
 func (*BcryptPasswordService) Verify(password, hash string) error {
 	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
 	if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
-		return authusecase.ErrPasswordMismatch
+		return ErrPasswordMismatch
 	}
 
 	return err
