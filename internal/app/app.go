@@ -21,6 +21,7 @@ import (
 	ratingsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/ratings"
 	reviewsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/reviews"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/router"
+	searchdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/search"
 	authservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/auth"
 	filesservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/files"
 	filmsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/films"
@@ -28,6 +29,7 @@ import (
 	personservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/persons"
 	ratingsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/ratings"
 	reviewsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/reviews"
+	searchservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/search"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/storage"
 	authusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/auth"
 	filesusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/files"
@@ -36,6 +38,7 @@ import (
 	personusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/persons"
 	ratingsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/ratings"
 	reviewsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/reviews"
+	searchusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/search"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/redis"
 )
@@ -120,6 +123,21 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 	reviewsRepo := reviewsservice.NewPostgresReviewRepo(db, appLogger)
 	personsRepo := personservice.NewPersonRepo(db, appLogger)
 	ratingsRepo := ratingsservice.NewPostgresRepo(db, appLogger)
+
+	searchRepo, err := searchservice.NewPostgresRepository(db, objectStorages[s3Cfg.PostersBucket])
+	if err != nil {
+		return fmt.Errorf("create search repository: %w", err)
+	}
+
+	searchUC, err := searchusecase.NewSearchSuggestionUseCase(searchRepo, appLogger)
+	if err != nil {
+		return fmt.Errorf("create search use case: %w", err)
+	}
+
+	searchHandler, err := searchdelivery.NewSearchHandler(searchUC)
+	if err != nil {
+		return fmt.Errorf("create search handler: %w", err)
+	}
 
 	posterRepo, err := filesservice.NewPostgresPosterRepo(db, appLogger)
 	if err != nil {
@@ -435,6 +453,7 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 		PersonalRating: personalRatingHandler,
 		PersonCatalog:  personCatalogHandler,
 		Assets:         assetsHandler,
+		Search:         searchHandler,
 	}, cfg.Server.AllowedOrigins, appLogger)
 	if err != nil {
 		return fmt.Errorf("create router: %w", err)

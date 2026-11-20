@@ -20,6 +20,7 @@ tags:
   - name: Отзывы
   - name: Персоны
   - name: Файлы
+  - name: Поиск
 security: []
 x-cors:
   allowed-origin: http://localhost:8000
@@ -1158,6 +1159,56 @@ paths:
           $ref: '#/components/responses/RouteMethodNotAllowed'
         '500':
           $ref: '#/components/responses/InternalError'
+  /api/search/suggest:
+    get:
+      tags:
+        - Поиск
+      operationId: getSearchSuggestions
+      summary: Подсказки поиска
+      x-implementation-status: implemented
+      description: |-
+        Возвращает films — фильмы по названию, persons — актёров и режиссёров
+        по имени.
+        Поиск не зависит от регистра, учитывает сохранённые русские и английские
+        варианты названий и имён и допускает опечатки.
+        Фильмы по названию и персоны упорядочены по релевантности,
+        при равной релевантности — по id фильма или персоны по возрастанию.
+        Фильмы и персоны не повторяются внутри соответствующих списков.
+        Пустые разделы возвращаются как [], а не null.
+        Отсутствие совпадений возвращает 200 с двумя пустыми массивами.
+        Ручка предназначена для подсказок; пагинация не предусмотрена.
+      security: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          description: |-
+            Поисковая строка. Сервер удаляет пробельные символы по краям.
+            После обработки длина должна быть от 2 до 200 Unicode-символов.
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 200
+          example: Нолан
+        - name: limit
+          in: query
+          required: false
+          description: |-
+            Максимальное число элементов в каждом из двух разделов.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 5
+            default: 3
+      responses:
+        '200':
+          $ref: '#/components/responses/SearchSuggestions'
+        '400':
+          $ref: '#/components/responses/InvalidSearchRequest'
+        '405':
+          $ref: '#/components/responses/RouteMethodNotAllowed'
+        '500':
+          $ref: '#/components/responses/InternalError'
 components:
   securitySchemes:
     sessionCookie:
@@ -1206,6 +1257,63 @@ components:
         minimum: 0
         default: 0
   schemas:
+    SearchSuggestionsResponse:
+      type: object
+      required: [films, persons]
+      properties:
+        films:
+          type: array
+          maxItems: 5
+          description: Фильмы, найденные по названию. Число элементов не превышает limit.
+          items:
+            $ref: '#/components/schemas/SearchFilmSuggestion'
+        persons:
+          type: array
+          maxItems: 5
+          description: Актёры и режиссёры, найденные по имени. Число элементов не превышает limit.
+          items:
+            $ref: '#/components/schemas/SearchPersonSuggestion'
+    SearchFilmSuggestion:
+      type: object
+      required: [id, title, original_title, year, film_type, poster_url]
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+        title:
+          type: string
+          description: Название фильма для отображения.
+        original_title:
+          type: string
+          nullable: true
+          description: Оригинальное название; не обязательно английское.
+        year:
+          type: integer
+          minimum: 1888
+          maximum: 2200
+        film_type:
+          type: string
+          enum: [movie, series]
+        poster_url:
+          type: string
+          nullable: true
+          description: Абсолютный URL или путь к постеру. null, если постера нет.
+    SearchPersonSuggestion:
+      type: object
+      required: [id, name, photo_url]
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+        name:
+          type: string
+          description: Полное имя для отображения.
+        photo_url:
+          type: string
+          nullable: true
+          description: Абсолютный URL или путь к фотографии. null, если фотографии нет.
     ProfileUpdate:
       type: object
       additionalProperties: false
@@ -2020,6 +2128,42 @@ components:
         limit: 20
         offset: 0
   responses:
+    SearchSuggestions:
+      description: Подсказки поиска по разделам.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/SearchSuggestionsResponse'
+          examples:
+            byPerson:
+              summary: Поиск по имени режиссёра
+              value:
+                films: []
+                persons:
+                  - id: 7
+                    name: Кристофер Нолан
+                    photo_url: null
+            empty:
+              summary: Совпадений нет
+              value:
+                films: []
+                persons: []
+    InvalidSearchRequest:
+      description: |-
+        Параметр q отсутствует или после удаления пробельных символов по краям
+        имеет длину вне диапазона от 2 до 200 Unicode-символов.
+        Либо limit не является целым числом от 1 до 5.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            invalidQuery:
+              value:
+                error: q must be from 2 to 200 characters
+            invalidLimit:
+              value:
+                error: limit must be an integer from 1 to 5
     BadBody:
       description: |-
         Неверный формат запроса или значения полей: не JSON, неверный email, имя или пароль.
