@@ -20,6 +20,7 @@ import (
 	persondelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/persons"
 	ratingsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/ratings"
 	reviewsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/reviews"
+	reviewsgrpc "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/reviews/grpc"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/router"
 	authservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/auth"
 	filesservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/files"
@@ -38,6 +39,9 @@ import (
 	reviewsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/reviews"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/redis"
+	reviewspb "github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/reviews"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 const (
@@ -117,7 +121,6 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 	}
 	userRepo := authservice.NewPostgresUserRepo(db, appLogger)
 	filmsRepo := filmsservice.NewPostgresService(db, appLogger)
-	reviewsRepo := reviewsservice.NewPostgresReviewRepo(db, appLogger)
 	personsRepo := personservice.NewPersonRepo(db, appLogger)
 	ratingsRepo := ratingsservice.NewPostgresRepo(db, appLogger)
 
@@ -245,26 +248,6 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 		return fmt.Errorf("create get collection use case: %w", err)
 	}
 
-	listReviewsUC, err := reviewsusecase.NewListReviewsUseCase(reviewsRepo, filmsRepo, appLogger)
-	if err != nil {
-		return fmt.Errorf("create list reviews use case: %w", err)
-	}
-
-	createReviewUC, err := reviewsusecase.NewCreateReviewUseCase(reviewsRepo, filmsRepo, appLogger)
-	if err != nil {
-		return fmt.Errorf("create review use case: %w", err)
-	}
-
-	updateReviewUC, err := reviewsusecase.NewUpdateReviewUseCase(reviewsRepo, appLogger)
-	if err != nil {
-		return fmt.Errorf("create update review use case: %w", err)
-	}
-
-	deleteReviewUC, err := reviewsusecase.NewDeleteReviewUseCase(reviewsRepo, appLogger)
-	if err != nil {
-		return fmt.Errorf("create delete review use case: %w", err)
-	}
-
 	createPersonUC, err := personusecase.NewCreatePersonUseCase(personsRepo, appLogger)
 	if err != nil {
 		return fmt.Errorf("create create person use case: %w", err)
@@ -378,13 +361,31 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 		return fmt.Errorf("create films handler: %w", err)
 	}
 
-	reviewsHandler, err := reviewsdelivery.NewHandler(reviewsdelivery.HandlerUseCases{
-		List:   listReviewsUC,
-		Create: createReviewUC,
-		Update: updateReviewUC,
-		Delete: deleteReviewUC,
-	}, appLogger)
+	var reviewOperations reviewsusecase.Operations
+	if address := os.Getenv(reviewsgrpc.EnvAddress); address != "" {
+		token := os.Getenv(reviewsgrpc.EnvToken)
+		if token == "" {
+			return fmt.Errorf("%s is required when %s is set", reviewsgrpc.EnvToken, reviewsgrpc.EnvAddress)
+		}
+		// один канал используется для всех запросов к внутреннему сервису отзывов
+		conn, err := grpc.NewClient(address,
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			grpc.WithUnaryInterceptor(reviewsgrpc.AuthorizeRequest(token)),
+		)
+		if err != nil {
+			return fmt.Errorf("create reviews gRPC client: %w", err)
+		}
+		defer conn.Close()
+		reviewOperations = reviewsgrpc.ClientOperations(reviewspb.NewReviewsServiceClient(conn))
+	} else {
+		reviewsRepo := reviewsservice.NewPostgresReviewRepo(db, appLogger)
+		reviewOperations, err = reviewsusecase.NewOperations(reviewsRepo, filmsRepo, appLogger)
+		if err != nil {
+			return fmt.Errorf("create reviews use cases: %w", err)
+		}
+	}
 
+	reviewsHandler, err := reviewsdelivery.NewHandlerWithOperations(reviewOperations, appLogger)
 	if err != nil {
 		return fmt.Errorf("create reviews handler: %w", err)
 	}

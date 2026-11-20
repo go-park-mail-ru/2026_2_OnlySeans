@@ -119,8 +119,8 @@ type HandlerUseCases struct {
 }
 
 type Handler struct {
-	useCases  HandlerUseCases
-	appLogger logger.Logger
+	operations usecase.Operations
+	appLogger  logger.Logger
 }
 
 func NewHandler(cases HandlerUseCases, appLogger logger.Logger) (*Handler, error) {
@@ -136,10 +136,19 @@ func NewHandler(cases HandlerUseCases, appLogger logger.Logger) (*Handler, error
 	if cases.Delete == nil {
 		return nil, errors.New("delete review use case is nil")
 	}
+	return NewHandlerWithOperations(usecase.Operations{
+		List: cases.List.Run, Create: cases.Create.Run, Update: cases.Update.Run, Delete: cases.Delete.Run,
+	}, appLogger)
+}
+
+func NewHandlerWithOperations(operations usecase.Operations, appLogger logger.Logger) (*Handler, error) {
+	if operations.List == nil || operations.Create == nil || operations.Update == nil || operations.Delete == nil {
+		return nil, errors.New("reviews operations are required")
+	}
 	if appLogger == nil {
 		return nil, errors.New("logger is nil")
 	}
-	return &Handler{useCases: cases, appLogger: appLogger}, nil
+	return &Handler{operations: operations, appLogger: appLogger}, nil
 }
 
 type reviewRequest struct {
@@ -168,7 +177,7 @@ func (h *Handler) ListFilmReviews(w http.ResponseWriter, r *http.Request) {
 		limit,
 		offset,
 	)
-	result, err := h.useCases.List.Run(r.Context(), input)
+	result, err := h.operations.List(r.Context(), input)
 	if err != nil {
 		writeError(r.Context(), w, err, h.appLogger)
 		return
@@ -207,7 +216,7 @@ func (h *Handler) CreateReview(w http.ResponseWriter, r *http.Request) {
 		domain.FilmID(id),
 		input,
 	)
-	result, err := h.useCases.Create.Run(r.Context(), inputCreateReview)
+	result, err := h.operations.Create(r.Context(), inputCreateReview)
 	if err != nil {
 		writeError(r.Context(), w, err, h.appLogger)
 		return
@@ -242,7 +251,7 @@ func (h *Handler) UpdateReview(w http.ResponseWriter, r *http.Request) {
 		input,
 		version,
 	)
-	result, err := h.useCases.Update.Run(r.Context(), inputUpdateReview)
+	result, err := h.operations.Update(r.Context(), inputUpdateReview)
 	if err != nil {
 		writeError(r.Context(), w, err, h.appLogger)
 		return
@@ -269,7 +278,7 @@ func (h *Handler) DeleteReview(w http.ResponseWriter, r *http.Request) {
 		userID,
 		domain.ReviewID(id),
 	)
-	err := h.useCases.Delete.Run(r.Context(), input)
+	err := h.operations.Delete(r.Context(), input)
 	if err != nil {
 		writeError(r.Context(), w, err, h.appLogger)
 		return
