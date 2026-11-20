@@ -75,6 +75,8 @@ func invalidField(err error) string {
 		{domain.ErrInvalidTitle, "title"},
 		{domain.ErrInvalidContent, "content"},
 		{domain.ErrInvalidVersion, "version"},
+		{domain.ErrInvalidSearchQuery, "q"},
+		{domain.ErrInvalidSearchLimit, "limit"},
 	} {
 		if errors.Is(err, field.err) {
 			return field.name

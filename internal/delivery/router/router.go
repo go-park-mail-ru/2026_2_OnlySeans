@@ -13,6 +13,7 @@ import (
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/persons"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/ratings"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/reviews"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/search"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 )
 
@@ -29,6 +30,7 @@ type Handlers struct {
 	PersonalRating *ratings.MyRatingHandler
 	PersonCatalog  *persons.CatalogHandler
 	Assets         *assets.Handler
+	Search         *search.SearchHandler
 }
 
 func NewRouter(handlers Handlers, allowedOrigins []string, appLogger logger.Logger) (http.Handler, error) {
@@ -90,20 +92,28 @@ func NewRouter(handlers Handlers, allowedOrigins []string, appLogger logger.Logg
 		r.HandleFunc("/api/me/preferences", WrapMiddlewares(h.Preferences, authenticatedMiddlewares)).Methods(http.MethodGet)
 		r.HandleFunc("/api/me/preferences", WrapMiddlewares(h.SavePreference, authenticatedMiddlewares)).Methods(http.MethodPut)
 	}
+
 	if h := handlers.Profile; h != nil {
 		r.HandleFunc("/api/me/profile", WrapMiddlewares(h.Get, authenticatedMiddlewares)).Methods(http.MethodGet)
 		r.HandleFunc("/api/me/profile", WrapMiddlewares(h.Update, authenticatedMiddlewares)).Methods(http.MethodPut)
 		r.HandleFunc("/api/me", WrapMiddlewares(h.Update, authenticatedMiddlewares)).Methods(http.MethodPut)
 	}
+
 	if h := handlers.PersonalRating; h != nil {
 		r.HandleFunc("/api/films/{id}/rating/me", WrapMiddlewares(h.GetPersonalRating, authenticatedMiddlewares)).Methods(http.MethodGet)
 	}
+
 	if h := handlers.PersonCatalog; h != nil {
 		r.HandleFunc("/api/films/{id}/people", h.GetFilmPersons).Methods(http.MethodGet)
 		r.HandleFunc("/api/people/{id}", h.GetPersonCatalog).Methods(http.MethodGet)
 	}
+
 	if h := handlers.Assets; h != nil {
 		r.HandleFunc("/static/{key:.*}", h.GetAsset).Methods(http.MethodGet)
+	}
+
+	if h := handlers.Search; h != nil {
+		search.RegisterRoutes(r, h, appLogger)
 	}
 
 	csrf, err := newCSRFMiddleware(allowedOrigins)

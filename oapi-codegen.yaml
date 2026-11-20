@@ -1,0 +1,11 @@
+package: search
+output: internal/delivery/search/api.gen.go
+
+generate:
+  models: true
+  gorilla-server: true
+  strict-server: true
+
+output-options:
+  include-operation-ids:
+    - getSearchSuggestions
