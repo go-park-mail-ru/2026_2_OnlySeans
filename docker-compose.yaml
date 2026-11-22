@@ -32,7 +32,18 @@ services:
       timeout: 5s
       retries: 5
     restart: always
-
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./configs/prometheus.yaml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=7d"
+    restart: unless-stopped
   rustfs:
     image: rustfs/rustfs:1.0.4
     container_name: rustfs
@@ -82,3 +93,4 @@ volumes:
   db_data:
   redis_data:
   rustfs-data:
+  prometheus_data:

@@ -21,6 +21,7 @@ import (
 	ratingsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/ratings"
 	reviewsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/reviews"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/router"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/metrics"
 	authservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/auth"
 	filesservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/files"
 	filmsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/films"
@@ -421,20 +422,24 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 	personalRatingHandler := ratingsdelivery.NewMyRatingHandler(getMyRatingUC, appLogger)
 	personCatalogHandler := persondelivery.NewCatalogHandler(getFilmPersonsUC, getPersonCatalogUC, appLogger)
 	assetsHandler := assetsdelivery.NewHandler(s3Client, s3Cfg.Bucket, appLogger)
+	appMetrics := metrics.New()
+	metricsHandler := appMetrics.Handler()
 
 	httpHandler, err := router.NewRouter(router.Handlers{
-		Auth:           authHandler,
-		Films:          filmsHandler,
-		Reviews:        reviewsHandler,
-		Persons:        personsHandler,
-		Files:          filesHandler,
-		Posters:        postersHandler,
-		Ratings:        ratingsHandler,
-		Library:        libraryHandler,
-		Profile:        profileHandler,
-		PersonalRating: personalRatingHandler,
-		PersonCatalog:  personCatalogHandler,
-		Assets:         assetsHandler,
+		Auth:            authHandler,
+		Films:           filmsHandler,
+		Reviews:         reviewsHandler,
+		Persons:         personsHandler,
+		Files:           filesHandler,
+		Posters:         postersHandler,
+		Ratings:         ratingsHandler,
+		Library:         libraryHandler,
+		Profile:         profileHandler,
+		PersonalRating:  personalRatingHandler,
+		PersonCatalog:   personCatalogHandler,
+		Assets:          assetsHandler,
+		Metrics:         metricsHandler,
+		MetricsObserver: appMetrics,
 	}, cfg.Server.AllowedOrigins, appLogger)
 	if err != nil {
 		return fmt.Errorf("create router: %w", err)
