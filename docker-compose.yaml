@@ -44,6 +44,17 @@ services:
       - "--storage.tsdb.path=/prometheus"
       - "--storage.tsdb.retention.time=7d"
     restart: unless-stopped
+  
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
   rustfs:
     image: rustfs/rustfs:1.0.4
     container_name: rustfs
@@ -94,3 +105,4 @@ volumes:
   redis_data:
   rustfs-data:
   prometheus_data:
+  grafana_data:
