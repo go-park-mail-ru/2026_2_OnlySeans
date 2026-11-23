@@ -14,7 +14,6 @@ import (
 
 	authdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
-	usecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/reviews"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 )
 
@@ -111,35 +110,19 @@ var clientErrors = []struct {
 	},
 }
 
-type HandlerUseCases struct {
-	List   *usecase.ListReviewsUseCase
-	Create *usecase.CreateReviewUseCase
-	Update *usecase.UpdateReviewUseCase
-	Delete *usecase.DeleteReviewUseCase
-}
-
 type Handler struct {
-	useCases  HandlerUseCases
-	appLogger logger.Logger
+	operations Operations
+	appLogger  logger.Logger
 }
 
-func NewHandler(cases HandlerUseCases, appLogger logger.Logger) (*Handler, error) {
-	if cases.List == nil {
-		return nil, errors.New("list reviews use case is nil")
-	}
-	if cases.Create == nil {
-		return nil, errors.New("create review use case is nil")
-	}
-	if cases.Update == nil {
-		return nil, errors.New("update review use case is nil")
-	}
-	if cases.Delete == nil {
-		return nil, errors.New("delete review use case is nil")
+func NewHandlerWithOperations(operations Operations, appLogger logger.Logger) (*Handler, error) {
+	if operations.List == nil || operations.Create == nil || operations.Update == nil || operations.Delete == nil {
+		return nil, errors.New("reviews operations are required")
 	}
 	if appLogger == nil {
 		return nil, errors.New("logger is nil")
 	}
-	return &Handler{useCases: cases, appLogger: appLogger}, nil
+	return &Handler{operations: operations, appLogger: appLogger}, nil
 }
 
 type reviewRequest struct {
@@ -163,20 +146,15 @@ func (h *Handler) ListFilmReviews(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	input := usecase.NewListReviewsInput(
-		domain.FilmID(id),
-		limit,
-		offset,
-	)
-	result, err := h.useCases.List.Run(r.Context(), input)
+	reviews, total, err := h.operations.List(r.Context(), domain.FilmID(id), limit, offset)
 	if err != nil {
 		writeError(r.Context(), w, err, h.appLogger)
 		return
 	}
 
 	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, reviewsPage{
-		Reviews: toReviewResponseDTOs(result.Reviews),
-		Total:   result.Total,
+		Reviews: toReviewResponseDTOs(reviews),
+		Total:   total,
 		Limit:   limit,
 		Offset:  offset,
 	}, h.appLogger)
@@ -202,18 +180,13 @@ func (h *Handler) CreateReview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	inputCreateReview := usecase.NewCreateReviewInput(
-		userID,
-		domain.FilmID(id),
-		input,
-	)
-	result, err := h.useCases.Create.Run(r.Context(), inputCreateReview)
+	reviewID, err := h.operations.Create(r.Context(), userID, domain.FilmID(id), input)
 	if err != nil {
 		writeError(r.Context(), w, err, h.appLogger)
 		return
 	}
 
-	httpresponse.WriteJSONContext(r.Context(), w, http.StatusCreated, createReviewResponse{ID: result.ID}, h.appLogger)
+	httpresponse.WriteJSONContext(r.Context(), w, http.StatusCreated, createReviewResponse{ID: reviewID}, h.appLogger)
 }
 
 func (h *Handler) UpdateReview(w http.ResponseWriter, r *http.Request) {
@@ -236,19 +209,13 @@ func (h *Handler) UpdateReview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	inputUpdateReview := usecase.NewUpdateReviewInput(
-		userID,
-		domain.ReviewID(id),
-		input,
-		version,
-	)
-	result, err := h.useCases.Update.Run(r.Context(), inputUpdateReview)
+	review, err := h.operations.Update(r.Context(), userID, domain.ReviewID(id), input, version)
 	if err != nil {
 		writeError(r.Context(), w, err, h.appLogger)
 		return
 	}
 
-	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, reviewResponse{Review: toReviewResponseDTO(result.Review)}, h.appLogger)
+	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, reviewResponse{Review: toReviewResponseDTO(review)}, h.appLogger)
 }
 
 func (h *Handler) DeleteReview(w http.ResponseWriter, r *http.Request) {
@@ -265,11 +232,7 @@ func (h *Handler) DeleteReview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	input := usecase.NewDeleteReviewInput(
-		userID,
-		domain.ReviewID(id),
-	)
-	err := h.useCases.Delete.Run(r.Context(), input)
+	err := h.operations.Delete(r.Context(), userID, domain.ReviewID(id))
 	if err != nil {
 		writeError(r.Context(), w, err, h.appLogger)
 		return

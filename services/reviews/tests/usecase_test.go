@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
-	usecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/reviews"
+	usecase "github.com/go-park-mail-ru/2026_2_OnlySeans/services/reviews/internal/usecase"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/tests/mocks"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"

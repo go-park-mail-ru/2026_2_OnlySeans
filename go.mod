@@ -1,12 +1,14 @@
 module github.com/go-park-mail-ru/2026_2_OnlySeans
 
-go 1.26
+go 1.26.0
 
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/gorilla/mux v1.8.1
 	github.com/jackc/pgx/v5 v5.11.0
-	golang.org/x/crypto v0.21.0
+	golang.org/x/crypto v0.57.0
+	google.golang.org/grpc v1.85.0
+	google.golang.org/protobuf v1.36.12
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -29,9 +31,11 @@ require (
 	github.com/kr/text v0.2.0 // indirect
 	github.com/redis/rueidis v1.0.79 // indirect
 	github.com/rogpeppe/go-internal v1.16.0 // indirect
-	golang.org/x/sync v0.22.0 // indirect
-	golang.org/x/sys v0.47.0 // indirect
-	golang.org/x/text v0.41.0 // indirect
+	golang.org/x/net v0.60.0 // indirect
+	golang.org/x/sync v0.23.0 // indirect
+	golang.org/x/sys v0.48.0 // indirect
+	golang.org/x/text v0.42.0 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260817212433-ac3dfec99bb1 // indirect
 )
 
 require (

@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
-	reviews "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/reviews"
+	reviews "github.com/go-park-mail-ru/2026_2_OnlySeans/services/reviews/internal/repository"
 )
 
 func validInput() domain.ReviewInput {

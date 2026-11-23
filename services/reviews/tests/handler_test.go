@@ -66,12 +66,7 @@ func newTestRouter(t *testing.T, films domain.FilmRepository) *mux.Router {
 	t.Helper()
 
 	cases := newReviewCases(t, films)
-	h, err := reviewsdelivery.NewHandler(reviewsdelivery.HandlerUseCases{
-		List:   cases.list,
-		Create: cases.create,
-		Update: cases.update,
-		Delete: cases.delete,
-	}, newReviewsTestLogger())
+	h, err := reviewsdelivery.NewHandlerWithOperations(cases.operations(), newReviewsTestLogger())
 	require.NoError(t, err)
 
 	router := mux.NewRouter()
@@ -168,32 +163,27 @@ func silenceLog(t *testing.T) {
 func TestNewHandler_NilUseCases(t *testing.T) {
 	tests := []struct {
 		name    string
-		remove  func(*reviewsdelivery.HandlerUseCases, *logger.Logger)
+		remove  func(*reviewsdelivery.Operations, *logger.Logger)
 		wantErr string
 	}{
 		{"all dependencies", nil, ""},
-		{"nil list", func(c *reviewsdelivery.HandlerUseCases, _ *logger.Logger) { c.List = nil }, "list reviews use case is nil"},
-		{"nil create", func(c *reviewsdelivery.HandlerUseCases, _ *logger.Logger) { c.Create = nil }, "create review use case is nil"},
-		{"nil update", func(c *reviewsdelivery.HandlerUseCases, _ *logger.Logger) { c.Update = nil }, "update review use case is nil"},
-		{"nil delete", func(c *reviewsdelivery.HandlerUseCases, _ *logger.Logger) { c.Delete = nil }, "delete review use case is nil"},
-		{"nil logger", func(_ *reviewsdelivery.HandlerUseCases, l *logger.Logger) { *l = nil }, "logger is nil"},
+		{"nil list", func(c *reviewsdelivery.Operations, _ *logger.Logger) { c.List = nil }, "reviews operations are required"},
+		{"nil create", func(c *reviewsdelivery.Operations, _ *logger.Logger) { c.Create = nil }, "reviews operations are required"},
+		{"nil update", func(c *reviewsdelivery.Operations, _ *logger.Logger) { c.Update = nil }, "reviews operations are required"},
+		{"nil delete", func(c *reviewsdelivery.Operations, _ *logger.Logger) { c.Delete = nil }, "reviews operations are required"},
+		{"nil logger", func(_ *reviewsdelivery.Operations, l *logger.Logger) { *l = nil }, "logger is nil"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			useCases := newReviewCases(t, testFilms(t, nil))
-			cases := reviewsdelivery.HandlerUseCases{
-				List:   useCases.list,
-				Create: useCases.create,
-				Update: useCases.update,
-				Delete: useCases.delete,
-			}
+			cases := useCases.operations()
 			appLogger := newReviewsTestLogger()
 			if tt.remove != nil {
 				tt.remove(&cases, &appLogger)
 			}
 
-			h, err := reviewsdelivery.NewHandler(cases, appLogger)
+			h, err := reviewsdelivery.NewHandlerWithOperations(cases, appLogger)
 			if tt.wantErr != "" {
 				assert.Nil(t, h)
 				assert.EqualError(t, err, tt.wantErr)
