@@ -1,0 +1,84 @@
+syntax = "proto3";
+
+package user.v1;
+
+option go_package = "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/user;userv1";
+
+service UserService {
+    rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
+    rpc GetByID(GetByIDRequest) returns (GetByIDResponse);
+    rpc UpdateProfile(UpdateProfileRequest) returns (UpdateProfileResponse);
+    rpc GetAvatarURL(GetAvatarURLRequest) returns (GetAvatarURLResponse);
+    rpc UpdateAvatar(UpdateAvatarRequest) returns (UpdateAvatarResponse);
+    rpc DeleteAvatar(DeleteAvatarRequest) returns (DeleteAvatarResponse);
+    rpc GetByEmail(GetByEmailRequest) returns (GetByEmailResponse);
+}
+
+message User {
+    int64 id = 1;
+    string email = 2;
+    string username = 3;
+    string role = 4;
+    optional string avatar_filename = 5;
+}
+
+message CreateUserRequest {
+    string email = 1;
+    string username = 2;
+    string password = 3;
+}
+
+message CreateUserResponse {
+    int64 user_id = 1;
+}
+
+message GetByIDRequest {
+    int64 user_id = 1;
+}
+
+message GetByIDResponse {
+    User user = 1;
+}
+
+message UpdateProfileRequest {
+    int64 user_id = 1;
+    optional string username = 2;
+    optional string email = 3;
+}
+
+message UpdateProfileResponse {
+    User user = 1;
+}
+
+message GetAvatarURLRequest {
+    int64 user_id = 1;
+}
+
+message GetAvatarURLResponse {
+    string url = 1;
+}
+
+message UpdateAvatarRequest {
+    int64 user_id = 1;
+    bytes image_data = 2;
+}
+
+message UpdateAvatarResponse {
+    string avatar_filename = 1;
+}
+
+message DeleteAvatarRequest {
+    int64 user_id = 1;
+}
+
+message DeleteAvatarResponse {}
+
+message GetByEmailRequest {
+    string email = 1;
+}
+
+message GetByEmailResponse {
+    int64 user_id = 1;
+    string role = 2;
+    string password_hash = 3;
+}
