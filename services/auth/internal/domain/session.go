@@ -1,7 +1,6 @@
 package domain
 
 import (
-	"context"
 	"time"
 
 	"github.com/google/uuid"
@@ -29,11 +28,4 @@ type PasswordHasher interface {
 
 type PasswordVerifier interface {
 	Verify(password, hash string) error
-}
-
-type UserRepository interface {
-	UpdateProfile(ctx context.Context, id UserID, email, username string) (*User, error)
-	Create(ctx context.Context, email, username, passwordHash string) (UserID, error)
-	GetByEmail(ctx context.Context, email string) (*User, error)
-	GetUser(ctx context.Context, id UserID) (*User, error)
 }

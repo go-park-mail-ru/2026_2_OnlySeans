@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/utils"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/services/user/internal/domain"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/services/user/internal/repository"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/imageutil"
@@ -19,7 +21,7 @@ type UserUseCase interface {
 	Create(ctx context.Context, user domain.User, password string) (int64, error)
 	GetByID(ctx context.Context, userID int64) (domain.User, error)
 	GetByEmail(ctx context.Context, email string) (domain.User, error)
-	UpdateProfile(ctx context.Context, userID int64, name, email *string) error
+	UpdateProfile(ctx context.Context, userID int64, name, email *string) (domain.User, error)
 	GetAvatarURL(ctx context.Context, userID int64) (string, error)
 	UpdateAvatar(ctx context.Context, userID int64, imageData []byte) (string, error)
 	DeleteAvatar(ctx context.Context, userID int64) error
@@ -42,10 +44,22 @@ func NewUserUseCase(ur repository.UserRepository, avatars repository.AvatarRepos
 }
 
 func (u *userUseCase) Create(ctx context.Context, user domain.User, password string) (int64, error) {
+	user.Email = strings.TrimSpace(user.Email)
+	user.Username = strings.TrimSpace(user.Username)
+
+	if err := utils.ValidateEmail(user.Email); err != nil {
+		return 0, domain.ErrInvalidEmail
+	}
+
+	if err := utils.ValidateUsername(user.Username); err != nil {
+		return 0, domain.ErrInvalidUsername
+	}
+
 	hashedPassword, err := (&passUtil.BcryptPasswordService{}).Hash(password)
 	if err != nil {
 		return 0, fmt.Errorf("failed to hash password: %w", err)
 	}
+
 	user.PasswordHash = hashedPassword
 
 	id, err := u.userRepo.CreateUser(ctx, user)
@@ -53,6 +67,7 @@ func (u *userUseCase) Create(ctx context.Context, user domain.User, password str
 		if errors.Is(err, domain.ErrEmailAlreadyExists) {
 			return 0, err
 		}
+
 		return 0, fmt.Errorf("failed to create user in db: %w", err)
 	}
 
@@ -85,16 +100,36 @@ func (u *userUseCase) GetByEmail(ctx context.Context, email string) (domain.User
 	return user, nil
 }
 
-func (u *userUseCase) UpdateProfile(ctx context.Context, userID int64, name, email *string) error {
-	_, err := u.userRepo.UpdateProfile(ctx, userID, name, email)
-	if err != nil {
-		if errors.Is(err, domain.ErrUserNotFound) || errors.Is(err, domain.ErrEmailAlreadyExists) {
-			return err
+func (u *userUseCase) UpdateProfile(ctx context.Context, userID int64, name, email *string) (domain.User, error) {
+	if email != nil {
+		value := strings.TrimSpace(*email)
+
+		if err := utils.ValidateEmail(value); err != nil {
+			return domain.User{}, domain.ErrInvalidEmail
 		}
-		return fmt.Errorf("failed to update user profile: %w", err)
+
+		email = &value
 	}
 
-	return nil
+	if name != nil {
+		value := strings.TrimSpace(*name)
+
+		if err := utils.ValidateUsername(value); err != nil {
+			return domain.User{}, domain.ErrInvalidUsername
+		}
+
+		name = &value
+	}
+
+	user, err := u.userRepo.UpdateProfile(ctx, userID, name, email)
+	if err != nil {
+		if errors.Is(err, domain.ErrUserNotFound) || errors.Is(err, domain.ErrEmailAlreadyExists) {
+			return domain.User{}, err
+		}
+		return domain.User{}, fmt.Errorf("failed to update user profile: %w", err)
+	}
+
+	return user, nil
 }
 
 func (u *userUseCase) GetAvatarURL(ctx context.Context, userID int64) (string, error) {

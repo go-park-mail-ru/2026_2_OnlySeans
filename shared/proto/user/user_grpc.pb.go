@@ -26,6 +26,7 @@ const (
 	UserService_UpdateAvatar_FullMethodName  = "/user.v1.UserService/UpdateAvatar"
 	UserService_DeleteAvatar_FullMethodName  = "/user.v1.UserService/DeleteAvatar"
 	UserService_GetByEmail_FullMethodName    = "/user.v1.UserService/GetByEmail"
+	UserService_GetProfile_FullMethodName    = "/user.v1.UserService/GetProfile"
 )
 
 // UserServiceClient is the client API for UserService service.
@@ -39,6 +40,7 @@ type UserServiceClient interface {
 	UpdateAvatar(ctx context.Context, in *UpdateAvatarRequest, opts ...grpc.CallOption) (*UpdateAvatarResponse, error)
 	DeleteAvatar(ctx context.Context, in *DeleteAvatarRequest, opts ...grpc.CallOption) (*DeleteAvatarResponse, error)
 	GetByEmail(ctx context.Context, in *GetByEmailRequest, opts ...grpc.CallOption) (*GetByEmailResponse, error)
+	GetProfile(ctx context.Context, in *GetProfileRequest, opts ...grpc.CallOption) (*GetProfileResponse, error)
 }
 
 type userServiceClient struct {
@@ -119,6 +121,16 @@ func (c *userServiceClient) GetByEmail(ctx context.Context, in *GetByEmailReques
 	return out, nil
 }
 
+func (c *userServiceClient) GetProfile(ctx context.Context, in *GetProfileRequest, opts ...grpc.CallOption) (*GetProfileResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetProfileResponse)
+	err := c.cc.Invoke(ctx, UserService_GetProfile_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // UserServiceServer is the server API for UserService service.
 // All implementations must embed UnimplementedUserServiceServer
 // for forward compatibility.
@@ -130,6 +142,7 @@ type UserServiceServer interface {
 	UpdateAvatar(context.Context, *UpdateAvatarRequest) (*UpdateAvatarResponse, error)
 	DeleteAvatar(context.Context, *DeleteAvatarRequest) (*DeleteAvatarResponse, error)
 	GetByEmail(context.Context, *GetByEmailRequest) (*GetByEmailResponse, error)
+	GetProfile(context.Context, *GetProfileRequest) (*GetProfileResponse, error)
 	mustEmbedUnimplementedUserServiceServer()
 }
 
@@ -160,6 +173,9 @@ func (UnimplementedUserServiceServer) DeleteAvatar(context.Context, *DeleteAvata
 }
 func (UnimplementedUserServiceServer) GetByEmail(context.Context, *GetByEmailRequest) (*GetByEmailResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetByEmail not implemented")
+}
+func (UnimplementedUserServiceServer) GetProfile(context.Context, *GetProfileRequest) (*GetProfileResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetProfile not implemented")
 }
 func (UnimplementedUserServiceServer) mustEmbedUnimplementedUserServiceServer() {}
 func (UnimplementedUserServiceServer) testEmbeddedByValue()                     {}
@@ -308,6 +324,24 @@ func _UserService_GetByEmail_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _UserService_GetProfile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetProfileRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).GetProfile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_GetProfile_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).GetProfile(ctx, req.(*GetProfileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // UserService_ServiceDesc is the grpc.ServiceDesc for UserService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -342,6 +376,10 @@ var UserService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetByEmail",
 			Handler:    _UserService_GetByEmail_Handler,
+		},
+		{
+			MethodName: "GetProfile",
+			Handler:    _UserService_GetProfile_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

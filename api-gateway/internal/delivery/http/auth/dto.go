@@ -1,5 +1,9 @@
 package auth
 
+import (
+	pbUser "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/user"
+)
+
 type registerRequest struct {
 	Email    string `json:"email"`
 	Username string `json:"username"`
@@ -25,7 +29,7 @@ type authResponse struct {
 func toAuthResponse(user *pbUser.User) authResponse {
 	return authResponse{
 		User: userResponse{
-			ID:             user.ID,
+			ID:             user.Id,
 			Email:          user.Email,
 			Username:       user.Username,
 			AvatarFilename: user.AvatarFilename,

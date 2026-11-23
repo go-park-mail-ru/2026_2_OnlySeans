@@ -12,7 +12,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/config"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/storage"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/logger"
 )
@@ -71,7 +70,14 @@ func (s *S3Storage) UploadFile(ctx context.Context, key, contentType string, dat
 
 func (s *S3Storage) GetURL(ctx context.Context, key string) (_ string, operationErr error) {
 	operation := storage.StartOperation(ctx, s.appLogger, "s3", "object.geturl", map[string]any{"bucket": s.bucket, "storage_key": key})
-	defer func() { operation.Finish(operationErr) }()
+	defer func() {
+		if errors.Is(operationErr, ErrFileNotFound) {
+			operation.NotFound = true
+			operation.Finish(nil)
+			return
+		}
+		operation.Finish(operationErr)
+	}()
 	_, err := s.client.HeadObject(ctx, &s3.HeadObjectInput{
 		Bucket: aws.String(s.bucket),
 		Key:    aws.String(key),
@@ -79,7 +85,7 @@ func (s *S3Storage) GetURL(ctx context.Context, key string) (_ string, operation
 	if err != nil {
 		var notFound *types.NotFound
 		if errors.As(err, &notFound) {
-			return "", domain.ErrFileNotFound
+			return "", ErrFileNotFound
 		}
 		return "", fmt.Errorf("check object: %w", err)
 	}

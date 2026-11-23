@@ -59,14 +59,20 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := h.authClient.IssueSession(ctx, userID, roleUser)
+	user, err := h.userClient.GetByID(ctx, userID)
 	if err != nil {
 		writeRegisterError(ctx, w, err, l)
 		return
 	}
 
-	h.setSessionCookie(w, result.Session.Id, result.Session.ExpiresAt.AsTime())
-	httpresponse.WriteJSONContext(ctx, w, http.StatusCreated, toAuthResponse(result.User), l)
+	session, err := h.authClient.IssueSession(ctx, userID, roleUser)
+	if err != nil {
+		writeRegisterError(ctx, w, err, l)
+		return
+	}
+
+	h.setSessionCookie(w, session.GetId(), session.GetExpiresAt().AsTime())
+	httpresponse.WriteJSONContext(ctx, w, http.StatusCreated, toAuthResponse(user), l)
 }
 
 func writeRegisterError(ctx context.Context, w http.ResponseWriter, err error, appLogger logger.Logger) {
@@ -102,20 +108,20 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 	req.Email = strings.TrimSpace(req.Email)
 
-	userID, err := h.authClient.Login(ctx, req.Email, req.Password)
+	session, err := h.authClient.Login(ctx, req.Email, req.Password)
 	if err != nil {
 		writeLoginError(ctx, w, err, l)
 		return
 	}
 
-	result, err := h.userClient.GetByID(ctx, userID)
+	user, err := h.userClient.GetByID(ctx, session.GetUserId())
 	if err != nil {
 		writeLoginError(ctx, w, err, l)
 		return
 	}
 
-	h.setSessionCookie(w, result.Session.Id, result.Session.ExpiresAt.AsTime())
-	httpresponse.WriteJSONContext(ctx, w, http.StatusOK, toAuthResponse(result.User), l)
+	h.setSessionCookie(w, session.GetId(), session.GetExpiresAt().AsTime())
+	httpresponse.WriteJSONContext(ctx, w, http.StatusOK, toAuthResponse(user), l)
 }
 
 func writeLoginError(ctx context.Context, w http.ResponseWriter, err error, appLogger logger.Logger) {
@@ -199,5 +205,7 @@ func (h *AuthHandler) CanEditPersons(ctx context.Context, userID int64) (bool, e
 	if err != nil {
 		return false, err
 	}
-	return user.Role.CanEditPersons(), nil
+
+	role := user.GetRole()
+	return role == middleware.RoleAdmin || role == middleware.RoleEditor, nil
 }

@@ -3,6 +3,10 @@ package authclient
 import (
 	"context"
 	"errors"
+
+	pbAuth "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/auth"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 var (
@@ -27,7 +31,7 @@ type authClient struct {
 	client pbAuth.AuthServiceClient
 }
 
-func NewAuthClient(cl pbAuth.pbAuthServiceClient) AuthClient {
+func NewAuthClient(cl pbAuth.AuthServiceClient) AuthClient {
 	return &authClient{
 		client: cl,
 	}
@@ -35,7 +39,7 @@ func NewAuthClient(cl pbAuth.pbAuthServiceClient) AuthClient {
 
 func (c *authClient) IssueSession(ctx context.Context, userID int64, role string) (*pbAuth.Session, error) {
 	resp, err := c.client.IssueSession(ctx, &pbAuth.IssueSessionRequest{
-		UserID: userID,
+		UserId: userID,
 		Role:   role,
 	})
 	if err != nil {
@@ -64,7 +68,7 @@ func (c *authClient) Login(ctx context.Context, email, password string) (*pbAuth
 
 func (c *authClient) Logout(ctx context.Context, sessionID string) error {
 	_, err := c.client.Logout(ctx, &pbAuth.LogoutRequest{
-		SessionID: sessionID,
+		SessionId: sessionID,
 	})
 	return err
 }
@@ -75,14 +79,14 @@ func (c *authClient) CheckSession(ctx context.Context, sessionId string) (Sessio
 	})
 	if err != nil {
 		st, ok := status.FromError(err)
-		if ok && (st.Code() == codes.NotFound || st.Code() == codes.Unaurhenticated) {
+		if ok && (st.Code() == codes.NotFound || st.Code() == codes.Unauthenticated) {
 			return SessionInfo{}, ErrSessionNotFound
 		}
 
 		return SessionInfo{}, ErrInternal
 	}
 	return SessionInfo{
-		UserID: resp.UserID,
-		Role:   resp.Role,
+		UserID: resp.GetUserId(),
+		Role:   resp.GetRole(),
 	}, nil
 }

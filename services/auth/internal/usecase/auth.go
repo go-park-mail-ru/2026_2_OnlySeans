@@ -54,8 +54,12 @@ func (u *authUseCase) Login(ctx context.Context, email, password string) (*domai
 	email = strings.ToLower(strings.TrimSpace(email))
 
 	currUser, err := u.userClient.GetUserByEmail(ctx, email)
-	if err != nil {
+	if errors.Is(err, domain.ErrUserNotFound) {
 		return nil, domain.ErrInvalidCredentials
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("get user by email: %w", err)
 	}
 
 	if err := u.passwordVerifier.Verify(password, currUser.PasswordHash); err != nil {

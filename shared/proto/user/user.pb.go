@@ -9,6 +9,7 @@ package userv1
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -761,11 +762,239 @@ func (x *GetByEmailResponse) GetPasswordHash() string {
 	return ""
 }
 
+type GetProfileRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        int64                  `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetProfileRequest) Reset() {
+	*x = GetProfileRequest{}
+	mi := &file_shared_proto_user_user_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetProfileRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetProfileRequest) ProtoMessage() {}
+
+func (x *GetProfileRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_shared_proto_user_user_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetProfileRequest.ProtoReflect.Descriptor instead.
+func (*GetProfileRequest) Descriptor() ([]byte, []int) {
+	return file_shared_proto_user_user_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *GetProfileRequest) GetUserId() int64 {
+	if x != nil {
+		return x.UserId
+	}
+	return 0
+}
+
+type GetProfileResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	User          *User                  `protobuf:"bytes,1,opt,name=user,proto3" json:"user,omitempty"`
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	Favorites     []*ProfileFilm         `protobuf:"bytes,3,rep,name=favorites,proto3" json:"favorites,omitempty"`
+	Ratings       []*ProfileFilm         `protobuf:"bytes,4,rep,name=ratings,proto3" json:"ratings,omitempty"`
+	Reviews       int64                  `protobuf:"varint,5,opt,name=reviews,proto3" json:"reviews,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetProfileResponse) Reset() {
+	*x = GetProfileResponse{}
+	mi := &file_shared_proto_user_user_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetProfileResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetProfileResponse) ProtoMessage() {}
+
+func (x *GetProfileResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_shared_proto_user_user_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetProfileResponse.ProtoReflect.Descriptor instead.
+func (*GetProfileResponse) Descriptor() ([]byte, []int) {
+	return file_shared_proto_user_user_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *GetProfileResponse) GetUser() *User {
+	if x != nil {
+		return x.User
+	}
+	return nil
+}
+
+func (x *GetProfileResponse) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *GetProfileResponse) GetFavorites() []*ProfileFilm {
+	if x != nil {
+		return x.Favorites
+	}
+	return nil
+}
+
+func (x *GetProfileResponse) GetRatings() []*ProfileFilm {
+	if x != nil {
+		return x.Ratings
+	}
+	return nil
+}
+
+func (x *GetProfileResponse) GetReviews() int64 {
+	if x != nil {
+		return x.Reviews
+	}
+	return 0
+}
+
+type ProfileFilm struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Title         string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
+	Year          int32                  `protobuf:"varint,3,opt,name=year,proto3" json:"year,omitempty"`
+	Type          string                 `protobuf:"bytes,4,opt,name=type,proto3" json:"type,omitempty"`
+	AgeLimit      int32                  `protobuf:"varint,5,opt,name=age_limit,json=ageLimit,proto3" json:"age_limit,omitempty"`
+	Genres        string                 `protobuf:"bytes,6,opt,name=genres,proto3" json:"genres,omitempty"`
+	Poster        *string                `protobuf:"bytes,7,opt,name=poster,proto3,oneof" json:"poster,omitempty"`
+	Average       float64                `protobuf:"fixed64,8,opt,name=average,proto3" json:"average,omitempty"`
+	Score         *int32                 `protobuf:"varint,9,opt,name=score,proto3,oneof" json:"score,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ProfileFilm) Reset() {
+	*x = ProfileFilm{}
+	mi := &file_shared_proto_user_user_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ProfileFilm) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ProfileFilm) ProtoMessage() {}
+
+func (x *ProfileFilm) ProtoReflect() protoreflect.Message {
+	mi := &file_shared_proto_user_user_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ProfileFilm.ProtoReflect.Descriptor instead.
+func (*ProfileFilm) Descriptor() ([]byte, []int) {
+	return file_shared_proto_user_user_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *ProfileFilm) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *ProfileFilm) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
+func (x *ProfileFilm) GetYear() int32 {
+	if x != nil {
+		return x.Year
+	}
+	return 0
+}
+
+func (x *ProfileFilm) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
+func (x *ProfileFilm) GetAgeLimit() int32 {
+	if x != nil {
+		return x.AgeLimit
+	}
+	return 0
+}
+
+func (x *ProfileFilm) GetGenres() string {
+	if x != nil {
+		return x.Genres
+	}
+	return ""
+}
+
+func (x *ProfileFilm) GetPoster() string {
+	if x != nil && x.Poster != nil {
+		return *x.Poster
+	}
+	return ""
+}
+
+func (x *ProfileFilm) GetAverage() float64 {
+	if x != nil {
+		return x.Average
+	}
+	return 0
+}
+
+func (x *ProfileFilm) GetScore() int32 {
+	if x != nil && x.Score != nil {
+		return *x.Score
+	}
+	return 0
+}
+
 var File_shared_proto_user_user_proto protoreflect.FileDescriptor
 
 const file_shared_proto_user_user_proto_rawDesc = "" +
 	"\n" +
-	"\x1cshared/proto/user/user.proto\x12\auser.v1\"\x9e\x01\n" +
+	"\x1cshared/proto/user/user.proto\x12\auser.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x9e\x01\n" +
 	"\x04User\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x14\n" +
 	"\x05email\x18\x02 \x01(\tR\x05email\x12\x1a\n" +
@@ -809,7 +1038,28 @@ const file_shared_proto_user_user_proto_rawDesc = "" +
 	"\x12GetByEmailResponse\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\x03R\x06userId\x12\x12\n" +
 	"\x04role\x18\x02 \x01(\tR\x04role\x12#\n" +
-	"\rpassword_hash\x18\x03 \x01(\tR\fpasswordHash2\x90\x04\n" +
+	"\rpassword_hash\x18\x03 \x01(\tR\fpasswordHash\",\n" +
+	"\x11GetProfileRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\x03R\x06userId\"\xf0\x01\n" +
+	"\x12GetProfileResponse\x12!\n" +
+	"\x04user\x18\x01 \x01(\v2\r.user.v1.UserR\x04user\x129\n" +
+	"\n" +
+	"created_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x122\n" +
+	"\tfavorites\x18\x03 \x03(\v2\x14.user.v1.ProfileFilmR\tfavorites\x12.\n" +
+	"\aratings\x18\x04 \x03(\v2\x14.user.v1.ProfileFilmR\aratings\x12\x18\n" +
+	"\areviews\x18\x05 \x01(\x03R\areviews\"\xf7\x01\n" +
+	"\vProfileFilm\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x14\n" +
+	"\x05title\x18\x02 \x01(\tR\x05title\x12\x12\n" +
+	"\x04year\x18\x03 \x01(\x05R\x04year\x12\x12\n" +
+	"\x04type\x18\x04 \x01(\tR\x04type\x12\x1b\n" +
+	"\tage_limit\x18\x05 \x01(\x05R\bageLimit\x12\x16\n" +
+	"\x06genres\x18\x06 \x01(\tR\x06genres\x12\x1b\n" +
+	"\x06poster\x18\a \x01(\tH\x00R\x06poster\x88\x01\x01\x12\x18\n" +
+	"\aaverage\x18\b \x01(\x01R\aaverage\x12\x19\n" +
+	"\x05score\x18\t \x01(\x05H\x01R\x05score\x88\x01\x01B\t\n" +
+	"\a_posterB\b\n" +
+	"\x06_score2\xd7\x04\n" +
 	"\vUserService\x12E\n" +
 	"\n" +
 	"CreateUser\x12\x1a.user.v1.CreateUserRequest\x1a\x1b.user.v1.CreateUserResponse\x12<\n" +
@@ -819,7 +1069,9 @@ const file_shared_proto_user_user_proto_rawDesc = "" +
 	"\fUpdateAvatar\x12\x1c.user.v1.UpdateAvatarRequest\x1a\x1d.user.v1.UpdateAvatarResponse\x12K\n" +
 	"\fDeleteAvatar\x12\x1c.user.v1.DeleteAvatarRequest\x1a\x1d.user.v1.DeleteAvatarResponse\x12E\n" +
 	"\n" +
-	"GetByEmail\x12\x1a.user.v1.GetByEmailRequest\x1a\x1b.user.v1.GetByEmailResponseBFZDgithub.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/user;userv1b\x06proto3"
+	"GetByEmail\x12\x1a.user.v1.GetByEmailRequest\x1a\x1b.user.v1.GetByEmailResponse\x12E\n" +
+	"\n" +
+	"GetProfile\x12\x1a.user.v1.GetProfileRequest\x1a\x1b.user.v1.GetProfileResponseBFZDgithub.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/user;userv1b\x06proto3"
 
 var (
 	file_shared_proto_user_user_proto_rawDescOnce sync.Once
@@ -833,7 +1085,7 @@ func file_shared_proto_user_user_proto_rawDescGZIP() []byte {
 	return file_shared_proto_user_user_proto_rawDescData
 }
 
-var file_shared_proto_user_user_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
+var file_shared_proto_user_user_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
 var file_shared_proto_user_user_proto_goTypes = []any{
 	(*User)(nil),                  // 0: user.v1.User
 	(*CreateUserRequest)(nil),     // 1: user.v1.CreateUserRequest
@@ -850,29 +1102,39 @@ var file_shared_proto_user_user_proto_goTypes = []any{
 	(*DeleteAvatarResponse)(nil),  // 12: user.v1.DeleteAvatarResponse
 	(*GetByEmailRequest)(nil),     // 13: user.v1.GetByEmailRequest
 	(*GetByEmailResponse)(nil),    // 14: user.v1.GetByEmailResponse
+	(*GetProfileRequest)(nil),     // 15: user.v1.GetProfileRequest
+	(*GetProfileResponse)(nil),    // 16: user.v1.GetProfileResponse
+	(*ProfileFilm)(nil),           // 17: user.v1.ProfileFilm
+	(*timestamppb.Timestamp)(nil), // 18: google.protobuf.Timestamp
 }
 var file_shared_proto_user_user_proto_depIdxs = []int32{
 	0,  // 0: user.v1.GetByIDResponse.user:type_name -> user.v1.User
 	0,  // 1: user.v1.UpdateProfileResponse.user:type_name -> user.v1.User
-	1,  // 2: user.v1.UserService.CreateUser:input_type -> user.v1.CreateUserRequest
-	3,  // 3: user.v1.UserService.GetByID:input_type -> user.v1.GetByIDRequest
-	5,  // 4: user.v1.UserService.UpdateProfile:input_type -> user.v1.UpdateProfileRequest
-	7,  // 5: user.v1.UserService.GetAvatarURL:input_type -> user.v1.GetAvatarURLRequest
-	9,  // 6: user.v1.UserService.UpdateAvatar:input_type -> user.v1.UpdateAvatarRequest
-	11, // 7: user.v1.UserService.DeleteAvatar:input_type -> user.v1.DeleteAvatarRequest
-	13, // 8: user.v1.UserService.GetByEmail:input_type -> user.v1.GetByEmailRequest
-	2,  // 9: user.v1.UserService.CreateUser:output_type -> user.v1.CreateUserResponse
-	4,  // 10: user.v1.UserService.GetByID:output_type -> user.v1.GetByIDResponse
-	6,  // 11: user.v1.UserService.UpdateProfile:output_type -> user.v1.UpdateProfileResponse
-	8,  // 12: user.v1.UserService.GetAvatarURL:output_type -> user.v1.GetAvatarURLResponse
-	10, // 13: user.v1.UserService.UpdateAvatar:output_type -> user.v1.UpdateAvatarResponse
-	12, // 14: user.v1.UserService.DeleteAvatar:output_type -> user.v1.DeleteAvatarResponse
-	14, // 15: user.v1.UserService.GetByEmail:output_type -> user.v1.GetByEmailResponse
-	9,  // [9:16] is the sub-list for method output_type
-	2,  // [2:9] is the sub-list for method input_type
-	2,  // [2:2] is the sub-list for extension type_name
-	2,  // [2:2] is the sub-list for extension extendee
-	0,  // [0:2] is the sub-list for field type_name
+	0,  // 2: user.v1.GetProfileResponse.user:type_name -> user.v1.User
+	18, // 3: user.v1.GetProfileResponse.created_at:type_name -> google.protobuf.Timestamp
+	17, // 4: user.v1.GetProfileResponse.favorites:type_name -> user.v1.ProfileFilm
+	17, // 5: user.v1.GetProfileResponse.ratings:type_name -> user.v1.ProfileFilm
+	1,  // 6: user.v1.UserService.CreateUser:input_type -> user.v1.CreateUserRequest
+	3,  // 7: user.v1.UserService.GetByID:input_type -> user.v1.GetByIDRequest
+	5,  // 8: user.v1.UserService.UpdateProfile:input_type -> user.v1.UpdateProfileRequest
+	7,  // 9: user.v1.UserService.GetAvatarURL:input_type -> user.v1.GetAvatarURLRequest
+	9,  // 10: user.v1.UserService.UpdateAvatar:input_type -> user.v1.UpdateAvatarRequest
+	11, // 11: user.v1.UserService.DeleteAvatar:input_type -> user.v1.DeleteAvatarRequest
+	13, // 12: user.v1.UserService.GetByEmail:input_type -> user.v1.GetByEmailRequest
+	15, // 13: user.v1.UserService.GetProfile:input_type -> user.v1.GetProfileRequest
+	2,  // 14: user.v1.UserService.CreateUser:output_type -> user.v1.CreateUserResponse
+	4,  // 15: user.v1.UserService.GetByID:output_type -> user.v1.GetByIDResponse
+	6,  // 16: user.v1.UserService.UpdateProfile:output_type -> user.v1.UpdateProfileResponse
+	8,  // 17: user.v1.UserService.GetAvatarURL:output_type -> user.v1.GetAvatarURLResponse
+	10, // 18: user.v1.UserService.UpdateAvatar:output_type -> user.v1.UpdateAvatarResponse
+	12, // 19: user.v1.UserService.DeleteAvatar:output_type -> user.v1.DeleteAvatarResponse
+	14, // 20: user.v1.UserService.GetByEmail:output_type -> user.v1.GetByEmailResponse
+	16, // 21: user.v1.UserService.GetProfile:output_type -> user.v1.GetProfileResponse
+	14, // [14:22] is the sub-list for method output_type
+	6,  // [6:14] is the sub-list for method input_type
+	6,  // [6:6] is the sub-list for extension type_name
+	6,  // [6:6] is the sub-list for extension extendee
+	0,  // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_shared_proto_user_user_proto_init() }
@@ -882,13 +1144,14 @@ func file_shared_proto_user_user_proto_init() {
 	}
 	file_shared_proto_user_user_proto_msgTypes[0].OneofWrappers = []any{}
 	file_shared_proto_user_user_proto_msgTypes[5].OneofWrappers = []any{}
+	file_shared_proto_user_user_proto_msgTypes[17].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_shared_proto_user_user_proto_rawDesc), len(file_shared_proto_user_user_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   15,
+			NumMessages:   18,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
