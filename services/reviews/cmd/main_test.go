@@ -11,11 +11,12 @@ import (
 
 	authdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
 	reviewsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/reviews"
-	reviewsgrpc "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/reviews/grpc"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
-	reviewsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/reviews"
+	reviewsclient "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/grpc_client/reviews"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
-	reviewspb "github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/reviews"
+	reviewsgrpc "github.com/go-park-mail-ru/2026_2_OnlySeans/services/reviews/internal/delivery/grpc"
+	reviewsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/services/reviews/internal/usecase"
+	reviewspb "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/reviews"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/tests/mocks"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/tests/testutil"
 	"github.com/gorilla/mux"
@@ -93,8 +94,8 @@ func TestHTTPReviewsThroughGRPC(t *testing.T) {
 	_, err := unauthenticated.DeleteReview(ctx, &reviewspb.DeleteReviewRequest{ReviewId: 7, UserId: 5})
 	require.Equal(t, codes.Unauthenticated, status.Code(err))
 
-	client := reviewsClient(t, listener, grpc.WithUnaryInterceptor(reviewsgrpc.AuthorizeRequest(token)))
-	handler, err := reviewsdelivery.NewHandlerWithOperations(reviewsgrpc.ClientOperations(client), testutil.DiscardLogger())
+	client := reviewsClient(t, listener, grpc.WithUnaryInterceptor(reviewsclient.AuthorizeRequest(token)))
+	handler, err := reviewsdelivery.NewHandlerWithOperations(reviewsclient.Operations(client), testutil.DiscardLogger())
 	require.NoError(t, err)
 
 	router := mux.NewRouter()

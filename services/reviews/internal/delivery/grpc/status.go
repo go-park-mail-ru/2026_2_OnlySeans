@@ -9,7 +9,6 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// разные ошибки с одним gRPC-кодом сохраняют свои сообщения и HTTP-статусы
 var reviewErrors = []struct {
 	cause error
 	code  codes.Code
@@ -35,17 +34,4 @@ func rpcError(err error) error {
 		return status.FromContextError(err).Err()
 	}
 	return status.Error(codes.Internal, "reviews operation failed")
-}
-
-func domainError(err error) error {
-	rpcStatus, ok := status.FromError(err)
-	if !ok {
-		return err
-	}
-	for _, mapped := range reviewErrors {
-		if rpcStatus.Code() == mapped.code && rpcStatus.Message() == mapped.cause.Error() {
-			return mapped.cause
-		}
-	}
-	return err
 }

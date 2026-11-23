@@ -9,13 +9,13 @@ import (
 	"os"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/config"
-	reviewsgrpc "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/reviews/grpc"
 	filmsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/films"
-	reviewsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/reviews"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/storage"
-	reviewsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/reviews"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
-	reviewspb "github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/reviews"
+	reviewsgrpc "github.com/go-park-mail-ru/2026_2_OnlySeans/services/reviews/internal/delivery/grpc"
+	reviewsrepo "github.com/go-park-mail-ru/2026_2_OnlySeans/services/reviews/internal/repository"
+	reviewsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/services/reviews/internal/usecase"
+	reviewspb "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/reviews"
 	"google.golang.org/grpc"
 )
 
@@ -62,7 +62,7 @@ func run(listenAddress, databaseConfigPath, loggerConfigPath string) error {
 	defer db.Close()
 
 	// юзкейс проверяет, что фильм существует, и читает отзывы
-	reviewsRepo := reviewsservice.NewPostgresReviewRepo(db, appLogger)
+	reviewsRepo := reviewsrepo.NewPostgresReviewRepo(db, appLogger)
 	filmsRepo := filmsservice.NewPostgresService(db, appLogger)
 	operations, err := reviewsusecase.NewOperations(reviewsRepo, filmsRepo, appLogger)
 	if err != nil {

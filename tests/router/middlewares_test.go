@@ -1,6 +1,7 @@
 package router_test
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -20,13 +21,11 @@ import (
 	authservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/auth"
 	filmsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/films"
 	ratingsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/ratings"
-	reviewsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/reviews"
 	authusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/auth"
 	filesusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/files"
 	filmsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/films"
 	personusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/persons"
 	ratingsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/ratings"
-	reviewsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/reviews"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/tests/mocks"
 	"github.com/stretchr/testify/assert"
@@ -228,28 +227,22 @@ func newTestAuthHandlerWithUsers(t *testing.T, appLogger logger.Logger) (*auth.H
 	return handler, users
 }
 
-func newTestReviewsHandler(t *testing.T, films *filmsservice.InMemoryService, appLogger logger.Logger) *reviewsdelivery.Handler {
+func newTestReviewsHandler(t *testing.T, _ *filmsservice.InMemoryService, appLogger logger.Logger) *reviewsdelivery.Handler {
 	t.Helper()
 
-	repo := reviewsservice.NewInMemoryReviewRepo()
-
-	list, err := reviewsusecase.NewListReviewsUseCase(repo, films, appLogger)
-	require.NoError(t, err)
-
-	create, err := reviewsusecase.NewCreateReviewUseCase(repo, films, appLogger)
-	require.NoError(t, err)
-
-	update, err := reviewsusecase.NewUpdateReviewUseCase(repo, appLogger)
-	require.NoError(t, err)
-
-	del, err := reviewsusecase.NewDeleteReviewUseCase(repo, appLogger)
-	require.NoError(t, err)
-
-	handler, err := reviewsdelivery.NewHandler(reviewsdelivery.HandlerUseCases{
-		List:   list,
-		Create: create,
-		Update: update,
-		Delete: del,
+	handler, err := reviewsdelivery.NewHandlerWithOperations(reviewsdelivery.Operations{
+		List: func(context.Context, domain.FilmID, int, int) ([]domain.Review, int, error) {
+			return []domain.Review{}, 0, nil
+		},
+		Create: func(context.Context, domain.UserID, domain.FilmID, domain.ReviewInput) (domain.ReviewID, error) {
+			return 1, nil
+		},
+		Update: func(context.Context, domain.UserID, domain.ReviewID, domain.ReviewInput, int) (domain.Review, error) {
+			return domain.Review{}, nil
+		},
+		Delete: func(context.Context, domain.UserID, domain.ReviewID) error {
+			return nil
+		},
 	}, appLogger)
 	require.NoError(t, err)
 

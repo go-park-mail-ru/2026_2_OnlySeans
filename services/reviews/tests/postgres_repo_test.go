@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
-	reviews "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/reviews"
+	reviews "github.com/go-park-mail-ru/2026_2_OnlySeans/services/reviews/internal/repository"
 )
 
 var reviewColumns = []string{"id", "account_id", "film_id", "title", "content",

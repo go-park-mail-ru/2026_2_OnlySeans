@@ -58,7 +58,7 @@ services:
     image: onlyseans_reviews
     build:
       context: .
-    command: ["./reviews-service", "-listen", "0.0.0.0:50051"]
+      dockerfile: services/reviews/Dockerfile
     depends_on:
       db:
         condition: service_healthy

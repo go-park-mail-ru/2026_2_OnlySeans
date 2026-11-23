@@ -5,8 +5,8 @@ import (
 	"errors"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
-	reviewsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/reviews"
-	reviewspb "github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/reviews"
+	reviewsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/services/reviews/internal/usecase"
+	reviewspb "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/reviews"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
