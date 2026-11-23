@@ -27,3 +27,12 @@ func newCSRFMiddleware(allowedOrigins []string) (*csrfMiddleware, error) {
 func (m *csrfMiddleware) withCSRF(next http.Handler) http.Handler {
 	return m.protection.Handler(next)
 }
+
+func WithCORSAndCSRF(next http.Handler, allowedOrigins []string) (http.Handler, error) {
+	csrf, err := newCSRFMiddleware(allowedOrigins)
+	if err != nil {
+		return nil, err
+	}
+
+	return withCORS(csrf.withCSRF(next), allowedOrigins), nil
+}

@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/httpresponse"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/grpc_client/authclient"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/grpc_client/userclient"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/logger"
 )
 
@@ -21,12 +22,14 @@ type Authenticator interface {
 
 type AuthMiddleware struct {
 	authClient authclient.AuthClient
+	userClient userclient.UserClient
 	appLogger  logger.Logger
 }
 
-func NewAuthMiddleware(ac authclient.AuthClient, l logger.Logger) *AuthMiddleware {
+func NewAuthMiddleware(ac authclient.AuthClient, uc userclient.UserClient, l logger.Logger) *AuthMiddleware {
 	return &AuthMiddleware{
 		authClient: ac,
+		userClient: uc,
 		appLogger:  l,
 	}
 }
@@ -64,13 +67,13 @@ func (m *AuthMiddleware) Authenticate(next http.HandlerFunc) http.HandlerFunc {
 
 		cookie, err := r.Cookie("session_id")
 		if err != nil || cookie.Value == "" {
-			httpresponse.WriteErrorContext(ctx, w, http.StatusUnauthorized, ErrSessionNotFound.Error(), l)
+			httpresponse.WriteErrorContext(ctx, w, http.StatusUnauthorized, ErrUnauthorized.Error(), l)
 			return
 		}
 
 		session, err := m.authClient.CheckSession(ctx, cookie.Value)
 		if errors.Is(err, authclient.ErrSessionNotFound) {
-			httpresponse.WriteErrorContext(ctx, w, http.StatusUnauthorized, ErrSessionNotFound.Error(), l)
+			httpresponse.WriteErrorContext(ctx, w, http.StatusUnauthorized, ErrUnauthorized.Error(), l)
 			return
 		}
 
@@ -97,10 +100,8 @@ func (m *AuthMiddleware) RequireAdmin(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		role, ok := RoleFromContext(ctx)
+		role, ok := m.getUserRole(w, r, userID)
 		if !ok {
-			l.WarnContext(ctx, "admin access rejected: missing role context", map[string]any{"user_id": userID, "method": r.Method, "path": r.URL.Path})
-			httpresponse.WriteErrorContext(ctx, w, http.StatusUnauthorized, ErrUnauthorized.Error(), l)
 			return
 		}
 
@@ -130,10 +131,8 @@ func (m *AuthMiddleware) RequireCatalogEditor(next http.HandlerFunc) http.Handle
 			return
 		}
 
-		role, ok := RoleFromContext(ctx)
+		role, ok := m.getUserRole(w, r, userID)
 		if !ok {
-			l.WarnContext(ctx, "catalog modification rejected: missing role context", map[string]any{"user_id": userID, "method": r.Method, "path": r.URL.Path})
-			writeError(ctx, w, http.StatusUnauthorized, ErrUnauthorized)
 			return
 		}
 
@@ -145,4 +144,21 @@ func (m *AuthMiddleware) RequireCatalogEditor(next http.HandlerFunc) http.Handle
 
 		next(w, r)
 	}
+}
+
+func (m *AuthMiddleware) getUserRole(w http.ResponseWriter, r *http.Request, userID int64) (string, bool) {
+	ctx := r.Context()
+	user, err := m.userClient.GetByID(ctx, userID)
+	if errors.Is(err, userclient.ErrUserNotFound) {
+		m.appLogger.WarnContext(ctx, "role check rejected: user not found", map[string]any{"user_id": userID, "method": r.Method, "path": r.URL.Path})
+		writeError(ctx, w, http.StatusUnauthorized, ErrUnauthorized)
+		return "", false
+	}
+	if err != nil {
+		m.appLogger.ErrorContext(ctx, "get user role failed", map[string]any{"error": err, "user_id": userID, "method": r.Method, "path": r.URL.Path})
+		writeError(ctx, w, http.StatusInternalServerError, ErrInternal)
+		return "", false
+	}
+
+	return user.GetRole(), true
 }

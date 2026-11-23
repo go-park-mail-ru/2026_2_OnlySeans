@@ -1,17 +1,29 @@
 package s3
 
 import (
+	"errors"
+	"strings"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/config"
 )
 
-func NewS3Client(cfg config.S3) (*s3.Client, error) {
-	if err := cfg.Validate(); err != nil {
-		return nil, err
+type ClientConfig struct {
+	Endpoint  string
+	Region    string
+	AccessKey string
+	SecretKey string
+}
+
+func NewS3Client(cfg ClientConfig) (*s3.Client, error) {
+	if strings.TrimSpace(cfg.Endpoint) == "" ||
+		strings.TrimSpace(cfg.Region) == "" ||
+		strings.TrimSpace(cfg.AccessKey) == "" ||
+		strings.TrimSpace(cfg.SecretKey) == "" {
+		return nil, errors.New("S3 endpoint, region, access key and secret key are required")
 	}
+
 	awsCfg := aws.Config{
 		Region: cfg.Region,
 		Credentials: credentials.NewStaticCredentialsProvider(

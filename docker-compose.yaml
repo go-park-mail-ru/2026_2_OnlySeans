@@ -10,10 +10,13 @@ services:
       - "5433:5432"
     volumes:
       - db_data:/var/lib/postgresql
-      - ./db/apply_all.sql:/docker-entrypoint-initdb.d/001_schema.sql:ro
-      - ./db/migrations:/docker-entrypoint-initdb.d/migrations:ro
+      - ./db:/schema/db:ro
+      - ./services/user/db/migrations:/schema/services/user/db/migrations:ro
+    configs:
+      - source: database_schema
+        target: /docker-entrypoint-initdb.d/001_schema.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      test: ["CMD-SHELL", 'pg_isready -h 127.0.0.1 -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
       interval: 5s
       timeout: 5s
       retries: 5
@@ -54,29 +57,118 @@ services:
       start_period: 20s
     restart: unless-stopped
 
-  backend:
-    image: onlyseans_backend
-    build:
-      context: .
+  rustfs-init:
+    image: public.ecr.aws/aws-cli/aws-cli:2.31.0
     depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
       rustfs:
         condition: service_healthy
     environment:
-      S3_ENDPOINT: "http://rustfs:9000"
-      S3_PUBLIC_ENDPOINT: "${S3_PUBLIC_ENDPOINT:-http://localhost:8050}"
+      AWS_ACCESS_KEY_ID: ${RUSTFS_ACCESS_KEY}
+      AWS_SECRET_ACCESS_KEY: ${RUSTFS_SECRET_KEY}
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_PAGER: ""
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        if ! aws --endpoint-url http://rustfs:9000 s3api head-bucket --bucket avatars; then
+          aws --endpoint-url http://rustfs:9000 s3api create-bucket --bucket avatars
+        fi
+
+  user:
+    build:
+      context: .
+      args:
+        BUILD_PATH: ./services/user/cmd
+    depends_on:
+      db:
+        condition: service_healthy
+      rustfs-init:
+        condition: service_completed_successfully
+    environment:
+      PGHOST: db
+      PGUSER: ${DB_USER}
+      PGPASSWORD: ${DB_PASSWORD}
+      PGDATABASE: ${DB_NAME}
+      PGSSLMODE: disable
       RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY}
       RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY}
-      DATABASE_URL: "postgres://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}?sslmode=disable"
-      REDIS_URL: "redis://redis:6379"
+    configs:
+      - source: user_config
+        target: /app/config.yaml
+    restart: unless-stopped
+
+  auth:
+    build:
+      context: .
+      args:
+        BUILD_PATH: ./services/auth/cmd
+    depends_on:
+      redis:
+        condition: service_healthy
+      user:
+        condition: service_started
+    configs:
+      - source: auth_config
+        target: /app/config.yaml
+    restart: unless-stopped
+
+  api-gateway:
+    build:
+      context: .
+      args:
+        BUILD_PATH: ./api-gateway/cmd
+    depends_on:
+      auth:
+        condition: service_started
+      user:
+        condition: service_started
     ports:
       - "8080:8080"
-    volumes:
-      - ./logs:/app/logs
-    restart: always
+    configs:
+      - source: gateway_config
+        target: /app/config.yaml
+    restart: unless-stopped
+
+configs:
+  database_schema:
+    content: |
+      \ir /schema/db/apply_all.sql
+  user_config:
+    content: |
+      logger:
+        level: info
+      grpc:
+        host: "0.0.0.0"
+        port: "50051"
+      s3:
+        endpoint: "http://rustfs:9000"
+        public_endpoint: "${S3_PUBLIC_ENDPOINT:-http://localhost:8050}"
+        region: us-east-1
+        bucket: avatars
+        avatar_url_lifetime: 15m
+        bucket_check_timeout: 5s
+  auth_config:
+    content: |
+      logger:
+        level: info
+      redis:
+        url: "redis://redis:6379/1"
+      grpc:
+        host: "0.0.0.0"
+        port: "50052"
+      user_service_addr: "user:50051"
+      session_ttl: 24h
+  gateway_config:
+    content: |
+      logger:
+        level: info
+      http:
+        addr: "0.0.0.0:8080"
+        allowed_origins:
+          - "http://localhost:8000"
+        cookie_secure: false
+      auth_service_addr: "auth:50052"
+      user_service_addr: "user:50051"
 
 volumes:
   db_data:

@@ -658,6 +658,50 @@ func (*DeleteAvatarResponse) Descriptor() ([]byte, []int) {
 	return file_shared_proto_user_user_proto_rawDescGZIP(), []int{12}
 }
 
+type GetAvatarURLByFilenameRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Filename      string                 `protobuf:"bytes,1,opt,name=filename,proto3" json:"filename,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetAvatarURLByFilenameRequest) Reset() {
+	*x = GetAvatarURLByFilenameRequest{}
+	mi := &file_shared_proto_user_user_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetAvatarURLByFilenameRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetAvatarURLByFilenameRequest) ProtoMessage() {}
+
+func (x *GetAvatarURLByFilenameRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_shared_proto_user_user_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetAvatarURLByFilenameRequest.ProtoReflect.Descriptor instead.
+func (*GetAvatarURLByFilenameRequest) Descriptor() ([]byte, []int) {
+	return file_shared_proto_user_user_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *GetAvatarURLByFilenameRequest) GetFilename() string {
+	if x != nil {
+		return x.Filename
+	}
+	return ""
+}
+
 type GetByEmailRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Email         string                 `protobuf:"bytes,1,opt,name=email,proto3" json:"email,omitempty"`
@@ -667,7 +711,7 @@ type GetByEmailRequest struct {
 
 func (x *GetByEmailRequest) Reset() {
 	*x = GetByEmailRequest{}
-	mi := &file_shared_proto_user_user_proto_msgTypes[13]
+	mi := &file_shared_proto_user_user_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -679,7 +723,7 @@ func (x *GetByEmailRequest) String() string {
 func (*GetByEmailRequest) ProtoMessage() {}
 
 func (x *GetByEmailRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shared_proto_user_user_proto_msgTypes[13]
+	mi := &file_shared_proto_user_user_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -692,7 +736,7 @@ func (x *GetByEmailRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetByEmailRequest.ProtoReflect.Descriptor instead.
 func (*GetByEmailRequest) Descriptor() ([]byte, []int) {
-	return file_shared_proto_user_user_proto_rawDescGZIP(), []int{13}
+	return file_shared_proto_user_user_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *GetByEmailRequest) GetEmail() string {
@@ -713,7 +757,7 @@ type GetByEmailResponse struct {
 
 func (x *GetByEmailResponse) Reset() {
 	*x = GetByEmailResponse{}
-	mi := &file_shared_proto_user_user_proto_msgTypes[14]
+	mi := &file_shared_proto_user_user_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -725,7 +769,7 @@ func (x *GetByEmailResponse) String() string {
 func (*GetByEmailResponse) ProtoMessage() {}
 
 func (x *GetByEmailResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shared_proto_user_user_proto_msgTypes[14]
+	mi := &file_shared_proto_user_user_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -738,7 +782,7 @@ func (x *GetByEmailResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetByEmailResponse.ProtoReflect.Descriptor instead.
 func (*GetByEmailResponse) Descriptor() ([]byte, []int) {
-	return file_shared_proto_user_user_proto_rawDescGZIP(), []int{14}
+	return file_shared_proto_user_user_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *GetByEmailResponse) GetUserId() int64 {
@@ -771,7 +815,7 @@ type GetProfileRequest struct {
 
 func (x *GetProfileRequest) Reset() {
 	*x = GetProfileRequest{}
-	mi := &file_shared_proto_user_user_proto_msgTypes[15]
+	mi := &file_shared_proto_user_user_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -783,7 +827,7 @@ func (x *GetProfileRequest) String() string {
 func (*GetProfileRequest) ProtoMessage() {}
 
 func (x *GetProfileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shared_proto_user_user_proto_msgTypes[15]
+	mi := &file_shared_proto_user_user_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -796,7 +840,7 @@ func (x *GetProfileRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetProfileRequest.ProtoReflect.Descriptor instead.
 func (*GetProfileRequest) Descriptor() ([]byte, []int) {
-	return file_shared_proto_user_user_proto_rawDescGZIP(), []int{15}
+	return file_shared_proto_user_user_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *GetProfileRequest) GetUserId() int64 {
@@ -819,7 +863,7 @@ type GetProfileResponse struct {
 
 func (x *GetProfileResponse) Reset() {
 	*x = GetProfileResponse{}
-	mi := &file_shared_proto_user_user_proto_msgTypes[16]
+	mi := &file_shared_proto_user_user_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -831,7 +875,7 @@ func (x *GetProfileResponse) String() string {
 func (*GetProfileResponse) ProtoMessage() {}
 
 func (x *GetProfileResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shared_proto_user_user_proto_msgTypes[16]
+	mi := &file_shared_proto_user_user_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -844,7 +888,7 @@ func (x *GetProfileResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetProfileResponse.ProtoReflect.Descriptor instead.
 func (*GetProfileResponse) Descriptor() ([]byte, []int) {
-	return file_shared_proto_user_user_proto_rawDescGZIP(), []int{16}
+	return file_shared_proto_user_user_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *GetProfileResponse) GetUser() *User {
@@ -899,7 +943,7 @@ type ProfileFilm struct {
 
 func (x *ProfileFilm) Reset() {
 	*x = ProfileFilm{}
-	mi := &file_shared_proto_user_user_proto_msgTypes[17]
+	mi := &file_shared_proto_user_user_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -911,7 +955,7 @@ func (x *ProfileFilm) String() string {
 func (*ProfileFilm) ProtoMessage() {}
 
 func (x *ProfileFilm) ProtoReflect() protoreflect.Message {
-	mi := &file_shared_proto_user_user_proto_msgTypes[17]
+	mi := &file_shared_proto_user_user_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -924,7 +968,7 @@ func (x *ProfileFilm) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProfileFilm.ProtoReflect.Descriptor instead.
 func (*ProfileFilm) Descriptor() ([]byte, []int) {
-	return file_shared_proto_user_user_proto_rawDescGZIP(), []int{17}
+	return file_shared_proto_user_user_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *ProfileFilm) GetId() int64 {
@@ -1032,7 +1076,9 @@ const file_shared_proto_user_user_proto_rawDesc = "" +
 	"\x0favatar_filename\x18\x01 \x01(\tR\x0eavatarFilename\".\n" +
 	"\x13DeleteAvatarRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\x03R\x06userId\"\x16\n" +
-	"\x14DeleteAvatarResponse\")\n" +
+	"\x14DeleteAvatarResponse\";\n" +
+	"\x1dGetAvatarURLByFilenameRequest\x12\x1a\n" +
+	"\bfilename\x18\x01 \x01(\tR\bfilename\")\n" +
 	"\x11GetByEmailRequest\x12\x14\n" +
 	"\x05email\x18\x01 \x01(\tR\x05email\"f\n" +
 	"\x12GetByEmailResponse\x12\x17\n" +
@@ -1059,7 +1105,7 @@ const file_shared_proto_user_user_proto_rawDesc = "" +
 	"\aaverage\x18\b \x01(\x01R\aaverage\x12\x19\n" +
 	"\x05score\x18\t \x01(\x05H\x01R\x05score\x88\x01\x01B\t\n" +
 	"\a_posterB\b\n" +
-	"\x06_score2\xd7\x04\n" +
+	"\x06_score2\xb8\x05\n" +
 	"\vUserService\x12E\n" +
 	"\n" +
 	"CreateUser\x12\x1a.user.v1.CreateUserRequest\x1a\x1b.user.v1.CreateUserResponse\x12<\n" +
@@ -1071,7 +1117,8 @@ const file_shared_proto_user_user_proto_rawDesc = "" +
 	"\n" +
 	"GetByEmail\x12\x1a.user.v1.GetByEmailRequest\x1a\x1b.user.v1.GetByEmailResponse\x12E\n" +
 	"\n" +
-	"GetProfile\x12\x1a.user.v1.GetProfileRequest\x1a\x1b.user.v1.GetProfileResponseBFZDgithub.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/user;userv1b\x06proto3"
+	"GetProfile\x12\x1a.user.v1.GetProfileRequest\x1a\x1b.user.v1.GetProfileResponse\x12_\n" +
+	"\x16GetAvatarURLByFilename\x12&.user.v1.GetAvatarURLByFilenameRequest\x1a\x1d.user.v1.GetAvatarURLResponseBFZDgithub.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/user;userv1b\x06proto3"
 
 var (
 	file_shared_proto_user_user_proto_rawDescOnce sync.Once
@@ -1085,53 +1132,56 @@ func file_shared_proto_user_user_proto_rawDescGZIP() []byte {
 	return file_shared_proto_user_user_proto_rawDescData
 }
 
-var file_shared_proto_user_user_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
+var file_shared_proto_user_user_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
 var file_shared_proto_user_user_proto_goTypes = []any{
-	(*User)(nil),                  // 0: user.v1.User
-	(*CreateUserRequest)(nil),     // 1: user.v1.CreateUserRequest
-	(*CreateUserResponse)(nil),    // 2: user.v1.CreateUserResponse
-	(*GetByIDRequest)(nil),        // 3: user.v1.GetByIDRequest
-	(*GetByIDResponse)(nil),       // 4: user.v1.GetByIDResponse
-	(*UpdateProfileRequest)(nil),  // 5: user.v1.UpdateProfileRequest
-	(*UpdateProfileResponse)(nil), // 6: user.v1.UpdateProfileResponse
-	(*GetAvatarURLRequest)(nil),   // 7: user.v1.GetAvatarURLRequest
-	(*GetAvatarURLResponse)(nil),  // 8: user.v1.GetAvatarURLResponse
-	(*UpdateAvatarRequest)(nil),   // 9: user.v1.UpdateAvatarRequest
-	(*UpdateAvatarResponse)(nil),  // 10: user.v1.UpdateAvatarResponse
-	(*DeleteAvatarRequest)(nil),   // 11: user.v1.DeleteAvatarRequest
-	(*DeleteAvatarResponse)(nil),  // 12: user.v1.DeleteAvatarResponse
-	(*GetByEmailRequest)(nil),     // 13: user.v1.GetByEmailRequest
-	(*GetByEmailResponse)(nil),    // 14: user.v1.GetByEmailResponse
-	(*GetProfileRequest)(nil),     // 15: user.v1.GetProfileRequest
-	(*GetProfileResponse)(nil),    // 16: user.v1.GetProfileResponse
-	(*ProfileFilm)(nil),           // 17: user.v1.ProfileFilm
-	(*timestamppb.Timestamp)(nil), // 18: google.protobuf.Timestamp
+	(*User)(nil),                          // 0: user.v1.User
+	(*CreateUserRequest)(nil),             // 1: user.v1.CreateUserRequest
+	(*CreateUserResponse)(nil),            // 2: user.v1.CreateUserResponse
+	(*GetByIDRequest)(nil),                // 3: user.v1.GetByIDRequest
+	(*GetByIDResponse)(nil),               // 4: user.v1.GetByIDResponse
+	(*UpdateProfileRequest)(nil),          // 5: user.v1.UpdateProfileRequest
+	(*UpdateProfileResponse)(nil),         // 6: user.v1.UpdateProfileResponse
+	(*GetAvatarURLRequest)(nil),           // 7: user.v1.GetAvatarURLRequest
+	(*GetAvatarURLResponse)(nil),          // 8: user.v1.GetAvatarURLResponse
+	(*UpdateAvatarRequest)(nil),           // 9: user.v1.UpdateAvatarRequest
+	(*UpdateAvatarResponse)(nil),          // 10: user.v1.UpdateAvatarResponse
+	(*DeleteAvatarRequest)(nil),           // 11: user.v1.DeleteAvatarRequest
+	(*DeleteAvatarResponse)(nil),          // 12: user.v1.DeleteAvatarResponse
+	(*GetAvatarURLByFilenameRequest)(nil), // 13: user.v1.GetAvatarURLByFilenameRequest
+	(*GetByEmailRequest)(nil),             // 14: user.v1.GetByEmailRequest
+	(*GetByEmailResponse)(nil),            // 15: user.v1.GetByEmailResponse
+	(*GetProfileRequest)(nil),             // 16: user.v1.GetProfileRequest
+	(*GetProfileResponse)(nil),            // 17: user.v1.GetProfileResponse
+	(*ProfileFilm)(nil),                   // 18: user.v1.ProfileFilm
+	(*timestamppb.Timestamp)(nil),         // 19: google.protobuf.Timestamp
 }
 var file_shared_proto_user_user_proto_depIdxs = []int32{
 	0,  // 0: user.v1.GetByIDResponse.user:type_name -> user.v1.User
 	0,  // 1: user.v1.UpdateProfileResponse.user:type_name -> user.v1.User
 	0,  // 2: user.v1.GetProfileResponse.user:type_name -> user.v1.User
-	18, // 3: user.v1.GetProfileResponse.created_at:type_name -> google.protobuf.Timestamp
-	17, // 4: user.v1.GetProfileResponse.favorites:type_name -> user.v1.ProfileFilm
-	17, // 5: user.v1.GetProfileResponse.ratings:type_name -> user.v1.ProfileFilm
+	19, // 3: user.v1.GetProfileResponse.created_at:type_name -> google.protobuf.Timestamp
+	18, // 4: user.v1.GetProfileResponse.favorites:type_name -> user.v1.ProfileFilm
+	18, // 5: user.v1.GetProfileResponse.ratings:type_name -> user.v1.ProfileFilm
 	1,  // 6: user.v1.UserService.CreateUser:input_type -> user.v1.CreateUserRequest
 	3,  // 7: user.v1.UserService.GetByID:input_type -> user.v1.GetByIDRequest
 	5,  // 8: user.v1.UserService.UpdateProfile:input_type -> user.v1.UpdateProfileRequest
 	7,  // 9: user.v1.UserService.GetAvatarURL:input_type -> user.v1.GetAvatarURLRequest
 	9,  // 10: user.v1.UserService.UpdateAvatar:input_type -> user.v1.UpdateAvatarRequest
 	11, // 11: user.v1.UserService.DeleteAvatar:input_type -> user.v1.DeleteAvatarRequest
-	13, // 12: user.v1.UserService.GetByEmail:input_type -> user.v1.GetByEmailRequest
-	15, // 13: user.v1.UserService.GetProfile:input_type -> user.v1.GetProfileRequest
-	2,  // 14: user.v1.UserService.CreateUser:output_type -> user.v1.CreateUserResponse
-	4,  // 15: user.v1.UserService.GetByID:output_type -> user.v1.GetByIDResponse
-	6,  // 16: user.v1.UserService.UpdateProfile:output_type -> user.v1.UpdateProfileResponse
-	8,  // 17: user.v1.UserService.GetAvatarURL:output_type -> user.v1.GetAvatarURLResponse
-	10, // 18: user.v1.UserService.UpdateAvatar:output_type -> user.v1.UpdateAvatarResponse
-	12, // 19: user.v1.UserService.DeleteAvatar:output_type -> user.v1.DeleteAvatarResponse
-	14, // 20: user.v1.UserService.GetByEmail:output_type -> user.v1.GetByEmailResponse
-	16, // 21: user.v1.UserService.GetProfile:output_type -> user.v1.GetProfileResponse
-	14, // [14:22] is the sub-list for method output_type
-	6,  // [6:14] is the sub-list for method input_type
+	14, // 12: user.v1.UserService.GetByEmail:input_type -> user.v1.GetByEmailRequest
+	16, // 13: user.v1.UserService.GetProfile:input_type -> user.v1.GetProfileRequest
+	13, // 14: user.v1.UserService.GetAvatarURLByFilename:input_type -> user.v1.GetAvatarURLByFilenameRequest
+	2,  // 15: user.v1.UserService.CreateUser:output_type -> user.v1.CreateUserResponse
+	4,  // 16: user.v1.UserService.GetByID:output_type -> user.v1.GetByIDResponse
+	6,  // 17: user.v1.UserService.UpdateProfile:output_type -> user.v1.UpdateProfileResponse
+	8,  // 18: user.v1.UserService.GetAvatarURL:output_type -> user.v1.GetAvatarURLResponse
+	10, // 19: user.v1.UserService.UpdateAvatar:output_type -> user.v1.UpdateAvatarResponse
+	12, // 20: user.v1.UserService.DeleteAvatar:output_type -> user.v1.DeleteAvatarResponse
+	15, // 21: user.v1.UserService.GetByEmail:output_type -> user.v1.GetByEmailResponse
+	17, // 22: user.v1.UserService.GetProfile:output_type -> user.v1.GetProfileResponse
+	8,  // 23: user.v1.UserService.GetAvatarURLByFilename:output_type -> user.v1.GetAvatarURLResponse
+	15, // [15:24] is the sub-list for method output_type
+	6,  // [6:15] is the sub-list for method input_type
 	6,  // [6:6] is the sub-list for extension type_name
 	6,  // [6:6] is the sub-list for extension extendee
 	0,  // [0:6] is the sub-list for field type_name
@@ -1144,14 +1194,14 @@ func file_shared_proto_user_user_proto_init() {
 	}
 	file_shared_proto_user_user_proto_msgTypes[0].OneofWrappers = []any{}
 	file_shared_proto_user_user_proto_msgTypes[5].OneofWrappers = []any{}
-	file_shared_proto_user_user_proto_msgTypes[17].OneofWrappers = []any{}
+	file_shared_proto_user_user_proto_msgTypes[18].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_shared_proto_user_user_proto_rawDesc), len(file_shared_proto_user_user_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   18,
+			NumMessages:   19,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

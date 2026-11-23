@@ -78,12 +78,12 @@ func (c *authClient) CheckSession(ctx context.Context, sessionId string) (Sessio
 		SessionId: sessionId,
 	})
 	if err != nil {
-		st, ok := status.FromError(err)
-		if ok && (st.Code() == codes.NotFound || st.Code() == codes.Unauthenticated) {
+		switch status.Code(err) {
+		case codes.NotFound, codes.Unauthenticated, codes.InvalidArgument:
 			return SessionInfo{}, ErrSessionNotFound
+		default:
+			return SessionInfo{}, ErrInternal
 		}
-
-		return SessionInfo{}, ErrInternal
 	}
 	return SessionInfo{
 		UserID: resp.GetUserId(),

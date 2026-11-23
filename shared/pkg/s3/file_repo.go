@@ -11,9 +11,13 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/config"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/storage"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/logger"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/storage"
+)
+
+const (
+	minURLLifetime = time.Second
+	maxURLLifetime = 7 * 24 * time.Hour
 )
 
 type S3Storage struct {
@@ -32,7 +36,7 @@ func NewS3Storage(client *s3.Client, bucket, publicEndpoint string, urlLifetime 
 		return nil, errors.New("s3 bucket is required")
 	}
 
-	if urlLifetime < config.MinAvatarURLLifetime || urlLifetime > config.MaxAvatarURLLifetime {
+	if urlLifetime < minURLLifetime || urlLifetime > maxURLLifetime {
 		return nil, errors.New("object URL lifetime must be between 1s and 168h")
 	}
 
@@ -71,11 +75,7 @@ func (s *S3Storage) UploadFile(ctx context.Context, key, contentType string, dat
 func (s *S3Storage) GetURL(ctx context.Context, key string) (_ string, operationErr error) {
 	operation := storage.StartOperation(ctx, s.appLogger, "s3", "object.geturl", map[string]any{"bucket": s.bucket, "storage_key": key})
 	defer func() {
-		if errors.Is(operationErr, ErrFileNotFound) {
-			operation.NotFound = true
-			operation.Finish(nil)
-			return
-		}
+		operation.NotFound = errors.Is(operationErr, ErrFileNotFound)
 		operation.Finish(operationErr)
 	}()
 	_, err := s.client.HeadObject(ctx, &s3.HeadObjectInput{

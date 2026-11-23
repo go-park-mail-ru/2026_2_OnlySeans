@@ -17,6 +17,7 @@ type PostgresConfig struct {
 }
 
 type GRPCServerConfig struct {
+	Host    string        `yaml:"host" env:"GRPC_HOST" env-default:"127.0.0.1"`
 	Port    string        `yaml:"port"`
 	Timeout time.Duration `yaml:"timeout"`
 }

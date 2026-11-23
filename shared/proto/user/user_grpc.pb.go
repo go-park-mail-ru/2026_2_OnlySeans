@@ -19,14 +19,15 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	UserService_CreateUser_FullMethodName    = "/user.v1.UserService/CreateUser"
-	UserService_GetByID_FullMethodName       = "/user.v1.UserService/GetByID"
-	UserService_UpdateProfile_FullMethodName = "/user.v1.UserService/UpdateProfile"
-	UserService_GetAvatarURL_FullMethodName  = "/user.v1.UserService/GetAvatarURL"
-	UserService_UpdateAvatar_FullMethodName  = "/user.v1.UserService/UpdateAvatar"
-	UserService_DeleteAvatar_FullMethodName  = "/user.v1.UserService/DeleteAvatar"
-	UserService_GetByEmail_FullMethodName    = "/user.v1.UserService/GetByEmail"
-	UserService_GetProfile_FullMethodName    = "/user.v1.UserService/GetProfile"
+	UserService_CreateUser_FullMethodName             = "/user.v1.UserService/CreateUser"
+	UserService_GetByID_FullMethodName                = "/user.v1.UserService/GetByID"
+	UserService_UpdateProfile_FullMethodName          = "/user.v1.UserService/UpdateProfile"
+	UserService_GetAvatarURL_FullMethodName           = "/user.v1.UserService/GetAvatarURL"
+	UserService_UpdateAvatar_FullMethodName           = "/user.v1.UserService/UpdateAvatar"
+	UserService_DeleteAvatar_FullMethodName           = "/user.v1.UserService/DeleteAvatar"
+	UserService_GetByEmail_FullMethodName             = "/user.v1.UserService/GetByEmail"
+	UserService_GetProfile_FullMethodName             = "/user.v1.UserService/GetProfile"
+	UserService_GetAvatarURLByFilename_FullMethodName = "/user.v1.UserService/GetAvatarURLByFilename"
 )
 
 // UserServiceClient is the client API for UserService service.
@@ -41,6 +42,7 @@ type UserServiceClient interface {
 	DeleteAvatar(ctx context.Context, in *DeleteAvatarRequest, opts ...grpc.CallOption) (*DeleteAvatarResponse, error)
 	GetByEmail(ctx context.Context, in *GetByEmailRequest, opts ...grpc.CallOption) (*GetByEmailResponse, error)
 	GetProfile(ctx context.Context, in *GetProfileRequest, opts ...grpc.CallOption) (*GetProfileResponse, error)
+	GetAvatarURLByFilename(ctx context.Context, in *GetAvatarURLByFilenameRequest, opts ...grpc.CallOption) (*GetAvatarURLResponse, error)
 }
 
 type userServiceClient struct {
@@ -131,6 +133,16 @@ func (c *userServiceClient) GetProfile(ctx context.Context, in *GetProfileReques
 	return out, nil
 }
 
+func (c *userServiceClient) GetAvatarURLByFilename(ctx context.Context, in *GetAvatarURLByFilenameRequest, opts ...grpc.CallOption) (*GetAvatarURLResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetAvatarURLResponse)
+	err := c.cc.Invoke(ctx, UserService_GetAvatarURLByFilename_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // UserServiceServer is the server API for UserService service.
 // All implementations must embed UnimplementedUserServiceServer
 // for forward compatibility.
@@ -143,6 +155,7 @@ type UserServiceServer interface {
 	DeleteAvatar(context.Context, *DeleteAvatarRequest) (*DeleteAvatarResponse, error)
 	GetByEmail(context.Context, *GetByEmailRequest) (*GetByEmailResponse, error)
 	GetProfile(context.Context, *GetProfileRequest) (*GetProfileResponse, error)
+	GetAvatarURLByFilename(context.Context, *GetAvatarURLByFilenameRequest) (*GetAvatarURLResponse, error)
 	mustEmbedUnimplementedUserServiceServer()
 }
 
@@ -176,6 +189,9 @@ func (UnimplementedUserServiceServer) GetByEmail(context.Context, *GetByEmailReq
 }
 func (UnimplementedUserServiceServer) GetProfile(context.Context, *GetProfileRequest) (*GetProfileResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetProfile not implemented")
+}
+func (UnimplementedUserServiceServer) GetAvatarURLByFilename(context.Context, *GetAvatarURLByFilenameRequest) (*GetAvatarURLResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetAvatarURLByFilename not implemented")
 }
 func (UnimplementedUserServiceServer) mustEmbedUnimplementedUserServiceServer() {}
 func (UnimplementedUserServiceServer) testEmbeddedByValue()                     {}
@@ -342,6 +358,24 @@ func _UserService_GetProfile_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _UserService_GetAvatarURLByFilename_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAvatarURLByFilenameRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).GetAvatarURLByFilename(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_GetAvatarURLByFilename_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).GetAvatarURLByFilename(ctx, req.(*GetAvatarURLByFilenameRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // UserService_ServiceDesc is the grpc.ServiceDesc for UserService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -380,6 +414,10 @@ var UserService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetProfile",
 			Handler:    _UserService_GetProfile_Handler,
+		},
+		{
+			MethodName: "GetAvatarURLByFilename",
+			Handler:    _UserService_GetAvatarURLByFilename_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

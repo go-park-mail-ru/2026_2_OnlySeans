@@ -3,6 +3,7 @@ package grpc
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/services/user/internal/domain"
 	pb "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/user"
@@ -58,12 +59,18 @@ func (h *UserHandler) UpdateProfile(ctx context.Context, req *pb.UpdateProfileRe
 }
 
 func toProtoUser(user domain.User) *pb.User {
+	avatarFilename := user.AvatarFilename
+	if avatarFilename != nil {
+		filename := strings.TrimPrefix(*avatarFilename, "avatars/")
+		avatarFilename = &filename
+	}
+
 	return &pb.User{
 		Id:             user.ID,
 		Email:          user.Email,
 		Username:       user.Username,
 		Role:           user.Role,
-		AvatarFilename: user.AvatarFilename,
+		AvatarFilename: avatarFilename,
 	}
 }
 

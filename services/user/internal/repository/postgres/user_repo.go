@@ -6,11 +6,11 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/storage"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/services/user/internal/domain"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/services/user/internal/repository"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/logger"
 	pgutil "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/postgres"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/storage"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
@@ -62,7 +62,7 @@ func NewPostgresUserRepo(db pgutil.DB, appLogger logger.Logger) repository.UserR
 
 func (r *PostgresUserRepo) CreateUser(ctx context.Context, user domain.User) (_ int64, operationErr error) {
 	operationLog := storage.StartOperation(ctx, r.appLogger, "postgres", "account.create", map[string]any{})
-	defer func() { operationLog.Finish(operationErr) }()
+	defer func() { finishUserOperation(operationLog, operationErr) }()
 
 	var id int64
 
@@ -86,7 +86,7 @@ func (r *PostgresUserRepo) CreateUser(ctx context.Context, user domain.User) (_ 
 
 func (r *PostgresUserRepo) GetUserByEmail(ctx context.Context, email string) (_ domain.User, operationErr error) {
 	operationLog := storage.StartOperation(ctx, r.appLogger, "postgres", "account.get_by_email", map[string]any{})
-	defer func() { operationLog.Finish(operationErr) }()
+	defer func() { finishUserOperation(operationLog, operationErr) }()
 
 	var user domain.User
 
@@ -107,7 +107,7 @@ func (r *PostgresUserRepo) GetUserByEmail(ctx context.Context, email string) (_ 
 
 func (r *PostgresUserRepo) GetUserByID(ctx context.Context, id int64) (_ domain.User, operationErr error) {
 	operationLog := storage.StartOperation(ctx, r.appLogger, "postgres", "account.get_user", map[string]any{"user_id": id})
-	defer func() { operationLog.Finish(operationErr) }()
+	defer func() { finishUserOperation(operationLog, operationErr) }()
 
 	var user domain.User
 
@@ -128,7 +128,7 @@ func (r *PostgresUserRepo) GetUserByID(ctx context.Context, id int64) (_ domain.
 
 func (r *PostgresUserRepo) UpdateProfile(ctx context.Context, userID int64, username, email *string) (_ domain.User, operationErr error) {
 	operationLog := storage.StartOperation(ctx, r.appLogger, "postgres", "profile.update_profile", map[string]any{"user_id": userID})
-	defer func() { operationLog.Finish(operationErr) }()
+	defer func() { finishUserOperation(operationLog, operationErr) }()
 
 	var user domain.User
 
@@ -156,4 +156,10 @@ func (r *PostgresUserRepo) UpdateProfile(ctx context.Context, userID int64, user
 	}
 
 	return user, nil
+}
+
+func finishUserOperation(operation *storage.Operation, err error) {
+	operation.NotFound = errors.Is(err, sql.ErrNoRows) || errors.Is(err, domain.ErrUserNotFound)
+	operation.Rejected = errors.Is(err, domain.ErrUserExists) || errors.Is(err, domain.ErrUsernameTaken)
+	operation.Finish(err)
 }

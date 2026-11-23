@@ -1,0 +1,107 @@
+package main
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	authhttp "github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/auth"
+	userhttp "github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/user"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/router"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/grpc_client/authclient"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/grpc_client/userclient"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/infrastructure/config"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/middleware"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/logger"
+	pbauth "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/auth"
+	pbuser "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/user"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+)
+
+func main() {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	if err := run(ctx); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func run(ctx context.Context) error {
+	cfg := config.Load()
+	if cfg.HTTP.Addr == "" || cfg.AuthServiceAddr == "" || cfg.UserServiceAddr == "" {
+		return errors.New("http.addr, auth_service_addr and user_service_addr are required")
+	}
+
+	appLogger, err := logger.NewLogger(os.Stdout, logger.LogLevelType(cfg.Logger.Level), "json")
+	if err != nil {
+		return fmt.Errorf("create logger: %w", err)
+	}
+
+	transport := grpc.WithTransportCredentials(insecure.NewCredentials())
+
+	authConn, err := grpc.NewClient(cfg.AuthServiceAddr, transport)
+	if err != nil {
+		return fmt.Errorf("create Auth gRPC client: %w", err)
+	}
+	defer authConn.Close()
+
+	userConn, err := grpc.NewClient(cfg.UserServiceAddr, transport)
+	if err != nil {
+		return fmt.Errorf("create User gRPC client: %w", err)
+	}
+	defer userConn.Close()
+
+	authClient := authclient.NewAuthClient(pbauth.NewAuthServiceClient(authConn))
+	userClient := userclient.NewUserClient(pbuser.NewUserServiceClient(userConn))
+
+	authHandler := authhttp.NewAuthHandler(authClient, userClient, appLogger)
+	authHandler.CookieSecure = cfg.HTTP.CookieSecure
+	profileHandler := userhttp.NewProfileHandler(userClient, appLogger)
+	avatarHandler := userhttp.NewAvatarHandler(userClient, appLogger)
+	authMiddleware := middleware.NewAuthMiddleware(authClient, userClient, appLogger)
+
+	handler, err := router.NewRouter(router.Handlers{
+		Auth:    authHandler,
+		Files:   avatarHandler,
+		Profile: profileHandler,
+	}, authMiddleware, cfg.HTTP.AllowedOrigins, appLogger)
+	if err != nil {
+		return fmt.Errorf("create Gateway router: %w", err)
+	}
+
+	server := &http.Server{
+		Addr:              cfg.HTTP.Addr,
+		Handler:           handler,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       5 * time.Second,
+		WriteTimeout:      10 * time.Second,
+		IdleTimeout:       60 * time.Second,
+	}
+
+	serverErr := make(chan error, 1)
+	go func() {
+		appLogger.Info("Gateway HTTP server starting", map[string]any{"address": server.Addr})
+		serverErr <- server.ListenAndServe()
+	}()
+
+	select {
+	case err := <-serverErr:
+		if !errors.Is(err, http.ErrServerClosed) {
+			return fmt.Errorf("serve Gateway HTTP: %w", err)
+		}
+
+		return nil
+	case <-ctx.Done():
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		return server.Shutdown(shutdownCtx)
+	}
+}

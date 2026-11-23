@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -23,6 +24,7 @@ type UserUseCase interface {
 	GetByEmail(ctx context.Context, email string) (domain.User, error)
 	UpdateProfile(ctx context.Context, userID int64, name, email *string) (domain.User, error)
 	GetAvatarURL(ctx context.Context, userID int64) (string, error)
+	GetAvatarURLByFilename(ctx context.Context, filename string) (string, error)
 	UpdateAvatar(ctx context.Context, userID int64, imageData []byte) (string, error)
 	DeleteAvatar(ctx context.Context, userID int64) error
 }
@@ -47,12 +49,16 @@ func (u *userUseCase) Create(ctx context.Context, user domain.User, password str
 	user.Email = strings.TrimSpace(user.Email)
 	user.Username = strings.TrimSpace(user.Username)
 
+	if err := utils.ValidatePassword(password); err != nil {
+		return 0, registrationValidationError(domain.ErrInvalidPassword, err)
+	}
+
 	if err := utils.ValidateEmail(user.Email); err != nil {
-		return 0, domain.ErrInvalidEmail
+		return 0, registrationValidationError(domain.ErrInvalidEmail, err)
 	}
 
 	if err := utils.ValidateUsername(user.Username); err != nil {
-		return 0, domain.ErrInvalidUsername
+		return 0, registrationValidationError(domain.ErrInvalidUsername, err)
 	}
 
 	hashedPassword, err := (&passUtil.BcryptPasswordService{}).Hash(password)
@@ -72,6 +78,11 @@ func (u *userUseCase) Create(ctx context.Context, user domain.User, password str
 	}
 
 	return id, nil
+}
+
+func registrationValidationError(fieldErr, err error) error {
+	reason := strings.TrimPrefix(err.Error(), fieldErr.Error()+": ")
+	return fmt.Errorf("%w: %s", fieldErr, reason)
 }
 
 func (u *userUseCase) GetByID(ctx context.Context, userID int64) (domain.User, error) {
@@ -138,22 +149,55 @@ func (u *userUseCase) GetAvatarURL(ctx context.Context, userID int64) (string, e
 		return "", err
 	}
 
-	return u.fileStorage.GetURL(ctx, avatar.Filename)
+	return u.getAvatarURL(ctx, avatar.Filename)
+}
+
+var (
+	avatarFilenamePattern         = regexp.MustCompile(`^[0-9a-f]{32}\.(jpg|png)$`)
+	prefixedAvatarFilenamePattern = regexp.MustCompile(`^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}\.(jpeg|png|gif)$`)
+)
+
+func (u *userUseCase) GetAvatarURLByFilename(ctx context.Context, filename string) (string, error) {
+	switch {
+	case avatarFilenamePattern.MatchString(filename):
+		return u.getAvatarURL(ctx, filename)
+	case prefixedAvatarFilenamePattern.MatchString(filename):
+		return u.getAvatarURL(ctx, "avatars/"+filename)
+	default:
+		return "", domain.ErrInvalidAvatarName
+	}
+}
+
+func (u *userUseCase) getAvatarURL(ctx context.Context, key string) (string, error) {
+	url, err := u.fileStorage.GetURL(ctx, key)
+	if errors.Is(err, s3.ErrFileNotFound) {
+		return "", domain.ErrAvatarNotFound
+	}
+
+	return url, err
 }
 
 func (u *userUseCase) UpdateAvatar(ctx context.Context, userID int64, imageData []byte) (string, error) {
+	if len(imageData) > imageutil.MaxAvatarSize {
+		return "", domain.ErrAvatarTooLarge
+	}
+
 	user, err := u.GetByID(ctx, userID)
 	if err != nil {
 		return "", err
 	}
 
-	format, err := imageutil.Validate(imageData)
+	format, err := imageutil.ValidateAvatar(imageData)
 	if err != nil {
 		return "", domain.ErrInvalidImage
 	}
 
 	contentType := "image/" + format
-	filename := "avatars/" + uuid.NewString() + "." + format
+	extension := ".png"
+	if format == "jpeg" {
+		extension = ".jpg"
+	}
+	filename := strings.ReplaceAll(uuid.NewString(), "-", "") + extension
 
 	if err := u.fileStorage.UploadFile(ctx, filename, contentType, imageData); err != nil {
 		return "", fmt.Errorf("upload avatar: %w", err)

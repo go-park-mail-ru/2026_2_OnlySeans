@@ -15,6 +15,7 @@ service UserService {
     rpc DeleteAvatar(DeleteAvatarRequest) returns (DeleteAvatarResponse);
     rpc GetByEmail(GetByEmailRequest) returns (GetByEmailResponse);
     rpc GetProfile(GetProfileRequest) returns (GetProfileResponse);
+    rpc GetAvatarURLByFilename(GetAvatarURLByFilenameRequest) returns (GetAvatarURLResponse);
 }
 
 message User {
@@ -75,6 +76,10 @@ message DeleteAvatarRequest {
 }
 
 message DeleteAvatarResponse {}
+
+message GetAvatarURLByFilenameRequest {
+    string filename = 1;
+}
 
 message GetByEmailRequest {
     string email = 1;

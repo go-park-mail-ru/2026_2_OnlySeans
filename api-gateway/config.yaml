@@ -1,0 +1,11 @@
+logger:
+  level: info
+
+http:
+  addr: "127.0.0.1:8080"
+  allowed_origins:
+    - "http://localhost:8000"
+  cookie_secure: false
+
+auth_service_addr: "127.0.0.1:50052"
+user_service_addr: "127.0.0.1:50051"

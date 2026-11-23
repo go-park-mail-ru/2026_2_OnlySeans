@@ -11,8 +11,8 @@ type S3Config struct {
 	PublicEndpoint       string        `yaml:"public_endpoint"`
 	Region               string        `yaml:"region"`
 	Bucket               string        `yaml:"bucket"`
-	AccessKey            string        `yaml:"access_key"`
-	SecretKey            string        `yaml:"secret_key"`
+	AccessKey            string        `yaml:"access_key" env:"RUSTFS_ACCESS_KEY"`
+	SecretKey            string        `yaml:"secret_key" env:"RUSTFS_SECRET_KEY"`
 	AvatarURLLifetime    time.Duration `yaml:"avatar_url_lifetime"`
 	MaxAvatarSize        int64         `yaml:"max_avatar_size"`
 	MaxAvatarDimension   int           `yaml:"max_avatar_dimension"`
