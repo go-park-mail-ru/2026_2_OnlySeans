@@ -18,6 +18,7 @@ var (
 	ErrNilFilmRatingsRepo      = errors.New("film ratings repository is nil")
 	ErrNilCollectionRatingRepo = errors.New("collection film ratings repository is nil")
 	ErrRatingNotFound          = errors.New("rating not found")
+	ErrNilGenresRepo           = errors.New("genres repository is nil")
 )
 
 func InvalidFilmRatingLimitsError() error {

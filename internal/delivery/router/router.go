@@ -5,6 +5,7 @@ import (
 
 	"github.com/gorilla/mux"
 
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/analytics"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/assets"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/files"
@@ -19,6 +20,7 @@ import (
 type Handlers struct {
 	Auth           *auth.Handler
 	Films          *films.Handler
+	Genres         *films.GenresHandler
 	Reviews        *reviews.Handler
 	Persons        *persons.Handler
 	Files          *files.Handler
@@ -29,6 +31,7 @@ type Handlers struct {
 	PersonalRating *ratings.MyRatingHandler
 	PersonCatalog  *persons.CatalogHandler
 	Assets         *assets.Handler
+	Analytics      *analytics.Handler
 }
 
 func NewRouter(handlers Handlers, allowedOrigins []string, appLogger logger.Logger) (http.Handler, error) {
@@ -102,8 +105,17 @@ func NewRouter(handlers Handlers, allowedOrigins []string, appLogger logger.Logg
 		r.HandleFunc("/api/films/{id}/people", h.GetFilmPersons).Methods(http.MethodGet)
 		r.HandleFunc("/api/people/{id}", h.GetPersonCatalog).Methods(http.MethodGet)
 	}
+	if h := handlers.Genres; h != nil {
+		r.HandleFunc("/api/genres", h.ListGenres).Methods(http.MethodGet)
+	}
 	if h := handlers.Assets; h != nil {
 		r.HandleFunc("/static/{key:.*}", h.GetAsset).Methods(http.MethodGet)
+	}
+	if h := handlers.Analytics; h != nil {
+		r.HandleFunc(
+			"/api/admin/analytics/genres",
+			WrapMiddlewares(h.TopGenres, adminMiddlewares),
+		).Methods(http.MethodGet)
 	}
 
 	csrf, err := newCSRFMiddleware(allowedOrigins)

@@ -5,10 +5,11 @@ import (
 
 	"errors"
 	"fmt"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/httprequest"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/httpresponse"
 	"net/http"
 	"strconv"
+
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/httprequest"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/httpresponse"
 
 	"github.com/gorilla/mux"
 
@@ -171,6 +172,7 @@ func (h *Handler) ListFilms(w http.ResponseWriter, r *http.Request) {
 	}
 
 	input := usecase.NewListFilmsInput(limit, offset)
+	input.GenreSlug = r.URL.Query().Get("genre")
 
 	result, err := h.listFilms.Run(r.Context(), input)
 	if err != nil {

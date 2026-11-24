@@ -2,6 +2,7 @@ package films_test
 
 import (
 	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 
@@ -42,5 +43,36 @@ func TestListFilmsDetails(t *testing.T) {
 				t.Fatal("description was lost")
 			}
 		})
+	}
+}
+
+func TestListFilmsByGenre(t *testing.T) {
+	repo := mocks.NewMockFilmRepository(gomock.NewController(t))
+	repo.EXPECT().
+		ListFilmsByGenre(gomock.Any(), 2, 3, "comedy").
+		Return([]domain.Film{{ID: 7, Title: "Comedy"}}, 4, nil)
+
+	handler := newTestRouter(t, repo)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/films?limit=2&offset=3&genre=comedy", nil)
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+
+	var body struct {
+		Films []struct {
+			ID domain.FilmID `json:"id"`
+		} `json:"films"`
+		Total int `json:"total"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if len(body.Films) != 1 || body.Films[0].ID != 7 {
+		t.Fatalf("films = %v, want one film with id 7", body.Films)
+	}
+	if body.Total != 4 {
+		t.Fatalf("total = %d, want 4", body.Total)
 	}
 }

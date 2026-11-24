@@ -65,6 +65,17 @@ func (r *RepositoryWithPosterURLs) ListFilms(ctx context.Context, limit, offset 
 	return result, total, err
 }
 
+func (r *RepositoryWithPosterURLs) ListFilmsByGenre(ctx context.Context, limit, offset int, genreSlug string) ([]domain.Film, int, error) {
+	films, total, err := r.films.ListFilmsByGenre(ctx, limit, offset, genreSlug)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	result, err := r.attachPosterURLs(ctx, films)
+
+	return result, total, err
+}
+
 func (r *RepositoryWithPosterURLs) ListCollectionFilms(ctx context.Context, id domain.CollectionID, limit, offset int) ([]domain.Film, int, error) {
 	films, total, err := r.collections.ListCollectionFilms(ctx, id, limit, offset)
 	if err != nil {

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/config"
+	analyticsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/analytics"
 	assetsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/assets"
 	authdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
 	filesdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/files"
@@ -21,6 +22,7 @@ import (
 	ratingsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/ratings"
 	reviewsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/reviews"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/router"
+	analyticsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/analytics"
 	authservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/auth"
 	filesservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/files"
 	filmsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/films"
@@ -29,6 +31,7 @@ import (
 	ratingsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/ratings"
 	reviewsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/reviews"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/storage"
+	analyticsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/analytics"
 	authusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/auth"
 	filesusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/files"
 	filmsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/films"
@@ -120,6 +123,7 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 	reviewsRepo := reviewsservice.NewPostgresReviewRepo(db, appLogger)
 	personsRepo := personservice.NewPersonRepo(db, appLogger)
 	ratingsRepo := ratingsservice.NewPostgresRepo(db, appLogger)
+	analyticsRepo := analyticsservice.NewPostgresRepo(db, appLogger)
 
 	posterRepo, err := filesservice.NewPostgresPosterRepo(db, appLogger)
 	if err != nil {
@@ -213,6 +217,16 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 	listFilmsUC, err := filmsusecase.NewListFilmsUseCase(filmsWithPosters, appLogger)
 	if err != nil {
 		return fmt.Errorf("create list films use case: %w", err)
+	}
+
+	listGenresUC, err := filmsusecase.NewListGenresUseCase(filmsRepo, appLogger)
+	if err != nil {
+		return fmt.Errorf("create list genres use case: %w", err)
+	}
+
+	topGenresUC, err := analyticsusecase.NewTopGenresUseCase(analyticsRepo, appLogger)
+	if err != nil {
+		return fmt.Errorf("create top genres use case: %w", err)
 	}
 
 	getFilmUC, err := filmsusecase.NewGetFilmUseCase(filmsWithPosters, appLogger)
@@ -384,9 +398,18 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 		Update: updateReviewUC,
 		Delete: deleteReviewUC,
 	}, appLogger)
-
 	if err != nil {
 		return fmt.Errorf("create reviews handler: %w", err)
+	}
+
+	genresHandler, err := filmsdelivery.NewGenresHandler(listGenresUC, appLogger)
+	if err != nil {
+		return fmt.Errorf("create genres handler: %w", err)
+	}
+
+	analyticsHandler, err := analyticsdelivery.NewHandler(topGenresUC, appLogger)
+	if err != nil {
+		return fmt.Errorf("create analytics handler: %w", err)
 	}
 
 	personsHandler, err := persondelivery.NewHandler(persondelivery.HandlerUseCases{
@@ -425,6 +448,7 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 	httpHandler, err := router.NewRouter(router.Handlers{
 		Auth:           authHandler,
 		Films:          filmsHandler,
+		Genres:         genresHandler,
 		Reviews:        reviewsHandler,
 		Persons:        personsHandler,
 		Files:          filesHandler,
@@ -435,6 +459,7 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 		PersonalRating: personalRatingHandler,
 		PersonCatalog:  personCatalogHandler,
 		Assets:         assetsHandler,
+		Analytics:      analyticsHandler,
 	}, cfg.Server.AllowedOrigins, appLogger)
 	if err != nil {
 		return fmt.Errorf("create router: %w", err)

@@ -47,6 +47,11 @@ func newTestRouterWithLogger(t *testing.T, appLogger logger.Logger) http.Handler
 }
 
 func newTestRouterWithAvatarStorage(t *testing.T, appLogger logger.Logger, storage filesusecase.AvatarStorage) http.Handler {
+	handler, _ := newTestRouterWithAvatarStorageAndUsers(t, appLogger, storage)
+	return handler
+}
+
+func newTestRouterWithAvatarStorageAndUsers(t *testing.T, appLogger logger.Logger, storage filesusecase.AvatarStorage) (http.Handler, *authservice.InMemoryUserRepo) {
 	t.Helper()
 
 	authHandler, users := newTestAuthHandlerWithUsers(t, appLogger)
@@ -133,10 +138,11 @@ func newTestRouterWithAvatarStorage(t *testing.T, appLogger logger.Logger, stora
 		Reviews: newTestReviewsHandler(t, filmsRepo, appLogger),
 		Persons: newTestPersonsHandler(t, appLogger),
 		Files:   filesHandler, Posters: postersHandler,
-		Ratings: newTestRatingsHandler(t, filmsRepo, appLogger),
+		Ratings:   newTestRatingsHandler(t, filmsRepo, appLogger),
+		Analytics: newTestAnalyticsHandler(t, appLogger),
 	}, []string{testOrigin}, appLogger)
 	require.NoError(t, err)
-	return handler
+	return handler, users
 }
 
 func TestFilmRatingRoutes(t *testing.T) {

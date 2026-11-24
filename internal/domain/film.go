@@ -144,7 +144,12 @@ type FilmRepository interface {
 	UpdateFilm(ctx context.Context, id FilmID, input CreateFilmInput) error
 	DeleteFilm(ctx context.Context, id FilmID) error
 	ListFilms(ctx context.Context, limit, offset int) ([]Film, int, error)
+	ListFilmsByGenre(ctx context.Context, limit, offset int, genreslug string) ([]Film, int, error)
 	GetFilmByID(ctx context.Context, id FilmID) (Film, error)
+}
+
+type GenreRepository interface {
+	ListGenres(ctx context.Context) ([]Genre, error)
 }
 
 type CollectionRepository interface {

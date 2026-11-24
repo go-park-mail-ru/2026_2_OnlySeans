@@ -44,12 +44,42 @@ const (
 	countFilmsQuery = `
 		SELECT count(*) FROM film`
 
+	filmGenreFilter = `
+		WHERE EXISTS(
+			SELECT 1
+			FROM film_genre AS fg
+			JOIN genre AS g ON g.id = fg.genre_id
+			WHERE fg.film_id = f.id
+				AND g.slug = $1
+		)
+	`
+
+	countFilmsByGenreQuery = `
+		SELECT COUNT(*)
+		FROM film AS f
+	` + filmGenreFilter
+
+	listFilmsByGenreQuery = `
+		SELECT ` + filmColumns +
+		` FROM film AS f ` +
+		filmGenreFilter +
+		`
+			ORDER BY f.id
+			LIMIT $2 OFFSET $3
+		`
+
 	filmGenresQuery = `
 		SELECT fg.film_id, g.id, g.name, g.slug
 		FROM film_genre AS fg
 		JOIN genre AS g ON g.id = fg.genre_id
 		WHERE fg.film_id = ANY($1)
 		ORDER BY fg.film_id, g.id
+	`
+
+	listGenresQuery = `
+		SELECT id, name, slug
+		FROM genre
+		ORDER BY name
 	`
 
 	collectionColumns = `
@@ -253,7 +283,7 @@ func (s *PostgresService) DeleteFilm(ctx context.Context, id domain.FilmID) (ope
 	return nil
 }
 
-func (s *PostgresService) ListFilms(ctx context.Context, limit, offset int) (_ []domain.Film, _ int, operationErr error) {
+func (s *PostgresService) listFilms(ctx context.Context, limit, offset int, genreSlug string) (_ []domain.Film, _ int, operationErr error) {
 	operationLog := storage.StartOperation(ctx, s.appLogger, "postgres", "film.list_films", map[string]any{"limit": limit, "offset": offset})
 	defer func() { operationLog.Finish(operationErr) }()
 
@@ -264,13 +294,27 @@ func (s *PostgresService) ListFilms(ctx context.Context, limit, offset int) (_ [
 	}
 	defer tx.Rollback()
 
+	countQuery := countFilmsQuery
+	var countArgs []any
+
+	listQuery := listFilmsQuery
+	listArgs := []any{limit, offset}
+
+	if genreSlug != "" {
+		countQuery = countFilmsByGenreQuery
+		countArgs = []any{genreSlug}
+
+		listQuery = listFilmsByGenreQuery
+		listArgs = []any{genreSlug, limit, offset}
+	}
+
 	var total int
 	operationLog.Stage = "query"
-	if err := tx.QueryRowContext(ctx, countFilmsQuery).Scan(&total); err != nil {
+	if err := tx.QueryRowContext(ctx, countQuery, countArgs...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count films: %w", err)
 	}
 	operationLog.Stage = "query"
-	rows, err := tx.QueryContext(ctx, listFilmsQuery, limit, offset)
+	rows, err := tx.QueryContext(ctx, listQuery, listArgs...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list films: %w", err)
 	}
@@ -297,6 +341,40 @@ func (s *PostgresService) ListFilms(ctx context.Context, limit, offset int) (_ [
 		return nil, 0, fmt.Errorf("list films: %w", err)
 	}
 	return list, total, nil
+}
+
+func (s *PostgresService) ListFilms(ctx context.Context, limit, offset int) (_ []domain.Film, _ int, operationErr error) {
+	return s.listFilms(ctx, limit, offset, "")
+}
+
+func (s *PostgresService) ListFilmsByGenre(ctx context.Context, limit, offset int, genreSlug string) ([]domain.Film, int, error) {
+	return s.listFilms(ctx, limit, offset, genreSlug)
+}
+
+func (s *PostgresService) ListGenres(ctx context.Context) ([]domain.Genre, error) {
+	rows, err := s.db.QueryContext(ctx, listGenresQuery)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	genres := make([]domain.Genre, 0)
+	for rows.Next() {
+		var genre domain.Genre
+		if scanErr := rows.Scan(&genre.ID, &genre.Name, &genre.Slug); scanErr != nil {
+			return nil, scanErr
+		}
+
+		genres = append(genres, genre)
+	}
+
+	if rowsErr := rows.Err(); rowsErr != nil {
+		return nil, rowsErr
+	}
+
+	return genres, nil
 }
 
 func scanCollection(row rowScanner) (domain.Collection, error) {

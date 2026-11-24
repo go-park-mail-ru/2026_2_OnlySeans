@@ -5,8 +5,9 @@ import (
 )
 
 type ListFilmsInput struct {
-	Limit  int
-	Offset int
+	Limit     int
+	Offset    int
+	GenreSlug string
 }
 
 func NewListFilmsInput(limit, offset int) ListFilmsInput {

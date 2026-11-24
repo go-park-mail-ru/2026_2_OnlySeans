@@ -135,6 +135,28 @@ func (s *InMemoryService) AddCollection(collection domain.Collection, filmIDs ..
 	return nil
 }
 
+func (s *InMemoryService) ListFilmsByGenre(ctx context.Context, limit, offset int, genreSlug string) ([]domain.Film, int, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if genreSlug == "" {
+		return s.filmsPage(s.filmIDs, limit, offset), len(s.filmIDs), nil
+	}
+
+	var matchingIDs []domain.FilmID
+	for _, id := range s.filmIDs {
+		film := s.films[id]
+		for _, genre := range film.Genres {
+			if genre.Slug == genreSlug {
+				matchingIDs = append(matchingIDs, id)
+				break
+			}
+		}
+	}
+
+	return s.filmsPage(matchingIDs, limit, offset), len(matchingIDs), nil
+}
+
 func (s *InMemoryService) ListFilms(_ context.Context, limit, offset int) ([]domain.Film, int, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

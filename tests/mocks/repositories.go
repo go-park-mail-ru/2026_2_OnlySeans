@@ -199,6 +199,20 @@ func (mr *MockFilmRepositoryMockRecorder) ListFilms(ctx, limit, offset any) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListFilms", reflect.TypeOf((*MockFilmRepository)(nil).ListFilms), ctx, limit, offset)
 }
 
+func (m *MockFilmRepository) ListFilmsByGenre(ctx context.Context, limit, offset int, genreslug string) ([]domain.Film, int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListFilmsByGenre", ctx, limit, offset, genreslug)
+	ret0, _ := ret[0].([]domain.Film)
+	ret1, _ := ret[1].(int)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+func (mr *MockFilmRepositoryMockRecorder) ListFilmsByGenre(ctx, limit, offset, genreslug any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListFilmsByGenre", reflect.TypeOf((*MockFilmRepository)(nil).ListFilmsByGenre), ctx, limit, offset, genreslug)
+}
+
 func (m *MockFilmRepository) UpdateFilm(ctx context.Context, id domain.FilmID, input domain.CreateFilmInput) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateFilm", ctx, id, input)
