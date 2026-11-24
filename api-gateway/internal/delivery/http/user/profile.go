@@ -16,6 +16,12 @@ type ProfileHandler struct {
 	appLogger  logger.Logger
 }
 
+//easyjson:json
+type updateProfileRequest struct {
+	Email    string `json:"email"`
+	Username string `json:"username"`
+}
+
 func NewProfileHandler(client userclient.UserClient, appLogger logger.Logger) *ProfileHandler {
 	return &ProfileHandler{userClient: client, appLogger: appLogger}
 }
@@ -50,10 +56,7 @@ func (h *ProfileHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var body struct {
-		Email    string `json:"email"`
-		Username string `json:"username"`
-	}
+	var body updateProfileRequest
 	if err := httprequest.DecodeJSON(w, r, &body); err != nil {
 		httpresponse.WriteErrorContext(ctx, w, http.StatusBadRequest, "Проверьте имя и почту.", h.appLogger)
 		return

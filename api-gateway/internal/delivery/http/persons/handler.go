@@ -2,19 +2,16 @@ package persons
 
 import (
 	"context"
-
 	"errors"
-	"fmt"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/httprequest"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/httpresponse"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
-	personusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/persons"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/httprequest"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/httpresponse"
+	personsclient "github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/grpc_client/personscleint"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/logger"
 	"github.com/gorilla/mux"
 )
 
@@ -24,6 +21,7 @@ const (
 	maxLimit     = 100
 
 	defaultOffset = 0
+	minOffset     = 0
 
 	idVar       = "id"
 	limitParam  = "limit"
@@ -31,47 +29,28 @@ const (
 )
 
 var (
-	ErrInvalidID     = errors.New("invalid person ID")
-	ErrInvalidLimit  = errors.New("invalid limit")
-	ErrInvalidOffset = errors.New("invalid offset")
+	ErrInvalidID        = errors.New("invalid person ID")
+	ErrInvalidLimit     = errors.New("invalid limit")
+	ErrInvalidOffset    = errors.New("invalid offset")
+	ErrInvalidBirthDate = errors.New("invalid birth date format")
 )
 
-type HandlerUseCases struct {
-	CreatePerson *personusecase.CreatePersonUseCase
-	GetPerson    *personusecase.GetPersonUseCase
-	ListPersons  *personusecase.ListPersonsUseCase
-	UpdatePerson *personusecase.UpdatePersonUseCase
-	DeletePerson *personusecase.DeletePersonUseCase
-}
-
 type Handler struct {
-	useCases  HandlerUseCases
-	appLogger logger.Logger
+	personClient personsclient.PersonClient
+	appLogger    logger.Logger
 }
 
-func NewHandler(cases HandlerUseCases, appLogger logger.Logger) (*Handler, error) {
-	if cases.CreatePerson == nil {
-		return nil, errors.New("create person use case is nil")
-	}
-	if cases.GetPerson == nil {
-		return nil, errors.New("get person use case is nil")
-	}
-	if cases.ListPersons == nil {
-		return nil, errors.New("list person use case is nil")
-	}
-	if cases.UpdatePerson == nil {
-		return nil, errors.New("update person use case is nil")
-	}
-	if cases.DeletePerson == nil {
-		return nil, errors.New("delete person use case is nil")
+func NewHandler(client personsclient.PersonClient, appLogger logger.Logger) (*Handler, error) {
+	if client == nil {
+		return nil, errors.New("person client is nil")
 	}
 	if appLogger == nil {
 		return nil, errors.New("logger is nil")
 	}
 
 	return &Handler{
-		useCases:  cases,
-		appLogger: appLogger,
+		personClient: client,
+		appLogger:    appLogger,
 	}, nil
 }
 
@@ -83,18 +62,15 @@ func (h *Handler) ListPersons(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := h.useCases.ListPersons.Run(r.Context(), personusecase.ListPersonsInput{
-		Limit:  limit,
-		Offset: offset,
-	})
+	result, err := h.personClient.ListPersons(r.Context(), limit, offset)
 	if err != nil {
 		h.writeError(r.Context(), w, err)
 		return
 	}
 
 	response := personsPage{
-		Persons: toPersonResponseDTOs(result.Persons),
-		Total:   result.Total,
+		Persons: toPersonResponseDTOs(result.GetPersons()),
+		Total:   result.GetTotal(),
 		Limit:   limit,
 		Offset:  offset,
 	}
@@ -110,14 +86,14 @@ func (h *Handler) GetPerson(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := h.useCases.GetPerson.Run(r.Context(), id)
+	person, err := h.personClient.GetByID(r.Context(), id)
 	if err != nil {
 		h.writeError(r.Context(), w, err)
 		return
 	}
 
 	response := personResponse{
-		Person: toPersonResponseDTO(result.Person),
+		Person: toPersonResponseDTO(person),
 	}
 
 	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, response, h.appLogger)
@@ -145,19 +121,13 @@ func (h *Handler) CreatePerson(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := h.useCases.CreatePerson.Run(r.Context(), personusecase.CreatePersonInput{
-		Person: domain.PersonInput{
-			FirstName: request.FirstName,
-			LastName:  request.LastName,
-			BirthDate: birthDate,
-		},
-	})
+	id, err := h.personClient.CreatePerson(r.Context(), request.FirstName, request.LastName, birthDate)
 	if err != nil {
 		h.writeError(r.Context(), w, err)
 		return
 	}
 
-	response := createPersonResponse{ID: result.ID}
+	response := createPersonResponse{ID: id}
 
 	httpresponse.WriteJSONContext(r.Context(), w, http.StatusCreated, response, h.appLogger)
 }
@@ -185,21 +155,14 @@ func (h *Handler) UpdatePerson(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := h.useCases.UpdatePerson.Run(r.Context(), personusecase.UpdatePersonInput{
-		PersonID: id,
-		Person: domain.PersonInput{
-			FirstName: request.FirstName,
-			LastName:  request.LastName,
-			BirthDate: birthDate,
-		},
-	})
+	person, err := h.personClient.UpdatePerson(r.Context(), id, request.FirstName, request.LastName, birthDate)
 	if err != nil {
 		h.writeError(r.Context(), w, err)
 		return
 	}
 
 	response := personResponse{
-		Person: toPersonResponseDTO(result.Person),
+		Person: toPersonResponseDTO(person),
 	}
 
 	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, response, h.appLogger)
@@ -213,10 +176,7 @@ func (h *Handler) DeletePerson(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.useCases.DeletePerson.Run(r.Context(), personusecase.DeletePersonInput{
-		PersonID: id,
-	})
-	if err != nil {
+	if err := h.personClient.DeletePerson(r.Context(), id); err != nil {
 		h.writeError(r.Context(), w, err)
 		return
 	}
@@ -224,15 +184,13 @@ func (h *Handler) DeletePerson(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func pathID(r *http.Request) (domain.PersonID, error) {
-	idString := mux.Vars(r)[idVar]
-
-	id, err := strconv.ParseInt(idString, 10, 64)
+func pathID(r *http.Request) (int64, error) {
+	id, err := strconv.ParseInt(mux.Vars(r)[idVar], 10, 64)
 	if err != nil || id <= 0 {
 		return 0, ErrInvalidID
 	}
 
-	return domain.PersonID(id), nil
+	return id, nil
 }
 
 func pagination(r *http.Request) (int, int, error) {
@@ -249,7 +207,7 @@ func pagination(r *http.Request) (int, int, error) {
 
 	if value := r.URL.Query().Get(offsetParam); value != "" {
 		parsed, err := strconv.Atoi(value)
-		if err != nil || parsed < 0 {
+		if err != nil || parsed < minOffset {
 			return 0, 0, ErrInvalidOffset
 		}
 		offset = parsed
@@ -259,19 +217,24 @@ func pagination(r *http.Request) (int, int, error) {
 }
 
 func parseBirthDate(value string) (*time.Time, error) {
-	if strings.TrimSpace(value) == "" {
+	value = strings.TrimSpace(value)
+	if value == "" {
 		return nil, nil
 	}
 
-	date, err := time.Parse("2006-01-02", value)
+	date, err := time.Parse(time.DateOnly, value)
 	if err != nil {
-		return nil, fmt.Errorf("%w: invalid birth date format", domain.ErrInvalidBirthDate)
+		return nil, ErrInvalidBirthDate
 	}
 
 	return &date, nil
 }
 
 func (h *Handler) writeError(ctx context.Context, w http.ResponseWriter, err error) {
+	writePersonError(ctx, w, err, h.appLogger)
+}
+
+func writePersonError(ctx context.Context, w http.ResponseWriter, err error, appLogger logger.Logger) {
 	status := http.StatusInternalServerError
 	message := httpresponse.InternalErrorMessage
 
@@ -279,17 +242,17 @@ func (h *Handler) writeError(ctx context.Context, w http.ResponseWriter, err err
 	case errors.Is(err, ErrInvalidID),
 		errors.Is(err, ErrInvalidLimit),
 		errors.Is(err, ErrInvalidOffset),
+		errors.Is(err, ErrInvalidBirthDate),
 		errors.Is(err, httprequest.ErrInvalidBody),
-		errors.Is(err, domain.ErrInvalidFirstName),
-		errors.Is(err, domain.ErrInvalidLastName),
-		errors.Is(err, domain.ErrInvalidBirthDate):
+		errors.Is(err, personsclient.ErrInvalidArgument):
 		status = http.StatusBadRequest
 		message = err.Error()
 
-	case errors.Is(err, domain.ErrPersonNotFound):
+	case errors.Is(err, personsclient.ErrPersonNotFound),
+		errors.Is(err, personsclient.ErrFilmNotFound):
 		status = http.StatusNotFound
 		message = err.Error()
 	}
 
-	httpresponse.WriteErrorContext(ctx, w, status, message, h.appLogger)
+	httpresponse.WriteErrorContext(ctx, w, status, message, appLogger)
 }

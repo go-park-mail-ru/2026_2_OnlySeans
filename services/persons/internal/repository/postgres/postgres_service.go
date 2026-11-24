@@ -6,9 +6,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/storage"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/services/persons/internal/domain"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/logger"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/storage"
 )
 
 const (
@@ -92,6 +92,7 @@ func (r *PersonRepo) GetByID(
 	)
 
 	if errors.Is(err, sql.ErrNoRows) {
+		operationLog.NotFound = true
 		return nil, domain.ErrPersonNotFound
 	}
 
@@ -183,6 +184,7 @@ func (r *PersonRepo) Update(
 	)
 
 	if errors.Is(err, sql.ErrNoRows) {
+		operationLog.NotFound = true
 		return nil, domain.ErrPersonNotFound
 	}
 
@@ -215,6 +217,7 @@ func (r *PersonRepo) Delete(
 	}
 
 	if affected == 0 {
+		operationLog.NotFound = true
 		return domain.ErrPersonNotFound
 	}
 

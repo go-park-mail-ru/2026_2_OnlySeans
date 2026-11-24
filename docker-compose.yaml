@@ -112,6 +112,25 @@ services:
         target: /app/config.yaml
     restart: unless-stopped
 
+  persons:
+    build:
+      context: .
+      args:
+        BUILD_PATH: ./services/persons/cmd
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGHOST: db
+      PGUSER: ${DB_USER}
+      PGPASSWORD: ${DB_PASSWORD}
+      PGDATABASE: ${DB_NAME}
+      PGSSLMODE: disable
+    configs:
+      - source: persons_config
+        target: /app/config.yaml
+    restart: unless-stopped
+
   api-gateway:
     build:
       context: .
@@ -121,6 +140,8 @@ services:
       auth:
         condition: service_started
       user:
+        condition: service_started
+      persons:
         condition: service_started
     ports:
       - "8080:8080"
@@ -157,7 +178,16 @@ configs:
         host: "0.0.0.0"
         port: "50052"
       user_service_addr: "user:50051"
-      session_ttl: 24h
+      session_ttl: 168h
+  persons_config:
+    content: |
+      logger:
+        level: info
+      postgres:
+        url: ""
+      grpc:
+        host: "0.0.0.0"
+        port: "50053"
   gateway_config:
     content: |
       logger:
@@ -169,6 +199,7 @@ configs:
         cookie_secure: false
       auth_service_addr: "auth:50052"
       user_service_addr: "user:50051"
+      persons_service_addr: "persons:50053"
 
 volumes:
   db_data:

@@ -18,6 +18,13 @@ const (
 	sessionKeyPrefix = "session:"
 )
 
+type sessionDTO struct {
+	ID        uuid.UUID     `json:"id"`
+	UserID    domain.UserID `json:"user_id"`
+	Role      string        `json:"role"`
+	ExpiresAt time.Time     `json:"expires_at"`
+}
+
 type RedisSessionStore struct {
 	appLogger logger.Logger
 	client    rueidis.Client
@@ -48,7 +55,12 @@ func (s *RedisSessionStore) Create(ctx context.Context, session domain.Session) 
 		return domain.ErrSessionNotFound
 	}
 
-	data, err := json.Marshal(session)
+	data, err := json.Marshal(sessionDTO{
+		ID:        session.ID,
+		UserID:    session.UserID,
+		Role:      session.Role,
+		ExpiresAt: session.ExpiresAt,
+	})
 	if err != nil {
 		return fmt.Errorf("encode session: %w", err)
 	}
@@ -88,7 +100,7 @@ func (s *RedisSessionStore) Get(ctx context.Context, sessionID uuid.UUID) (_ *do
 		return nil, fmt.Errorf("get session: %w", err)
 	}
 
-	var session domain.Session
+	var session sessionDTO
 	if err := json.Unmarshal([]byte(rawSession), &session); err != nil {
 		return nil, fmt.Errorf("decode session: %w", err)
 	}
@@ -97,7 +109,12 @@ func (s *RedisSessionStore) Get(ctx context.Context, sessionID uuid.UUID) (_ *do
 		return nil, domain.ErrSessionNotFound
 	}
 
-	return &session, nil
+	return &domain.Session{
+		ID:        session.ID,
+		UserID:    session.UserID,
+		Role:      session.Role,
+		ExpiresAt: session.ExpiresAt,
+	}, nil
 }
 
 func (s *RedisSessionStore) Delete(ctx context.Context, sessionID uuid.UUID) (operationErr error) {

@@ -6,6 +6,7 @@ import (
 	pbUser "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/user"
 )
 
+//easyjson:json
 type userResponse struct {
 	ID             int64   `json:"id"`
 	Email          string  `json:"email"`
@@ -13,15 +14,18 @@ type userResponse struct {
 	AvatarFilename *string `json:"avatar_filename,omitempty"`
 }
 
+//easyjson:json
 type profileUpdateResponse struct {
 	User userResponse `json:"user"`
 }
 
+//easyjson:json
 type profileUserResponse struct {
 	userResponse
 	CreatedAt time.Time `json:"created_at"`
 }
 
+//easyjson:json
 type profileFilmResponse struct {
 	ID       int64   `json:"id"`
 	Title    string  `json:"title"`
@@ -34,6 +38,7 @@ type profileFilmResponse struct {
 	Score    *int32  `json:"score,omitempty"`
 }
 
+//easyjson:json
 type profileResponse struct {
 	User      profileUserResponse   `json:"user"`
 	Favorites []profileFilmResponse `json:"favorites"`

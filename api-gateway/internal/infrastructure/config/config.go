@@ -9,10 +9,11 @@ type HTTPConfig struct {
 }
 
 type Config struct {
-	Logger          sharedconfig.LoggerConfig `yaml:"logger"`
-	HTTP            HTTPConfig                `yaml:"http"`
-	AuthServiceAddr string                    `yaml:"auth_service_addr"`
-	UserServiceAddr string                    `yaml:"user_service_addr"`
+	Logger             sharedconfig.LoggerConfig `yaml:"logger"`
+	HTTP               HTTPConfig                `yaml:"http"`
+	AuthServiceAddr    string                    `yaml:"auth_service_addr"`
+	UserServiceAddr    string                    `yaml:"user_service_addr"`
+	PersonsServiceAddr string                    `yaml:"persons_service_addr"`
 }
 
 func Load() *Config {

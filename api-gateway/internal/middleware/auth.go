@@ -34,32 +34,6 @@ func NewAuthMiddleware(ac authclient.AuthClient, uc userclient.UserClient, l log
 	}
 }
 
-/*
-	func RequireAuth(authn Authenticator) Middleware {
-		return func(next http.HandlerFunc) http.HandlerFunc {
-			return func(w http.ResponseWriter, r *http.Request) {
-				cookie, err := r.Cookie(auth.SessionCookieName)
-				if err != nil {
-					writeError(r.Context(), w, http.StatusUnauthorized, domain.ErrUnauthorized)
-					return
-				}
-
-				userID, err := authn.Authenticate(r.Context(), cookie.Value)
-				if err != nil {
-					if errors.Is(err, domain.ErrUnauthorized) {
-						writeError(r.Context(), w, http.StatusUnauthorized, domain.ErrUnauthorized)
-						return
-					}
-
-					writeError(r.Context(), w, http.StatusInternalServerError, domain.ErrInternal)
-					return
-				}
-
-				next(w, r.WithContext(auth.ContextWithUserID(r.Context(), userID)))
-			}
-		}
-	}
-*/
 func (m *AuthMiddleware) Authenticate(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()

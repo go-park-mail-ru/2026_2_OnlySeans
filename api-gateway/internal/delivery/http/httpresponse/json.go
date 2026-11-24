@@ -10,6 +10,7 @@ import (
 
 const InternalErrorMessage = "internal server error"
 
+//easyjson:json
 type ErrorResponse struct {
 	Error string `json:"error"`
 }

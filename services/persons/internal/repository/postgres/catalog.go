@@ -5,9 +5,9 @@ import (
 	"database/sql"
 	"errors"
 
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/storage"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/services/persons/internal/domain"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/logger"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/storage"
 )
 
 type CatalogRepo struct {
@@ -78,6 +78,7 @@ func (r *CatalogRepo) Get(ctx context.Context, id int64) (_ domain.CatalogPerson
 	operationLog.Stage = "query"
 	person, err := scanCatalogPerson(r.db.QueryRowContext(ctx, personQuery, id))
 	if errors.Is(err, sql.ErrNoRows) {
+		operationLog.NotFound = true
 		return person, nil, domain.ErrPersonNotFound
 	}
 	if err != nil {

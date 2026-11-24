@@ -7,10 +7,10 @@ import (
 )
 
 type Session struct {
-	ID        uuid.UUID `json:"id"`
-	UserID    UserID    `json:"user_id"`
-	Role      string    `json:"role"`
-	ExpiresAt time.Time `json:"expires_at"`
+	ID        uuid.UUID
+	UserID    UserID
+	Role      string
+	ExpiresAt time.Time
 }
 
 func NewSession(id uuid.UUID, userID UserID, role string, expiresAt time.Time) *Session {

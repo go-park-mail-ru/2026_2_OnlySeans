@@ -27,10 +27,12 @@ func NewAvatarHandler(client userclient.UserClient, appLogger logger.Logger) *Av
 	return &AvatarHandler{userClient: client, appLogger: appLogger}
 }
 
+//easyjson:json
 type avatarURLResponse struct {
 	URL string `json:"url"`
 }
 
+//easyjson:json
 type uploadAvatarResponse struct {
 	Filename string `json:"filename"`
 }

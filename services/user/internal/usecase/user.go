@@ -8,13 +8,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/utils"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/services/user/internal/domain"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/services/user/internal/repository"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/imageutil"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/logger"
 	passUtil "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/password"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/s3"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/utils"
 	"github.com/google/uuid"
 )
 

@@ -12,14 +12,17 @@ import (
 	"time"
 
 	authhttp "github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/auth"
+	personshttp "github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/persons"
 	userhttp "github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/user"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/router"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/grpc_client/authclient"
+	personsclient "github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/grpc_client/personscleint"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/grpc_client/userclient"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/infrastructure/config"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/middleware"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/logger"
 	pbauth "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/auth"
+	pbpersons "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/persons"
 	pbuser "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/user"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -36,8 +39,8 @@ func main() {
 
 func run(ctx context.Context) error {
 	cfg := config.Load()
-	if cfg.HTTP.Addr == "" || cfg.AuthServiceAddr == "" || cfg.UserServiceAddr == "" {
-		return errors.New("http.addr, auth_service_addr and user_service_addr are required")
+	if cfg.HTTP.Addr == "" || cfg.AuthServiceAddr == "" || cfg.UserServiceAddr == "" || cfg.PersonsServiceAddr == "" {
+		return errors.New("http.addr, auth_service_addr, user_service_addr and persons_service_addr are required")
 	}
 
 	appLogger, err := logger.NewLogger(os.Stdout, logger.LogLevelType(cfg.Logger.Level), "json")
@@ -59,8 +62,23 @@ func run(ctx context.Context) error {
 	}
 	defer userConn.Close()
 
+	personsConn, err := grpc.NewClient(cfg.PersonsServiceAddr, transport)
+	if err != nil {
+		return fmt.Errorf("create Persons gRPC client: %w", err)
+	}
+	defer personsConn.Close()
+
 	authClient := authclient.NewAuthClient(pbauth.NewAuthServiceClient(authConn))
 	userClient := userclient.NewUserClient(pbuser.NewUserServiceClient(userConn))
+	personClient := personsclient.NewPersonClient(pbpersons.NewPersonServiceClient(personsConn))
+	personsHandler, err := personshttp.NewHandler(personClient, appLogger)
+	if err != nil {
+		return fmt.Errorf("create Persons handler: %w", err)
+	}
+	personCatalogHandler, err := personshttp.NewCatalogHandler(personClient, nil, appLogger)
+	if err != nil {
+		return fmt.Errorf("create Person catalog handler: %w", err)
+	}
 
 	authHandler := authhttp.NewAuthHandler(authClient, userClient, appLogger)
 	authHandler.CookieSecure = cfg.HTTP.CookieSecure
@@ -69,9 +87,11 @@ func run(ctx context.Context) error {
 	authMiddleware := middleware.NewAuthMiddleware(authClient, userClient, appLogger)
 
 	handler, err := router.NewRouter(router.Handlers{
-		Auth:    authHandler,
-		Files:   avatarHandler,
-		Profile: profileHandler,
+		Auth:          authHandler,
+		Files:         avatarHandler,
+		Profile:       profileHandler,
+		Persons:       personsHandler,
+		PersonCatalog: personCatalogHandler,
 	}, authMiddleware, cfg.HTTP.AllowedOrigins, appLogger)
 	if err != nil {
 		return fmt.Errorf("create Gateway router: %w", err)
