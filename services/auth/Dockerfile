@@ -1,4 +1,3 @@
-
 FROM golang:1.26-alpine AS builder
 WORKDIR /app
 
@@ -9,13 +8,11 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 
 COPY . .
 
-ARG BUILD_PATH=./api-gateway/cmd
-
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     CGO_ENABLED=0 GOOS=linux go build \
     -buildvcs=false -trimpath -ldflags="-w -s" \
-    -o /app/main "$BUILD_PATH"
+    -o /app/main ./services/auth/cmd
 
 FROM alpine:3.23
 WORKDIR /app
@@ -23,8 +20,7 @@ WORKDIR /app
 RUN apk add --no-cache ca-certificates tzdata
 
 COPY --from=builder /app/main ./main
-
 ENV CONFIG_PATH=/app/config.yaml
 
-EXPOSE 8080 50051 50052
+EXPOSE 50052
 CMD ["./main"]

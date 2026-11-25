@@ -25,6 +25,7 @@ func NewCatalogHandler(client personsclient.PersonClient, films FilmReader, appL
 	if client == nil {
 		return nil, errors.New("person client is nil")
 	}
+
 	if appLogger == nil {
 		return nil, errors.New("logger is nil")
 	}
@@ -39,6 +40,16 @@ func NewCatalogHandler(client personsclient.PersonClient, films FilmReader, appL
 func (h *CatalogHandler) GetFilmPersons(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r)
 	if err != nil {
+		writePersonError(r.Context(), w, err, h.appLogger)
+		return
+	}
+
+	if h.films == nil {
+		httpresponse.WriteErrorContext(r.Context(), w, http.StatusServiceUnavailable, "Film catalog is unavailable", h.appLogger)
+		return
+	}
+
+	if _, err := h.films.GetFilmJSON(r.Context(), id); err != nil {
 		writePersonError(r.Context(), w, err, h.appLogger)
 		return
 	}
@@ -79,6 +90,7 @@ func (h *CatalogHandler) GetPersonCatalog(w http.ResponseWriter, r *http.Request
 		httpresponse.WriteErrorContext(r.Context(), w, http.StatusServiceUnavailable, "Film catalog is unavailable", h.appLogger)
 		return
 	}
+
 	for _, credit := range result.GetFilms() {
 		film, err := h.films.GetFilmJSON(r.Context(), credit.GetFilmId())
 		if err != nil {

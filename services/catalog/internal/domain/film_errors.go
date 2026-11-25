@@ -11,12 +11,8 @@ var (
 	ErrCollectionNotFound      = errors.New("collection not found")
 	ErrCollectionExists        = errors.New("collection already exists")
 	ErrDuplicateCollectionFilm = errors.New("film is already in collection")
-	ErrNilCollectionsRepo      = errors.New("collections repository is nil")
-	ErrNilFilmsRepo            = errors.New("films repository is nil")
 	ErrInvalidFilmInput        = errors.New("invalid film input")
 	ErrInvalidFilmRating       = errors.New("invalid film rating")
-	ErrNilFilmRatingsRepo      = errors.New("film ratings repository is nil")
-	ErrNilCollectionRatingRepo = errors.New("collection film ratings repository is nil")
 	ErrRatingNotFound          = errors.New("rating not found")
 )
 
