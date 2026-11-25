@@ -11,18 +11,20 @@ import (
 )
 
 type Handlers struct {
-	Auth           *auth.AuthHandler
-	Films          filmsHandler
-	Reviews        reviewsHandler
-	Persons        personsHandler
-	Files          filesHandler
-	Posters        postersHandler
-	Ratings        ratingsHandler
-	Library        libraryHandler
-	Profile        *user.ProfileHandler
-	PersonalRating personalRatingHandler
-	PersonCatalog  personCatalogHandler
-	Assets         assetsHandler
+	Auth            *auth.AuthHandler
+	Films           filmsHandler
+	Reviews         reviewsHandler
+	Persons         personsHandler
+	Files           filesHandler
+	Posters         postersHandler
+	Ratings         ratingsHandler
+	Library         libraryHandler
+	Profile         *user.ProfileHandler
+	PersonalRating  personalRatingHandler
+	PersonCatalog   personCatalogHandler
+	Assets          assetsHandler
+	Metrics         http.Handler
+	MetricsObserver middleware.HTTPMetrics
 }
 
 func NewRouter(handlers Handlers, authMiddleware *middleware.AuthMiddleware, allowedOrigins []string, appLogger logger.Logger) (http.Handler, error) {
@@ -107,6 +109,11 @@ func NewRouter(handlers Handlers, authMiddleware *middleware.AuthMiddleware, all
 		r.HandleFunc("/static/{key:.*}", h.GetAsset).Methods(http.MethodGet)
 	}
 
+	if handlers.Metrics != nil {
+		r.Handle("/metrics", handlers.Metrics).Methods(http.MethodGet)
+	}
+	r.Use(middleware.CaptureMetricsRoute)
+
 	handler, err := middleware.WithCORSAndCSRF(r, allowedOrigins)
 	if err != nil {
 		return nil, err
@@ -115,5 +122,8 @@ func NewRouter(handlers Handlers, authMiddleware *middleware.AuthMiddleware, all
 	handler = middleware.WithSecurityHeaders(handler)
 	handler = middleware.WithRecover(handler, appLogger)
 	handler = middleware.WithLogging(handler, appLogger)
+	if handlers.MetricsObserver != nil {
+		handler = middleware.WithMetrics(handler, handlers.MetricsObserver)
+	}
 	return middleware.WithRequestID(handler), nil
 }

@@ -1,0 +1,13 @@
+services:
+  node-exporter:
+    network_mode: host
+    pid: host
+    volumes:
+      - "/:/host:ro,rslave"
+    command:
+      - "--path.rootfs=/host"
+      - "--web.listen-address=${NODE_EXPORTER_HOST_IP:?Set NODE_EXPORTER_HOST_IP}:9100"
+
+  prometheus:
+    extra_hosts:
+      - "node-exporter:host-gateway"

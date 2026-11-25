@@ -1,4 +1,31 @@
 services:
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./configs/prometheus.yaml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=7d"
+    restart: unless-stopped
+
+  node-exporter:
+    image: quay.io/prometheus/node-exporter:latest
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
   db:
     image: postgres:18.1
     container_name: postgres_db
@@ -85,6 +112,7 @@ services:
       rustfs-init:
         condition: service_completed_successfully
     environment:
+      METRICS_ADDR: ":9101"
       PGHOST: db
       PGUSER: ${DB_USER}
       PGPASSWORD: ${DB_PASSWORD}
@@ -107,6 +135,8 @@ services:
         condition: service_healthy
       user:
         condition: service_started
+    environment:
+      METRICS_ADDR: ":9101"
     configs:
       - source: auth_config
         target: /app/config.yaml
@@ -121,6 +151,7 @@ services:
       db:
         condition: service_healthy
     environment:
+      METRICS_ADDR: ":9101"
       PGHOST: db
       PGUSER: ${DB_USER}
       PGPASSWORD: ${DB_PASSWORD}
@@ -205,3 +236,5 @@ volumes:
   db_data:
   redis_data:
   rustfs-data:
+  prometheus_data:
+  grafana_data:

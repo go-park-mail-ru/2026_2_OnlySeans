@@ -21,14 +21,14 @@ const (
 )
 
 type S3Storage struct {
-	appLogger   logger.Logger
+	operations  storage.OperationRecorder
 	client      *s3.Client
 	bucket      string
 	presigner   *s3.PresignClient
 	urlLifetime time.Duration
 }
 
-func NewS3Storage(client *s3.Client, bucket, publicEndpoint string, urlLifetime time.Duration, appLogger logger.Logger) (*S3Storage, error) {
+func NewS3Storage(client *s3.Client, bucket, publicEndpoint string, urlLifetime time.Duration, appLogger logger.Logger, observers ...storage.ExternalObserver) (*S3Storage, error) {
 	if client == nil {
 		return nil, errors.New("s3 client is nil")
 	}
@@ -41,7 +41,7 @@ func NewS3Storage(client *s3.Client, bucket, publicEndpoint string, urlLifetime 
 	}
 
 	return &S3Storage{
-		appLogger:   appLogger,
+		operations:  storage.NewOperationRecorder(appLogger, observers...),
 		urlLifetime: urlLifetime,
 		client:      client,
 		bucket:      bucket,
@@ -56,7 +56,7 @@ func NewS3Storage(client *s3.Client, bucket, publicEndpoint string, urlLifetime 
 }
 
 func (s *S3Storage) UploadFile(ctx context.Context, key, contentType string, data []byte) (operationErr error) {
-	operation := storage.StartOperation(ctx, s.appLogger, "s3", "object.upload", map[string]any{"bucket": s.bucket, "storage_key": key})
+	operation := s.operations.Start(ctx, "s3", "object.upload", map[string]any{"bucket": s.bucket, "storage_key": key})
 	defer func() { operation.Finish(operationErr) }()
 	_, err := s.client.PutObject(ctx, &s3.PutObjectInput{
 		Bucket:      aws.String(s.bucket),
@@ -73,7 +73,7 @@ func (s *S3Storage) UploadFile(ctx context.Context, key, contentType string, dat
 }
 
 func (s *S3Storage) GetURL(ctx context.Context, key string) (_ string, operationErr error) {
-	operation := storage.StartOperation(ctx, s.appLogger, "s3", "object.geturl", map[string]any{"bucket": s.bucket, "storage_key": key})
+	operation := s.operations.Start(ctx, "s3", "object.geturl", map[string]any{"bucket": s.bucket, "storage_key": key})
 	defer func() {
 		operation.NotFound = errors.Is(operationErr, ErrFileNotFound)
 		operation.Finish(operationErr)
@@ -102,7 +102,7 @@ func (s *S3Storage) GetURL(ctx context.Context, key string) (_ string, operation
 }
 
 func (s *S3Storage) DeleteFile(ctx context.Context, key string) (operationErr error) {
-	operation := storage.StartOperation(ctx, s.appLogger, "s3", "object.delete", map[string]any{"bucket": s.bucket, "storage_key": key})
+	operation := s.operations.Start(ctx, "s3", "object.delete", map[string]any{"bucket": s.bucket, "storage_key": key})
 	defer func() { operation.Finish(operationErr) }()
 	_, err := s.client.DeleteObject(ctx, &s3.DeleteObjectInput{
 		Bucket: aws.String(s.bucket),

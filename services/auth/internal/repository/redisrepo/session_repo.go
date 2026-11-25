@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/services/auth/internal/domain"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/logger"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/storage"
 	"github.com/google/uuid"
 	"github.com/redis/rueidis"
 )
@@ -26,17 +27,20 @@ type sessionDTO struct {
 }
 
 type RedisSessionStore struct {
-	appLogger logger.Logger
-	client    rueidis.Client
+	appLogger  logger.Logger
+	client     rueidis.Client
+	operations storage.OperationRecorder
 }
 
 func NewRedisSessionStore(
 	client rueidis.Client,
 	appLogger logger.Logger,
+	observers ...storage.ExternalObserver,
 ) *RedisSessionStore {
 	return &RedisSessionStore{
-		appLogger: appLogger,
-		client:    client,
+		appLogger:  appLogger,
+		client:     client,
+		operations: storage.NewOperationRecorder(nil, observers...),
 	}
 }
 
@@ -72,6 +76,11 @@ func (s *RedisSessionStore) Create(ctx context.Context, session domain.Session) 
 		ExSeconds(int64(math.Ceil(remaining.Seconds()))).
 		Build()
 
+	operation := s.operations.Start(ctx, "redis", "session.create", nil)
+	defer func() {
+		operation.NotFound = errors.Is(operationErr, domain.ErrSessionNotFound)
+		operation.Finish(operationErr)
+	}()
 	res := s.client.Do(ctx, cmd)
 	if res.Error() != nil {
 		return fmt.Errorf("create session: %w", res.Error())
@@ -91,6 +100,11 @@ func (s *RedisSessionStore) Get(ctx context.Context, sessionID uuid.UUID) (_ *do
 		Key(sessionKey(sessionID)).
 		Build()
 
+	operation := s.operations.Start(ctx, "redis", "session.get", nil)
+	defer func() {
+		operation.NotFound = errors.Is(operationErr, domain.ErrSessionNotFound)
+		operation.Finish(operationErr)
+	}()
 	rawSession, err := s.client.Do(ctx, cmd).ToString()
 	if err != nil {
 		if rueidis.IsRedisNil(err) {
@@ -128,6 +142,11 @@ func (s *RedisSessionStore) Delete(ctx context.Context, sessionID uuid.UUID) (op
 		Key(sessionKey(sessionID)).
 		Build()
 
+	operation := s.operations.Start(ctx, "redis", "session.delete", nil)
+	defer func() {
+		operation.NotFound = errors.Is(operationErr, domain.ErrSessionNotFound)
+		operation.Finish(operationErr)
+	}()
 	err := s.client.Do(ctx, cmd).Error()
 	if err != nil {
 		return fmt.Errorf("delete session: %w", err)

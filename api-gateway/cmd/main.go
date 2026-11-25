@@ -21,6 +21,7 @@ import (
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/infrastructure/config"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/middleware"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/logger"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/metrics"
 	pbauth "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/auth"
 	pbpersons "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/persons"
 	pbuser "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/user"
@@ -86,12 +87,15 @@ func run(ctx context.Context) error {
 	avatarHandler := userhttp.NewAvatarHandler(userClient, appLogger)
 	authMiddleware := middleware.NewAuthMiddleware(authClient, userClient, appLogger)
 
+	appMetrics := metrics.New()
 	handler, err := router.NewRouter(router.Handlers{
-		Auth:          authHandler,
-		Files:         avatarHandler,
-		Profile:       profileHandler,
-		Persons:       personsHandler,
-		PersonCatalog: personCatalogHandler,
+		Auth:            authHandler,
+		Files:           avatarHandler,
+		Profile:         profileHandler,
+		Persons:         personsHandler,
+		PersonCatalog:   personCatalogHandler,
+		Metrics:         appMetrics.Handler(),
+		MetricsObserver: appMetrics,
 	}, authMiddleware, cfg.HTTP.AllowedOrigins, appLogger)
 	if err != nil {
 		return fmt.Errorf("create Gateway router: %w", err)
