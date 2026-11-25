@@ -21,11 +21,16 @@ mocks:
 
 # Сборка приложения
 build:
-	go build -o server ./cmd/main.go
+	mkdir -p bin
+	go build -o bin/auth ./services/auth/cmd
+	go build -o bin/user ./services/user/cmd
+	go build -o bin/persons ./services/persons/cmd
+	go build -o bin/catalog ./services/catalog/cmd
+	go build -o bin/api-gateway ./api-gateway/cmd
 
 # Запуск сервера
 run:
-	go run ./cmd/main.go
+	docker compose up --build
 
 # Полная проверка (одной командой: make check)
 check: lint test build

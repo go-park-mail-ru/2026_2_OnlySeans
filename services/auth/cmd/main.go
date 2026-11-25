@@ -10,7 +10,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/redis"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+
 	authgrpc "github.com/go-park-mail-ru/2026_2_OnlySeans/services/auth/internal/delivery/grpc"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/services/auth/internal/infrastructure/config"
 	grpcclient "github.com/go-park-mail-ru/2026_2_OnlySeans/services/auth/internal/infrastructure/grpc_client"
@@ -18,10 +20,9 @@ import (
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/services/auth/internal/usecase"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/logger"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/password"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/redis"
 	pbauth "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/auth"
 	pbuser "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/user"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 func main() {
