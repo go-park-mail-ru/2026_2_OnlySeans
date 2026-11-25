@@ -11,7 +11,7 @@ import (
 )
 
 func (r *PostgresUserRepo) UpdateProfile(ctx context.Context, id domain.UserID, email, username string) (_ *domain.User, operationErr error) {
-	operationLog := storage.StartOperation(ctx, r.appLogger, "postgres", "profile.update_profile", map[string]any{"user_id": id})
+	operationLog := r.operations.Start(ctx, "postgres", "profile.update_profile", map[string]any{"user_id": id})
 
 	defer func() { operationLog.Finish(operationErr) }()
 

@@ -2,4 +2,4 @@ coverage/
 .vscode
 logs/
 .env
-.AGENTS.md
+AGENTS.md

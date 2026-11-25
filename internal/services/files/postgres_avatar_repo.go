@@ -12,11 +12,11 @@ import (
 )
 
 type PostgresAvatarRepo struct {
-	appLogger logger.Logger
-	db        *sql.DB
+	operations storage.OperationRecorder
+	db         *sql.DB
 }
 
-func NewPostgresAvatarRepo(db *sql.DB, appLogger logger.Logger) (*PostgresAvatarRepo, error) {
+func NewPostgresAvatarRepo(db *sql.DB, appLogger logger.Logger, observers ...storage.ExternalObserver) (*PostgresAvatarRepo, error) {
 	if db == nil {
 		return nil, errors.New("avatar database is nil")
 	}
@@ -25,11 +25,11 @@ func NewPostgresAvatarRepo(db *sql.DB, appLogger logger.Logger) (*PostgresAvatar
 		return nil, domain.ErrInvalidAppLogger
 	}
 
-	return &PostgresAvatarRepo{appLogger: appLogger, db: db}, nil
+	return &PostgresAvatarRepo{operations: storage.NewOperationRecorder(appLogger, observers...), db: db}, nil
 }
 
 func (r *PostgresAvatarRepo) SaveAvatar(ctx context.Context, userID domain.UserID, file domain.AvatarFile) (operationErr error) {
-	operationLog := storage.StartOperation(ctx, r.appLogger, "postgres", "avatar.save_avatar", map[string]any{"user_id": userID})
+	operationLog := r.operations.Start(ctx, "postgres", "avatar.save_avatar", map[string]any{"user_id": userID})
 	defer func() { operationLog.Finish(operationErr) }()
 
 	operationLog.Stage = "begin"
@@ -77,7 +77,7 @@ func (r *PostgresAvatarRepo) SaveAvatar(ctx context.Context, userID domain.UserI
 }
 
 func (r *PostgresAvatarRepo) GetAvatar(ctx context.Context, userID domain.UserID) (_ *domain.AvatarFile, operationErr error) {
-	operationLog := storage.StartOperation(ctx, r.appLogger, "postgres", "avatar.get_avatar", map[string]any{"user_id": userID})
+	operationLog := r.operations.Start(ctx, "postgres", "avatar.get_avatar", map[string]any{"user_id": userID})
 	defer func() { operationLog.Finish(operationErr) }()
 
 	var filename, contentType sql.NullString
@@ -110,7 +110,7 @@ func (r *PostgresAvatarRepo) GetAvatar(ctx context.Context, userID domain.UserID
 }
 
 func (r *PostgresAvatarRepo) DeleteAvatar(ctx context.Context, userID domain.UserID) (operationErr error) {
-	operationLog := storage.StartOperation(ctx, r.appLogger, "postgres", "avatar.delete_avatar", map[string]any{"user_id": userID})
+	operationLog := r.operations.Start(ctx, "postgres", "avatar.delete_avatar", map[string]any{"user_id": userID})
 	defer func() { operationLog.Finish(operationErr) }()
 
 	operationLog.Stage = "begin"

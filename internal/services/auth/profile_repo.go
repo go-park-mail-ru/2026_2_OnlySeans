@@ -12,11 +12,11 @@ import (
 )
 
 type ProfileRepo struct {
-	db        *sql.DB
-	appLogger logger.Logger
+	db         *sql.DB
+	operations storage.OperationRecorder
 }
 
-func NewProfileRepo(db *sql.DB, appLogger logger.Logger) (*ProfileRepo, error) {
+func NewProfileRepo(db *sql.DB, appLogger logger.Logger, observers ...storage.ExternalObserver) (*ProfileRepo, error) {
 	if db == nil {
 		return nil, errors.New("profile database is nil")
 	}
@@ -25,7 +25,7 @@ func NewProfileRepo(db *sql.DB, appLogger logger.Logger) (*ProfileRepo, error) {
 		return nil, domain.ErrInvalidAppLogger
 	}
 
-	return &ProfileRepo{db: db, appLogger: appLogger}, nil
+	return &ProfileRepo{db: db, operations: storage.NewOperationRecorder(appLogger, observers...)}, nil
 }
 
 const (
@@ -60,7 +60,7 @@ const (
 )
 
 func (r *ProfileRepo) GetProfile(ctx context.Context, id domain.UserID) (_ *domain.Profile, operationErr error) {
-	operation := storage.StartOperation(ctx, r.appLogger, "postgres", "profile.get_profile", map[string]any{"user_id": id})
+	operation := r.operations.Start(ctx, "postgres", "profile.get_profile", map[string]any{"user_id": id})
 	defer func() { operation.Finish(operationErr) }()
 	operation.Stage = "begin"
 	tx, err := r.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelRepeatableRead, ReadOnly: true})

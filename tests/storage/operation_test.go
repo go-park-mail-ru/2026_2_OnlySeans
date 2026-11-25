@@ -5,9 +5,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/metrics"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/storage"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -51,5 +54,34 @@ func TestDatabaseOperationLogs(t *testing.T) {
 				require.Equal(t, "23505", record["sqlstate"])
 			}
 		})
+	}
+}
+
+func TestExternalMetricsWithoutLogger(t *testing.T) {
+	appMetrics := metrics.New()
+	recorder := storage.NewOperationRecorder(nil, appMetrics)
+	for _, tc := range []struct {
+		system, operation, outcome string
+		err                        error
+	}{
+		{"postgres", "library.get", "ok", nil},
+		{"postgres", "library.set_saved", "error", fmt.Errorf("connection lost")},
+		{"s3", "object.upload", "timeout", fmt.Errorf("upload: %w", context.DeadlineExceeded)},
+		{"s3", "object.delete", "canceled", context.Canceled},
+		{"redis", "session.get", "not_found", domain.ErrSessionNotFound},
+		{"postgres", "account.create", "rejected", domain.ErrUserExists},
+	} {
+		recorder.Start(t.Context(), tc.system, tc.operation, map[string]any{"user_id": 7}).Finish(tc.err)
+
+		response := httptest.NewRecorder()
+		appMetrics.Handler().ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/metrics", nil))
+		require.Equal(t, http.StatusOK, response.Code)
+		require.Contains(t, response.Body.String(), fmt.Sprintf(
+			`external_operations_total{operation=%q,outcome=%q,system=%q} 1`, tc.operation, tc.outcome, tc.system,
+		))
+		require.Contains(t, response.Body.String(), fmt.Sprintf(
+			`external_operation_duration_seconds_count{operation=%q,system=%q} 1`, tc.operation, tc.system,
+		))
+		require.NotContains(t, response.Body.String(), "user_id=")
 	}
 }

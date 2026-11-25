@@ -13,3 +13,6 @@ scrape_configs:
     static_configs:
       - targets:
           - backend:8080
+  - job_name: node
+    static_configs:
+      - targets: ["node-exporter:9100"]

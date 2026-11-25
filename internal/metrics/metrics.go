@@ -14,6 +14,9 @@ type Metrics struct {
 	registry         *prometheus.Registry
 	requestsTotal    *prometheus.CounterVec
 	requestsDuration *prometheus.HistogramVec
+	externalDuration *prometheus.HistogramVec
+	externalTotal    *prometheus.CounterVec
+	businessTotal    *prometheus.CounterVec
 }
 
 func New() *Metrics {
@@ -46,6 +49,32 @@ func New() *Metrics {
 		m.requestsDuration,
 	)
 
+	m.externalDuration = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name: "external_operation_duration_seconds",
+			Help: "Duration of external operations as observed by the backend.",
+		},
+		[]string{"system", "operation"},
+	)
+
+	m.externalTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "external_operations_total",
+			Help: "Completed external operations by outcome.",
+		},
+		[]string{"system", "operation", "outcome"},
+	)
+
+	m.businessTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "business_operations_total",
+			Help: "Successfully completed business operations.",
+		},
+		[]string{"operation"},
+	)
+
+	m.registry.MustRegister(m.externalDuration, m.externalTotal, m.businessTotal)
+
 	return m
 }
 
@@ -72,4 +101,16 @@ func (m *Metrics) ObserveHTTP(
 		method,
 		route,
 	).Observe(duration.Seconds())
+}
+
+func (m *Metrics) ObserveExternal(
+	system, operation, outcome string,
+	duration time.Duration,
+) {
+	m.externalDuration.WithLabelValues(system, operation).Observe(duration.Seconds())
+	m.externalTotal.WithLabelValues(system, operation, outcome).Inc()
+}
+
+func (m *Metrics) RecordBusinessSuccess(operation string) {
+	m.businessTotal.WithLabelValues(operation).Inc()
 }

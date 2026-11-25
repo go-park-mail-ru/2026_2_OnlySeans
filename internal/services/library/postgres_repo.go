@@ -50,16 +50,16 @@ const (
 )
 
 type PostgresRepo struct {
-	db        *sql.DB
-	appLogger logger.Logger
+	db         *sql.DB
+	operations storage.OperationRecorder
 }
 
-func NewPostgresRepo(db *sql.DB, appLogger logger.Logger) *PostgresRepo {
-	return &PostgresRepo{appLogger: appLogger, db: db}
+func NewPostgresRepo(db *sql.DB, appLogger logger.Logger, observers ...storage.ExternalObserver) *PostgresRepo {
+	return &PostgresRepo{operations: storage.NewOperationRecorder(appLogger, observers...), db: db}
 }
 
 func (r *PostgresRepo) Get(ctx context.Context, user domain.UserID) (_ domain.Library, operationErr error) {
-	operationLog := storage.StartOperation(ctx, r.appLogger, "postgres", "library.get", map[string]any{"user_id": user})
+	operationLog := r.operations.Start(ctx, "postgres", "library.get", map[string]any{"user_id": user})
 	defer func() { operationLog.Finish(operationErr) }()
 
 	data := domain.Library{Favorite: []int64{}, WatchLater: []int64{}, Watched: []int64{}}
@@ -92,7 +92,12 @@ func (r *PostgresRepo) Get(ctx context.Context, user domain.UserID) (_ domain.Li
 }
 
 func (r *PostgresRepo) SetSaved(ctx context.Context, user domain.UserID, list domain.List, film int64, saved bool) (err error) {
-	operationLog := storage.StartOperation(ctx, r.appLogger, "postgres", "library.set_saved", map[string]any{"user_id": user, "list": list, "film_id": film, "saved": saved})
+	target, ok := folders[list]
+	if !ok || film < 1 {
+		return domain.ErrInvalidLibraryData
+	}
+
+	operationLog := r.operations.Start(ctx, "postgres", "library.set_saved", map[string]any{"user_id": user, "list": list, "film_id": film, "saved": saved})
 	defer func() { operationLog.Finish(err) }()
 
 	defer func() {
@@ -101,11 +106,6 @@ func (r *PostgresRepo) SetSaved(ctx context.Context, user domain.UserID, list do
 			err = domain.ErrFilmNotFound
 		}
 	}()
-
-	target, ok := folders[list]
-	if !ok || film < 1 {
-		return domain.ErrInvalidLibraryData
-	}
 
 	operationLog.Stage = "begin"
 	tx, err := r.db.BeginTx(ctx, nil)
