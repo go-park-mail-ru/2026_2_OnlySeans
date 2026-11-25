@@ -48,6 +48,7 @@ func New() *Metrics {
 		m.requestsTotal,
 		m.requestsDuration,
 	)
+	registerPSSCollector(m.registry)
 
 	m.externalDuration = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{

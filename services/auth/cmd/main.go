@@ -75,7 +75,7 @@ func run(ctx context.Context) error {
 	userClient := grpcclient.New(pbuser.NewUserServiceClient(userConn))
 	sessionRepo := redisrepo.NewRedisSessionStore(redisClient, appLogger, appMetrics)
 	sessions := usecase.NewSessionUseCase(sessionRepo, cfg.SessionTTL)
-	auth := usecase.NewAuthUseCase(userClient, sessions, &password.BcryptPasswordService{})
+	auth := usecase.NewAuthUseCase(userClient, sessions, &password.BcryptPasswordService{}, appMetrics)
 
 	server := grpc.NewServer()
 	pbauth.RegisterAuthServiceServer(server, authgrpc.NewAuthHandler(auth))

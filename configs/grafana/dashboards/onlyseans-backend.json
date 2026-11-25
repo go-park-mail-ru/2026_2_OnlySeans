@@ -1,14 +1,4 @@
 {
-  "__inputs": [
-    {
-      "name": "DS_PROMETHEUS",
-      "label": "Prometheus",
-      "description": "Выберите Prometheus, который собирает метрики backend и Node Exporter.",
-      "type": "datasource",
-      "pluginId": "prometheus",
-      "pluginName": "Prometheus"
-    }
-  ],
   "__requires": [
     {
       "type": "datasource",
@@ -29,7 +19,7 @@
   "timezone": "browser",
   "editable": true,
   "schemaVersion": 39,
-  "version": 2,
+  "version": 4,
   "refresh": "15s",
   "time": {
     "from": "now-15m",
@@ -44,7 +34,56 @@
     ]
   },
   "templating": {
-    "list": []
+    "list": [
+      {
+        "name": "service",
+        "label": "Сервис",
+        "type": "custom",
+        "query": "backend,auth,user,persons,catalog",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "options": [
+          {
+            "selected": true,
+            "text": "All",
+            "value": "$__all"
+          },
+          {
+            "selected": false,
+            "text": "backend",
+            "value": "backend"
+          },
+          {
+            "selected": false,
+            "text": "auth",
+            "value": "auth"
+          },
+          {
+            "selected": false,
+            "text": "user",
+            "value": "user"
+          },
+          {
+            "selected": false,
+            "text": "persons",
+            "value": "persons"
+          },
+          {
+            "selected": false,
+            "text": "catalog",
+            "value": "catalog"
+          }
+        ],
+        "includeAll": true,
+        "allValue": "backend|auth|user|persons|catalog",
+        "multi": true,
+        "hide": 0,
+        "skipUrlSync": false
+      }
+    ]
   },
   "annotations": {
     "list": []
@@ -53,16 +92,16 @@
   "panels": [
     {
       "id": 1,
-      "title": "API Gateway",
+      "title": "Состояние целей Prometheus",
       "type": "stat",
-      "description": "Состояние сбора метрик Prometheus.",
+      "description": "UP означает, что Prometheus успешно получил метрики. DOWN означает ошибку последнего сбора.",
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "onlyseans-prometheus"
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
+        "w": 24,
         "x": 0,
         "y": 0
       },
@@ -104,8 +143,8 @@
         "colorMode": "value",
         "graphMode": "none",
         "justifyMode": "auto",
-        "orientation": "auto",
-        "textMode": "auto",
+        "orientation": "horizontal",
+        "textMode": "value_and_name",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -119,90 +158,11 @@
           "refId": "A",
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "onlyseans-prometheus"
           },
           "editorMode": "code",
-          "expr": "up{job=\"backend\"}",
-          "legendFormat": "{{instance}}",
-          "range": false,
-          "instant": true,
-          "format": "time_series"
-        }
-      ]
-    },
-    {
-      "id": 13,
-      "title": "Node Exporter",
-      "type": "stat",
-      "description": "Состояние сбора метрик Prometheus.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 4,
-        "x": 4,
-        "y": 0
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "none",
-          "min": 0,
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "mappings": [
-            {
-              "type": "value",
-              "options": {
-                "0": {
-                  "text": "DOWN",
-                  "color": "red"
-                },
-                "1": {
-                  "text": "UP",
-                  "color": "green"
-                }
-              }
-            }
-          ]
-        },
-        "overrides": []
-      },
-      "options": {
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "textMode": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        }
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "editorMode": "code",
-          "expr": "up{job=\"node\"}",
-          "legendFormat": "{{instance}}",
+          "expr": "up{job=~\"backend|auth|user|persons|catalog|node|prometheus\"}",
+          "legendFormat": "{{job}}",
           "range": false,
           "instant": true,
           "format": "time_series"
@@ -216,13 +176,13 @@
       "description": "Завершённые HTTP-запросы за выбранный интервал.",
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "onlyseans-prometheus"
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
-        "x": 8,
-        "y": 0
+        "w": 6,
+        "x": 0,
+        "y": 4
       },
       "fieldConfig": {
         "defaults": {
@@ -263,7 +223,7 @@
           "refId": "A",
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "onlyseans-prometheus"
           },
           "editorMode": "code",
           "expr": "sum(increase(HTTP_requests_total{job=\"backend\"}[$__range]))",
@@ -281,13 +241,13 @@
       "description": "Текущая частота завершённых запросов.",
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "onlyseans-prometheus"
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
-        "x": 12,
-        "y": 0
+        "w": 6,
+        "x": 6,
+        "y": 4
       },
       "fieldConfig": {
         "defaults": {
@@ -327,7 +287,7 @@
           "refId": "A",
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "onlyseans-prometheus"
           },
           "editorMode": "code",
           "expr": "sum(rate(HTTP_requests_total{job=\"backend\"}[$__rate_interval]))",
@@ -345,13 +305,13 @@
       "description": "Процент ответов с кодами 500–599 среди всех завершённых HTTP-запросов за выбранный диапазон дашборда.",
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "onlyseans-prometheus"
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
-        "x": 16,
-        "y": 0
+        "w": 6,
+        "x": 12,
+        "y": 4
       },
       "fieldConfig": {
         "defaults": {
@@ -399,7 +359,7 @@
           "refId": "A",
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "onlyseans-prometheus"
           },
           "editorMode": "code",
           "expr": "100 * (sum(increase(HTTP_requests_total{job=\"backend\",status=~\"5..\"}[$__range])) or 0 * sum(increase(HTTP_requests_total{job=\"backend\"}[$__range]))) / (sum(increase(HTTP_requests_total{job=\"backend\"}[$__range])) > 0)",
@@ -414,16 +374,16 @@
       "id": 14,
       "title": "Сбои зависимостей",
       "type": "stat",
-      "description": "Количество исходов error и timeout за выбранный интервал.",
+      "description": "Сумма ошибок и таймаутов внешних зависимостей за выбранный период для выбранных сервисов.",
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "onlyseans-prometheus"
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
-        "x": 20,
-        "y": 0
+        "w": 6,
+        "x": 18,
+        "y": 4
       },
       "fieldConfig": {
         "defaults": {
@@ -468,10 +428,10 @@
           "refId": "A",
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "onlyseans-prometheus"
           },
           "editorMode": "code",
-          "expr": "sum(increase(external_operations_total{job=~\"backend|auth|user|persons|catalog\",outcome=~\"error|timeout\"}[$__range])) or 0 * sum(increase(external_operations_total{job=~\"backend|auth|user|persons|catalog\"}[$__range]))",
+          "expr": "sum(increase(external_operations_total{job=~\"${service:regex}\",outcome=~\"error|timeout\"}[$__range])) or 0 * sum(increase(external_operations_total{job=~\"${service:regex}\"}[$__range]))",
           "legendFormat": "",
           "range": false,
           "instant": true,
@@ -489,7 +449,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 4
+        "y": 8
       }
     },
     {
@@ -499,13 +459,13 @@
       "description": "Завершённые запросы в секунду по методу и шаблону маршрута.",
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "onlyseans-prometheus"
       },
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 5
+        "y": 9
       },
       "fieldConfig": {
         "defaults": {
@@ -542,7 +502,7 @@
           "refId": "A",
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "onlyseans-prometheus"
           },
           "editorMode": "code",
           "expr": "sum by (method, route) (rate(HTTP_requests_total{job=\"backend\"}[$__rate_interval]))",
@@ -560,13 +520,13 @@
       "description": "Количество завершённых запросов в секунду по HTTP-статусу.",
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "onlyseans-prometheus"
       },
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 5
+        "y": 9
       },
       "fieldConfig": {
         "defaults": {
@@ -603,7 +563,7 @@
           "refId": "A",
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "onlyseans-prometheus"
           },
           "editorMode": "code",
           "expr": "sum by (status) (rate(HTTP_requests_total{job=\"backend\"}[$__rate_interval]))",
@@ -621,13 +581,13 @@
       "description": "Приблизительное время, в которое укладываются 95% запросов. Без наблюдений значение не определено.",
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "onlyseans-prometheus"
       },
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 13
+        "y": 17
       },
       "fieldConfig": {
         "defaults": {
@@ -664,7 +624,7 @@
           "refId": "A",
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "onlyseans-prometheus"
           },
           "editorMode": "code",
           "expr": "histogram_quantile(0.95, sum by (le, method, route) (rate(HTTP_requests_duration_bucket{job=\"backend\"}[$__rate_interval])))",
@@ -682,13 +642,13 @@
       "description": "Суммарное время обработки, делённое на число запросов за интервал.",
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "onlyseans-prometheus"
       },
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 13
+        "y": 17
       },
       "fieldConfig": {
         "defaults": {
@@ -725,7 +685,7 @@
           "refId": "A",
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "onlyseans-prometheus"
           },
           "editorMode": "code",
           "expr": "sum by (method, route) (rate(HTTP_requests_duration_sum{job=\"backend\"}[$__rate_interval])) / (sum by (method, route) (rate(HTTP_requests_duration_count{job=\"backend\"}[$__rate_interval])) > 0)",
@@ -743,7 +703,7 @@
       "description": "Частота ответов по HTTP-методу, шаблону маршрута и статусу.",
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "onlyseans-prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -780,7 +740,7 @@
           "refId": "A",
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "onlyseans-prometheus"
           },
           "editorMode": "code",
           "expr": "sum by (method, route, status) (rate(HTTP_requests_total{job=\"backend\"}[$__rate_interval]))",
@@ -794,7 +754,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 21
+        "y": 25
       }
     },
     {
@@ -807,7 +767,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 29
+        "y": 33
       }
     },
     {
@@ -817,7 +777,7 @@
       "description": "Частота вызовов PostgreSQL, Redis и S3.",
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "onlyseans-prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -854,11 +814,11 @@
           "refId": "A",
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "onlyseans-prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (job, system, operation) (rate(external_operations_total{job=~\"backend|auth|user|persons|catalog\"}[$__rate_interval]))",
-          "legendFormat": "{{job}} ? {{system}} · {{operation}}",
+          "expr": "sum by (job, system, operation) (rate(external_operations_total{job=~\"${service:regex}\"}[$__rate_interval]))",
+          "legendFormat": "{{job}} · {{system}} · {{operation}}",
           "range": true,
           "instant": false,
           "format": "time_series"
@@ -868,7 +828,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 30
+        "y": 34
       }
     },
     {
@@ -878,7 +838,7 @@
       "description": "Успехи, ожидаемые пропуски, отказы, отмены, ошибки и таймауты.",
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "onlyseans-prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -915,11 +875,11 @@
           "refId": "A",
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "onlyseans-prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (job, system, outcome) (rate(external_operations_total{job=~\"backend|auth|user|persons|catalog\"}[$__rate_interval]))",
-          "legendFormat": "{{job}} ? {{system}} · {{outcome}}",
+          "expr": "sum by (job, system, outcome) (rate(external_operations_total{job=~\"${service:regex}\"}[$__rate_interval]))",
+          "legendFormat": "{{job}} · {{system}} · {{outcome}}",
           "range": true,
           "instant": false,
           "format": "time_series"
@@ -929,7 +889,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 30
+        "y": 34
       }
     },
     {
@@ -939,7 +899,7 @@
       "description": "95-й перцентиль по каждой операции зависимости.",
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "onlyseans-prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -976,11 +936,11 @@
           "refId": "A",
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "onlyseans-prometheus"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum by (le, job, system, operation) (rate(external_operation_duration_seconds_bucket{job=~\"backend|auth|user|persons|catalog\"}[$__rate_interval])))",
-          "legendFormat": "{{job}} ? {{system}} · {{operation}}",
+          "expr": "histogram_quantile(0.95, sum by (le, job, system, operation) (rate(external_operation_duration_seconds_bucket{job=~\"${service:regex}\"}[$__rate_interval])))",
+          "legendFormat": "{{job}} · {{system}} · {{operation}}",
           "range": true,
           "instant": false,
           "format": "time_series"
@@ -990,7 +950,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 38
+        "y": 42
       }
     },
     {
@@ -1000,7 +960,7 @@
       "description": "Среднее время операции глазами backend.",
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "onlyseans-prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -1037,11 +997,11 @@
           "refId": "A",
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "onlyseans-prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (job, system, operation) (rate(external_operation_duration_seconds_sum{job=~\"backend|auth|user|persons|catalog\"}[$__rate_interval])) / (sum by (job, system, operation) (rate(external_operation_duration_seconds_count{job=~\"backend|auth|user|persons|catalog\"}[$__rate_interval])) > 0)",
-          "legendFormat": "{{job}} ? {{system}} · {{operation}}",
+          "expr": "sum by (job, system, operation) (rate(external_operation_duration_seconds_sum{job=~\"${service:regex}\"}[$__rate_interval])) / (sum by (job, system, operation) (rate(external_operation_duration_seconds_count{job=~\"${service:regex}\"}[$__rate_interval])) > 0)",
+          "legendFormat": "{{job}} · {{system}} · {{operation}}",
           "range": true,
           "instant": false,
           "format": "time_series"
@@ -1051,7 +1011,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 38
+        "y": 42
       }
     },
     {
@@ -1061,7 +1021,7 @@
       "description": "Технические сбои по системе, операции и исходу. Серии появляются после первого сбоя.",
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "onlyseans-prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -1129,11 +1089,11 @@
           "refId": "A",
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "onlyseans-prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (job, system, operation, outcome) (rate(external_operations_total{job=~\"backend|auth|user|persons|catalog\",outcome=~\"error|timeout\"}[$__rate_interval]))",
-          "legendFormat": "{{job}} ? {{system}} · {{operation}} · {{outcome}}",
+          "expr": "sum by (job, system, operation, outcome) (rate(external_operations_total{job=~\"${service:regex}\",outcome=~\"error|timeout\"}[$__rate_interval]))",
+          "legendFormat": "{{job}} · {{system}} · {{operation}} · {{outcome}}",
           "range": true,
           "instant": false,
           "format": "time_series"
@@ -1143,12 +1103,12 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 46
+        "y": 50
       }
     },
     {
       "id": 103,
-      "title": "Go / API Gateway ? auth ? user ? persons",
+      "title": "Go и ресурсы процессов",
       "type": "row",
       "collapsed": false,
       "panels": [],
@@ -1156,7 +1116,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 54
+        "y": 58
       }
     },
     {
@@ -1166,13 +1126,13 @@
       "description": "Текущее число goroutine.",
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "onlyseans-prometheus"
       },
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 55
+        "y": 59
       },
       "fieldConfig": {
         "defaults": {
@@ -1209,11 +1169,11 @@
           "refId": "A",
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "onlyseans-prometheus"
           },
           "editorMode": "code",
-          "expr": "go_goroutines{job=~\"backend|auth|user|persons|catalog\"}",
-          "legendFormat": "{{job}} ? {{instance}}",
+          "expr": "go_goroutines{job=~\"${service:regex}\"}",
+          "legendFormat": "{{job}} · {{instance}}",
           "range": true,
           "instant": false,
           "format": "time_series"
@@ -1227,13 +1187,13 @@
       "description": "Байты, занятые объектами Go heap; не вся память процесса.",
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "onlyseans-prometheus"
       },
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 55
+        "y": 59
       },
       "fieldConfig": {
         "defaults": {
@@ -1270,11 +1230,11 @@
           "refId": "A",
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "onlyseans-prometheus"
           },
           "editorMode": "code",
-          "expr": "go_memstats_heap_alloc_bytes{job=~\"backend|auth|user|persons|catalog\"}",
-          "legendFormat": "{{job}} ? {{instance}}",
+          "expr": "go_memstats_heap_alloc_bytes{job=~\"${service:regex}\"}",
+          "legendFormat": "{{job}} · {{instance}}",
           "range": true,
           "instant": false,
           "format": "time_series"
@@ -1288,13 +1248,13 @@
       "description": "Резидентная память процесса backend.",
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "onlyseans-prometheus"
       },
       "gridPos": {
         "h": 8,
-        "w": 12,
+        "w": 8,
         "x": 0,
-        "y": 63
+        "y": 67
       },
       "fieldConfig": {
         "defaults": {
@@ -1331,11 +1291,72 @@
           "refId": "A",
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "onlyseans-prometheus"
           },
           "editorMode": "code",
-          "expr": "process_resident_memory_bytes{job=~\"backend|auth|user|persons|catalog\"}",
-          "legendFormat": "{{job}} ? {{instance}}",
+          "expr": "process_resident_memory_bytes{job=~\"${service:regex}\"}",
+          "legendFormat": "{{job}} · {{instance}}",
+          "range": true,
+          "instant": false,
+          "format": "time_series"
+        }
+      ]
+    },
+    {
+      "id": 31,
+      "title": "PSS процесса",
+      "type": "timeseries",
+      "description": "Резидентная память с пропорциональным учётом общих страниц (Linux).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "onlyseans-prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 67
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "onlyseans-prometheus"
+          },
+          "editorMode": "code",
+          "expr": "process_proportional_resident_memory_bytes{job=~\"${service:regex}\"}",
+          "legendFormat": "{{job}} · {{instance}}",
           "range": true,
           "instant": false,
           "format": "time_series"
@@ -1349,13 +1370,13 @@
       "description": "100% соответствует одному полностью занятому ядру; значение может превышать 100%. User и system суммированы.",
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "onlyseans-prometheus"
       },
       "gridPos": {
         "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 63
+        "w": 8,
+        "x": 16,
+        "y": 67
       },
       "fieldConfig": {
         "defaults": {
@@ -1392,11 +1413,11 @@
           "refId": "A",
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "onlyseans-prometheus"
           },
           "editorMode": "code",
-          "expr": "100 * rate(process_cpu_seconds_total{job=~\"backend|auth|user|persons|catalog\"}[$__rate_interval])",
-          "legendFormat": "{{job}} ? {{instance}}",
+          "expr": "100 * rate(process_cpu_seconds_total{job=~\"${service:regex}\"}[$__rate_interval])",
+          "legendFormat": "{{job}} · {{instance}}",
           "range": true,
           "instant": false,
           "format": "time_series"
@@ -1410,7 +1431,7 @@
       "description": "Медиана и 75-й перцентиль пауз Go GC по экземпляру backend.",
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "onlyseans-prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -1447,11 +1468,11 @@
           "refId": "A",
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "onlyseans-prometheus"
           },
           "editorMode": "code",
-          "expr": "go_gc_duration_seconds{job=~\"backend|auth|user|persons|catalog\",quantile=\"0.5\"}",
-          "legendFormat": "p50 · {{job}} ? {{instance}}",
+          "expr": "go_gc_duration_seconds{job=~\"${service:regex}\",quantile=\"0.5\"}",
+          "legendFormat": "p50 · {{job}} · {{instance}}",
           "range": true,
           "instant": false,
           "format": "time_series"
@@ -1460,11 +1481,11 @@
           "refId": "B",
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "onlyseans-prometheus"
           },
           "editorMode": "code",
-          "expr": "go_gc_duration_seconds{job=~\"backend|auth|user|persons|catalog\",quantile=\"0.75\"}",
-          "legendFormat": "p75 · {{job}} ? {{instance}}",
+          "expr": "go_gc_duration_seconds{job=~\"${service:regex}\",quantile=\"0.75\"}",
+          "legendFormat": "p75 · {{job}} · {{instance}}",
           "range": true,
           "instant": false,
           "format": "time_series"
@@ -1474,7 +1495,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 71
+        "y": 75
       }
     },
     {
@@ -1484,7 +1505,7 @@
       "description": "Количество потоков ОС, созданных рантаймом Go.",
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "onlyseans-prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -1521,11 +1542,11 @@
           "refId": "A",
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "onlyseans-prometheus"
           },
           "editorMode": "code",
-          "expr": "go_threads{job=~\"backend|auth|user|persons|catalog\"}",
-          "legendFormat": "{{job}} ? {{instance}}",
+          "expr": "go_threads{job=~\"${service:regex}\"}",
+          "legendFormat": "{{job}} · {{instance}}",
           "range": true,
           "instant": false,
           "format": "time_series"
@@ -1535,7 +1556,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 71
+        "y": 75
       }
     },
     {
@@ -1545,7 +1566,7 @@
       "description": "Число открытых файловых и сетевых дескрипторов процесса.",
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "onlyseans-prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -1582,11 +1603,11 @@
           "refId": "A",
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "onlyseans-prometheus"
           },
           "editorMode": "code",
-          "expr": "process_open_fds{job=~\"backend|auth|user|persons|catalog\"}",
-          "legendFormat": "{{job}} ? {{instance}}",
+          "expr": "process_open_fds{job=~\"${service:regex}\"}",
+          "legendFormat": "{{job}} · {{instance}}",
           "range": true,
           "instant": false,
           "format": "time_series"
@@ -1596,7 +1617,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 79
+        "y": 83
       }
     },
     {
@@ -1606,7 +1627,7 @@
       "description": "Время с момента запуска каждого экземпляра Gateway, auth, user, persons.",
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "onlyseans-prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -1643,11 +1664,11 @@
           "refId": "A",
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "onlyseans-prometheus"
           },
           "editorMode": "code",
-          "expr": "time() - process_start_time_seconds{job=~\"backend|auth|user|persons|catalog\"}",
-          "legendFormat": "{{job}} ? {{instance}}",
+          "expr": "time() - process_start_time_seconds{job=~\"${service:regex}\"}",
+          "legendFormat": "{{job}} · {{instance}}",
           "range": true,
           "instant": false,
           "format": "time_series"
@@ -1657,7 +1678,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 79
+        "y": 83
       }
     },
     {
@@ -1670,7 +1691,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 87
+        "y": 91
       }
     },
     {
@@ -1680,7 +1701,7 @@
       "description": "Средняя доля времени по ядрам для каждого режима CPU.",
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "onlyseans-prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -1764,7 +1785,7 @@
           "refId": "A",
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "onlyseans-prometheus"
           },
           "editorMode": "code",
           "expr": "100 * avg by (instance, mode) (rate(node_cpu_seconds_total{job=\"node\"}[$__rate_interval]))",
@@ -1778,7 +1799,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 88
+        "y": 92
       }
     },
     {
@@ -1788,7 +1809,7 @@
       "description": "Доступная память учитывает освобождаемый кэш. Использовано равно объёму памяти за вычетом доступной.",
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "onlyseans-prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -1871,7 +1892,7 @@
           "refId": "A",
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "onlyseans-prometheus"
           },
           "editorMode": "code",
           "expr": "node_memory_MemTotal_bytes{job=\"node\"}",
@@ -1884,7 +1905,7 @@
           "refId": "B",
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "onlyseans-prometheus"
           },
           "editorMode": "code",
           "expr": "node_memory_MemTotal_bytes{job=\"node\"} - node_memory_MemAvailable_bytes{job=\"node\"}",
@@ -1897,7 +1918,7 @@
           "refId": "C",
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "onlyseans-prometheus"
           },
           "editorMode": "code",
           "expr": "node_memory_MemAvailable_bytes{job=\"node\"}",
@@ -1911,7 +1932,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 88
+        "y": 92
       }
     },
     {
@@ -1921,7 +1942,7 @@
       "description": "Объёмы по устройствам. Повторные монтирования одного устройства объединены. Доступное место учитывает резерв файловой системы.",
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "onlyseans-prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -1958,7 +1979,7 @@
           "refId": "A",
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "onlyseans-prometheus"
           },
           "editorMode": "code",
           "expr": "max by (instance, device) (node_filesystem_size_bytes{job=\"node\",fstype!~\"tmpfs|devtmpfs|ramfs|squashfs|proc|sysfs|cgroup2?|nsfs\",mountpoint!~\"/(proc|sys|dev|run)(/.*)?\"})",
@@ -1971,7 +1992,7 @@
           "refId": "B",
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "onlyseans-prometheus"
           },
           "editorMode": "code",
           "expr": "max by (instance, device) (node_filesystem_size_bytes{job=\"node\",fstype!~\"tmpfs|devtmpfs|ramfs|squashfs|proc|sysfs|cgroup2?|nsfs\",mountpoint!~\"/(proc|sys|dev|run)(/.*)?\"} - node_filesystem_free_bytes{job=\"node\",fstype!~\"tmpfs|devtmpfs|ramfs|squashfs|proc|sysfs|cgroup2?|nsfs\",mountpoint!~\"/(proc|sys|dev|run)(/.*)?\"})",
@@ -1984,7 +2005,7 @@
           "refId": "C",
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "onlyseans-prometheus"
           },
           "editorMode": "code",
           "expr": "max by (instance, device) (node_filesystem_avail_bytes{job=\"node\",fstype!~\"tmpfs|devtmpfs|ramfs|squashfs|proc|sysfs|cgroup2?|nsfs\",mountpoint!~\"/(proc|sys|dev|run)(/.*)?\"})",
@@ -1998,7 +2019,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 96
+        "y": 100
       }
     },
     {
@@ -2008,7 +2029,7 @@
       "description": "Доля занятых байтов по устройствам.",
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "onlyseans-prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -2046,7 +2067,7 @@
           "refId": "A",
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "onlyseans-prometheus"
           },
           "editorMode": "code",
           "expr": "max by (instance, device) (100 * (node_filesystem_size_bytes{job=\"node\",fstype!~\"tmpfs|devtmpfs|ramfs|squashfs|proc|sysfs|cgroup2?|nsfs\",mountpoint!~\"/(proc|sys|dev|run)(/.*)?\"} - node_filesystem_free_bytes{job=\"node\",fstype!~\"tmpfs|devtmpfs|ramfs|squashfs|proc|sysfs|cgroup2?|nsfs\",mountpoint!~\"/(proc|sys|dev|run)(/.*)?\"}) / (node_filesystem_size_bytes{job=\"node\",fstype!~\"tmpfs|devtmpfs|ramfs|squashfs|proc|sysfs|cgroup2?|nsfs\",mountpoint!~\"/(proc|sys|dev|run)(/.*)?\"} > 0))",
@@ -2060,7 +2081,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 96
+        "y": 100
       }
     },
     {
@@ -2070,7 +2091,7 @@
       "description": "Скорость передачи данных по сетевым интерфейсам.",
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "onlyseans-prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -2107,7 +2128,7 @@
           "refId": "A",
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "onlyseans-prometheus"
           },
           "editorMode": "code",
           "expr": "rate(node_network_receive_bytes_total{job=\"node\",device!=\"lo\"}[$__rate_interval])",
@@ -2121,7 +2142,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 104
+        "y": 108
       }
     },
     {
@@ -2131,7 +2152,7 @@
       "description": "Скорость передачи данных по сетевым интерфейсам.",
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "onlyseans-prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -2168,7 +2189,7 @@
           "refId": "A",
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "onlyseans-prometheus"
           },
           "editorMode": "code",
           "expr": "rate(node_network_transmit_bytes_total{job=\"node\",device!=\"lo\"}[$__rate_interval])",
@@ -2182,7 +2203,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 104
+        "y": 108
       }
     }
   ],
