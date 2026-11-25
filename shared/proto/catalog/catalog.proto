@@ -1,0 +1,247 @@
+syntax = "proto3";
+
+package catalog.v1;
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/catalog;catalogv1";
+
+service CatalogService {
+    rpc CreateFilm(CreateFilmRequest) returns (CreateFilmResponse);
+    rpc GetFilm(GetFilmRequest) returns (GetFilmResponse);
+    rpc ListFilms(ListFilmsRequest) returns (ListFilmsResponse);
+    rpc UpdateFilm(UpdateFilmRequest) returns (google.protobuf.Empty);
+    rpc DeleteFilm(DeleteFilmRequest) returns (google.protobuf.Empty);
+    rpc ListCollections(ListCollectionsRequest) returns (ListCollectionsResponse);
+    rpc GetCollection(GetCollectionRequest) returns (GetCollectionResponse);
+    rpc SetFilmRating(SetFilmRatingRequest) returns (SetFilmRatingResponse);
+    rpc GetFilmRating(GetFilmRatingRequest) returns (GetFilmRatingResponse);
+    rpc GetMyFilmRating(GetMyFilmRatingRequest) returns (GetMyFilmRatingResponse);
+    rpc DeleteFilmRating(DeleteFilmRatingRequest) returns (google.protobuf.Empty);
+    rpc GetCollectionRatings(GetCollectionRatingsRequest) returns (GetCollectionRatingsResponse);
+    rpc GetLibrary(GetLibraryRequest) returns (GetLibraryResponse);
+    rpc SetSaved(SetSavedRequest) returns (google.protobuf.Empty);
+    rpc GetPreferences(GetPreferencesRequest) returns (GetPreferencesResponse);
+    rpc SavePreference(SavePreferenceRequest) returns (google.protobuf.Empty);
+    rpc UploadPoster(UploadPosterRequest) returns (UploadPosterResponse);
+    rpc GetPosterURL(GetPosterURLRequest) returns (GetPosterURLResponse);
+    rpc DeletePoster(DeletePosterRequest) returns (google.protobuf.Empty);
+}
+
+message Pagination {
+    optional int64 limit = 1;
+    int64 offset = 2;
+}
+
+message Genre {
+    int64 id = 1;
+    string name = 2;
+    string slug = 3;
+}
+
+message Film {
+    int64 id = 1;
+    string title = 2;
+    optional string original_title = 3;
+    string film_type = 4;
+    int32 release_year = 5;
+    optional int32 duration_min = 6;
+    int32 age_limit = 7;
+    optional string description = 8;
+    optional string poster_url = 9;
+    optional string trailer_url = 10;
+    repeated Genre genres = 11;
+}
+
+message FilmInput {
+    string title = 1;
+    optional string original_title = 2;
+    string film_type = 3;
+    int32 release_year = 4;
+    optional int32 duration_min = 5;
+    optional int32 age_limit = 6;
+    optional string description = 7;
+}
+
+message CreateFilmRequest {
+    FilmInput film = 1;
+}
+
+message CreateFilmResponse {
+    int64 film_id = 1;
+}
+
+message GetFilmRequest {
+    int64 film_id = 1;
+}
+
+message GetFilmResponse {
+    Film film = 1;
+}
+
+message ListFilmsRequest {
+    Pagination pagination = 1;
+}
+
+message ListFilmsResponse {
+    repeated Film films = 1;
+    int64 total = 2;
+}
+
+message UpdateFilmRequest {
+    int64 film_id = 1;
+    FilmInput film = 2;
+}
+
+message DeleteFilmRequest {
+    int64 film_id = 1;
+}
+
+message Collection {
+    int64 id = 1;
+    string title = 2;
+    string slug = 3;
+    optional string description = 4;
+    optional string cover_url = 5;
+}
+
+message ListCollectionsRequest {
+    Pagination pagination = 1;
+}
+
+message ListCollectionsResponse {
+    repeated Collection collections = 1;
+    int64 total = 2;
+}
+
+message GetCollectionRequest {
+    int64 collection_id = 1;
+    Pagination pagination = 2;
+}
+
+message GetCollectionResponse {
+    Collection collection = 1;
+    repeated Film films = 2;
+    int64 total = 3;
+}
+
+message FilmRating {
+    int64 user_id = 1;
+    int64 film_id = 2;
+    int32 score = 3;
+    google.protobuf.Timestamp created_at = 4;
+    google.protobuf.Timestamp updated_at = 5;
+}
+
+message FilmRatingSummary {
+    int64 film_id = 1;
+    double average_score = 2;
+    int64 votes = 3;
+}
+
+message SetFilmRatingRequest {
+    int64 user_id = 1;
+    int64 film_id = 2;
+    int32 score = 3;
+}
+
+message SetFilmRatingResponse {
+    FilmRating rating = 1;
+}
+
+message GetFilmRatingRequest {
+    int64 film_id = 1;
+}
+
+message GetFilmRatingResponse {
+    FilmRatingSummary rating = 1;
+}
+
+message GetMyFilmRatingRequest {
+    int64 user_id = 1;
+    int64 film_id = 2;
+}
+
+message GetMyFilmRatingResponse {
+    optional int32 score = 1;
+}
+
+message DeleteFilmRatingRequest {
+    int64 user_id = 1;
+    int64 film_id = 2;
+}
+
+message GetCollectionRatingsRequest {
+    int64 collection_id = 1;
+    Pagination pagination = 2;
+}
+
+message GetCollectionRatingsResponse {
+    repeated FilmRatingSummary ratings = 1;
+    int64 total = 2;
+}
+
+message Library {
+    repeated int64 favorite = 1;
+    repeated int64 watchlater = 2;
+    repeated int64 watched = 3;
+}
+
+message GetLibraryRequest {
+    int64 user_id = 1;
+}
+
+message GetLibraryResponse {
+    Library library = 1;
+}
+
+message SetSavedRequest {
+    int64 user_id = 1;
+    string list = 2;
+    int64 film_id = 3;
+    bool saved = 4;
+}
+
+message Preferences {
+    optional bool sidebar_collapsed = 1;
+    optional string catalog_view = 2;
+}
+
+message GetPreferencesRequest {
+    int64 user_id = 1;
+}
+
+message GetPreferencesResponse {
+    Preferences preferences = 1;
+}
+
+message SavePreferenceRequest {
+    int64 user_id = 1;
+    oneof update {
+        bool sidebar_collapsed = 2;
+        string catalog_view = 3;
+    }
+}
+
+message UploadPosterRequest {
+    int64 film_id = 1;
+    int64 user_id = 2;
+    bytes image_data = 3;
+}
+
+message UploadPosterResponse {
+    string filename = 1;
+}
+
+message GetPosterURLRequest {
+    int64 film_id = 1;
+}
+
+message GetPosterURLResponse {
+    string url = 1;
+}
+
+message DeletePosterRequest {
+    int64 film_id = 1;
+}

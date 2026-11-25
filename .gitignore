@@ -2,4 +2,5 @@ coverage/
 .vscode
 logs/
 .env
+/bin/
 AGENTS.md

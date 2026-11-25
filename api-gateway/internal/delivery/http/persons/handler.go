@@ -8,11 +8,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gorilla/mux"
+
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/httprequest"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/httpresponse"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/grpc_client/catalogclient"
 	personsclient "github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/grpc_client/personscleint"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/logger"
-	"github.com/gorilla/mux"
 )
 
 const (
@@ -44,6 +46,7 @@ func NewHandler(client personsclient.PersonClient, appLogger logger.Logger) (*Ha
 	if client == nil {
 		return nil, errors.New("person client is nil")
 	}
+
 	if appLogger == nil {
 		return nil, errors.New("logger is nil")
 	}
@@ -59,6 +62,7 @@ func (h *Handler) ListPersons(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		httprequest.LogRejected(h.appLogger, r, "pagination", err)
 		h.writeError(r.Context(), w, err)
+
 		return
 	}
 
@@ -83,6 +87,7 @@ func (h *Handler) GetPerson(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		httprequest.LogRejected(h.appLogger, r, "id", err)
 		h.writeError(r.Context(), w, err)
+
 		return
 	}
 
@@ -111,6 +116,7 @@ func (h *Handler) CreatePerson(w http.ResponseWriter, r *http.Request) {
 	if err := httprequest.DecodeJSON(w, r, &request); err != nil {
 		httprequest.LogRejected(h.appLogger, r, "body", err)
 		h.writeError(r.Context(), w, err)
+
 		return
 	}
 
@@ -118,6 +124,7 @@ func (h *Handler) CreatePerson(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		httprequest.LogRejected(h.appLogger, r, "birth_date", err)
 		h.writeError(r.Context(), w, err)
+
 		return
 	}
 
@@ -137,6 +144,7 @@ func (h *Handler) UpdatePerson(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		httprequest.LogRejected(h.appLogger, r, "id", err)
 		h.writeError(r.Context(), w, err)
+
 		return
 	}
 
@@ -145,6 +153,7 @@ func (h *Handler) UpdatePerson(w http.ResponseWriter, r *http.Request) {
 	if err := httprequest.DecodeJSON(w, r, &request); err != nil {
 		httprequest.LogRejected(h.appLogger, r, "body", err)
 		h.writeError(r.Context(), w, err)
+
 		return
 	}
 
@@ -152,6 +161,7 @@ func (h *Handler) UpdatePerson(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		httprequest.LogRejected(h.appLogger, r, "birth_date", err)
 		h.writeError(r.Context(), w, err)
+
 		return
 	}
 
@@ -173,6 +183,7 @@ func (h *Handler) DeletePerson(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		httprequest.LogRejected(h.appLogger, r, "id", err)
 		h.writeError(r.Context(), w, err)
+
 		return
 	}
 
@@ -202,6 +213,7 @@ func pagination(r *http.Request) (int, int, error) {
 		if err != nil || parsed < minLimit || parsed > maxLimit {
 			return 0, 0, ErrInvalidLimit
 		}
+
 		limit = parsed
 	}
 
@@ -210,6 +222,7 @@ func pagination(r *http.Request) (int, int, error) {
 		if err != nil || parsed < minOffset {
 			return 0, 0, ErrInvalidOffset
 		}
+
 		offset = parsed
 	}
 
@@ -248,7 +261,7 @@ func writePersonError(ctx context.Context, w http.ResponseWriter, err error, app
 		status = http.StatusBadRequest
 		message = err.Error()
 
-	case errors.Is(err, personsclient.ErrPersonNotFound),
+	case errors.Is(err, catalogclient.ErrFilmNotFound), errors.Is(err, personsclient.ErrPersonNotFound),
 		errors.Is(err, personsclient.ErrFilmNotFound):
 		status = http.StatusNotFound
 		message = err.Error()

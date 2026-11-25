@@ -39,6 +39,8 @@ services:
       - db_data:/var/lib/postgresql
       - ./db:/schema/db:ro
       - ./services/user/db/migrations:/schema/services/user/db/migrations:ro
+      - ./services/persons/db/migrations:/schema/services/persons/db/migrations:ro
+      - ./services/catalog/db/migrations:/schema/services/catalog/db/migrations:ro
     configs:
       - source: database_schema
         target: /docker-entrypoint-initdb.d/001_schema.sql
@@ -85,7 +87,7 @@ services:
     restart: unless-stopped
 
   rustfs-init:
-    image: public.ecr.aws/aws-cli/aws-cli:2.31.0
+    image: amazon/aws-cli:2.31.0
     depends_on:
       rustfs:
         condition: service_healthy
@@ -104,8 +106,7 @@ services:
   user:
     build:
       context: .
-      args:
-        BUILD_PATH: ./services/user/cmd
+      dockerfile: services/user/Dockerfile
     depends_on:
       db:
         condition: service_healthy
@@ -128,8 +129,7 @@ services:
   auth:
     build:
       context: .
-      args:
-        BUILD_PATH: ./services/auth/cmd
+      dockerfile: services/auth/Dockerfile
     depends_on:
       redis:
         condition: service_healthy
@@ -145,8 +145,7 @@ services:
   persons:
     build:
       context: .
-      args:
-        BUILD_PATH: ./services/persons/cmd
+      dockerfile: services/persons/Dockerfile
     depends_on:
       db:
         condition: service_healthy
@@ -162,17 +161,41 @@ services:
         target: /app/config.yaml
     restart: unless-stopped
 
+  catalog:
+    build:
+      context: .
+      dockerfile: services/catalog/Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+      rustfs-init:
+        condition: service_completed_successfully
+    environment:
+      METRICS_ADDR: ":9101"
+      PGHOST: db
+      PGUSER: ${DB_USER}
+      PGPASSWORD: ${DB_PASSWORD}
+      PGDATABASE: ${DB_NAME}
+      PGSSLMODE: disable
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY}
+    configs:
+      - source: catalog_config
+        target: /app/config.yaml
+    restart: unless-stopped
+
   api-gateway:
     build:
       context: .
-      args:
-        BUILD_PATH: ./api-gateway/cmd
+      dockerfile: api-gateway/Dockerfile
     depends_on:
       auth:
         condition: service_started
       user:
         condition: service_started
       persons:
+        condition: service_started
+      catalog:
         condition: service_started
     ports:
       - "8080:8080"
@@ -219,6 +242,26 @@ configs:
       grpc:
         host: "0.0.0.0"
         port: "50053"
+  catalog_config:
+    content: |
+      logger:
+        level: info
+      postgres:
+        url: ""
+      grpc:
+        host: "0.0.0.0"
+        port: "50054"
+      s3:
+        endpoint: "http://rustfs:9000"
+        public_endpoint: "${S3_PUBLIC_ENDPOINT:-http://localhost:8050}"
+        region: us-east-1
+        bucket: avatars
+        poster_url_lifetime: 15m
+        max_poster_size: 5242880
+        max_poster_dimension: 4096
+        bucket_check_timeout: 5s
+        poster_cleanup_timeout: 5s
+      shutdown_timeout: 10s
   gateway_config:
     content: |
       logger:
@@ -228,9 +271,11 @@ configs:
         allowed_origins:
           - "http://localhost:8000"
         cookie_secure: false
+        max_poster_size: 5242880
       auth_service_addr: "auth:50052"
       user_service_addr: "user:50051"
       persons_service_addr: "persons:50053"
+      catalog_service_addr: "catalog:50054"
 
 volumes:
   db_data:

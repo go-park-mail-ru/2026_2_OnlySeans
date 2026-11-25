@@ -6,7 +6,10 @@ http:
   allowed_origins:
     - "http://localhost:8000"
   cookie_secure: false
+  max_poster_size: 5242880
 
 auth_service_addr: "127.0.0.1:50052"
 user_service_addr: "127.0.0.1:50051"
 persons_service_addr: "127.0.0.1:50053"
+
+catalog_service_addr: "127.0.0.1:50054"

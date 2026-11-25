@@ -8,7 +8,7 @@ import (
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/storage"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/logger"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 )
 
 const (
@@ -34,11 +34,11 @@ const (
 )
 
 type PostgresPosterRepo struct {
-	operations storage.OperationRecorder
-	db         *sql.DB
+	appLogger logger.Logger
+	db        *sql.DB
 }
 
-func NewPostgresPosterRepo(db *sql.DB, appLogger logger.Logger, observers ...storage.ExternalObserver) (*PostgresPosterRepo, error) {
+func NewPostgresPosterRepo(db *sql.DB, appLogger logger.Logger) (*PostgresPosterRepo, error) {
 	if db == nil {
 		return nil, errors.New("poster database is nil")
 	}
@@ -47,7 +47,7 @@ func NewPostgresPosterRepo(db *sql.DB, appLogger logger.Logger, observers ...sto
 		return nil, domain.ErrInvalidAppLogger
 	}
 
-	return &PostgresPosterRepo{operations: storage.NewOperationRecorder(appLogger, observers...), db: db}, nil
+	return &PostgresPosterRepo{appLogger: appLogger, db: db}, nil
 }
 
 func (r *PostgresPosterRepo) SavePoster(
@@ -56,7 +56,7 @@ func (r *PostgresPosterRepo) SavePoster(
 	userID domain.UserID,
 	poster domain.PosterFile,
 ) (operationErr error) {
-	operationLog := r.operations.Start(ctx, "postgres", "poster.save_poster", map[string]any{"film_id": filmID, "user_id": userID})
+	operationLog := storage.StartOperation(ctx, r.appLogger, "postgres", "poster.save_poster", map[string]any{"film_id": filmID, "user_id": userID})
 	defer func() { operationLog.Finish(operationErr) }()
 
 	operationLog.Stage = "begin"
@@ -119,7 +119,7 @@ const getFilmPosterQuery = `
 const deleteFilmPosterQuery = `DELETE FROM film_file WHERE film_id = $1 AND file_role = 'poster'`
 
 func (r *PostgresPosterRepo) GetPoster(ctx context.Context, filmID domain.FilmID) (_ *domain.PosterFile, operationErr error) {
-	operation := r.operations.Start(ctx, "postgres", "poster.get_poster", map[string]any{"film_id": filmID})
+	operation := storage.StartOperation(ctx, r.appLogger, "postgres", "poster.get_poster", map[string]any{"film_id": filmID})
 	defer func() { operation.Finish(operationErr) }()
 	var poster domain.PosterFile
 	var mime sql.NullString
@@ -138,7 +138,7 @@ func (r *PostgresPosterRepo) GetPoster(ctx context.Context, filmID domain.FilmID
 }
 
 func (r *PostgresPosterRepo) DeletePoster(ctx context.Context, filmID domain.FilmID) (operationErr error) {
-	operation := r.operations.Start(ctx, "postgres", "poster.delete_poster", map[string]any{"film_id": filmID})
+	operation := storage.StartOperation(ctx, r.appLogger, "postgres", "poster.delete_poster", map[string]any{"film_id": filmID})
 	defer func() { operation.Finish(operationErr) }()
 	operation.Stage = "begin"
 	tx, err := r.db.BeginTx(ctx, nil)

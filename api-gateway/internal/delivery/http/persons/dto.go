@@ -3,8 +3,9 @@ package persons
 import (
 	"time"
 
-	pb "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/persons"
 	"google.golang.org/protobuf/types/known/timestamppb"
+
+	pb "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/persons"
 )
 
 //easyjson:json
@@ -53,6 +54,7 @@ func toPersonResponseDTOs(persons []*pb.Person) []personResponseDTO {
 	for i, person := range persons {
 		result[i] = toPersonResponseDTO(person)
 	}
+
 	return result
 }
 
@@ -62,5 +64,6 @@ func toOptionalTime(value *timestamppb.Timestamp) *time.Time {
 	}
 
 	date := value.AsTime()
+
 	return &date
 }

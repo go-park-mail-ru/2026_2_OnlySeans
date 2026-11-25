@@ -9,7 +9,7 @@ report="$out_dir/coverage.html"
 
 mkdir -p "$out_dir"
 
-go test ./... -coverpkg=./internal/...,./pkg/... -coverprofile="$profile"
+go test ./... -coverpkg=./internal/...,./shared/pkg/... -coverprofile="$profile"
 
 go tool cover -html="$profile" -o "$report"
 

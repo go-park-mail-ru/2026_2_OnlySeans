@@ -11,11 +11,19 @@ import (
 	"syscall"
 	"time"
 
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+
 	authhttp "github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/auth"
+	fileshttp "github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/files"
+	filmshttp "github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/films"
+	libraryhttp "github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/library"
 	personshttp "github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/persons"
+	ratingshttp "github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/ratings"
 	userhttp "github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/user"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/router"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/grpc_client/authclient"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/grpc_client/catalogclient"
 	personsclient "github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/grpc_client/personscleint"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/grpc_client/userclient"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/infrastructure/config"
@@ -23,10 +31,9 @@ import (
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/logger"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/metrics"
 	pbauth "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/auth"
+	pbcatalog "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/catalog"
 	pbpersons "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/persons"
 	pbuser "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/user"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 func main() {
@@ -40,8 +47,8 @@ func main() {
 
 func run(ctx context.Context) error {
 	cfg := config.Load()
-	if cfg.HTTP.Addr == "" || cfg.AuthServiceAddr == "" || cfg.UserServiceAddr == "" || cfg.PersonsServiceAddr == "" {
-		return errors.New("http.addr, auth_service_addr, user_service_addr and persons_service_addr are required")
+	if cfg.HTTP.Addr == "" || cfg.AuthServiceAddr == "" || cfg.UserServiceAddr == "" || cfg.PersonsServiceAddr == "" || cfg.CatalogServiceAddr == "" {
+		return errors.New("http.addr, auth_service_addr, user_service_addr, persons_service_addr and catalog_service_addr are required")
 	}
 
 	appLogger, err := logger.NewLogger(os.Stdout, logger.LogLevelType(cfg.Logger.Level), "json")
@@ -55,28 +62,66 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("create Auth gRPC client: %w", err)
 	}
-	defer authConn.Close()
+
+	defer func() { _ = authConn.Close() }()
 
 	userConn, err := grpc.NewClient(cfg.UserServiceAddr, transport)
 	if err != nil {
 		return fmt.Errorf("create User gRPC client: %w", err)
 	}
-	defer userConn.Close()
+
+	defer func() { _ = userConn.Close() }()
 
 	personsConn, err := grpc.NewClient(cfg.PersonsServiceAddr, transport)
 	if err != nil {
 		return fmt.Errorf("create Persons gRPC client: %w", err)
 	}
-	defer personsConn.Close()
+
+	defer func() { _ = personsConn.Close() }()
+
+	if cfg.HTTP.MaxPosterSize <= 0 || cfg.HTTP.MaxPosterSize > int64(int(^uint(0)>>1))-(1<<20) {
+		return errors.New("http.max_poster_size must be positive and leave room for message overhead")
+	}
+
+	catalogConn, err := grpc.NewClient(cfg.CatalogServiceAddr, transport,
+		grpc.WithDefaultCallOptions(grpc.MaxCallSendMsgSize(int(cfg.HTTP.MaxPosterSize)+(1<<20))),
+	)
+	if err != nil {
+		return fmt.Errorf("create Catalog gRPC client: %w", err)
+	}
+
+	defer func() { _ = catalogConn.Close() }()
+
+	catalogClient := catalogclient.NewCatalogClient(pbcatalog.NewCatalogServiceClient(catalogConn))
+
+	filmsHandler, err := filmshttp.NewHandler(catalogClient, appLogger)
+	if err != nil {
+		return fmt.Errorf("create films handler: %w", err)
+	}
+
+	ratingsHandler, err := ratingshttp.NewHandler(catalogClient, appLogger)
+	if err != nil {
+		return fmt.Errorf("create ratings handler: %w", err)
+	}
+
+	libraryHandler := libraryhttp.NewHandler(catalogClient, appLogger)
+	personalRatingHandler := ratingshttp.NewMyRatingHandler(catalogClient, appLogger)
+
+	postersHandler, err := fileshttp.NewPosterHandler(catalogClient, cfg.HTTP.MaxPosterSize, appLogger)
+	if err != nil {
+		return fmt.Errorf("create posters handler: %w", err)
+	}
 
 	authClient := authclient.NewAuthClient(pbauth.NewAuthServiceClient(authConn))
 	userClient := userclient.NewUserClient(pbuser.NewUserServiceClient(userConn))
 	personClient := personsclient.NewPersonClient(pbpersons.NewPersonServiceClient(personsConn))
+
 	personsHandler, err := personshttp.NewHandler(personClient, appLogger)
 	if err != nil {
 		return fmt.Errorf("create Persons handler: %w", err)
 	}
-	personCatalogHandler, err := personshttp.NewCatalogHandler(personClient, nil, appLogger)
+
+	personCatalogHandler, err := personshttp.NewCatalogHandler(personClient, filmsHandler, appLogger)
 	if err != nil {
 		return fmt.Errorf("create Person catalog handler: %w", err)
 	}
@@ -94,6 +139,11 @@ func run(ctx context.Context) error {
 		Profile:         profileHandler,
 		Persons:         personsHandler,
 		PersonCatalog:   personCatalogHandler,
+		Films:           filmsHandler,
+		Ratings:         ratingsHandler,
+		PersonalRating:  personalRatingHandler,
+		Library:         libraryHandler,
+		Posters:         postersHandler,
 		Metrics:         appMetrics.Handler(),
 		MetricsObserver: appMetrics,
 	}, authMiddleware, cfg.HTTP.AllowedOrigins, appLogger)
@@ -126,6 +176,7 @@ func run(ctx context.Context) error {
 	case <-ctx.Done():
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
+
 		return server.Shutdown(shutdownCtx)
 	}
 }
