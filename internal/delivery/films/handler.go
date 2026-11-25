@@ -2,18 +2,21 @@ package films
 
 import (
 	"context"
-
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
+	authdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/httprequest"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/httpresponse"
 
 	"github.com/gorilla/mux"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
+	analyticsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/analytics"
 	usecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/films"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 )
@@ -24,7 +27,10 @@ const (
 	minLimit                = 1
 	maxLimit                = 100
 	defaultOffset           = 0
+	visitorCookieTTL        = 365 * 24 * time.Hour
 )
+
+const VisitorCookieName = "visitor_id"
 
 const (
 	limitParam  = "limit"
@@ -81,6 +87,7 @@ type HandlerUseCases struct {
 	DeleteFilm      *usecase.DeleteFilmUseCase
 	ListCollections *usecase.ListCollectionsUseCase
 	GetCollection   *usecase.GetCollectionUseCase
+	RecordFilmOpen  *analyticsusecase.RecordFilmOpenUseCase
 }
 
 type Handler struct {
@@ -91,6 +98,7 @@ type Handler struct {
 	deleteFilm      *usecase.DeleteFilmUseCase
 	listCollections *usecase.ListCollectionsUseCase
 	getCollection   *usecase.GetCollectionUseCase
+	recordFilmOpen  *analyticsusecase.RecordFilmOpenUseCase
 	appLogger       logger.Logger
 }
 
@@ -127,6 +135,7 @@ func NewHandler(cases HandlerUseCases, appLogger logger.Logger) (*Handler, error
 		deleteFilm:      cases.DeleteFilm,
 		listCollections: cases.ListCollections,
 		getCollection:   cases.GetCollection,
+		recordFilmOpen:  cases.RecordFilmOpen,
 		appLogger:       appLogger,
 	}, nil
 }
@@ -214,7 +223,47 @@ func (h *Handler) GetFilm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if h.recordFilmOpen != nil {
+		visitorID := ensureVisitorCookie(w, r)
+		var accountID *domain.UserID
+		if id, ok := authdelivery.UserIDFromContext(r.Context()); ok {
+			accountID = &id
+		}
+
+		err = h.recordFilmOpen.Run(r.Context(), analyticsusecase.RecordFilmOpenInput{
+			VisitorPublicID: visitorID,
+			AccountID:       accountID,
+			FilmID:          result.Film.ID,
+		})
+		if err != nil {
+			h.appLogger.WarnContext(r.Context(), "film open analytics skipped", map[string]any{
+				"error":   err,
+				"film_id": result.Film.ID,
+			})
+		}
+	}
+
 	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, filmResponse{Film: toFilmResponseDTO(result.Film)}, h.appLogger)
+}
+
+func ensureVisitorCookie(w http.ResponseWriter, r *http.Request) string {
+	if cookie, err := r.Cookie(VisitorCookieName); err == nil && analyticsusecase.IsValidVisitorPublicID(cookie.Value) {
+		return cookie.Value
+	}
+
+	visitorID := rand.Text()
+	http.SetCookie(w, &http.Cookie{
+		Name:     VisitorCookieName,
+		Value:    visitorID,
+		Path:     "/",
+		Expires:  time.Now().Add(visitorCookieTTL),
+		MaxAge:   int(visitorCookieTTL / time.Second),
+		HttpOnly: true,
+		Secure:   r.TLS != nil,
+		SameSite: http.SameSiteLaxMode,
+	})
+
+	return visitorID
 }
 
 func (h *Handler) CreateFilm(w http.ResponseWriter, r *http.Request) {

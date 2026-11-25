@@ -16,12 +16,26 @@ import (
 )
 
 type analyticsRepoStub struct {
-	stats    []domain.GenreOpenStat
-	err      error
-	calls    int
-	gotFrom  time.Time
-	gotTo    time.Time
-	gotLimit int
+	stats        []domain.GenreOpenStat
+	err          error
+	calls        int
+	gotFrom      time.Time
+	gotTo        time.Time
+	gotLimit     int
+	ageStats     []domain.AgeGroupOpenStat
+	ageErr       error
+	ageCalls     int
+	gotGenreSlug string
+	gotAgeFrom   time.Time
+	gotAgeTo     time.Time
+}
+
+func (r *analyticsRepoStub) GenreOpensByAge(_ context.Context, genreSlug string, from, to time.Time) ([]domain.AgeGroupOpenStat, error) {
+	r.ageCalls++
+	r.gotGenreSlug = genreSlug
+	r.gotAgeFrom = from
+	r.gotAgeTo = to
+	return r.ageStats, r.ageErr
 }
 
 func (r *analyticsRepoStub) TopGenresByFilmOpens(_ context.Context, from, to time.Time, limit int) ([]domain.GenreOpenStat, error) {

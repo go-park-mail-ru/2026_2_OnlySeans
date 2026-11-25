@@ -115,6 +115,32 @@ func RequireAuth(authn Authenticator) Middleware {
 	}
 }
 
+func OptionalAuth(authn Authenticator, appLogger logger.Logger) Middleware {
+	return func(next http.HandlerFunc) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			cookie, err := r.Cookie(auth.SessionCookieName)
+			if errors.Is(err, http.ErrNoCookie) {
+				next(w, r)
+				return
+			}
+			if err != nil {
+				appLogger.WarnContext(r.Context(), "optional authentication cookie failed", map[string]any{"error": err})
+				next(w, r)
+				return
+			}
+
+			userID, err := authn.Authenticate(r.Context(), cookie.Value)
+			if err != nil {
+				appLogger.WarnContext(r.Context(), "optional authentication failed", map[string]any{"error": err})
+				next(w, r)
+				return
+			}
+
+			next(w, r.WithContext(auth.ContextWithUserID(r.Context(), userID)))
+		}
+	}
+}
+
 type csrfMiddleware struct {
 	protection *http.CrossOriginProtection
 }

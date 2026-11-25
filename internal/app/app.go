@@ -229,6 +229,16 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 		return fmt.Errorf("create top genres use case: %w", err)
 	}
 
+	genreAgeUC, err := analyticsusecase.NewGenreAgeUseCase(analyticsRepo, appLogger)
+	if err != nil {
+		return fmt.Errorf("create genre age use case: %w", err)
+	}
+
+	recordFilmOpenUC, err := analyticsusecase.NewRecordFilmOpenUseCase(analyticsRepo, appLogger)
+	if err != nil {
+		return fmt.Errorf("create record film open use case: %w", err)
+	}
+
 	getFilmUC, err := filmsusecase.NewGetFilmUseCase(filmsWithPosters, appLogger)
 	if err != nil {
 		return fmt.Errorf("create get film use case: %w", err)
@@ -387,6 +397,7 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 		DeleteFilm:      deleteFilmUC,
 		ListCollections: listCollectionsUC,
 		GetCollection:   getCollectionUC,
+		RecordFilmOpen:  recordFilmOpenUC,
 	}, appLogger)
 	if err != nil {
 		return fmt.Errorf("create films handler: %w", err)
@@ -407,7 +418,7 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 		return fmt.Errorf("create genres handler: %w", err)
 	}
 
-	analyticsHandler, err := analyticsdelivery.NewHandler(topGenresUC, appLogger)
+	analyticsHandler, err := analyticsdelivery.NewHandler(topGenresUC, genreAgeUC, appLogger)
 	if err != nil {
 		return fmt.Errorf("create analytics handler: %w", err)
 	}

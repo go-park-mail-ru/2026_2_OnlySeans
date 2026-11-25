@@ -29,6 +29,7 @@ import (
 	reviewsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/reviews"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/tests/mocks"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/tests/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -319,6 +320,50 @@ func TestRequireAuth(t *testing.T) {
 			var body map[string]string
 			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
 			assert.Equal(t, tt.wantError, body["error"])
+		})
+	}
+}
+
+func TestOptionalAuth(t *testing.T) {
+	sidCookie := &http.Cookie{Name: auth.SessionCookieName, Value: "sid"}
+	tests := []struct {
+		name       string
+		cookie     *http.Cookie
+		authErr    error
+		wantUserID bool
+	}{
+		{name: "guest"},
+		{name: "invalid session continues as guest", cookie: sidCookie, authErr: domain.ErrUnauthorized},
+		{name: "authentication failure continues as guest", cookie: sidCookie, authErr: errors.New("redis unavailable")},
+		{name: "valid session", cookie: sidCookie, wantUserID: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			authn := mocks.NewMockAuthenticator(gomock.NewController(t))
+			if tt.cookie != nil {
+				authn.EXPECT().Authenticate(gomock.Any(), tt.cookie.Value).Return(domain.UserID(42), tt.authErr).Times(1)
+			}
+
+			var gotID domain.UserID
+			var gotOK bool
+			handler := router.OptionalAuth(authn, testutil.DiscardLogger())(func(w http.ResponseWriter, r *http.Request) {
+				gotID, gotOK = auth.UserIDFromContext(r.Context())
+				w.WriteHeader(http.StatusOK)
+			})
+
+			req := httptest.NewRequest(http.MethodGet, "/", nil)
+			if tt.cookie != nil {
+				req.AddCookie(tt.cookie)
+			}
+			rec := httptest.NewRecorder()
+			handler(rec, req)
+
+			assert.Equal(t, http.StatusOK, rec.Code)
+			assert.Equal(t, tt.wantUserID, gotOK)
+			if tt.wantUserID {
+				assert.Equal(t, domain.UserID(42), gotID)
+			}
 		})
 	}
 }

@@ -110,3 +110,137 @@ func TestPostgresRepo_TopGenresByFilmOpensRowsError(t *testing.T) {
 	assert.ErrorIs(t, err, wantErr)
 	assert.Empty(t, stats)
 }
+
+func TestPostgresRepo_GenreOpensByAge(t *testing.T) {
+	repo, mock := newPostgresRepo(t)
+	from := time.Date(2026, time.November, 1, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2026, time.December, 1, 0, 0, 0, 0, time.UTC)
+
+	mock.ExpectQuery(`WITH filtered_events AS.*ORDER BY CASE age_group`).
+		WithArgs(from, to, "drama").
+		WillReturnRows(sqlmock.NewRows([]string{"age_group", "genre_open_count", "total_open_count", "share"}).
+			AddRow("18_24", int64(3), int64(12), 0.25).
+			AddRow("unknown", int64(2), int64(4), 0.5))
+
+	stats, err := repo.GenreOpensByAge(context.Background(), "drama", from, to)
+	require.NoError(t, err)
+	assert.Equal(t, []domain.AgeGroupOpenStat{
+		{AgeGroup: domain.AgeGroup18To24, GenreOpenCount: 3, TotalOpenCount: 12, Share: 0.25},
+		{AgeGroup: domain.AgeGroupUnknown, GenreOpenCount: 2, TotalOpenCount: 4, Share: 0.5},
+	}, stats)
+}
+
+func TestPostgresRepo_GenreOpensByAgeEmpty(t *testing.T) {
+	repo, mock := newPostgresRepo(t)
+	from := time.Date(2026, time.November, 1, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2026, time.December, 1, 0, 0, 0, 0, time.UTC)
+
+	mock.ExpectQuery(`WITH filtered_events AS`).
+		WithArgs(from, to, "drama").
+		WillReturnRows(sqlmock.NewRows([]string{"age_group", "genre_open_count", "total_open_count", "share"}))
+
+	stats, err := repo.GenreOpensByAge(context.Background(), "drama", from, to)
+	require.NoError(t, err)
+	assert.NotNil(t, stats)
+	assert.Empty(t, stats)
+}
+
+func TestPostgresRepo_GenreOpensByAgeQueryError(t *testing.T) {
+	repo, mock := newPostgresRepo(t)
+	from := time.Date(2026, time.November, 1, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2026, time.December, 1, 0, 0, 0, 0, time.UTC)
+	wantErr := errors.New("database unavailable")
+
+	mock.ExpectQuery(`WITH filtered_events AS`).
+		WithArgs(from, to, "drama").
+		WillReturnError(wantErr)
+
+	stats, err := repo.GenreOpensByAge(context.Background(), "drama", from, to)
+	assert.ErrorIs(t, err, wantErr)
+	assert.NotNil(t, stats)
+	assert.Empty(t, stats)
+}
+
+func TestPostgresRepo_GenreOpensByAgeScanError(t *testing.T) {
+	repo, mock := newPostgresRepo(t)
+	from := time.Date(2026, time.November, 1, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2026, time.December, 1, 0, 0, 0, 0, time.UTC)
+
+	mock.ExpectQuery(`WITH filtered_events AS`).
+		WithArgs(from, to, "drama").
+		WillReturnRows(sqlmock.NewRows([]string{"age_group", "genre_open_count", "total_open_count"}).
+			AddRow("18_24", int64(3), int64(12)))
+
+	stats, err := repo.GenreOpensByAge(context.Background(), "drama", from, to)
+	require.Error(t, err)
+	assert.Empty(t, stats)
+}
+
+func TestPostgresRepo_GenreOpensByAgeRowsError(t *testing.T) {
+	repo, mock := newPostgresRepo(t)
+	from := time.Date(2026, time.November, 1, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2026, time.December, 1, 0, 0, 0, 0, time.UTC)
+	wantErr := errors.New("rows interrupted")
+	rows := sqlmock.NewRows([]string{"age_group", "genre_open_count", "total_open_count", "share"}).
+		AddRow("18_24", int64(3), int64(12), 0.25).
+		RowError(0, wantErr)
+
+	mock.ExpectQuery(`WITH filtered_events AS`).
+		WithArgs(from, to, "drama").
+		WillReturnRows(rows)
+
+	stats, err := repo.GenreOpensByAge(context.Background(), "drama", from, to)
+	assert.ErrorIs(t, err, wantErr)
+	assert.Empty(t, stats)
+}
+
+func TestPostgresRepo_RecordFilmOpen(t *testing.T) {
+	repo, mock := newPostgresRepo(t)
+	accountID := domain.UserID(42)
+	event := domain.FilmOpenEvent{
+		VisitorPublicID: "visitor_public_1234",
+		AccountID:       &accountID,
+		FilmID:          7,
+		OccurredAt:      time.Date(2026, time.November, 25, 12, 0, 0, 0, time.UTC),
+	}
+
+	mock.ExpectQuery(`WITH upserted_visitor AS.*INSERT INTO analytic_event`).
+		WithArgs(event.VisitorPublicID, accountID, event.FilmID, event.OccurredAt).
+		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(int64(99)))
+
+	err := repo.RecordFilmOpen(context.Background(), event)
+	require.NoError(t, err)
+}
+
+func TestPostgresRepo_RecordFilmOpenGuest(t *testing.T) {
+	repo, mock := newPostgresRepo(t)
+	event := domain.FilmOpenEvent{
+		VisitorPublicID: "visitor_public_1234",
+		FilmID:          7,
+		OccurredAt:      time.Date(2026, time.November, 25, 12, 0, 0, 0, time.UTC),
+	}
+
+	mock.ExpectQuery(`WITH upserted_visitor AS.*INSERT INTO analytic_event`).
+		WithArgs(event.VisitorPublicID, nil, event.FilmID, event.OccurredAt).
+		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(int64(100)))
+
+	err := repo.RecordFilmOpen(context.Background(), event)
+	require.NoError(t, err)
+}
+
+func TestPostgresRepo_RecordFilmOpenError(t *testing.T) {
+	repo, mock := newPostgresRepo(t)
+	wantErr := errors.New("database unavailable")
+	event := domain.FilmOpenEvent{
+		VisitorPublicID: "visitor_public_1234",
+		FilmID:          7,
+		OccurredAt:      time.Date(2026, time.November, 25, 12, 0, 0, 0, time.UTC),
+	}
+
+	mock.ExpectQuery(`WITH upserted_visitor AS.*INSERT INTO analytic_event`).
+		WithArgs(event.VisitorPublicID, nil, event.FilmID, event.OccurredAt).
+		WillReturnError(wantErr)
+
+	err := repo.RecordFilmOpen(context.Background(), event)
+	assert.ErrorIs(t, err, wantErr)
+}

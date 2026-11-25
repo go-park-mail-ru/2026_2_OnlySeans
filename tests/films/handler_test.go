@@ -1,6 +1,7 @@
 package films_test
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -9,14 +10,18 @@ import (
 	"strings"
 	"testing"
 
+	authdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/films"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	filmsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/films"
+	analyticsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/analytics"
 	filmsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/films"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/tests/mocks"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/tests/testutil"
 	"github.com/gorilla/mux"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
 
@@ -104,6 +109,10 @@ func newFilmsTestLogger() logger.Logger {
 }
 
 func newTestRouter(t testing.TB, service domain.FilmRepository, collectionRepos ...domain.CollectionRepository) *mux.Router {
+	return newTestRouterWithAnalytics(t, service, nil, collectionRepos...)
+}
+
+func newTestRouterWithAnalytics(t testing.TB, service domain.FilmRepository, eventRepo domain.AnalyticsEventRepository, collectionRepos ...domain.CollectionRepository) *mux.Router {
 	t.Helper()
 	collections, ok := service.(domain.CollectionRepository)
 	if len(collectionRepos) > 0 {
@@ -120,6 +129,14 @@ func newTestRouter(t testing.TB, service domain.FilmRepository, collectionRepos 
 	getFilm, err := filmsusecase.NewGetFilmUseCase(service, newFilmsTestLogger())
 	if err != nil {
 		t.Fatalf("NewGetFilmUseCase: %v", err)
+	}
+
+	var recordFilmOpen *analyticsusecase.RecordFilmOpenUseCase
+	if eventRepo != nil {
+		recordFilmOpen, err = analyticsusecase.NewRecordFilmOpenUseCase(eventRepo, newFilmsTestLogger())
+		if err != nil {
+			t.Fatalf("NewRecordFilmOpenUseCase: %v", err)
+		}
 	}
 
 	createFilm, err := filmsusecase.NewCreateFilmUseCase(service, newFilmsTestLogger())
@@ -155,6 +172,7 @@ func newTestRouter(t testing.TB, service domain.FilmRepository, collectionRepos 
 		DeleteFilm:      deleteFilm,
 		ListCollections: listCollections,
 		GetCollection:   getCollection,
+		RecordFilmOpen:  recordFilmOpen,
 	}, newFilmsTestLogger())
 	if err != nil {
 		t.Fatalf("NewHandler: %v", err)
@@ -168,6 +186,16 @@ func newTestRouter(t testing.TB, service domain.FilmRepository, collectionRepos 
 	router.HandleFunc("/api/collections/{id}", h.GetCollection).Methods(http.MethodGet)
 
 	return router
+}
+
+type filmOpenRepoStub struct {
+	events []domain.FilmOpenEvent
+	err    error
+}
+
+func (r *filmOpenRepoStub) RecordFilmOpen(_ context.Context, event domain.FilmOpenEvent) error {
+	r.events = append(r.events, event)
+	return r.err
 }
 
 func newSeededRouter(t *testing.T) *mux.Router {
@@ -375,6 +403,60 @@ func TestHandler_GetFilm(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestHandler_GetFilmRecordsAuthenticatedOpen(t *testing.T) {
+	service, err := filmsservice.NewSeededService()
+	require.NoError(t, err)
+	events := &filmOpenRepoStub{}
+	router := newTestRouterWithAnalytics(t, service, events)
+	accountID := domain.UserID(42)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/films/7", nil)
+	req.AddCookie(&http.Cookie{Name: films.VisitorCookieName, Value: "visitor_public_1234"})
+	req = req.WithContext(authdelivery.ContextWithUserID(req.Context(), accountID))
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	require.Len(t, events.events, 1)
+	assert.Equal(t, "visitor_public_1234", events.events[0].VisitorPublicID)
+	require.NotNil(t, events.events[0].AccountID)
+	assert.Equal(t, accountID, *events.events[0].AccountID)
+	assert.Equal(t, domain.FilmID(7), events.events[0].FilmID)
+	assert.Empty(t, rec.Result().Cookies())
+}
+
+func TestHandler_GetFilmCreatesVisitorCookie(t *testing.T) {
+	service, err := filmsservice.NewSeededService()
+	require.NoError(t, err)
+	events := &filmOpenRepoStub{}
+	router := newTestRouterWithAnalytics(t, service, events)
+
+	rec := serve(router, http.MethodGet, "/api/films/7")
+
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	require.Len(t, events.events, 1)
+	assert.Nil(t, events.events[0].AccountID)
+	require.Len(t, rec.Result().Cookies(), 1)
+	cookie := rec.Result().Cookies()[0]
+	assert.Equal(t, films.VisitorCookieName, cookie.Name)
+	assert.Equal(t, events.events[0].VisitorPublicID, cookie.Value)
+	assert.True(t, cookie.HttpOnly)
+	assert.Equal(t, http.SameSiteLaxMode, cookie.SameSite)
+	assert.Equal(t, "/", cookie.Path)
+}
+
+func TestHandler_GetFilmIgnoresAnalyticsFailure(t *testing.T) {
+	service, err := filmsservice.NewSeededService()
+	require.NoError(t, err)
+	events := &filmOpenRepoStub{err: errors.New("analytics database unavailable")}
+	router := newTestRouterWithAnalytics(t, service, events)
+
+	rec := serve(router, http.MethodGet, "/api/films/7")
+
+	assert.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	assert.Len(t, events.events, 1)
 }
 
 func TestHandler_ListCollections(t *testing.T) {

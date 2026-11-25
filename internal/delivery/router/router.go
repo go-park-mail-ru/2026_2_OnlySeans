@@ -61,7 +61,7 @@ func NewRouter(handlers Handlers, allowedOrigins []string, appLogger logger.Logg
 	r.HandleFunc("/api/films/{id}/poster", WrapMiddlewares(postersHandler.DeletePoster, adminMiddlewares)).Methods(http.MethodDelete)
 
 	r.HandleFunc("/api/films", filmsHandler.ListFilms).Methods(http.MethodGet)
-	r.HandleFunc("/api/films/{id}", filmsHandler.GetFilm).Methods(http.MethodGet)
+	r.HandleFunc("/api/films/{id}", WrapMiddlewares(filmsHandler.GetFilm, []Middleware{OptionalAuth(authHandler, appLogger)})).Methods(http.MethodGet)
 	r.HandleFunc("/api/films", WrapMiddlewares(filmsHandler.CreateFilm, adminMiddlewares)).Methods(http.MethodPost)
 	r.HandleFunc("/api/films/{id}", WrapMiddlewares(filmsHandler.UpdateFilm, adminMiddlewares)).Methods(http.MethodPut)
 	r.HandleFunc("/api/films/{id}", WrapMiddlewares(filmsHandler.DeleteFilm, adminMiddlewares)).Methods(http.MethodDelete)
@@ -112,10 +112,9 @@ func NewRouter(handlers Handlers, allowedOrigins []string, appLogger logger.Logg
 		r.HandleFunc("/static/{key:.*}", h.GetAsset).Methods(http.MethodGet)
 	}
 	if h := handlers.Analytics; h != nil {
-		r.HandleFunc(
-			"/api/admin/analytics/genres",
-			WrapMiddlewares(h.TopGenres, adminMiddlewares),
-		).Methods(http.MethodGet)
+		r.HandleFunc("/api/admin/analytics/genres", WrapMiddlewares(h.TopGenres, adminMiddlewares)).Methods(http.MethodGet)
+
+		r.HandleFunc("/api/admin/analytics/genres/{slug}/age", WrapMiddlewares(h.GenreAge, adminMiddlewares)).Methods(http.MethodGet)
 	}
 
 	csrf, err := newCSRFMiddleware(allowedOrigins)
