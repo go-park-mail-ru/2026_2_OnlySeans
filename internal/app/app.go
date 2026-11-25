@@ -21,6 +21,7 @@ import (
 	ratingsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/ratings"
 	reviewsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/reviews"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/router"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/metrics"
 	authservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/auth"
 	filesservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/files"
 	filmsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/films"
@@ -90,13 +91,15 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 		return fmt.Errorf("create logger: %w", err)
 	}
 
+	appMetrics := metrics.New()
+
 	s3Client, err := storage.NewS3Client(*s3Cfg)
 	if err != nil {
 		appLogger.Error("create s3 client failed", map[string]any{"error": err})
 		return fmt.Errorf("create s3 client: %w", err)
 	}
 
-	objectStorages, err := initializeObjectStorages(s3Client, *s3Cfg, appLogger)
+	objectStorages, err := initializeObjectStorages(s3Client, *s3Cfg, appLogger, appMetrics)
 	if err != nil {
 		return err
 	}
@@ -110,18 +113,18 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 	appLogger.Info("database connected", nil)
 	defer db.Close()
 
-	avatarRepo, err := filesservice.NewPostgresAvatarRepo(db, appLogger)
+	avatarRepo, err := filesservice.NewPostgresAvatarRepo(db, appLogger, appMetrics)
 	if err != nil {
 		appLogger.Error("create avatar repository failed", map[string]any{"error": err})
 		return fmt.Errorf("create avatar repository: %w", err)
 	}
-	userRepo := authservice.NewPostgresUserRepo(db, appLogger)
-	filmsRepo := filmsservice.NewPostgresService(db, appLogger)
-	reviewsRepo := reviewsservice.NewPostgresReviewRepo(db, appLogger)
-	personsRepo := personservice.NewPersonRepo(db, appLogger)
-	ratingsRepo := ratingsservice.NewPostgresRepo(db, appLogger)
+	userRepo := authservice.NewPostgresUserRepo(db, appLogger, appMetrics)
+	filmsRepo := filmsservice.NewPostgresService(db, appLogger, appMetrics)
+	reviewsRepo := reviewsservice.NewPostgresReviewRepo(db, appLogger, appMetrics)
+	personsRepo := personservice.NewPersonRepo(db, appLogger, appMetrics)
+	ratingsRepo := ratingsservice.NewPostgresRepo(db, appLogger, appMetrics)
 
-	posterRepo, err := filesservice.NewPostgresPosterRepo(db, appLogger)
+	posterRepo, err := filesservice.NewPostgresPosterRepo(db, appLogger, appMetrics)
 	if err != nil {
 		return fmt.Errorf("create poster repository: %w", err)
 	}
@@ -133,7 +136,7 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 	appLogger.Info("redis connected", nil)
 	defer newClient.Close()
 
-	sessions := authservice.NewRedisSessionStore(newClient, cfg.Server.SessionTTL, appLogger)
+	sessions := authservice.NewRedisSessionStore(newClient, cfg.Server.SessionTTL, appLogger, appMetrics)
 
 	passwordService := &authservice.BcryptPasswordService{}
 
@@ -142,9 +145,9 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 		return fmt.Errorf("create films repository with poster URLs: %w", err)
 	}
 
-	libraryRepo := libraryservice.NewPostgresRepo(db, appLogger)
-	personCatalogRepo := personservice.NewCatalogRepo(db, appLogger)
-	profileRepo, err := authservice.NewProfileRepo(db, appLogger)
+	libraryRepo := libraryservice.NewPostgresRepo(db, appLogger, appMetrics)
+	personCatalogRepo := personservice.NewCatalogRepo(db, appLogger, appMetrics)
+	profileRepo, err := authservice.NewProfileRepo(db, appLogger, appMetrics)
 	if err != nil {
 		return fmt.Errorf("create profile repository: %w", err)
 	}
@@ -420,21 +423,24 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 	profileHandler := authdelivery.NewProfileHandler(getProfileUC, updateProfileUC, appLogger)
 	personalRatingHandler := ratingsdelivery.NewMyRatingHandler(getMyRatingUC, appLogger)
 	personCatalogHandler := persondelivery.NewCatalogHandler(getFilmPersonsUC, getPersonCatalogUC, appLogger)
-	assetsHandler := assetsdelivery.NewHandler(s3Client, s3Cfg.Bucket, appLogger)
+	assetsHandler := assetsdelivery.NewHandler(s3Client, s3Cfg.Bucket, appLogger, appMetrics)
+	metricsHandler := appMetrics.Handler()
 
 	httpHandler, err := router.NewRouter(router.Handlers{
-		Auth:           authHandler,
-		Films:          filmsHandler,
-		Reviews:        reviewsHandler,
-		Persons:        personsHandler,
-		Files:          filesHandler,
-		Posters:        postersHandler,
-		Ratings:        ratingsHandler,
-		Library:        libraryHandler,
-		Profile:        profileHandler,
-		PersonalRating: personalRatingHandler,
-		PersonCatalog:  personCatalogHandler,
-		Assets:         assetsHandler,
+		Auth:            authHandler,
+		Films:           filmsHandler,
+		Reviews:         reviewsHandler,
+		Persons:         personsHandler,
+		Files:           filesHandler,
+		Posters:         postersHandler,
+		Ratings:         ratingsHandler,
+		Library:         libraryHandler,
+		Profile:         profileHandler,
+		PersonalRating:  personalRatingHandler,
+		PersonCatalog:   personCatalogHandler,
+		Assets:          assetsHandler,
+		Metrics:         metricsHandler,
+		MetricsObserver: appMetrics,
 	}, cfg.Server.AllowedOrigins, appLogger)
 	if err != nil {
 		return fmt.Errorf("create router: %w", err)

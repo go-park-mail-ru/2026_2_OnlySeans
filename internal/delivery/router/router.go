@@ -17,18 +17,20 @@ import (
 )
 
 type Handlers struct {
-	Auth           *auth.Handler
-	Films          *films.Handler
-	Reviews        *reviews.Handler
-	Persons        *persons.Handler
-	Files          *files.Handler
-	Posters        *files.PosterHandler
-	Ratings        *ratings.Handler
-	Library        *library.Handler
-	Profile        *auth.ProfileHandler
-	PersonalRating *ratings.MyRatingHandler
-	PersonCatalog  *persons.CatalogHandler
-	Assets         *assets.Handler
+	Auth            *auth.Handler
+	Films           *films.Handler
+	Reviews         *reviews.Handler
+	Persons         *persons.Handler
+	Files           *files.Handler
+	Posters         *files.PosterHandler
+	Ratings         *ratings.Handler
+	Library         *library.Handler
+	Profile         *auth.ProfileHandler
+	PersonalRating  *ratings.MyRatingHandler
+	PersonCatalog   *persons.CatalogHandler
+	Assets          *assets.Handler
+	Metrics         http.Handler
+	MetricsObserver HTTPMetrics
 }
 
 func NewRouter(handlers Handlers, allowedOrigins []string, appLogger logger.Logger) (http.Handler, error) {
@@ -40,6 +42,7 @@ func NewRouter(handlers Handlers, allowedOrigins []string, appLogger logger.Logg
 	postersHandler := handlers.Posters
 	ratingsHandler := handlers.Ratings
 	r := mux.NewRouter()
+	r.Use(captureMetricsRoute)
 	authenticatedMiddlewares := []Middleware{RequireAuth(authHandler)}
 	adminMiddlewares := []Middleware{RequireAuth(authHandler), authHandler.RequireAdmin}
 	catalogEditorMiddlewares := []Middleware{RequireAuth(authHandler), RequireCatalogEditor(authHandler, appLogger)}
@@ -105,6 +108,9 @@ func NewRouter(handlers Handlers, allowedOrigins []string, appLogger logger.Logg
 	if h := handlers.Assets; h != nil {
 		r.HandleFunc("/static/{key:.*}", h.GetAsset).Methods(http.MethodGet)
 	}
+	if h := handlers.Metrics; h != nil {
+		r.Handle("/metrics", h).Methods(http.MethodGet)
+	}
 
 	csrf, err := newCSRFMiddleware(allowedOrigins)
 	if err != nil {
@@ -112,5 +118,18 @@ func NewRouter(handlers Handlers, allowedOrigins []string, appLogger logger.Logg
 	}
 
 	protected := csrf.withCSRF(r)
-	return WithRequestID(WithLogging(WithRecover(withSecurityHeaders(withCORS(protected, allowedOrigins)), appLogger), appLogger)), nil
+
+	handler := withSecurityHeaders(
+		withCORS(protected, allowedOrigins),
+	)
+	handler = WithRecover(handler, appLogger)
+
+	if handlers.MetricsObserver != nil {
+		handler = WithMetrics(handler, handlers.MetricsObserver)
+	}
+
+	handler = WithLogging(handler, appLogger)
+	handler = WithRequestID(handler)
+
+	return handler, nil
 }

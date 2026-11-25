@@ -3,14 +3,16 @@ package app
 import (
 	"context"
 	"fmt"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/config"
 	filesservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/files"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/storage"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 )
 
-func initializeObjectStorages(client *s3.Client, cfg config.S3, appLogger logger.Logger) (map[string]*filesservice.S3Storage, error) {
+func initializeObjectStorages(client *s3.Client, cfg config.S3, appLogger logger.Logger, observer storage.ExternalObserver) (map[string]*filesservice.S3Storage, error) {
 	storages := make(map[string]*filesservice.S3Storage)
 	for _, bucket := range []string{cfg.Bucket, cfg.PostersBucket} {
 		if _, exists := storages[bucket]; exists {
@@ -23,7 +25,7 @@ func initializeObjectStorages(client *s3.Client, cfg config.S3, appLogger logger
 			appLogger.Error("check s3 bucket failed", map[string]any{"bucket": bucket, "error": err})
 			return nil, fmt.Errorf("check s3 bucket %q: %w", bucket, err)
 		}
-		objectStorage, err := filesservice.NewS3Storage(client, bucket, cfg.PublicEndpoint, cfg.AvatarURLLifetime, appLogger)
+		objectStorage, err := filesservice.NewS3Storage(client, bucket, cfg.PublicEndpoint, cfg.AvatarURLLifetime, appLogger, observer)
 		if err != nil {
 			return nil, fmt.Errorf("create s3 storage %q: %w", bucket, err)
 		}

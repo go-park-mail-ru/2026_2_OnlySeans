@@ -49,12 +49,12 @@ const (
 )
 
 type PersonRepo struct {
-	appLogger logger.Logger
-	db        *sql.DB
+	operations storage.OperationRecorder
+	db         *sql.DB
 }
 
-func NewPersonRepo(db *sql.DB, appLogger logger.Logger) domain.PersonRepository {
-	return &PersonRepo{appLogger: appLogger,
+func NewPersonRepo(db *sql.DB, appLogger logger.Logger, observers ...storage.ExternalObserver) domain.PersonRepository {
+	return &PersonRepo{operations: storage.NewOperationRecorder(appLogger, observers...),
 		db: db,
 	}
 }
@@ -83,7 +83,7 @@ func (r *PersonRepo) GetByID(
 	ctx context.Context,
 	id domain.PersonID,
 ) (_ *domain.Person, operationErr error) {
-	operationLog := storage.StartOperation(ctx, r.appLogger, "postgres", "person.get_by_id", map[string]any{"person_id": id})
+	operationLog := r.operations.Start(ctx, "postgres", "person.get_by_id", map[string]any{"person_id": id})
 	defer func() { operationLog.Finish(operationErr) }()
 
 	operationLog.Stage = "query"
@@ -103,7 +103,7 @@ func (r *PersonRepo) GetByID(
 }
 
 func (s *PersonRepo) List(ctx context.Context, limit, offset int) (_ []domain.Person, _ int, operationErr error) {
-	operationLog := storage.StartOperation(ctx, s.appLogger, "postgres", "person.list", map[string]any{"limit": limit, "offset": offset})
+	operationLog := s.operations.Start(ctx, "postgres", "person.list", map[string]any{"limit": limit, "offset": offset})
 	defer func() { operationLog.Finish(operationErr) }()
 
 	var total int
@@ -142,7 +142,7 @@ func (r *PersonRepo) Create(
 	ctx context.Context,
 	input domain.PersonInput,
 ) (_ domain.PersonID, operationErr error) {
-	operationLog := storage.StartOperation(ctx, r.appLogger, "postgres", "person.create", map[string]any{})
+	operationLog := r.operations.Start(ctx, "postgres", "person.create", map[string]any{})
 	defer func() { operationLog.Finish(operationErr) }()
 
 	var id domain.PersonID
@@ -167,7 +167,7 @@ func (r *PersonRepo) Update(
 	id domain.PersonID,
 	input domain.PersonInput,
 ) (_ *domain.Person, operationErr error) {
-	operationLog := storage.StartOperation(ctx, r.appLogger, "postgres", "person.update", map[string]any{"person_id": id})
+	operationLog := r.operations.Start(ctx, "postgres", "person.update", map[string]any{"person_id": id})
 	defer func() { operationLog.Finish(operationErr) }()
 
 	operationLog.Stage = "query"
@@ -198,7 +198,7 @@ func (r *PersonRepo) Delete(
 	ctx context.Context,
 	id domain.PersonID,
 ) (operationErr error) {
-	operationLog := storage.StartOperation(ctx, r.appLogger, "postgres", "person.delete", map[string]any{"person_id": id})
+	operationLog := r.operations.Start(ctx, "postgres", "person.delete", map[string]any{"person_id": id})
 	defer func() { operationLog.Finish(operationErr) }()
 
 	operationLog.Stage = "query"

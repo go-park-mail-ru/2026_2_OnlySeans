@@ -6,11 +6,10 @@ import (
 	"errors"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/storage"
 )
 
 func (r *PostgresRepo) GetMyScore(ctx context.Context, user domain.UserID, film domain.FilmID) (_ *int, operationErr error) {
-	operationLog := storage.StartOperation(ctx, r.appLogger, "postgres", "rating.get_my_score", map[string]any{"user_id": user, "film_id": film})
+	operationLog := r.operations.Start(ctx, "postgres", "rating.get_my_score", map[string]any{"user_id": user, "film_id": film})
 	defer func() { operationLog.Finish(operationErr) }()
 
 	var score int
