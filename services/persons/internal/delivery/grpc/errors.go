@@ -8,7 +8,6 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// toGRPCError converts use case errors at the gRPC delivery boundary.
 func toGRPCError(err error) error {
 	if err == nil {
 		return nil
