@@ -3,16 +3,23 @@ package authclient
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 
-	pbAuth "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/auth"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/utils"
+	pbAuth "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/auth"
 )
 
 var (
 	ErrInvalidCredentials = errors.New("invalid email or password")
 	ErrSessionNotFound    = errors.New("session not found or expired")
 	ErrInternal           = errors.New("internal server error")
+	ErrInvalidEmail       = utils.ErrInvalidEmail
+	ErrInvalidPassword    = utils.ErrInvalidPassword
+	ErrInvalidArgument    = errors.New("invalid login data")
 )
 
 type AuthClient interface {
@@ -43,7 +50,7 @@ func (c *authClient) IssueSession(ctx context.Context, userID int64, role string
 		Role:   role,
 	})
 	if err != nil {
-		return nil, ErrInternal
+		return nil, fmt.Errorf("%w: %w", ErrInternal, err)
 	}
 
 	return resp.Session, nil
@@ -55,21 +62,39 @@ func (c *authClient) Login(ctx context.Context, email, password string) (*pbAuth
 		Password: password,
 	})
 	if err != nil {
-		st, ok := status.FromError(err)
-		if ok && st.Code() == codes.Unauthenticated {
+		st := status.Convert(err)
+		switch st.Code() {
+		case codes.Unauthenticated:
 			return nil, ErrInvalidCredentials
+		case codes.InvalidArgument:
+			for _, fieldErr := range []error{ErrInvalidEmail, ErrInvalidPassword} {
+				if st.Message() == fieldErr.Error() {
+					return nil, fieldErr
+				}
+
+				if reason, ok := strings.CutPrefix(st.Message(), fieldErr.Error()+": "); ok {
+					return nil, fmt.Errorf("%w: %s", fieldErr, reason)
+				}
+			}
+
+			return nil, ErrInvalidArgument
 		}
 
+		return nil, fmt.Errorf("%w: %w", ErrInternal, err)
+	}
+
+	if resp.GetSession() == nil {
 		return nil, ErrInternal
 	}
 
-	return resp.Session, nil
+	return resp.GetSession(), nil
 }
 
 func (c *authClient) Logout(ctx context.Context, sessionID string) error {
 	_, err := c.client.Logout(ctx, &pbAuth.LogoutRequest{
 		SessionId: sessionID,
 	})
+
 	return err
 }
 
@@ -85,6 +110,7 @@ func (c *authClient) CheckSession(ctx context.Context, sessionId string) (Sessio
 			return SessionInfo{}, ErrInternal
 		}
 	}
+
 	return SessionInfo{
 		UserID: resp.GetUserId(),
 		Role:   resp.GetRole(),

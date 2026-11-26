@@ -5,8 +5,8 @@ import (
 	pb "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/catalog"
 )
 
-type genreResponseDTO = filmdto.Genre
-type filmResponseDTO = filmdto.Film
+type genreResponseDTO = filmdto.GenreResponseDTO
+type filmResponseDTO = filmdto.FilmResponseDTO
 
 type filmCardResponseDTO struct {
 	ID          int64              `json:"id"`

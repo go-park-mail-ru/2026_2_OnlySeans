@@ -10,6 +10,11 @@ import (
 	pb "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/catalog"
 )
 
+const (
+	sidebarCollapsedPreferenceKey = "frame:sidebar-collapsed"
+	catalogViewPreferenceKey      = "frame:catalog-view"
+)
+
 func (h *Handler) Preferences(w http.ResponseWriter, r *http.Request) {
 	result, err := h.client.GetPreferences(r.Context(), user(r))
 	if err != nil {
@@ -21,11 +26,11 @@ func (h *Handler) Preferences(w http.ResponseWriter, r *http.Request) {
 	preferences := result.GetPreferences()
 
 	if preferences.SidebarCollapsed != nil {
-		data["frame:sidebar-collapsed"] = preferences.GetSidebarCollapsed()
+		data[sidebarCollapsedPreferenceKey] = preferences.GetSidebarCollapsed()
 	}
 
 	if preferences.CatalogView != nil {
-		data["frame:catalog-view"] = preferences.GetCatalogView()
+		data[catalogViewPreferenceKey] = preferences.GetCatalogView()
 	}
 
 	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, data, h.appLogger)
@@ -47,7 +52,7 @@ func (h *Handler) SavePreference(w http.ResponseWriter, r *http.Request) {
 	}
 
 	switch body.Key {
-	case "frame:sidebar-collapsed":
+	case sidebarCollapsedPreferenceKey:
 		if string(body.Value) != "true" && string(body.Value) != "false" {
 			h.fail(r.Context(), w, catalogclient.ErrInvalidLibraryData)
 			return
@@ -56,7 +61,7 @@ func (h *Handler) SavePreference(w http.ResponseWriter, r *http.Request) {
 		request.Update = &pb.SavePreferenceRequest_SidebarCollapsed{
 			SidebarCollapsed: string(body.Value) == "true",
 		}
-	case "frame:catalog-view":
+	case catalogViewPreferenceKey:
 		if string(body.Value) != `"grid"` && string(body.Value) != `"list"` {
 			h.fail(r.Context(), w, catalogclient.ErrInvalidLibraryData)
 			return

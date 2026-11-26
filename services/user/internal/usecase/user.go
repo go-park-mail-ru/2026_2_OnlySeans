@@ -12,8 +12,6 @@ import (
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/services/user/internal/repository"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/imageutil"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/logger"
-	passUtil "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/password"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/s3"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/utils"
 	"github.com/google/uuid"
 )
@@ -30,18 +28,26 @@ type UserUseCase interface {
 }
 
 type userUseCase struct {
-	userRepo    repository.UserRepository
-	avatarRepo  repository.AvatarRepository
-	fileStorage s3.FileStorage
-	appLogger   logger.Logger
+	userRepo       repository.UserRepository
+	avatarRepo     repository.AvatarRepository
+	fileStorage    FileStorage
+	passwordHasher PasswordHasher
+	appLogger      logger.Logger
 }
 
-func NewUserUseCase(ur repository.UserRepository, avatars repository.AvatarRepository, fs s3.FileStorage, l logger.Logger) UserUseCase {
+func NewUserUseCase(
+	users repository.UserRepository,
+	avatars repository.AvatarRepository,
+	files FileStorage,
+	hasher PasswordHasher,
+	appLogger logger.Logger,
+) UserUseCase {
 	return &userUseCase{
-		userRepo:    ur,
-		avatarRepo:  avatars,
-		fileStorage: fs,
-		appLogger:   l,
+		userRepo:       users,
+		avatarRepo:     avatars,
+		fileStorage:    files,
+		passwordHasher: hasher,
+		appLogger:      appLogger,
 	}
 }
 
@@ -61,7 +67,7 @@ func (u *userUseCase) Create(ctx context.Context, user domain.User, password str
 		return 0, registrationValidationError(domain.ErrInvalidUsername, err)
 	}
 
-	hashedPassword, err := (&passUtil.BcryptPasswordService{}).Hash(password)
+	hashedPassword, err := u.passwordHasher.Hash(password)
 	if err != nil {
 		return 0, fmt.Errorf("failed to hash password: %w", err)
 	}
@@ -170,7 +176,7 @@ func (u *userUseCase) GetAvatarURLByFilename(ctx context.Context, filename strin
 
 func (u *userUseCase) getAvatarURL(ctx context.Context, key string) (string, error) {
 	url, err := u.fileStorage.GetURL(ctx, key)
-	if errors.Is(err, s3.ErrFileNotFound) {
+	if errors.Is(err, domain.ErrFileNotFound) {
 		return "", domain.ErrAvatarNotFound
 	}
 

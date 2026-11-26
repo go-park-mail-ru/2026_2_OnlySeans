@@ -17,7 +17,8 @@ func toGRPCError(err error) error {
 	switch {
 	case errors.Is(err, domain.ErrPersonNotFound):
 		return status.Error(codes.NotFound, domain.ErrPersonNotFound.Error())
-	case errors.Is(err, domain.ErrInvalidPersonID),
+	case errors.Is(err, domain.ErrInvalidFilmID),
+		errors.Is(err, domain.ErrInvalidPersonID),
 		errors.Is(err, domain.ErrInvalidFirstName),
 		errors.Is(err, domain.ErrInvalidLastName),
 		errors.Is(err, domain.ErrInvalidBirthDate),

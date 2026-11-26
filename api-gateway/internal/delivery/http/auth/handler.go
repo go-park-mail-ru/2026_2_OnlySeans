@@ -12,6 +12,7 @@ import (
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/grpc_client/authclient"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/grpc_client/userclient"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/middleware"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/grpcutil"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/logger"
 )
 
@@ -48,8 +49,10 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	if err := httprequest.DecodeJSON(w, r, &req); err != nil {
 		httprequest.LogRejected(l, r, "body", err)
 		httpresponse.WriteErrorContext(ctx, w, http.StatusBadRequest, "invalid request body", l)
+
 		return
 	}
+
 	req.Email = strings.TrimSpace(req.Email)
 	req.Username = strings.TrimSpace(req.Username)
 
@@ -86,7 +89,7 @@ func writeRegisterError(ctx context.Context, w http.ResponseWriter, err error, a
 	case errors.Is(err, userclient.ErrUsernameTaken):
 		httpresponse.WriteErrorContext(ctx, w, http.StatusConflict, userclient.ErrUsernameTaken.Error(), appLogger)
 	default:
-
+		logAuthFailure(ctx, appLogger, "register", err)
 		httpresponse.WriteErrorContext(ctx, w, http.StatusInternalServerError, middleware.ErrInternal.Error(), appLogger)
 	}
 }
@@ -104,8 +107,10 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	if err := httprequest.DecodeJSON(w, r, &req); err != nil {
 		httprequest.LogRejected(l, r, "body", err)
 		httpresponse.WriteErrorContext(ctx, w, http.StatusBadRequest, "invalid request body", l)
+
 		return
 	}
+
 	req.Email = strings.TrimSpace(req.Email)
 
 	session, err := h.authClient.Login(ctx, req.Email, req.Password)
@@ -126,13 +131,14 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 func writeLoginError(ctx context.Context, w http.ResponseWriter, err error, appLogger logger.Logger) {
 	switch {
-	case errors.Is(err, userclient.ErrInvalidEmail),
-		errors.Is(err, userclient.ErrInvalidPassword):
+	case errors.Is(err, authclient.ErrInvalidEmail),
+		errors.Is(err, authclient.ErrInvalidPassword),
+		errors.Is(err, authclient.ErrInvalidArgument):
 		httpresponse.WriteErrorContext(ctx, w, http.StatusBadRequest, err.Error(), appLogger)
-	case errors.Is(err, userclient.ErrInvalidCredentials):
-		httpresponse.WriteErrorContext(ctx, w, http.StatusUnauthorized, userclient.ErrInvalidCredentials.Error(), appLogger)
+	case errors.Is(err, authclient.ErrInvalidCredentials):
+		httpresponse.WriteErrorContext(ctx, w, http.StatusUnauthorized, authclient.ErrInvalidCredentials.Error(), appLogger)
 	default:
-
+		logAuthFailure(ctx, appLogger, "login", err)
 		httpresponse.WriteErrorContext(ctx, w, http.StatusInternalServerError, middleware.ErrInternal.Error(), appLogger)
 	}
 }
@@ -148,6 +154,7 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 
 	if cookie, err := r.Cookie(SessionCookieName); err == nil {
 		if err := h.authClient.Logout(ctx, cookie.Value); err != nil {
+			logAuthFailure(ctx, l, "logout", err)
 			httpresponse.WriteErrorContext(ctx, w, http.StatusInternalServerError, middleware.ErrInternal.Error(), l)
 			return
 		}
@@ -193,6 +200,7 @@ func (h *AuthHandler) Authorised(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.userClient.GetByID(ctx, id)
 	if err != nil {
+		logAuthFailure(ctx, l, "authorised.get_user", err)
 		httpresponse.WriteErrorContext(ctx, w, http.StatusInternalServerError, middleware.ErrInternal.Error(), l)
 		return
 	}
@@ -207,5 +215,15 @@ func (h *AuthHandler) CanEditPersons(ctx context.Context, userID int64) (bool, e
 	}
 
 	role := user.GetRole()
+
 	return role == middleware.RoleAdmin || role == middleware.RoleEditor, nil
+}
+
+func logAuthFailure(ctx context.Context, appLogger logger.Logger, operation string, err error) {
+	if appLogger == nil {
+		return
+	}
+	fields := grpcutil.ErrorFields(err)
+	fields["operation"] = operation
+	appLogger.ErrorContext(ctx, "authentication request failed", fields)
 }

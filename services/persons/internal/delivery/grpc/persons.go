@@ -12,12 +12,15 @@ import (
 
 type PersonHandler struct {
 	pb.UnimplementedPersonServiceServer
+
 	persons usecase.PersonUseCase
+	catalog usecase.CatalogUseCase
 }
 
-func NewPersonHandler(persons usecase.PersonUseCase) *PersonHandler {
+func NewPersonHandler(persons usecase.PersonUseCase, catalog usecase.CatalogUseCase) *PersonHandler {
 	return &PersonHandler{
 		persons: persons,
+		catalog: catalog,
 	}
 }
 

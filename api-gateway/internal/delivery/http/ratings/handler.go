@@ -173,7 +173,7 @@ func decodeScore(w http.ResponseWriter, r *http.Request) (int, error) {
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
 
-	var request setFilmRatingRequest
+	var request setFilmRatingRequestDTO
 	if err := decoder.Decode(&request); err != nil || request.Score == nil {
 		return 0, ErrInvalidBody
 	}

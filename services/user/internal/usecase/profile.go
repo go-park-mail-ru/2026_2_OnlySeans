@@ -8,23 +8,29 @@ import (
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/services/user/internal/domain"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/services/user/internal/repository"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/s3"
 )
 
 type ProfilePosterStorage interface {
 	GetURL(ctx context.Context, key string) (string, error)
 }
 
-type ProfileUseCase struct {
+type ProfileUseCase interface {
+	GetProfile(ctx context.Context, userID int64) (*domain.Profile, error)
+}
+
+type profileUseCase struct {
 	profiles repository.ProfileReader
 	posters  ProfilePosterStorage
 }
 
-func NewProfileUseCase(profiles repository.ProfileReader, posters ProfilePosterStorage) *ProfileUseCase {
-	return &ProfileUseCase{profiles: profiles, posters: posters}
+func NewProfileUseCase(profiles repository.ProfileReader, posters ProfilePosterStorage) ProfileUseCase {
+	return &profileUseCase{
+		profiles: profiles,
+		posters:  posters,
+	}
 }
 
-func (u *ProfileUseCase) GetProfile(ctx context.Context, userID int64) (*domain.Profile, error) {
+func (u *profileUseCase) GetProfile(ctx context.Context, userID int64) (*domain.Profile, error) {
 	profile, err := u.profiles.GetProfile(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("read profile: %w", err)
@@ -46,7 +52,7 @@ func (u *ProfileUseCase) GetProfile(ctx context.Context, userID int64) (*domain.
 	return &result, nil
 }
 
-func (u *ProfileUseCase) attachPosterURLs(ctx context.Context, films []domain.ProfileFilm, urls map[string]*string) error {
+func (u *profileUseCase) attachPosterURLs(ctx context.Context, films []domain.ProfileFilm, urls map[string]*string) error {
 	for i := range films {
 		film := &films[i]
 		if film.PosterURL != nil && *film.PosterURL != "" {
@@ -63,7 +69,7 @@ func (u *ProfileUseCase) attachPosterURLs(ctx context.Context, films []domain.Pr
 		}
 
 		url, err := u.posters.GetURL(ctx, key)
-		if errors.Is(err, s3.ErrFileNotFound) {
+		if errors.Is(err, domain.ErrFileNotFound) {
 			urls[key] = nil
 			film.PosterURL = nil
 			continue

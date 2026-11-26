@@ -9,7 +9,17 @@ report="$out_dir/coverage.html"
 
 mkdir -p "$out_dir"
 
-go test ./... -coverpkg=./internal/...,./shared/pkg/... -coverprofile="$profile"
+export GOWORK="$PWD/go.work"
+source_packages=(./api-gateway/... ./services/... ./shared/...)
+test_packages=(./tests/api-gateway/... ./tests/auth/... ./tests/catalog/... ./tests/persons/... ./tests/user/... ./tests/shared/...)
+cover_packages=$(go list "${source_packages[@]}" | awk '
+    $0 !~ /\/tests(\/|$)/ && $0 !~ /\/shared\/proto(\/|$)/ {
+        printf "%s%s", separator, $0
+        separator = ","
+    }
+')
+
+go test "${source_packages[@]}" "${test_packages[@]}" -coverpkg="$cover_packages" -coverprofile="$profile"
 
 go tool cover -html="$profile" -o "$report"
 

@@ -11,5 +11,9 @@ http:
 auth_service_addr: "127.0.0.1:50052"
 user_service_addr: "127.0.0.1:50051"
 persons_service_addr: "127.0.0.1:50053"
-
 catalog_service_addr: "127.0.0.1:50054"
+
+s3:
+  endpoint: "http://localhost:8050"
+  region: us-east-1
+  bucket: avatars

@@ -80,7 +80,7 @@ func mapRegistrationError(err error) error {
 		case "invalid password":
 			fieldErr = ErrInvalidPassword
 		default:
-			return ErrInternal
+			return fmt.Errorf("%w: %w", ErrInternal, err)
 		}
 		if reason == "" {
 			return fieldErr
@@ -88,7 +88,7 @@ func mapRegistrationError(err error) error {
 		return fmt.Errorf("%w: %s", fieldErr, reason)
 	}
 
-	return ErrInternal
+	return fmt.Errorf("%w: %w", ErrInternal, err)
 }
 
 func (c *userClient) GetByID(ctx context.Context, userID int64) (*pbUser.User, error) {
@@ -98,7 +98,7 @@ func (c *userClient) GetByID(ctx context.Context, userID int64) (*pbUser.User, e
 		if ok && st.Code() == codes.NotFound {
 			return nil, ErrUserNotFound
 		}
-		return nil, ErrInternal
+		return nil, fmt.Errorf("%w: %w", ErrInternal, err)
 	}
 
 	if resp.GetUser() == nil {
