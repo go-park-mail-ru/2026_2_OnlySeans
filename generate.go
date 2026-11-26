@@ -2,12 +2,15 @@
 
 package main
 
-//go:generate go mod download
-//go:generate go run go.uber.org/mock/mockgen@v0.6.0 -package=mocks -self_package=github.com/go-park-mail-ru/2026_2_OnlySeans/tests/mocks -destination=tests/mocks/auth.go github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain PasswordHasher,PasswordVerifier,SessionStore,UserRepository
-//go:generate go run go.uber.org/mock/mockgen@v0.6.0 -package=mocks -self_package=github.com/go-park-mail-ru/2026_2_OnlySeans/tests/mocks -destination=tests/mocks/repositories.go github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain FilmRatingRepository,CollectionFilmRatingRepository,FilmRepository,CollectionRepository,PersonRepository,ReviewRepository,AvatarRepository,PosterRepository,LibraryRepository,PersonCatalogRepository
-//go:generate go run go.uber.org/mock/mockgen@v0.6.0 -package=mocks -self_package=github.com/go-park-mail-ru/2026_2_OnlySeans/tests/mocks -destination=tests/mocks/files.go github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/files AvatarStorage,AvatarWriter,AvatarURLStorage,PosterStorage,PosterFilmReader
-//go:generate go run go.uber.org/mock/mockgen@v0.6.0 -package=mocks -self_package=github.com/go-park-mail-ru/2026_2_OnlySeans/tests/mocks -destination=tests/mocks/profile.go github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/auth ProfileReader,ProfilePosterStorage
-//go:generate go run go.uber.org/mock/mockgen@v0.6.0 -package=mocks -self_package=github.com/go-park-mail-ru/2026_2_OnlySeans/tests/mocks -destination=tests/mocks/person_catalog.go github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/persons CatalogFilmRepository
-//go:generate go run go.uber.org/mock/mockgen@v0.6.0 -package=mocks -self_package=github.com/go-park-mail-ru/2026_2_OnlySeans/tests/mocks -destination=tests/mocks/poster_urls.go github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/films PosterURLStorage
-//go:generate go run go.uber.org/mock/mockgen@v0.6.0 -package=mocks -self_package=github.com/go-park-mail-ru/2026_2_OnlySeans/tests/mocks -destination=tests/mocks/router.go github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/router Authenticator,CatalogEditor
-//go:generate go run go.uber.org/mock/mockgen@v0.6.0 -package=mocks -self_package=github.com/go-park-mail-ru/2026_2_OnlySeans/tests/mocks -destination=tests/mocks/logger.go github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger Logger
+//go:generate -command mockgen go run go.uber.org/mock/mockgen@v0.6.0
+//go:generate mockgen -source=services/persons/internal/domain/person_repository.go -destination=tests/mocks/persons/repository.go -package=mocks
+//go:generate mockgen -source=services/persons/internal/usecase/persons.go -destination=tests/mocks/persons/usecase.go -package=mocks
+//go:generate mockgen -source=services/persons/internal/domain/person_catalog.go -destination=tests/mocks/persons/catalog_repository.go -package=mocks
+//go:generate mockgen -source=services/persons/internal/usecase/catalog.go -destination=tests/mocks/persons/catalog_usecase.go -package=mocks
+//go:generate mockgen -source=shared/pkg/logger/logger.go -destination=tests/mocks/shared/logger.go -package=mocks
+//go:generate mockgen -source=services/user/internal/repository/profile.go -destination=tests/mocks/user/profile_reader.go -package=mocks
+//go:generate mockgen -source=services/user/internal/usecase/profile.go -destination=tests/mocks/user/profile.go -package=mocks
+//go:generate mockgen -source=services/user/internal/usecase/ports.go -destination=tests/mocks/user/ports.go -package=mocks
+//go:generate mockgen -source=services/auth/internal/usecase/auth.go -destination=tests/mocks/auth/auth.go -package=mocks
+//go:generate mockgen -source=services/auth/internal/usecase/session.go -destination=tests/mocks/auth/session.go -package=mocks
+//go:generate mockgen -source=services/auth/internal/domain/session.go -destination=tests/mocks/auth/password.go -package=mocks -exclude_interfaces=PasswordHasher

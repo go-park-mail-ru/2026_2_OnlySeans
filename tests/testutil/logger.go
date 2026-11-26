@@ -1,8 +1,9 @@
 package testutil
 
 import (
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 	"io"
+
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/logger"
 )
 
 func DiscardLogger() logger.Logger {

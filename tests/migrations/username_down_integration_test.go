@@ -18,7 +18,7 @@ func TestUsernameRollbackPreservesNames(t *testing.T) {
 	if dsn == "" {
 		t.Skip("set MIGRATIONS_TEST_DATABASE_URL for the PostgreSQL integration test")
 	}
-	migration, err := os.ReadFile("../../db/migrations/000012_account_username.down.sql")
+	migration, err := os.ReadFile("../../services/user/db/migrations/000012_account_username.down.sql")
 	require.NoError(t, err)
 	for _, tc := range []struct {
 		name, username string

@@ -57,17 +57,17 @@ role_permission:
 персональные данные стираются функцией `anonymize_account()`.
 
 Атрибуты: id (PK), role_id (FK), email (UQ), username (UQ), password_hash,
-first_name, gender, birth_date, bio, is_private, avatar_file_id (FK),
+first_name, gender, birth_date, bio, is_private, preferences, avatar_file_id (FK),
 deleted_at, created_at, updated_at.
 
 ```
 account:
 {id} -> role_id, email, username, password_hash, first_name, gender, birth_date,
-        bio, is_private, avatar_file_id, deleted_at, created_at, updated_at
+        bio, is_private, preferences, avatar_file_id, deleted_at, created_at, updated_at
 {email} -> id, role_id, username, password_hash, first_name, gender, birth_date,
-           bio, is_private, avatar_file_id, deleted_at, created_at, updated_at
+           bio, is_private, preferences, avatar_file_id, deleted_at, created_at, updated_at
 {username} -> id, role_id, email, password_hash, first_name, gender, birth_date,
-              bio, is_private, avatar_file_id, deleted_at, created_at, updated_at
+              bio, is_private, preferences, avatar_file_id, deleted_at, created_at, updated_at
 ```
 
 ---
@@ -79,16 +79,16 @@ account:
 собственные служебные поля, поэтому он вынесен в отдельное отношение, а не
 хранится ссылкой в карточке фильма.
 
-Атрибуты: id (PK), storage_key (UQ), external_url (UQ), mime_type, size_bytes,
-created_by (FK), created_at, updated_at.
+Атрибуты: id (PK), storage_key (UQ), external_url (UQ), source_url, source_credit,
+mime_type, size_bytes, created_by (FK), created_at, updated_at.
 
 ```
 file:
-{id} -> storage_key, external_url, mime_type, size_bytes, created_by,
+{id} -> storage_key, external_url, source_url, source_credit, mime_type, size_bytes, created_by,
         created_at, updated_at
-{storage_key} -> id, external_url, mime_type, size_bytes, created_by,
+{storage_key} -> id, external_url, source_url, source_credit, mime_type, size_bytes, created_by,
                  created_at, updated_at
-{external_url} -> id, storage_key, mime_type, size_bytes, created_by,
+{external_url} -> id, storage_key, source_url, source_credit, mime_type, size_bytes, created_by,
                   created_at, updated_at
 ```
 
@@ -229,12 +229,13 @@ episode:
 Персона: актёр, режиссёр, сценарист. Профессия хранится не здесь, а в
 `film_person`.
 
-Атрибуты: id (PK), first_name, last_name, birth_date, photo_file_id (FK),
-created_at, updated_at.
+Атрибуты: id (PK), first_name, last_name, original_name, birth_date, death_date,
+birth_place, biography, source_url, photo_file_id (FK), created_at, updated_at.
 
 ```
 person:
-{id} -> first_name, last_name, birth_date, photo_file_id, created_at, updated_at
+{id} -> first_name, last_name, original_name, birth_date, death_date,
+        birth_place, biography, source_url, photo_file_id, created_at, updated_at
 ```
 Тёзки и однофамильцы не мешают: ключ суррогатный, а имя и фамилия не объявлены
 уникальными.

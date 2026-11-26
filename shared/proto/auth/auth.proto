@@ -1,0 +1,54 @@
+syntax = "proto3";
+
+package auth.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/auth;authv1";
+
+service AuthService {
+    rpc Login(LoginRequest) returns (LoginResponse);
+    rpc IssueSession(IssueSessionRequest) returns (IssueSessionResponse);
+    rpc CheckSession(CheckSessionRequest) returns (CheckSessionResponse);
+    rpc Logout(LogoutRequest) returns (LogoutResponse);
+}
+
+message Session {
+    string id = 1;
+    int64 user_id = 2;
+    string role = 3;
+    google.protobuf.Timestamp expires_at = 4;
+}
+
+message LoginRequest {
+    string email = 1;
+    string password = 2;
+}
+
+message LoginResponse {
+    Session session = 1;
+}
+
+message IssueSessionRequest {
+    int64 user_id = 1;
+    string role = 2;
+}
+
+message IssueSessionResponse {
+    Session session = 1;
+}
+
+message CheckSessionRequest {
+    string session_id = 1;
+}
+
+message CheckSessionResponse {
+    int64 user_id = 1;
+    string role = 2;
+}
+
+message LogoutRequest {
+    string session_id = 1;
+}
+
+message LogoutResponse {}

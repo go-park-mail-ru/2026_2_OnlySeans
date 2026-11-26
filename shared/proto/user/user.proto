@@ -1,0 +1,116 @@
+syntax = "proto3";
+
+package user.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/user;userv1";
+
+service UserService {
+    rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
+    rpc GetByID(GetByIDRequest) returns (GetByIDResponse);
+    rpc UpdateProfile(UpdateProfileRequest) returns (UpdateProfileResponse);
+    rpc GetAvatarURL(GetAvatarURLRequest) returns (GetAvatarURLResponse);
+    rpc UpdateAvatar(UpdateAvatarRequest) returns (UpdateAvatarResponse);
+    rpc DeleteAvatar(DeleteAvatarRequest) returns (DeleteAvatarResponse);
+    rpc GetByEmail(GetByEmailRequest) returns (GetByEmailResponse);
+    rpc GetProfile(GetProfileRequest) returns (GetProfileResponse);
+    rpc GetAvatarURLByFilename(GetAvatarURLByFilenameRequest) returns (GetAvatarURLResponse);
+}
+
+message User {
+    int64 id = 1;
+    string email = 2;
+    string username = 3;
+    string role = 4;
+    optional string avatar_filename = 5;
+}
+
+message CreateUserRequest {
+    string email = 1;
+    string username = 2;
+    string password = 3;
+}
+
+message CreateUserResponse {
+    int64 user_id = 1;
+}
+
+message GetByIDRequest {
+    int64 user_id = 1;
+}
+
+message GetByIDResponse {
+    User user = 1;
+}
+
+message UpdateProfileRequest {
+    int64 user_id = 1;
+    optional string username = 2;
+    optional string email = 3;
+}
+
+message UpdateProfileResponse {
+    User user = 1;
+}
+
+message GetAvatarURLRequest {
+    int64 user_id = 1;
+}
+
+message GetAvatarURLResponse {
+    string url = 1;
+}
+
+message UpdateAvatarRequest {
+    int64 user_id = 1;
+    bytes image_data = 2;
+}
+
+message UpdateAvatarResponse {
+    string avatar_filename = 1;
+}
+
+message DeleteAvatarRequest {
+    int64 user_id = 1;
+}
+
+message DeleteAvatarResponse {}
+
+message GetAvatarURLByFilenameRequest {
+    string filename = 1;
+}
+
+message GetByEmailRequest {
+    string email = 1;
+}
+
+message GetByEmailResponse {
+    int64 user_id = 1;
+    string role = 2;
+    string password_hash = 3;
+}
+
+message GetProfileRequest {
+    int64 user_id = 1;
+}
+
+message GetProfileResponse {
+    User user = 1;
+    google.protobuf.Timestamp created_at = 2;
+    repeated ProfileFilm favorites = 3;
+    repeated ProfileFilm ratings = 4;
+    int64 reviews = 5;
+}
+
+message ProfileFilm {
+    int64 id = 1;
+    string title = 2;
+    int32 year = 3;
+    string type = 4;
+    int32 age_limit = 5;
+    string genres = 6;
+    optional string poster = 7;
+    double average = 8;
+    optional int32 score = 9;
+}
