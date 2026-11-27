@@ -38,6 +38,7 @@ func (in *PersonInput) Validate() error {
 	if firstNameLen < MinFirstNameLen {
 		return fmt.Errorf("%w: too short, minimum %d characters", ErrInvalidFirstName, MinFirstNameLen)
 	}
+
 	if firstNameLen > MaxFirstNameLen {
 		return fmt.Errorf("%w: too long, maximum %d characters", ErrInvalidFirstName, MaxFirstNameLen)
 	}
@@ -46,6 +47,7 @@ func (in *PersonInput) Validate() error {
 	if lastNameLen < MinLastNameLen {
 		return fmt.Errorf("%w: too short, minimum %d characters", ErrInvalidLastName, MinLastNameLen)
 	}
+
 	if lastNameLen > MaxLastNameLen {
 		return fmt.Errorf("%w: too long, maximum %d characters", ErrInvalidLastName, MaxLastNameLen)
 	}

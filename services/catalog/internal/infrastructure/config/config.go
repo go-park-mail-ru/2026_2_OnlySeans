@@ -25,15 +25,17 @@ type S3Config struct {
 }
 
 type Config struct {
-	Logger          sharedconfig.LoggerConfig     `yaml:"logger"`
-	Postgres        sharedconfig.PostgresConfig   `yaml:"postgres"`
-	GRPC            sharedconfig.GRPCServerConfig `yaml:"grpc"`
-	S3              S3Config                      `yaml:"s3"`
-	ShutdownTimeout time.Duration                 `yaml:"shutdown_timeout"`
+	PersonsServiceAddr string                        `yaml:"persons_service_addr" env:"PERSONS_SERVICE_ADDR"`
+	Logger             sharedconfig.LoggerConfig     `yaml:"logger"`
+	Postgres           sharedconfig.PostgresConfig   `yaml:"postgres"`
+	GRPC               sharedconfig.GRPCServerConfig `yaml:"grpc"`
+	S3                 S3Config                      `yaml:"s3"`
+	ShutdownTimeout    time.Duration                 `yaml:"shutdown_timeout"`
 }
 
 func Default() *Config {
 	return &Config{
+		PersonsServiceAddr: "127.0.0.1:50053",
 		Logger: sharedconfig.LoggerConfig{
 			Level: "info",
 		},
@@ -64,6 +66,9 @@ func Load() *Config {
 }
 
 func (c *Config) Validate() error {
+	if strings.TrimSpace(c.PersonsServiceAddr) == "" {
+		return errors.New("persons_service_addr is required")
+	}
 	if strings.TrimSpace(c.GRPC.Host) == "" {
 		return errors.New("grpc.host is required")
 	}

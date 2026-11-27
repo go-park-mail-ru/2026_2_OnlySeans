@@ -1,0 +1,2 @@
+*.go text eol=lf
+.golangci.yml text eol=lf

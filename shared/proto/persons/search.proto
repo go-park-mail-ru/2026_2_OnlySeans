@@ -1,0 +1,69 @@
+syntax = "proto3";
+
+package persons.v1;
+
+option go_package = "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/persons;personsv1";
+
+// Served by the existing persons process.
+service PersonSearchService {
+    rpc SearchPersons(SearchPersonsRequest) returns (SearchPersonsResponse);
+    rpc CountPersons(CountPersonsRequest) returns (CountPersonsResponse);
+}
+
+message SearchPersonsRequest {
+    string query = 1;
+    int32 limit = 2;
+    int64 offset = 3;
+    PersonSearchSort sort = 4;
+    PersonRoleFilter roles = 5;
+    // Full result cards request this. Suggestions omit it.
+    bool include_works_count = 6;
+}
+
+message SearchPersonsResponse {
+    repeated PersonSuggestion persons = 1;
+    // Unique person matches before applying limit and offset.
+    int64 total = 2;
+}
+
+message PersonSuggestion {
+    int64 id = 1;
+    string name = 2;
+    optional string photo_url = 3;
+    repeated SearchPersonRole roles = 4;
+    // Number of unique titles in the person's filmography as actor or director.
+    optional int64 works_count = 5;
+}
+
+message CountPersonsRequest {
+    string query = 1;
+    PersonRoleFilter roles = 2;
+}
+
+message CountPersonsResponse {
+    int64 total = 1;
+}
+
+message PersonRoleFilter {
+    repeated SearchPersonRole include = 1;
+    repeated SearchPersonRole exclude = 2;
+    PersonRoleFilterMode mode = 3;
+}
+
+enum SearchPersonRole {
+    SEARCH_PERSON_ROLE_UNSPECIFIED = 0;
+    SEARCH_PERSON_ROLE_ACTOR = 1;
+    SEARCH_PERSON_ROLE_DIRECTOR = 2;
+}
+
+enum PersonRoleFilterMode {
+    PERSON_ROLE_FILTER_MODE_UNSPECIFIED = 0; // Defaults to all included roles.
+    PERSON_ROLE_FILTER_MODE_ALL = 1;
+    PERSON_ROLE_FILTER_MODE_ANY = 2;
+}
+
+enum PersonSearchSort {
+    PERSON_SEARCH_SORT_UNSPECIFIED = 0; // Defaults to relevance.
+    PERSON_SEARCH_SORT_RELEVANCE = 1;
+    PERSON_SEARCH_SORT_ADDED_AT = 2;
+}

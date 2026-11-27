@@ -20,8 +20,8 @@ const (
 const (
 	minFilmTitleLen       = 1
 	maxFilmTitleLen       = 255
-	minFilmProductionYear = 1888
-	maxFilmProductionYear = 2200
+	MinFilmProductionYear = 1888
+	MaxFilmProductionYear = 2200
 	minFilmDurationMin    = 1
 	maxFilmDurationMin    = 6000
 	maxFilmDescriptionLen = 10000
@@ -64,7 +64,7 @@ func (input CreateFilmInput) Validate() error {
 		return ErrInvalidFilmInput
 	}
 
-	if input.ReleaseYear < minFilmProductionYear || input.ReleaseYear > maxFilmProductionYear {
+	if input.ReleaseYear < MinFilmProductionYear || input.ReleaseYear > MaxFilmProductionYear {
 		return ErrInvalidFilmInput
 	}
 
@@ -72,9 +72,7 @@ func (input CreateFilmInput) Validate() error {
 		return ErrInvalidFilmInput
 	}
 
-	switch input.AgeLimit {
-	case 0, 6, 12, 16, 18:
-	default:
+	if !ValidFilmAgeRating(int32(input.AgeLimit)) {
 		return fmt.Errorf("invalid age limit: %w", ErrInvalidFilmInput)
 	}
 
@@ -104,4 +102,13 @@ func (input CreateFilmInput) Validate() error {
 	}
 
 	return nil
+}
+
+func ValidFilmAgeRating(rating int32) bool {
+	switch rating {
+	case 0, 6, 12, 16, 18:
+		return true
+	default:
+		return false
+	}
 }

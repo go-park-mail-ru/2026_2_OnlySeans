@@ -20,6 +20,7 @@ tags:
   - name: Отзывы
   - name: Персоны
   - name: Файлы
+  - name: Поиск
 security: []
 x-cors:
   allowed-origin: http://localhost:8000
@@ -1158,6 +1159,167 @@ paths:
           $ref: '#/components/responses/RouteMethodNotAllowed'
         '500':
           $ref: '#/components/responses/InternalError'
+  /api/search/suggest:
+    get:
+      tags:
+        - Поиск
+      operationId: getSearchSuggestions
+      summary: Подсказки поиска
+      x-implementation-status: implemented
+      description: |-
+        Возвращает два списка по релевантности. В films входят фильмы и сериалы,
+        найденные по названию или участнику. В persons входят актёры и режиссёры,
+        найденные по имени. При равной релевантности порядок определяется по ID по возрастанию.
+        Счётчики учитывают все совпадения до ограничения списков.
+        При отсутствии совпадений ответ 200 содержит два пустых массива и нулевые счётчики.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/SearchQuery'
+        - $ref: '#/components/parameters/SearchMatch'
+        - name: limit
+          in: query
+          required: false
+          description: |-
+            Максимальное число элементов в каждом из двух разделов.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 5
+            default: 3
+      responses:
+        '200':
+          $ref: '#/components/responses/SearchSuggestions'
+        '400':
+          $ref: '#/components/responses/InvalidSearchRequest'
+        '405':
+          $ref: '#/components/responses/RouteMethodNotAllowed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '504':
+          description: Search request timed out.
+  /api/search/films:
+    get:
+      tags: [Поиск]
+      operationId: searchFilms
+      summary: Найти фильмы и сериалы
+      x-implementation-status: implemented
+      description: |-
+        Возвращает страницу карточек и счётчики всех вкладок.
+        Поиск по названию и имени учитывает сохранённый оригинал, регистр игнорируется.
+        Поиск по названию и отдельный поиск людей допускают опечатки.
+        Для совпадения через участника длина q должна быть не меньше трёх символов,
+        а слова запроса должны совпасть с началом слов в имени актёра или режиссёра.
+        При сортировке по релевантности прямые совпадения по названию идут первыми.
+        Фильм с несколькими причинами совпадения возвращается один раз.
+        Пример фильтра с двумя включёнными жанрами и одним исключённым
+        `?q=кри&genre_include=drama&genre_include=crime&genre_mode=any&genre_exclude=comedy`.
+        Запись должна содержать драму или криминал. Любое исключение имеет приоритет.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/SearchQuery'
+        - $ref: '#/components/parameters/SearchMatch'
+        - $ref: '#/components/parameters/SearchFilmType'
+        - $ref: '#/components/parameters/SearchGenreInclude'
+        - $ref: '#/components/parameters/SearchGenreExclude'
+        - $ref: '#/components/parameters/SearchGenreMode'
+        - $ref: '#/components/parameters/SearchCountryInclude'
+        - $ref: '#/components/parameters/SearchCountryExclude'
+        - $ref: '#/components/parameters/SearchCountryMode'
+        - $ref: '#/components/parameters/SearchYearFrom'
+        - $ref: '#/components/parameters/SearchYearTo'
+        - $ref: '#/components/parameters/SearchReleaseFrom'
+        - $ref: '#/components/parameters/SearchReleaseTo'
+        - $ref: '#/components/parameters/SearchRatingFrom'
+        - $ref: '#/components/parameters/SearchRatingTo'
+        - $ref: '#/components/parameters/SearchAgeRatings'
+        - $ref: '#/components/parameters/SearchRoleInclude'
+        - $ref: '#/components/parameters/SearchRoleExclude'
+        - $ref: '#/components/parameters/SearchRoleMode'
+        - name: sort
+          in: query
+          description: |-
+            relevance — релевантность, popularity — число неудалённых отзывов,
+            rating — средняя пользовательская оценка, release_date — первый известный релиз,
+            added_at — дата добавления. Порядок от большего или нового к меньшему или старому.
+            При сортировке по дате выхода и рейтингу отсутствующие значения идут последними.
+            При равенстве используется ID по возрастанию.
+          schema:
+            type: string
+            enum: [relevance, popularity, rating, release_date, added_at]
+            default: relevance
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: Страница фильмов и сериалов со счётчиками.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchFilmsResponse'
+        '400':
+          $ref: '#/components/responses/InvalidSearchRequest'
+        '405':
+          $ref: '#/components/responses/RouteMethodNotAllowed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '504':
+          description: Search request timed out.
+  /api/search/persons:
+    get:
+      tags: [Поиск]
+      operationId: searchPersons
+      summary: Найти актёров и режиссёров
+      x-implementation-status: implemented
+      description: |-
+        Возвращает страницу персон и счётчики всех вкладок.
+        Поиск по имени учитывает сохранённый оригинал, игнорирует регистр и допускает опечатки.
+        Персона с несколькими профессиями возвращается один раз.
+        Параметры фильтрации фильмов и режим match используются для счётчиков
+        фильмов и сериалов. Параметры профессий влияют на выдачу и счётчик персон.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/SearchQuery'
+        - $ref: '#/components/parameters/SearchMatch'
+        - $ref: '#/components/parameters/SearchGenreInclude'
+        - $ref: '#/components/parameters/SearchGenreExclude'
+        - $ref: '#/components/parameters/SearchGenreMode'
+        - $ref: '#/components/parameters/SearchCountryInclude'
+        - $ref: '#/components/parameters/SearchCountryExclude'
+        - $ref: '#/components/parameters/SearchCountryMode'
+        - $ref: '#/components/parameters/SearchYearFrom'
+        - $ref: '#/components/parameters/SearchYearTo'
+        - $ref: '#/components/parameters/SearchReleaseFrom'
+        - $ref: '#/components/parameters/SearchReleaseTo'
+        - $ref: '#/components/parameters/SearchRatingFrom'
+        - $ref: '#/components/parameters/SearchRatingTo'
+        - $ref: '#/components/parameters/SearchAgeRatings'
+        - $ref: '#/components/parameters/SearchRoleInclude'
+        - $ref: '#/components/parameters/SearchRoleExclude'
+        - $ref: '#/components/parameters/SearchRoleMode'
+        - name: sort
+          in: query
+          description: Релевантность или дата добавления от новых к старым. При равенстве используется ID по возрастанию.
+          schema:
+            type: string
+            enum: [relevance, added_at]
+            default: relevance
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: Страница персон со счётчиками.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchPersonsResponse'
+        '400':
+          $ref: '#/components/responses/InvalidSearchRequest'
+        '405':
+          $ref: '#/components/responses/RouteMethodNotAllowed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '504':
+          description: Search request timed out.
 components:
   securitySchemes:
     sessionCookie:
@@ -1205,7 +1367,398 @@ components:
         type: integer
         minimum: 0
         default: 0
+    SearchQuery:
+      name: q
+      in: query
+      required: true
+      example: Нолан
+      description: Поисковая строка. Длина от 2 до 200 Unicode-символов после удаления пробелов по краям.
+      schema:
+        type: string
+        minLength: 2
+        maxLength: 200
+    SearchMatch:
+      name: match
+      in: query
+      description: |-
+        В режиме all фильмы и сериалы ищутся по названиям и участникам.
+        Совпадение через актёра или режиссёра включается от трёх символов в q,
+        по началу слов в имени. В режиме title учитываются только названия.
+        Режим влияет на карточки и счётчики фильмов и сериалов.
+      schema:
+        type: string
+        enum: [all, title]
+        default: all
+    SearchFilmType:
+      name: type
+      in: query
+      description: Тип карточек в выдаче. При отсутствии параметра возвращаются фильмы и сериалы. Счётчики охватывают оба типа.
+      schema:
+        type: string
+        enum: [movie, series]
+    SearchGenreInclude:
+      name: genre_include
+      in: query
+      style: form
+      explode: true
+      description: Список включаемых жанров. Передаётся повторением параметра. Значения берутся из slug справочника жанров.
+      schema:
+        type: array
+        minItems: 1
+        maxItems: 50
+        uniqueItems: true
+        items:
+          type: string
+          pattern: '^[a-z0-9-]{2,64}$'
+    SearchGenreExclude:
+      name: genre_exclude
+      in: query
+      style: form
+      explode: true
+      description: Список исключаемых жанров. Наличие любого указанного значения исключает запись. Значения берутся из slug справочника жанров.
+      schema:
+        type: array
+        minItems: 1
+        maxItems: 50
+        uniqueItems: true
+        items:
+          type: string
+          pattern: '^[a-z0-9-]{2,64}$'
+    SearchGenreMode:
+      name: genre_mode
+      in: query
+      description: Режим списка включения жанров. all требует все значения, any — хотя бы одно. Если список пуст, условие включения пропускается.
+      schema:
+        type: string
+        enum: [all, any]
+        default: all
+    SearchCountryInclude:
+      name: country_include
+      in: query
+      style: form
+      explode: true
+      description: Список включаемых стран. Передаётся повторением параметра. Значения берутся из двухбуквенных кодов стран.
+      schema:
+        type: array
+        minItems: 1
+        maxItems: 50
+        uniqueItems: true
+        items:
+          type: string
+          pattern: '^[A-Z]{2}$'
+    SearchCountryExclude:
+      name: country_exclude
+      in: query
+      style: form
+      explode: true
+      description: Список исключаемых стран. Наличие любого указанного значения исключает запись. Значения берутся из двухбуквенных кодов стран.
+      schema:
+        type: array
+        minItems: 1
+        maxItems: 50
+        uniqueItems: true
+        items:
+          type: string
+          pattern: '^[A-Z]{2}$'
+    SearchCountryMode:
+      name: country_mode
+      in: query
+      description: Режим списка включения стран. all требует все значения, any — хотя бы одно. Если список пуст, условие включения пропускается.
+      schema:
+        type: string
+        enum: [all, any]
+        default: all
+    SearchRoleInclude:
+      name: role_include
+      in: query
+      style: form
+      explode: true
+      description: Список включаемых профессий. Передаётся повторением параметра. Применяется к результатам и счётчику людей.
+      schema:
+        type: array
+        minItems: 1
+        maxItems: 2
+        uniqueItems: true
+        items:
+          type: string
+          enum: [actor, director]
+    SearchRoleExclude:
+      name: role_exclude
+      in: query
+      style: form
+      explode: true
+      description: Список исключаемых профессий. Наличие любого указанного значения исключает запись. Применяется к результатам и счётчику людей.
+      schema:
+        type: array
+        minItems: 1
+        maxItems: 2
+        uniqueItems: true
+        items:
+          type: string
+          enum: [actor, director]
+    SearchRoleMode:
+      name: role_mode
+      in: query
+      description: Режим списка включения профессий. all требует все значения, any — хотя бы одно. Если список пуст, условие включения пропускается.
+      schema:
+        type: string
+        enum: [all, any]
+        default: all
+    SearchYearFrom:
+      name: year_from
+      in: query
+      description: Нижняя включительная граница года производства по production_year.
+      schema:
+        type: integer
+        minimum: 1888
+        maximum: 2200
+    SearchYearTo:
+      name: year_to
+      in: query
+      description: Верхняя включительная граница года производства по production_year.
+      schema:
+        type: integer
+        minimum: 1888
+        maximum: 2200
+    SearchReleaseFrom:
+      name: release_from
+      in: query
+      description: Нижняя включительная граница даты первого известного релиза. При активном диапазоне записи без даты исключаются.
+      schema:
+        type: string
+        format: date
+    SearchReleaseTo:
+      name: release_to
+      in: query
+      description: Верхняя включительная граница даты первого известного релиза. При активном диапазоне записи без даты исключаются.
+      schema:
+        type: string
+        format: date
+    SearchRatingFrom:
+      name: rating_from
+      in: query
+      description: Нижняя включительная граница средней пользовательской оценки. При активном диапазоне записи без оценок исключаются.
+      schema:
+        type: number
+        format: double
+        minimum: 1
+        maximum: 10
+    SearchRatingTo:
+      name: rating_to
+      in: query
+      description: Верхняя включительная граница средней пользовательской оценки. При активном диапазоне записи без оценок исключаются.
+      schema:
+        type: number
+        format: double
+        minimum: 1
+        maximum: 10
+    SearchAgeRatings:
+      name: age_rating
+      in: query
+      style: form
+      explode: true
+      description: |-
+        Точные возрастные категории фильмов и сериалов. При отсутствии параметра
+        подходят все категории. age_rating=16 выбирает только 16+.
+        age_rating=12&age_rating=16 выбирает 12+ или 16+.
+        Значение 18 выбирает только 18+.
+      schema:
+        type: array
+        minItems: 1
+        maxItems: 5
+        uniqueItems: true
+        items:
+          type: integer
+          enum: [0, 6, 12, 16, 18]
+      example: [12, 16]
   schemas:
+    SearchCounts:
+      type: object
+      description: |-
+        Число уникальных совпадений после фильтров, до limit и offset.
+        Выбор вкладки type не влияет на счётчики. Жанры, страны, год, дата релиза,
+        рейтинг и возраст влияют на movies и series. Фильтры профессий влияют на persons.
+        total равен сумме movies, series и persons.
+      required: [movies, series, persons, total]
+      properties:
+        movies:
+          type: integer
+          format: int64
+          minimum: 0
+        series:
+          type: integer
+          format: int64
+          minimum: 0
+        persons:
+          type: integer
+          format: int64
+          minimum: 0
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+      example: {movies: 5, series: 0, persons: 2, total: 7}
+    SearchSuggestionsResponse:
+      type: object
+      required: [films, persons, counts]
+      properties:
+        films:
+          type: array
+          maxItems: 5
+          description: Фильмы и сериалы, найденные по названию или участнику. Число элементов не превышает limit.
+          items:
+            $ref: '#/components/schemas/SearchFilmSuggestion'
+        persons:
+          type: array
+          maxItems: 5
+          description: Актёры и режиссёры, найденные по имени. Число элементов не превышает limit.
+          items:
+            $ref: '#/components/schemas/SearchPersonSuggestion'
+        counts:
+          $ref: '#/components/schemas/SearchCounts'
+    SearchFilmsResponse:
+      type: object
+      required: [films, counts]
+      properties:
+        films:
+          type: array
+          description: Карточки выбранной страницы. Пустая страница возвращается как [].
+          items:
+            $ref: '#/components/schemas/SearchFilmResult'
+        counts:
+          $ref: '#/components/schemas/SearchCounts'
+    SearchPersonsResponse:
+      type: object
+      required: [persons, counts]
+      properties:
+        persons:
+          type: array
+          description: Карточки выбранной страницы. Пустая страница возвращается как [].
+          items:
+            $ref: '#/components/schemas/SearchPersonResult'
+        counts:
+          $ref: '#/components/schemas/SearchCounts'
+    SearchFilmSuggestion:
+      type: object
+      required: [id, title, original_title, year, film_type, poster_url, genres, title_match, matched_persons]
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+        title:
+          type: string
+          description: Название фильма для отображения.
+        original_title:
+          type: string
+          nullable: true
+          description: Оригинальное название; не обязательно английское.
+        year:
+          type: integer
+          minimum: 1888
+          maximum: 2200
+        film_type:
+          type: string
+          enum: [movie, series]
+        poster_url:
+          type: string
+          nullable: true
+          description: Абсолютный URL или путь к постеру. null, если постера нет.
+        genres:
+          type: array
+          description: Названия жанров для отображения.
+          items:
+            type: string
+        title_match:
+          type: boolean
+          description: Есть совпадение с названием.
+        matched_persons:
+          type: array
+          description: Участники, через которых найден фильм. Пустой список возвращается как [].
+          items:
+            $ref: '#/components/schemas/SearchMatchedPerson'
+    SearchMatchedPerson:
+      type: object
+      required: [id, name, roles]
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+        name:
+          type: string
+        roles:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          description: Роли этого участника в найденном фильме или сериале.
+          items:
+            $ref: '#/components/schemas/SearchPersonRole'
+    SearchFilmResult:
+      allOf:
+        - $ref: '#/components/schemas/SearchFilmSuggestion'
+        - type: object
+          required: [age_limit, rating, review_count, release_date, added_at]
+          properties:
+            age_limit:
+              type: integer
+              enum: [0, 6, 12, 16, 18]
+            rating:
+              type: number
+              format: double
+              minimum: 1
+              maximum: 10
+              nullable: true
+              description: Средняя пользовательская оценка. null, если оценок пока нет.
+            review_count:
+              type: integer
+              format: int64
+              minimum: 0
+              description: Число неудалённых отзывов.
+            release_date:
+              type: string
+              format: date
+              nullable: true
+              description: Самый ранний известный релиз. null, если дата неизвестна.
+            added_at:
+              type: string
+              format: date-time
+    SearchPersonRole:
+      type: string
+      enum: [actor, director]
+    SearchPersonSuggestion:
+      type: object
+      required: [id, name, photo_url, roles]
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+        name:
+          type: string
+          description: Полное имя для отображения.
+        photo_url:
+          type: string
+          nullable: true
+          description: Абсолютный URL или путь к фотографии. null, если фотографии нет.
+        roles:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          description: Профессии персоны в каталоге.
+          items:
+            $ref: '#/components/schemas/SearchPersonRole'
+    SearchPersonResult:
+      allOf:
+        - $ref: '#/components/schemas/SearchPersonSuggestion'
+        - type: object
+          required: [works_count]
+          properties:
+            works_count:
+              type: integer
+              format: int64
+              minimum: 0
+              description: Число уникальных фильмов и сериалов в фильмографии как актёра или режиссёра.
     ProfileUpdate:
       type: object
       additionalProperties: false
@@ -2020,6 +2573,60 @@ components:
         limit: 20
         offset: 0
   responses:
+    SearchSuggestions:
+      description: Подсказки поиска по разделам.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/SearchSuggestionsResponse'
+          examples:
+            byPerson:
+              summary: Поиск по имени режиссёра
+              value:
+                films:
+                  - id: 42
+                    title: Тёмный рыцарь
+                    original_title: The Dark Knight
+                    year: 2008
+                    film_type: movie
+                    poster_url: null
+                    genres: [криминал, драма]
+                    title_match: false
+                    matched_persons:
+                      - id: 7
+                        name: Кристофер Нолан
+                        roles: [director]
+                persons:
+                  - id: 7
+                    name: Кристофер Нолан
+                    photo_url: null
+                    roles: [director]
+                counts: {movies: 1, series: 0, persons: 1, total: 2}
+            empty:
+              summary: Совпадений нет
+              value:
+                films: []
+                persons: []
+                counts: {movies: 0, series: 0, persons: 0, total: 0}
+    InvalidSearchRequest:
+      description: |-
+        Параметр q отсутствует или после удаления пробельных символов по краям
+        имеет длину вне диапазона от 2 до 200 Unicode-символов.
+        Ошибка также возвращается при неверном enum, формате, длине списка,
+        повторяющихся значениях списка или выходе числа за допустимые границы.
+        Для suggest limit должен быть от 1 до 5, для полных списков от 1 до 100.
+        Нижняя граница диапазона не может превышать верхнюю.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            invalidQuery:
+              value:
+                error: q must be from 2 to 200 characters
+            invalidLimit:
+              value:
+                error: limit must be an integer from 1 to 5
     BadBody:
       description: |-
         Неверный формат запроса или значения полей: не JSON, неверный email, имя или пароль.

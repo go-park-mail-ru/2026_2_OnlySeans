@@ -90,6 +90,7 @@ func (r *PosterRepo) SavePoster(
 
 	var fileID int64
 	operationLog.Stage = "query"
+
 	err = tx.QueryRowContext(
 		ctx,
 		insertPosterFileQuery,
@@ -98,7 +99,6 @@ func (r *PosterRepo) SavePoster(
 		poster.Size,
 		userID,
 	).Scan(&fileID)
-
 	if err != nil {
 		return fmt.Errorf("insert poster metadata: %w", err)
 	}

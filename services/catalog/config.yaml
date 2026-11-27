@@ -4,6 +4,8 @@ logger:
 postgres:
   url: ""
 
+persons_service_addr: "127.0.0.1:50053"
+
 grpc:
   host: "127.0.0.1"
   port: "50054"

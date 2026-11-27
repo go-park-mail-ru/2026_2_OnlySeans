@@ -1,0 +1,8 @@
+package: openapi
+generate:
+  models: true
+  gorilla-server: true
+output-options:
+  include-tags:
+    - Поиск
+output: api-gateway/internal/delivery/http/search/openapi/openapi.gen.go
