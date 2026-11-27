@@ -1,0 +1,22 @@
+logger:
+  level: info
+
+postgres:
+  url: ""
+
+grpc:
+  host: "127.0.0.1"
+  port: "50054"
+
+s3:
+  endpoint: "http://localhost:8050"
+  public_endpoint: "http://localhost:8050"
+  region: us-east-1
+  bucket: avatars
+  poster_url_lifetime: 15m
+  max_poster_size: 5242880
+  max_poster_dimension: 4096
+  bucket_check_timeout: 5s
+  poster_cleanup_timeout: 5s
+
+shutdown_timeout: 10s

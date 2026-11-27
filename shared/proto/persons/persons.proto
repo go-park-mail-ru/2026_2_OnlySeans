@@ -1,0 +1,115 @@
+syntax = "proto3";
+
+package persons.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/persons;personsv1";
+
+service PersonService {
+    rpc CreatePerson(CreatePersonRequest) returns (CreatePersonResponse);
+    rpc GetByID(GetPersonRequest) returns (GetPersonResponse);
+    rpc ListPersons(ListPersonsRequest) returns (ListPersonsResponse);
+    rpc UpdatePerson(UpdatePersonRequest) returns (UpdatePersonResponse);
+    rpc DeletePerson(DeletePersonRequest) returns (DeletePersonResponse);
+    rpc GetFilmPersons(GetFilmPersonsRequest) returns (GetFilmPersonsResponse);
+    rpc GetPersonCatalog(GetPersonCatalogRequest) returns (GetPersonCatalogResponse);
+}
+
+message Person {
+    int64 id = 1;
+    string first_name = 2;
+    string last_name = 3;
+    google.protobuf.Timestamp birth_date = 4;
+    optional string photo_id = 5;
+    google.protobuf.Timestamp created_at = 6;
+    google.protobuf.Timestamp updated_at = 7;
+}
+
+message CreatePersonRequest {
+    string first_name = 1;
+    string last_name = 2;
+    google.protobuf.Timestamp birth_date = 3;
+}
+
+message CreatePersonResponse {
+    int64 person_id = 1;
+}
+
+message GetPersonRequest {
+    int64 person_id = 1;
+}
+
+message GetPersonResponse {
+    Person person = 1;
+}
+
+message ListPersonsRequest {
+    int64 limit = 1;
+    int64 offset = 2;
+}
+
+message ListPersonsResponse {
+    repeated Person persons = 1;
+    int64 total = 2;
+}
+
+message UpdatePersonRequest {
+    int64 person_id = 1;
+    string first_name = 2;
+    string last_name = 3;
+    google.protobuf.Timestamp birth_date = 4;
+}
+
+message UpdatePersonResponse {
+    Person person = 1;
+}
+
+message DeletePersonRequest {
+    int64 person_id = 1;
+}
+
+message DeletePersonResponse {}
+
+message CatalogPerson {
+    int64 id = 1;
+    string name = 2;
+    string original_name = 3;
+    optional string photo_url = 4;
+    string photo_source = 5;
+    string photo_credit = 6;
+    google.protobuf.Timestamp birth_date = 7;
+    google.protobuf.Timestamp death_date = 8;
+    string birth_place = 9;
+    string biography = 10;
+    string source_url = 11;
+}
+
+message PersonCredit {
+    CatalogPerson person = 1;
+    string role = 2;
+    string character = 3;
+}
+
+message FilmCredit {
+    int64 film_id = 1;
+    string role = 2;
+    string character = 3;
+}
+
+message GetFilmPersonsRequest {
+    int64 film_id = 1;
+}
+
+message GetFilmPersonsResponse {
+    repeated PersonCredit people = 1;
+}
+
+message GetPersonCatalogRequest {
+    int64 person_id = 1;
+}
+
+message GetPersonCatalogResponse {
+    CatalogPerson person = 1;
+    repeated FilmCredit films = 2;
+}

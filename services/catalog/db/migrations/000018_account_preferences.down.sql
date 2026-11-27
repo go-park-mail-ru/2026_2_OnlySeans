@@ -1,0 +1,6 @@
+BEGIN;
+
+ALTER TABLE account
+    DROP COLUMN IF EXISTS preferences;
+
+COMMIT;
