@@ -7,6 +7,7 @@ TEST_WORKSPACE := $(CURDIR)/go.work
 
 # Команды для проверки качества кода
 lint:
+	@go run ./scripts/check-newlines
 	@test -z "$$(gofmt -l .)" || (echo "Неотформатированные файлы:"; gofmt -l .; exit 1)
 	GOWORK=$(TEST_WORKSPACE) go vet $(APP_PACKAGES) $(TEST_PACKAGES)
 

@@ -19,6 +19,7 @@ import (
 	libraryhttp "github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/library"
 	personshttp "github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/persons"
 	ratingshttp "github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/ratings"
+	searchhttp "github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/search"
 	userhttp "github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/user"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/router"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/grpc_client/authclient"
@@ -100,6 +101,9 @@ func run(ctx context.Context) error {
 
 	defer func() { _ = catalogConn.Close() }()
 
+	personsConn.Connect()
+	catalogConn.Connect()
+
 	catalogClient := catalogclient.NewCatalogClient(pbcatalog.NewCatalogServiceClient(catalogConn))
 
 	filmsHandler, err := filmshttp.NewHandler(catalogClient, appLogger)
@@ -123,6 +127,8 @@ func run(ctx context.Context) error {
 	authClient := authclient.NewAuthClient(pbauth.NewAuthServiceClient(authConn))
 	userClient := userclient.NewUserClient(pbuser.NewUserServiceClient(userConn))
 	personClient := personsclient.NewPersonClient(pbpersons.NewPersonServiceClient(personsConn))
+	catalogSearchClient := pbcatalog.NewCatalogSearchServiceClient(catalogConn)
+	personSearchClient := pbpersons.NewPersonSearchServiceClient(personsConn)
 
 	personsHandler, err := personshttp.NewHandler(personClient, appLogger)
 	if err != nil {
@@ -138,10 +144,12 @@ func run(ctx context.Context) error {
 	authHandler.CookieSecure = cfg.HTTP.CookieSecure
 	profileHandler := userhttp.NewProfileHandler(userClient, appLogger)
 	avatarHandler := userhttp.NewAvatarHandler(userClient, appLogger)
+	searchHandler := searchhttp.NewHandler(catalogSearchClient, personSearchClient, appLogger)
 	authMiddleware := middleware.NewAuthMiddleware(authClient, userClient, appLogger)
 
 	handler, err := router.NewRouter(router.Handlers{
 		Auth:           authHandler,
+		Search:         searchHandler,
 		Assets:         assetsHandler,
 		Files:          avatarHandler,
 		Profile:        profileHandler,
@@ -167,8 +175,10 @@ func run(ctx context.Context) error {
 	}
 
 	serverErr := make(chan error, 1)
+
 	go func() {
 		appLogger.Info("Gateway HTTP server starting", map[string]any{"address": server.Addr})
+
 		serverErr <- server.ListenAndServe()
 	}()
 

@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awss3 "github.com/aws/aws-sdk-go-v2/service/s3"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
 	cataloggrpc "github.com/go-park-mail-ru/2026_2_OnlySeans/services/catalog/internal/delivery/grpc"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/services/catalog/internal/infrastructure/config"
@@ -20,6 +21,8 @@ import (
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/logger"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/postgres"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/s3"
+	pbcatalog "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/catalog"
+	pbpersons "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/persons"
 )
 
 func run(ctx context.Context) error {
@@ -116,12 +119,27 @@ func run(ctx context.Context) error {
 	}
 	defer server.Stop()
 
+	personsConn, err := grpc.NewClient(cfg.PersonsServiceAddr, grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithChainUnaryInterceptor(grpcutil.UnaryClientRequestID))
+	if err != nil {
+		return fmt.Errorf("create persons gRPC client: %w", err)
+	}
+	defer func() { _ = personsConn.Close() }()
+
+	personsConn.Connect()
+
+	searchRepo := catalogpostgres.NewFilmSearchRepo(db, appLogger)
+	searchUseCase := usecase.NewFilmSearchUseCase(searchRepo, posterStorage, appLogger)
+	searchHandler := cataloggrpc.NewSearchHandler(searchUseCase, pbpersons.NewPersonSearchServiceClient(personsConn))
+	pbcatalog.RegisterCatalogSearchServiceServer(server, searchHandler)
+
 	listener, err := net.Listen("tcp", cfg.Address())
 	if err != nil {
 		return fmt.Errorf("listen on %s: %w", cfg.Address(), err)
 	}
 
 	defer func() { _ = listener.Close() }()
+
 	appLogger.Info("Catalog gRPC server started", map[string]any{
 		"address": listener.Addr().String(),
 	})

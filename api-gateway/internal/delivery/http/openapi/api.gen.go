@@ -35,25 +35,25 @@ func (e FilmFilmType) Valid() bool {
 
 // Defines values for FilmInputAgeLimit.
 const (
-	N0  FilmInputAgeLimit = 0
-	N12 FilmInputAgeLimit = 12
-	N16 FilmInputAgeLimit = 16
-	N18 FilmInputAgeLimit = 18
-	N6  FilmInputAgeLimit = 6
+	FilmInputAgeLimitN0  FilmInputAgeLimit = 0
+	FilmInputAgeLimitN12 FilmInputAgeLimit = 12
+	FilmInputAgeLimitN16 FilmInputAgeLimit = 16
+	FilmInputAgeLimitN18 FilmInputAgeLimit = 18
+	FilmInputAgeLimitN6  FilmInputAgeLimit = 6
 )
 
 // Valid indicates whether the value is a known member of the FilmInputAgeLimit enum.
 func (e FilmInputAgeLimit) Valid() bool {
 	switch e {
-	case N0:
+	case FilmInputAgeLimitN0:
 		return true
-	case N12:
+	case FilmInputAgeLimitN12:
 		return true
-	case N16:
+	case FilmInputAgeLimitN16:
 		return true
-	case N18:
+	case FilmInputAgeLimitN18:
 		return true
-	case N6:
+	case FilmInputAgeLimitN6:
 		return true
 	default:
 		return false
@@ -144,6 +144,528 @@ func (e ProfileFilmType) Valid() bool {
 	case ProfileFilmTypeMovie:
 		return true
 	case ProfileFilmTypeSeries:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SearchFilmResultAgeLimit.
+const (
+	SearchFilmResultAgeLimitN0  SearchFilmResultAgeLimit = 0
+	SearchFilmResultAgeLimitN12 SearchFilmResultAgeLimit = 12
+	SearchFilmResultAgeLimitN16 SearchFilmResultAgeLimit = 16
+	SearchFilmResultAgeLimitN18 SearchFilmResultAgeLimit = 18
+	SearchFilmResultAgeLimitN6  SearchFilmResultAgeLimit = 6
+)
+
+// Valid indicates whether the value is a known member of the SearchFilmResultAgeLimit enum.
+func (e SearchFilmResultAgeLimit) Valid() bool {
+	switch e {
+	case SearchFilmResultAgeLimitN0:
+		return true
+	case SearchFilmResultAgeLimitN12:
+		return true
+	case SearchFilmResultAgeLimitN16:
+		return true
+	case SearchFilmResultAgeLimitN18:
+		return true
+	case SearchFilmResultAgeLimitN6:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SearchFilmResultFilmType.
+const (
+	SearchFilmResultFilmTypeMovie  SearchFilmResultFilmType = "movie"
+	SearchFilmResultFilmTypeSeries SearchFilmResultFilmType = "series"
+)
+
+// Valid indicates whether the value is a known member of the SearchFilmResultFilmType enum.
+func (e SearchFilmResultFilmType) Valid() bool {
+	switch e {
+	case SearchFilmResultFilmTypeMovie:
+		return true
+	case SearchFilmResultFilmTypeSeries:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SearchFilmSuggestionFilmType.
+const (
+	SearchFilmSuggestionFilmTypeMovie  SearchFilmSuggestionFilmType = "movie"
+	SearchFilmSuggestionFilmTypeSeries SearchFilmSuggestionFilmType = "series"
+)
+
+// Valid indicates whether the value is a known member of the SearchFilmSuggestionFilmType enum.
+func (e SearchFilmSuggestionFilmType) Valid() bool {
+	switch e {
+	case SearchFilmSuggestionFilmTypeMovie:
+		return true
+	case SearchFilmSuggestionFilmTypeSeries:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SearchPersonRole.
+const (
+	SearchPersonRoleActor    SearchPersonRole = "actor"
+	SearchPersonRoleDirector SearchPersonRole = "director"
+)
+
+// Valid indicates whether the value is a known member of the SearchPersonRole enum.
+func (e SearchPersonRole) Valid() bool {
+	switch e {
+	case SearchPersonRoleActor:
+		return true
+	case SearchPersonRoleDirector:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SearchCountryMode.
+const (
+	SearchCountryModeAll SearchCountryMode = "all"
+	SearchCountryModeAny SearchCountryMode = "any"
+)
+
+// Valid indicates whether the value is a known member of the SearchCountryMode enum.
+func (e SearchCountryMode) Valid() bool {
+	switch e {
+	case SearchCountryModeAll:
+		return true
+	case SearchCountryModeAny:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SearchFilmType.
+const (
+	SearchFilmTypeMovie  SearchFilmType = "movie"
+	SearchFilmTypeSeries SearchFilmType = "series"
+)
+
+// Valid indicates whether the value is a known member of the SearchFilmType enum.
+func (e SearchFilmType) Valid() bool {
+	switch e {
+	case SearchFilmTypeMovie:
+		return true
+	case SearchFilmTypeSeries:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SearchGenreMode.
+const (
+	SearchGenreModeAll SearchGenreMode = "all"
+	SearchGenreModeAny SearchGenreMode = "any"
+)
+
+// Valid indicates whether the value is a known member of the SearchGenreMode enum.
+func (e SearchGenreMode) Valid() bool {
+	switch e {
+	case SearchGenreModeAll:
+		return true
+	case SearchGenreModeAny:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SearchMatch.
+const (
+	SearchMatchAll   SearchMatch = "all"
+	SearchMatchTitle SearchMatch = "title"
+)
+
+// Valid indicates whether the value is a known member of the SearchMatch enum.
+func (e SearchMatch) Valid() bool {
+	switch e {
+	case SearchMatchAll:
+		return true
+	case SearchMatchTitle:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SearchRoleMode.
+const (
+	SearchRoleModeAll SearchRoleMode = "all"
+	SearchRoleModeAny SearchRoleMode = "any"
+)
+
+// Valid indicates whether the value is a known member of the SearchRoleMode enum.
+func (e SearchRoleMode) Valid() bool {
+	switch e {
+	case SearchRoleModeAll:
+		return true
+	case SearchRoleModeAny:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SearchFilmsParamsMatch.
+const (
+	SearchFilmsParamsMatchAll   SearchFilmsParamsMatch = "all"
+	SearchFilmsParamsMatchTitle SearchFilmsParamsMatch = "title"
+)
+
+// Valid indicates whether the value is a known member of the SearchFilmsParamsMatch enum.
+func (e SearchFilmsParamsMatch) Valid() bool {
+	switch e {
+	case SearchFilmsParamsMatchAll:
+		return true
+	case SearchFilmsParamsMatchTitle:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SearchFilmsParamsType.
+const (
+	SearchFilmsParamsTypeMovie  SearchFilmsParamsType = "movie"
+	SearchFilmsParamsTypeSeries SearchFilmsParamsType = "series"
+)
+
+// Valid indicates whether the value is a known member of the SearchFilmsParamsType enum.
+func (e SearchFilmsParamsType) Valid() bool {
+	switch e {
+	case SearchFilmsParamsTypeMovie:
+		return true
+	case SearchFilmsParamsTypeSeries:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SearchFilmsParamsGenreMode.
+const (
+	SearchFilmsParamsGenreModeAll SearchFilmsParamsGenreMode = "all"
+	SearchFilmsParamsGenreModeAny SearchFilmsParamsGenreMode = "any"
+)
+
+// Valid indicates whether the value is a known member of the SearchFilmsParamsGenreMode enum.
+func (e SearchFilmsParamsGenreMode) Valid() bool {
+	switch e {
+	case SearchFilmsParamsGenreModeAll:
+		return true
+	case SearchFilmsParamsGenreModeAny:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SearchFilmsParamsCountryMode.
+const (
+	SearchFilmsParamsCountryModeAll SearchFilmsParamsCountryMode = "all"
+	SearchFilmsParamsCountryModeAny SearchFilmsParamsCountryMode = "any"
+)
+
+// Valid indicates whether the value is a known member of the SearchFilmsParamsCountryMode enum.
+func (e SearchFilmsParamsCountryMode) Valid() bool {
+	switch e {
+	case SearchFilmsParamsCountryModeAll:
+		return true
+	case SearchFilmsParamsCountryModeAny:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SearchFilmsParamsAgeRating.
+const (
+	SearchFilmsParamsAgeRatingN0  SearchFilmsParamsAgeRating = 0
+	SearchFilmsParamsAgeRatingN12 SearchFilmsParamsAgeRating = 12
+	SearchFilmsParamsAgeRatingN16 SearchFilmsParamsAgeRating = 16
+	SearchFilmsParamsAgeRatingN18 SearchFilmsParamsAgeRating = 18
+	SearchFilmsParamsAgeRatingN6  SearchFilmsParamsAgeRating = 6
+)
+
+// Valid indicates whether the value is a known member of the SearchFilmsParamsAgeRating enum.
+func (e SearchFilmsParamsAgeRating) Valid() bool {
+	switch e {
+	case SearchFilmsParamsAgeRatingN0:
+		return true
+	case SearchFilmsParamsAgeRatingN12:
+		return true
+	case SearchFilmsParamsAgeRatingN16:
+		return true
+	case SearchFilmsParamsAgeRatingN18:
+		return true
+	case SearchFilmsParamsAgeRatingN6:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SearchFilmsParamsRoleInclude.
+const (
+	SearchFilmsParamsRoleIncludeActor    SearchFilmsParamsRoleInclude = "actor"
+	SearchFilmsParamsRoleIncludeDirector SearchFilmsParamsRoleInclude = "director"
+)
+
+// Valid indicates whether the value is a known member of the SearchFilmsParamsRoleInclude enum.
+func (e SearchFilmsParamsRoleInclude) Valid() bool {
+	switch e {
+	case SearchFilmsParamsRoleIncludeActor:
+		return true
+	case SearchFilmsParamsRoleIncludeDirector:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SearchFilmsParamsRoleExclude.
+const (
+	SearchFilmsParamsRoleExcludeActor    SearchFilmsParamsRoleExclude = "actor"
+	SearchFilmsParamsRoleExcludeDirector SearchFilmsParamsRoleExclude = "director"
+)
+
+// Valid indicates whether the value is a known member of the SearchFilmsParamsRoleExclude enum.
+func (e SearchFilmsParamsRoleExclude) Valid() bool {
+	switch e {
+	case SearchFilmsParamsRoleExcludeActor:
+		return true
+	case SearchFilmsParamsRoleExcludeDirector:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SearchFilmsParamsRoleMode.
+const (
+	SearchFilmsParamsRoleModeAll SearchFilmsParamsRoleMode = "all"
+	SearchFilmsParamsRoleModeAny SearchFilmsParamsRoleMode = "any"
+)
+
+// Valid indicates whether the value is a known member of the SearchFilmsParamsRoleMode enum.
+func (e SearchFilmsParamsRoleMode) Valid() bool {
+	switch e {
+	case SearchFilmsParamsRoleModeAll:
+		return true
+	case SearchFilmsParamsRoleModeAny:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SearchFilmsParamsSort.
+const (
+	SearchFilmsParamsSortAddedAt     SearchFilmsParamsSort = "added_at"
+	SearchFilmsParamsSortPopularity  SearchFilmsParamsSort = "popularity"
+	SearchFilmsParamsSortRating      SearchFilmsParamsSort = "rating"
+	SearchFilmsParamsSortReleaseDate SearchFilmsParamsSort = "release_date"
+	SearchFilmsParamsSortRelevance   SearchFilmsParamsSort = "relevance"
+)
+
+// Valid indicates whether the value is a known member of the SearchFilmsParamsSort enum.
+func (e SearchFilmsParamsSort) Valid() bool {
+	switch e {
+	case SearchFilmsParamsSortAddedAt:
+		return true
+	case SearchFilmsParamsSortPopularity:
+		return true
+	case SearchFilmsParamsSortRating:
+		return true
+	case SearchFilmsParamsSortReleaseDate:
+		return true
+	case SearchFilmsParamsSortRelevance:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SearchPersonsParamsMatch.
+const (
+	SearchPersonsParamsMatchAll   SearchPersonsParamsMatch = "all"
+	SearchPersonsParamsMatchTitle SearchPersonsParamsMatch = "title"
+)
+
+// Valid indicates whether the value is a known member of the SearchPersonsParamsMatch enum.
+func (e SearchPersonsParamsMatch) Valid() bool {
+	switch e {
+	case SearchPersonsParamsMatchAll:
+		return true
+	case SearchPersonsParamsMatchTitle:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SearchPersonsParamsGenreMode.
+const (
+	SearchPersonsParamsGenreModeAll SearchPersonsParamsGenreMode = "all"
+	SearchPersonsParamsGenreModeAny SearchPersonsParamsGenreMode = "any"
+)
+
+// Valid indicates whether the value is a known member of the SearchPersonsParamsGenreMode enum.
+func (e SearchPersonsParamsGenreMode) Valid() bool {
+	switch e {
+	case SearchPersonsParamsGenreModeAll:
+		return true
+	case SearchPersonsParamsGenreModeAny:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SearchPersonsParamsCountryMode.
+const (
+	SearchPersonsParamsCountryModeAll SearchPersonsParamsCountryMode = "all"
+	SearchPersonsParamsCountryModeAny SearchPersonsParamsCountryMode = "any"
+)
+
+// Valid indicates whether the value is a known member of the SearchPersonsParamsCountryMode enum.
+func (e SearchPersonsParamsCountryMode) Valid() bool {
+	switch e {
+	case SearchPersonsParamsCountryModeAll:
+		return true
+	case SearchPersonsParamsCountryModeAny:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SearchPersonsParamsAgeRating.
+const (
+	SearchPersonsParamsAgeRatingN0  SearchPersonsParamsAgeRating = 0
+	SearchPersonsParamsAgeRatingN12 SearchPersonsParamsAgeRating = 12
+	SearchPersonsParamsAgeRatingN16 SearchPersonsParamsAgeRating = 16
+	SearchPersonsParamsAgeRatingN18 SearchPersonsParamsAgeRating = 18
+	SearchPersonsParamsAgeRatingN6  SearchPersonsParamsAgeRating = 6
+)
+
+// Valid indicates whether the value is a known member of the SearchPersonsParamsAgeRating enum.
+func (e SearchPersonsParamsAgeRating) Valid() bool {
+	switch e {
+	case SearchPersonsParamsAgeRatingN0:
+		return true
+	case SearchPersonsParamsAgeRatingN12:
+		return true
+	case SearchPersonsParamsAgeRatingN16:
+		return true
+	case SearchPersonsParamsAgeRatingN18:
+		return true
+	case SearchPersonsParamsAgeRatingN6:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SearchPersonsParamsRoleInclude.
+const (
+	SearchPersonsParamsRoleIncludeActor    SearchPersonsParamsRoleInclude = "actor"
+	SearchPersonsParamsRoleIncludeDirector SearchPersonsParamsRoleInclude = "director"
+)
+
+// Valid indicates whether the value is a known member of the SearchPersonsParamsRoleInclude enum.
+func (e SearchPersonsParamsRoleInclude) Valid() bool {
+	switch e {
+	case SearchPersonsParamsRoleIncludeActor:
+		return true
+	case SearchPersonsParamsRoleIncludeDirector:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SearchPersonsParamsRoleExclude.
+const (
+	SearchPersonsParamsRoleExcludeActor    SearchPersonsParamsRoleExclude = "actor"
+	SearchPersonsParamsRoleExcludeDirector SearchPersonsParamsRoleExclude = "director"
+)
+
+// Valid indicates whether the value is a known member of the SearchPersonsParamsRoleExclude enum.
+func (e SearchPersonsParamsRoleExclude) Valid() bool {
+	switch e {
+	case SearchPersonsParamsRoleExcludeActor:
+		return true
+	case SearchPersonsParamsRoleExcludeDirector:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SearchPersonsParamsRoleMode.
+const (
+	SearchPersonsParamsRoleModeAll SearchPersonsParamsRoleMode = "all"
+	SearchPersonsParamsRoleModeAny SearchPersonsParamsRoleMode = "any"
+)
+
+// Valid indicates whether the value is a known member of the SearchPersonsParamsRoleMode enum.
+func (e SearchPersonsParamsRoleMode) Valid() bool {
+	switch e {
+	case SearchPersonsParamsRoleModeAll:
+		return true
+	case SearchPersonsParamsRoleModeAny:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SearchPersonsParamsSort.
+const (
+	SearchPersonsParamsSortAddedAt   SearchPersonsParamsSort = "added_at"
+	SearchPersonsParamsSortRelevance SearchPersonsParamsSort = "relevance"
+)
+
+// Valid indicates whether the value is a known member of the SearchPersonsParamsSort enum.
+func (e SearchPersonsParamsSort) Valid() bool {
+	switch e {
+	case SearchPersonsParamsSortAddedAt:
+		return true
+	case SearchPersonsParamsSortRelevance:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetSearchSuggestionsParamsMatch.
+const (
+	GetSearchSuggestionsParamsMatchAll   GetSearchSuggestionsParamsMatch = "all"
+	GetSearchSuggestionsParamsMatchTitle GetSearchSuggestionsParamsMatch = "title"
+)
+
+// Valid indicates whether the value is a known member of the GetSearchSuggestionsParamsMatch enum.
+func (e GetSearchSuggestionsParamsMatch) Valid() bool {
+	switch e {
+	case GetSearchSuggestionsParamsMatchAll:
+		return true
+	case GetSearchSuggestionsParamsMatchTitle:
 		return true
 	default:
 		return false
@@ -529,6 +1051,177 @@ type SavedFilmInput struct {
 	Saved bool `json:"saved"`
 }
 
+// SearchCounts Число уникальных совпадений после фильтров, до limit и offset.
+// Выбор вкладки type не влияет на счётчики. Жанры, страны, год, дата релиза,
+// рейтинг и возраст влияют на movies и series. Фильтры профессий влияют на persons.
+// total равен сумме movies, series и persons.
+//
+// Example: {"movies":5,"persons":2,"series":0,"total":7}
+type SearchCounts struct {
+	Movies  int64 `json:"movies"`
+	Persons int64 `json:"persons"`
+	Series  int64 `json:"series"`
+	Total   int64 `json:"total"`
+}
+
+// SearchFilmResult defines model for SearchFilmResult.
+type SearchFilmResult struct {
+	AddedAt  time.Time                `json:"added_at"`
+	AgeLimit SearchFilmResultAgeLimit `json:"age_limit"`
+	FilmType SearchFilmResultFilmType `json:"film_type"`
+
+	// Genres Названия жанров для отображения.
+	Genres []string `json:"genres"`
+	Id     int64    `json:"id"`
+
+	// MatchedPersons Участники, через которых найден фильм. Пустой список возвращается как [].
+	MatchedPersons []SearchMatchedPerson `json:"matched_persons"`
+
+	// OriginalTitle Оригинальное название; не обязательно английское.
+	OriginalTitle *string `json:"original_title"`
+
+	// PosterUrl Абсолютный URL или путь к постеру. null, если постера нет.
+	PosterUrl *string `json:"poster_url"`
+
+	// Rating Средняя пользовательская оценка. null, если оценок пока нет.
+	Rating *float64 `json:"rating"`
+
+	// ReleaseDate Самый ранний известный релиз. null, если дата неизвестна.
+	ReleaseDate *openapi_types.Date `json:"release_date"`
+
+	// ReviewCount Число неудалённых отзывов.
+	ReviewCount int64 `json:"review_count"`
+
+	// Title Название фильма для отображения.
+	Title string `json:"title"`
+
+	// TitleMatch Есть совпадение с названием.
+	TitleMatch bool `json:"title_match"`
+	Year       int  `json:"year"`
+}
+
+// SearchFilmResultAgeLimit defines model for SearchFilmResult.AgeLimit.
+type SearchFilmResultAgeLimit int
+
+// SearchFilmResultFilmType defines model for SearchFilmResult.FilmType.
+type SearchFilmResultFilmType string
+
+// SearchFilmSuggestion defines model for SearchFilmSuggestion.
+type SearchFilmSuggestion struct {
+	FilmType SearchFilmSuggestionFilmType `json:"film_type"`
+
+	// Genres Названия жанров для отображения.
+	Genres []string `json:"genres"`
+	Id     int64    `json:"id"`
+
+	// MatchedPersons Участники, через которых найден фильм. Пустой список возвращается как [].
+	MatchedPersons []SearchMatchedPerson `json:"matched_persons"`
+
+	// OriginalTitle Оригинальное название; не обязательно английское.
+	OriginalTitle *string `json:"original_title"`
+
+	// PosterUrl Абсолютный URL или путь к постеру. null, если постера нет.
+	PosterUrl *string `json:"poster_url"`
+
+	// Title Название фильма для отображения.
+	Title string `json:"title"`
+
+	// TitleMatch Есть совпадение с названием.
+	TitleMatch bool `json:"title_match"`
+	Year       int  `json:"year"`
+}
+
+// SearchFilmSuggestionFilmType defines model for SearchFilmSuggestion.FilmType.
+type SearchFilmSuggestionFilmType string
+
+// SearchFilmsResponse defines model for SearchFilmsResponse.
+type SearchFilmsResponse struct {
+	// Counts Число уникальных совпадений после фильтров, до limit и offset.
+	// Выбор вкладки type не влияет на счётчики. Жанры, страны, год, дата релиза,
+	// рейтинг и возраст влияют на movies и series. Фильтры профессий влияют на persons.
+	// total равен сумме movies, series и persons.
+	//
+	// Example: {"movies":5,"persons":2,"series":0,"total":7}
+	Counts SearchCounts `json:"counts"`
+
+	// Films Карточки выбранной страницы. Пустая страница возвращается как [].
+	Films []SearchFilmResult `json:"films"`
+}
+
+// SearchMatchedPerson defines model for SearchMatchedPerson.
+type SearchMatchedPerson struct {
+	Id   int64  `json:"id"`
+	Name string `json:"name"`
+
+	// Roles Роли этого участника в найденном фильме или сериале.
+	Roles []SearchPersonRole `json:"roles"`
+}
+
+// SearchPersonResult defines model for SearchPersonResult.
+type SearchPersonResult struct {
+	Id int64 `json:"id"`
+
+	// Name Полное имя для отображения.
+	Name string `json:"name"`
+
+	// PhotoUrl Абсолютный URL или путь к фотографии. null, если фотографии нет.
+	PhotoUrl *string `json:"photo_url"`
+
+	// Roles Профессии персоны в каталоге.
+	Roles []SearchPersonRole `json:"roles"`
+
+	// WorksCount Число уникальных фильмов и сериалов в фильмографии как актёра или режиссёра.
+	WorksCount int64 `json:"works_count"`
+}
+
+// SearchPersonRole defines model for SearchPersonRole.
+type SearchPersonRole string
+
+// SearchPersonSuggestion defines model for SearchPersonSuggestion.
+type SearchPersonSuggestion struct {
+	Id int64 `json:"id"`
+
+	// Name Полное имя для отображения.
+	Name string `json:"name"`
+
+	// PhotoUrl Абсолютный URL или путь к фотографии. null, если фотографии нет.
+	PhotoUrl *string `json:"photo_url"`
+
+	// Roles Профессии персоны в каталоге.
+	Roles []SearchPersonRole `json:"roles"`
+}
+
+// SearchPersonsResponse defines model for SearchPersonsResponse.
+type SearchPersonsResponse struct {
+	// Counts Число уникальных совпадений после фильтров, до limit и offset.
+	// Выбор вкладки type не влияет на счётчики. Жанры, страны, год, дата релиза,
+	// рейтинг и возраст влияют на movies и series. Фильтры профессий влияют на persons.
+	// total равен сумме movies, series и persons.
+	//
+	// Example: {"movies":5,"persons":2,"series":0,"total":7}
+	Counts SearchCounts `json:"counts"`
+
+	// Persons Карточки выбранной страницы. Пустая страница возвращается как [].
+	Persons []SearchPersonResult `json:"persons"`
+}
+
+// SearchSuggestionsResponse defines model for SearchSuggestionsResponse.
+type SearchSuggestionsResponse struct {
+	// Counts Число уникальных совпадений после фильтров, до limit и offset.
+	// Выбор вкладки type не влияет на счётчики. Жанры, страны, год, дата релиза,
+	// рейтинг и возраст влияют на movies и series. Фильтры профессий влияют на persons.
+	// total равен сумме movies, series и persons.
+	//
+	// Example: {"movies":5,"persons":2,"series":0,"total":7}
+	Counts SearchCounts `json:"counts"`
+
+	// Films Фильмы и сериалы, найденные по названию или участнику. Число элементов не превышает limit.
+	Films []SearchFilmSuggestion `json:"films"`
+
+	// Persons Актёры и режиссёры, найденные по имени. Число элементов не превышает limit.
+	Persons []SearchPersonSuggestion `json:"persons"`
+}
+
 // UploadAvatarResponse Example: {"filename":"8c6c028589154f0a8d2bc0a0a31cd084.png"}
 type UploadAvatarResponse struct {
 	// Filename Имя сохранённого аватара, совпадает с avatar_filename в профиле.
@@ -552,6 +1245,63 @@ type Offset = int
 
 // PersonID defines model for PersonID.
 type PersonID = int64
+
+// SearchAgeRatings defines model for SearchAgeRatings.
+type SearchAgeRatings = []int
+
+// SearchCountryExclude defines model for SearchCountryExclude.
+type SearchCountryExclude = []string
+
+// SearchCountryInclude defines model for SearchCountryInclude.
+type SearchCountryInclude = []string
+
+// SearchCountryMode defines model for SearchCountryMode.
+type SearchCountryMode string
+
+// SearchFilmType defines model for SearchFilmType.
+type SearchFilmType string
+
+// SearchGenreExclude defines model for SearchGenreExclude.
+type SearchGenreExclude = []string
+
+// SearchGenreInclude defines model for SearchGenreInclude.
+type SearchGenreInclude = []string
+
+// SearchGenreMode defines model for SearchGenreMode.
+type SearchGenreMode string
+
+// SearchMatch defines model for SearchMatch.
+type SearchMatch string
+
+// SearchQuery defines model for SearchQuery.
+type SearchQuery = string
+
+// SearchRatingFrom defines model for SearchRatingFrom.
+type SearchRatingFrom = float64
+
+// SearchRatingTo defines model for SearchRatingTo.
+type SearchRatingTo = float64
+
+// SearchReleaseFrom defines model for SearchReleaseFrom.
+type SearchReleaseFrom = openapi_types.Date
+
+// SearchReleaseTo defines model for SearchReleaseTo.
+type SearchReleaseTo = openapi_types.Date
+
+// SearchRoleExclude defines model for SearchRoleExclude.
+type SearchRoleExclude = []string
+
+// SearchRoleInclude defines model for SearchRoleInclude.
+type SearchRoleInclude = []string
+
+// SearchRoleMode defines model for SearchRoleMode.
+type SearchRoleMode string
+
+// SearchYearFrom defines model for SearchYearFrom.
+type SearchYearFrom = int
+
+// SearchYearTo defines model for SearchYearTo.
+type SearchYearTo = int
 
 // AccountConflict Example: {"error":"invalid email or password"}
 type AccountConflict = Error
@@ -610,8 +1360,14 @@ type InvalidPersonsRequest = Error
 // InvalidRatingRequest Example: {"error":"invalid email or password"}
 type InvalidRatingRequest = Error
 
+// InvalidSearchRequest Example: {"error":"invalid email or password"}
+type InvalidSearchRequest = Error
+
 // PersonNotFound Example: {"error":"invalid email or password"}
 type PersonNotFound = Error
+
+// SearchSuggestions defines model for SearchSuggestions.
+type SearchSuggestions = SearchSuggestionsResponse
 
 // Unauthorized Example: {"error":"invalid email or password"}
 type Unauthorized = Error
@@ -678,6 +1434,226 @@ type ListPersonsParams struct {
 	// Offset Сколько записей пропустить с начала. Не меньше 0.
 	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
 }
+
+// SearchFilmsParams defines parameters for SearchFilms.
+type SearchFilmsParams struct {
+	// Q Поисковая строка. Длина от 2 до 200 Unicode-символов после удаления пробелов по краям.
+	Q SearchQuery `form:"q" json:"q"`
+
+	// Match В режиме all фильмы и сериалы ищутся по названиям и участникам.
+	// Совпадение через актёра или режиссёра включается от трёх символов в q,
+	// по началу слов в имени. В режиме title учитываются только названия.
+	// Режим влияет на карточки и счётчики фильмов и сериалов.
+	Match *SearchFilmsParamsMatch `form:"match,omitempty" json:"match,omitempty"`
+
+	// Type Тип карточек в выдаче. При отсутствии параметра возвращаются фильмы и сериалы. Счётчики охватывают оба типа.
+	Type *SearchFilmsParamsType `form:"type,omitempty" json:"type,omitempty"`
+
+	// GenreInclude Список включаемых жанров. Передаётся повторением параметра. Значения берутся из slug справочника жанров.
+	GenreInclude *SearchGenreInclude `form:"genre_include,omitempty" json:"genre_include,omitempty"`
+
+	// GenreExclude Список исключаемых жанров. Наличие любого указанного значения исключает запись. Значения берутся из slug справочника жанров.
+	GenreExclude *SearchGenreExclude `form:"genre_exclude,omitempty" json:"genre_exclude,omitempty"`
+
+	// GenreMode Режим списка включения жанров. all требует все значения, any — хотя бы одно. Если список пуст, условие включения пропускается.
+	GenreMode *SearchFilmsParamsGenreMode `form:"genre_mode,omitempty" json:"genre_mode,omitempty"`
+
+	// CountryInclude Список включаемых стран. Передаётся повторением параметра. Значения берутся из двухбуквенных кодов стран.
+	CountryInclude *SearchCountryInclude `form:"country_include,omitempty" json:"country_include,omitempty"`
+
+	// CountryExclude Список исключаемых стран. Наличие любого указанного значения исключает запись. Значения берутся из двухбуквенных кодов стран.
+	CountryExclude *SearchCountryExclude `form:"country_exclude,omitempty" json:"country_exclude,omitempty"`
+
+	// CountryMode Режим списка включения стран. all требует все значения, any — хотя бы одно. Если список пуст, условие включения пропускается.
+	CountryMode *SearchFilmsParamsCountryMode `form:"country_mode,omitempty" json:"country_mode,omitempty"`
+
+	// YearFrom Нижняя включительная граница года производства по production_year.
+	YearFrom *SearchYearFrom `form:"year_from,omitempty" json:"year_from,omitempty"`
+
+	// YearTo Верхняя включительная граница года производства по production_year.
+	YearTo *SearchYearTo `form:"year_to,omitempty" json:"year_to,omitempty"`
+
+	// ReleaseFrom Нижняя включительная граница даты первого известного релиза. При активном диапазоне записи без даты исключаются.
+	ReleaseFrom *SearchReleaseFrom `form:"release_from,omitempty" json:"release_from,omitempty"`
+
+	// ReleaseTo Верхняя включительная граница даты первого известного релиза. При активном диапазоне записи без даты исключаются.
+	ReleaseTo *SearchReleaseTo `form:"release_to,omitempty" json:"release_to,omitempty"`
+
+	// RatingFrom Нижняя включительная граница средней пользовательской оценки. При активном диапазоне записи без оценок исключаются.
+	RatingFrom *SearchRatingFrom `form:"rating_from,omitempty" json:"rating_from,omitempty"`
+
+	// RatingTo Верхняя включительная граница средней пользовательской оценки. При активном диапазоне записи без оценок исключаются.
+	RatingTo *SearchRatingTo `form:"rating_to,omitempty" json:"rating_to,omitempty"`
+
+	// AgeRating Точные возрастные категории фильмов и сериалов. При отсутствии параметра
+	// подходят все категории. age_rating=16 выбирает только 16+.
+	// age_rating=12&age_rating=16 выбирает 12+ или 16+.
+	// Значение 18 выбирает только 18+.
+	AgeRating *SearchAgeRatings `form:"age_rating,omitempty" json:"age_rating,omitempty"`
+
+	// RoleInclude Список включаемых профессий. Передаётся повторением параметра. Применяется к результатам и счётчику людей.
+	RoleInclude *SearchRoleInclude `form:"role_include,omitempty" json:"role_include,omitempty"`
+
+	// RoleExclude Список исключаемых профессий. Наличие любого указанного значения исключает запись. Применяется к результатам и счётчику людей.
+	RoleExclude *SearchRoleExclude `form:"role_exclude,omitempty" json:"role_exclude,omitempty"`
+
+	// RoleMode Режим списка включения профессий. all требует все значения, any — хотя бы одно. Если список пуст, условие включения пропускается.
+	RoleMode *SearchFilmsParamsRoleMode `form:"role_mode,omitempty" json:"role_mode,omitempty"`
+
+	// Sort relevance — релевантность, popularity — число неудалённых отзывов,
+	// rating — средняя пользовательская оценка, release_date — первый известный релиз,
+	// added_at — дата добавления. Порядок от большего или нового к меньшему или старому.
+	// При сортировке по дате выхода и рейтингу отсутствующие значения идут последними.
+	// При равенстве используется ID по возрастанию.
+	Sort *SearchFilmsParamsSort `form:"sort,omitempty" json:"sort,omitempty"`
+
+	// Limit Сколько записей вернуть. От 1 до 100.
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset Сколько записей пропустить с начала. Не меньше 0.
+	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// SearchFilmsParamsMatch defines parameters for SearchFilms.
+type SearchFilmsParamsMatch string
+
+// SearchFilmsParamsType defines parameters for SearchFilms.
+type SearchFilmsParamsType string
+
+// SearchFilmsParamsGenreMode defines parameters for SearchFilms.
+type SearchFilmsParamsGenreMode string
+
+// SearchFilmsParamsCountryMode defines parameters for SearchFilms.
+type SearchFilmsParamsCountryMode string
+
+// SearchFilmsParamsAgeRating defines parameters for SearchFilms.
+type SearchFilmsParamsAgeRating int
+
+// SearchFilmsParamsRoleInclude defines parameters for SearchFilms.
+type SearchFilmsParamsRoleInclude string
+
+// SearchFilmsParamsRoleExclude defines parameters for SearchFilms.
+type SearchFilmsParamsRoleExclude string
+
+// SearchFilmsParamsRoleMode defines parameters for SearchFilms.
+type SearchFilmsParamsRoleMode string
+
+// SearchFilmsParamsSort defines parameters for SearchFilms.
+type SearchFilmsParamsSort string
+
+// SearchPersonsParams defines parameters for SearchPersons.
+type SearchPersonsParams struct {
+	// Q Поисковая строка. Длина от 2 до 200 Unicode-символов после удаления пробелов по краям.
+	Q SearchQuery `form:"q" json:"q"`
+
+	// Match В режиме all фильмы и сериалы ищутся по названиям и участникам.
+	// Совпадение через актёра или режиссёра включается от трёх символов в q,
+	// по началу слов в имени. В режиме title учитываются только названия.
+	// Режим влияет на карточки и счётчики фильмов и сериалов.
+	Match *SearchPersonsParamsMatch `form:"match,omitempty" json:"match,omitempty"`
+
+	// GenreInclude Список включаемых жанров. Передаётся повторением параметра. Значения берутся из slug справочника жанров.
+	GenreInclude *SearchGenreInclude `form:"genre_include,omitempty" json:"genre_include,omitempty"`
+
+	// GenreExclude Список исключаемых жанров. Наличие любого указанного значения исключает запись. Значения берутся из slug справочника жанров.
+	GenreExclude *SearchGenreExclude `form:"genre_exclude,omitempty" json:"genre_exclude,omitempty"`
+
+	// GenreMode Режим списка включения жанров. all требует все значения, any — хотя бы одно. Если список пуст, условие включения пропускается.
+	GenreMode *SearchPersonsParamsGenreMode `form:"genre_mode,omitempty" json:"genre_mode,omitempty"`
+
+	// CountryInclude Список включаемых стран. Передаётся повторением параметра. Значения берутся из двухбуквенных кодов стран.
+	CountryInclude *SearchCountryInclude `form:"country_include,omitempty" json:"country_include,omitempty"`
+
+	// CountryExclude Список исключаемых стран. Наличие любого указанного значения исключает запись. Значения берутся из двухбуквенных кодов стран.
+	CountryExclude *SearchCountryExclude `form:"country_exclude,omitempty" json:"country_exclude,omitempty"`
+
+	// CountryMode Режим списка включения стран. all требует все значения, any — хотя бы одно. Если список пуст, условие включения пропускается.
+	CountryMode *SearchPersonsParamsCountryMode `form:"country_mode,omitempty" json:"country_mode,omitempty"`
+
+	// YearFrom Нижняя включительная граница года производства по production_year.
+	YearFrom *SearchYearFrom `form:"year_from,omitempty" json:"year_from,omitempty"`
+
+	// YearTo Верхняя включительная граница года производства по production_year.
+	YearTo *SearchYearTo `form:"year_to,omitempty" json:"year_to,omitempty"`
+
+	// ReleaseFrom Нижняя включительная граница даты первого известного релиза. При активном диапазоне записи без даты исключаются.
+	ReleaseFrom *SearchReleaseFrom `form:"release_from,omitempty" json:"release_from,omitempty"`
+
+	// ReleaseTo Верхняя включительная граница даты первого известного релиза. При активном диапазоне записи без даты исключаются.
+	ReleaseTo *SearchReleaseTo `form:"release_to,omitempty" json:"release_to,omitempty"`
+
+	// RatingFrom Нижняя включительная граница средней пользовательской оценки. При активном диапазоне записи без оценок исключаются.
+	RatingFrom *SearchRatingFrom `form:"rating_from,omitempty" json:"rating_from,omitempty"`
+
+	// RatingTo Верхняя включительная граница средней пользовательской оценки. При активном диапазоне записи без оценок исключаются.
+	RatingTo *SearchRatingTo `form:"rating_to,omitempty" json:"rating_to,omitempty"`
+
+	// AgeRating Точные возрастные категории фильмов и сериалов. При отсутствии параметра
+	// подходят все категории. age_rating=16 выбирает только 16+.
+	// age_rating=12&age_rating=16 выбирает 12+ или 16+.
+	// Значение 18 выбирает только 18+.
+	AgeRating *SearchAgeRatings `form:"age_rating,omitempty" json:"age_rating,omitempty"`
+
+	// RoleInclude Список включаемых профессий. Передаётся повторением параметра. Применяется к результатам и счётчику людей.
+	RoleInclude *SearchRoleInclude `form:"role_include,omitempty" json:"role_include,omitempty"`
+
+	// RoleExclude Список исключаемых профессий. Наличие любого указанного значения исключает запись. Применяется к результатам и счётчику людей.
+	RoleExclude *SearchRoleExclude `form:"role_exclude,omitempty" json:"role_exclude,omitempty"`
+
+	// RoleMode Режим списка включения профессий. all требует все значения, any — хотя бы одно. Если список пуст, условие включения пропускается.
+	RoleMode *SearchPersonsParamsRoleMode `form:"role_mode,omitempty" json:"role_mode,omitempty"`
+
+	// Sort Релевантность или дата добавления от новых к старым. При равенстве используется ID по возрастанию.
+	Sort *SearchPersonsParamsSort `form:"sort,omitempty" json:"sort,omitempty"`
+
+	// Limit Сколько записей вернуть. От 1 до 100.
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset Сколько записей пропустить с начала. Не меньше 0.
+	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// SearchPersonsParamsMatch defines parameters for SearchPersons.
+type SearchPersonsParamsMatch string
+
+// SearchPersonsParamsGenreMode defines parameters for SearchPersons.
+type SearchPersonsParamsGenreMode string
+
+// SearchPersonsParamsCountryMode defines parameters for SearchPersons.
+type SearchPersonsParamsCountryMode string
+
+// SearchPersonsParamsAgeRating defines parameters for SearchPersons.
+type SearchPersonsParamsAgeRating int
+
+// SearchPersonsParamsRoleInclude defines parameters for SearchPersons.
+type SearchPersonsParamsRoleInclude string
+
+// SearchPersonsParamsRoleExclude defines parameters for SearchPersons.
+type SearchPersonsParamsRoleExclude string
+
+// SearchPersonsParamsRoleMode defines parameters for SearchPersons.
+type SearchPersonsParamsRoleMode string
+
+// SearchPersonsParamsSort defines parameters for SearchPersons.
+type SearchPersonsParamsSort string
+
+// GetSearchSuggestionsParams defines parameters for GetSearchSuggestions.
+type GetSearchSuggestionsParams struct {
+	// Q Поисковая строка. Длина от 2 до 200 Unicode-символов после удаления пробелов по краям.
+	Q SearchQuery `form:"q" json:"q"`
+
+	// Match В режиме all фильмы и сериалы ищутся по названиям и участникам.
+	// Совпадение через актёра или режиссёра включается от трёх символов в q,
+	// по началу слов в имени. В режиме title учитываются только названия.
+	// Режим влияет на карточки и счётчики фильмов и сериалов.
+	Match *GetSearchSuggestionsParamsMatch `form:"match,omitempty" json:"match,omitempty"`
+
+	// Limit Максимальное число элементов в каждом из двух разделов.
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// GetSearchSuggestionsParamsMatch defines parameters for GetSearchSuggestions.
+type GetSearchSuggestionsParamsMatch string
 
 // UploadAvatarMultipartRequestBody defines body for UploadAvatar for multipart/form-data ContentType.
 type UploadAvatarMultipartRequestBody UploadAvatarMultipartBody
@@ -899,6 +1875,15 @@ type ServerInterface interface {
 	// RegisterUser Регистрация
 	// (POST /api/register)
 	RegisterUser(w http.ResponseWriter, r *http.Request)
+	// SearchFilms Найти фильмы и сериалы
+	// (GET /api/search/films)
+	SearchFilms(w http.ResponseWriter, r *http.Request, params SearchFilmsParams)
+	// SearchPersons Найти актёров и режиссёров
+	// (GET /api/search/persons)
+	SearchPersons(w http.ResponseWriter, r *http.Request, params SearchPersonsParams)
+	// GetSearchSuggestions Подсказки поиска
+	// (GET /api/search/suggest)
+	GetSearchSuggestions(w http.ResponseWriter, r *http.Request, params GetSearchSuggestionsParams)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -1846,6 +2831,664 @@ func (siw *ServerInterfaceWrapper) RegisterUser(w http.ResponseWriter, r *http.R
 	handler.ServeHTTP(w, r)
 }
 
+// SearchFilms operation middleware
+func (siw *ServerInterfaceWrapper) SearchFilms(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SearchFilmsParams
+
+	// ------------- Required query parameter "q" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "q", r.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "q"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "q", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "match" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "match", r.URL.Query(), &params.Match, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "match"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "match", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "type" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "type", r.URL.Query(), &params.Type, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "type"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "type", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "genre_include" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "genre_include", r.URL.Query(), &params.GenreInclude, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "genre_include"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "genre_include", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "genre_exclude" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "genre_exclude", r.URL.Query(), &params.GenreExclude, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "genre_exclude"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "genre_exclude", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "genre_mode" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "genre_mode", r.URL.Query(), &params.GenreMode, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "genre_mode"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "genre_mode", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "country_include" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "country_include", r.URL.Query(), &params.CountryInclude, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "country_include"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "country_include", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "country_exclude" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "country_exclude", r.URL.Query(), &params.CountryExclude, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "country_exclude"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "country_exclude", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "country_mode" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "country_mode", r.URL.Query(), &params.CountryMode, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "country_mode"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "country_mode", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "year_from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "year_from", r.URL.Query(), &params.YearFrom, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "year_from"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "year_from", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "year_to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "year_to", r.URL.Query(), &params.YearTo, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "year_to"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "year_to", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "release_from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "release_from", r.URL.Query(), &params.ReleaseFrom, runtime.BindQueryParameterOptions{Type: "string", Format: "date"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "release_from"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "release_from", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "release_to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "release_to", r.URL.Query(), &params.ReleaseTo, runtime.BindQueryParameterOptions{Type: "string", Format: "date"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "release_to"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "release_to", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "rating_from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "rating_from", r.URL.Query(), &params.RatingFrom, runtime.BindQueryParameterOptions{Type: "number", Format: "double"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "rating_from"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "rating_from", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "rating_to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "rating_to", r.URL.Query(), &params.RatingTo, runtime.BindQueryParameterOptions{Type: "number", Format: "double"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "rating_to"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "rating_to", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "age_rating" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "age_rating", r.URL.Query(), &params.AgeRating, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "age_rating"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "age_rating", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "role_include" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "role_include", r.URL.Query(), &params.RoleInclude, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "role_include"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "role_include", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "role_exclude" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "role_exclude", r.URL.Query(), &params.RoleExclude, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "role_exclude"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "role_exclude", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "role_mode" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "role_mode", r.URL.Query(), &params.RoleMode, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "role_mode"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "role_mode", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "sort" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "sort", r.URL.Query(), &params.Sort, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "sort"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sort", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "offset", r.URL.Query(), &params.Offset, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "offset"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SearchFilms(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SearchPersons operation middleware
+func (siw *ServerInterfaceWrapper) SearchPersons(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SearchPersonsParams
+
+	// ------------- Required query parameter "q" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "q", r.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "q"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "q", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "match" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "match", r.URL.Query(), &params.Match, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "match"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "match", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "genre_include" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "genre_include", r.URL.Query(), &params.GenreInclude, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "genre_include"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "genre_include", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "genre_exclude" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "genre_exclude", r.URL.Query(), &params.GenreExclude, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "genre_exclude"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "genre_exclude", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "genre_mode" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "genre_mode", r.URL.Query(), &params.GenreMode, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "genre_mode"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "genre_mode", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "country_include" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "country_include", r.URL.Query(), &params.CountryInclude, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "country_include"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "country_include", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "country_exclude" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "country_exclude", r.URL.Query(), &params.CountryExclude, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "country_exclude"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "country_exclude", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "country_mode" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "country_mode", r.URL.Query(), &params.CountryMode, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "country_mode"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "country_mode", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "year_from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "year_from", r.URL.Query(), &params.YearFrom, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "year_from"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "year_from", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "year_to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "year_to", r.URL.Query(), &params.YearTo, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "year_to"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "year_to", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "release_from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "release_from", r.URL.Query(), &params.ReleaseFrom, runtime.BindQueryParameterOptions{Type: "string", Format: "date"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "release_from"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "release_from", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "release_to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "release_to", r.URL.Query(), &params.ReleaseTo, runtime.BindQueryParameterOptions{Type: "string", Format: "date"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "release_to"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "release_to", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "rating_from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "rating_from", r.URL.Query(), &params.RatingFrom, runtime.BindQueryParameterOptions{Type: "number", Format: "double"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "rating_from"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "rating_from", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "rating_to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "rating_to", r.URL.Query(), &params.RatingTo, runtime.BindQueryParameterOptions{Type: "number", Format: "double"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "rating_to"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "rating_to", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "age_rating" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "age_rating", r.URL.Query(), &params.AgeRating, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "age_rating"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "age_rating", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "role_include" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "role_include", r.URL.Query(), &params.RoleInclude, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "role_include"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "role_include", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "role_exclude" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "role_exclude", r.URL.Query(), &params.RoleExclude, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "role_exclude"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "role_exclude", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "role_mode" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "role_mode", r.URL.Query(), &params.RoleMode, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "role_mode"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "role_mode", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "sort" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "sort", r.URL.Query(), &params.Sort, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "sort"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sort", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "offset", r.URL.Query(), &params.Offset, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "offset"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SearchPersons(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetSearchSuggestions operation middleware
+func (siw *ServerInterfaceWrapper) GetSearchSuggestions(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetSearchSuggestionsParams
+
+	// ------------- Required query parameter "q" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "q", r.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "q"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "q", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "match" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "match", r.URL.Query(), &params.Match, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "match"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "match", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetSearchSuggestions(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 type UnescapedCookieParamError struct {
 	ParamName string
 	Err       error
@@ -2034,6 +3677,12 @@ func HandlerWithOptions(si ServerInterface, options GorillaServerOptions) http.H
 	r.HandleFunc(options.BaseURL+"/api/films/{id}/people", wrapper.GetFilmPersons).Methods(http.MethodGet)
 
 	r.HandleFunc(options.BaseURL+"/api/people/{id}", wrapper.GetPersonCatalog).Methods(http.MethodGet)
+
+	r.HandleFunc(options.BaseURL+"/api/search/suggest", wrapper.GetSearchSuggestions).Methods(http.MethodGet)
+
+	r.HandleFunc(options.BaseURL+"/api/search/films", wrapper.SearchFilms).Methods(http.MethodGet)
+
+	r.HandleFunc(options.BaseURL+"/api/search/persons", wrapper.SearchPersons).Methods(http.MethodGet)
 
 	return r
 }

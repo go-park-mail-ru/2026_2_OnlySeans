@@ -135,6 +135,8 @@ services:
       context: .
       dockerfile: services/catalog/Dockerfile
     depends_on:
+      persons:
+        condition: service_started
       db:
         condition: service_healthy
       rustfs-init:
@@ -219,6 +221,7 @@ configs:
         level: info
       postgres:
         url: ""
+      persons_service_addr: "persons:50053"
       grpc:
         host: "0.0.0.0"
         port: "50054"

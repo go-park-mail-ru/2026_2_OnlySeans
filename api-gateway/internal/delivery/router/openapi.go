@@ -2,26 +2,42 @@ package router
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/gorilla/mux"
 
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/httpresponse"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/openapi"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/logger"
 )
 
-type openAPIAdapter struct {
-	next http.Handler
+type searchHandler interface {
+	GetSearchSuggestions(http.ResponseWriter, *http.Request, openapi.GetSearchSuggestionsParams)
+	SearchFilms(http.ResponseWriter, *http.Request, openapi.SearchFilmsParams)
+	SearchPersons(http.ResponseWriter, *http.Request, openapi.SearchPersonsParams)
 }
 
-func newOpenAPIHandler(next http.Handler) http.Handler {
+type openAPIAdapter struct {
+	next   http.Handler
+	search searchHandler
+}
+
+func newOpenAPIHandler(next http.Handler, search searchHandler, appLogger logger.Logger) http.Handler {
 	routes := mux.NewRouter()
 	routes.NotFoundHandler = next
 	routes.MethodNotAllowedHandler = next
 
 	return openapi.HandlerWithOptions(&openAPIAdapter{
-		next: next,
+		next:   next,
+		search: search,
 	}, openapi.GorillaServerOptions{
 		BaseRouter: routes,
-		ErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, _ error) {
+		ErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
+			if search != nil && strings.HasPrefix(r.URL.Path, "/api/search/") {
+				httpresponse.WriteErrorContext(r.Context(), w, http.StatusBadRequest, err.Error(), appLogger)
+				return
+			}
+
 			next.ServeHTTP(w, r)
 		},
 	})
@@ -177,4 +193,31 @@ func (a *openAPIAdapter) UpdatePerson(w http.ResponseWriter, r *http.Request, id
 
 func (a *openAPIAdapter) RegisterUser(w http.ResponseWriter, r *http.Request) {
 	a.next.ServeHTTP(w, r)
+}
+
+func (a *openAPIAdapter) GetSearchSuggestions(w http.ResponseWriter, r *http.Request, params openapi.GetSearchSuggestionsParams) {
+	if a.search == nil {
+		a.next.ServeHTTP(w, r)
+		return
+	}
+
+	a.search.GetSearchSuggestions(w, r, params)
+}
+
+func (a *openAPIAdapter) SearchFilms(w http.ResponseWriter, r *http.Request, params openapi.SearchFilmsParams) {
+	if a.search == nil {
+		a.next.ServeHTTP(w, r)
+		return
+	}
+
+	a.search.SearchFilms(w, r, params)
+}
+
+func (a *openAPIAdapter) SearchPersons(w http.ResponseWriter, r *http.Request, params openapi.SearchPersonsParams) {
+	if a.search == nil {
+		a.next.ServeHTTP(w, r)
+		return
+	}
+
+	a.search.SearchPersons(w, r, params)
 }

@@ -40,16 +40,22 @@ func run(ctx context.Context) error {
 
 	personRepo := personspostgres.NewPersonRepo(db, appLogger)
 	catalogRepo := personspostgres.NewCatalogRepo(db, appLogger)
+	searchRepo := personspostgres.NewPersonSearchRepo(db, appLogger)
 
 	persons := usecase.NewPersonUseCase(personRepo)
 	catalog := usecase.NewCatalogUseCase(catalogRepo)
+	searchUseCase := usecase.NewPersonSearchUseCase(searchRepo, appLogger)
+
+	personHandler := personsgrpc.NewPersonHandler(persons, catalog)
+	searchHandler := personsgrpc.NewSearchHandler(searchUseCase)
 
 	server := grpc.NewServer(grpc.ChainUnaryInterceptor(grpcutil.UnaryServerRequestID, grpcutil.UnaryServerLogging("persons", appLogger)))
-	pb.RegisterPersonServiceServer(server, personsgrpc.NewPersonHandler(persons, catalog))
+	pb.RegisterPersonServiceServer(server, personHandler)
+	pb.RegisterPersonSearchServiceServer(server, searchHandler)
 
 	addr := net.JoinHostPort(cfg.GRPC.Host, cfg.GRPC.Port)
-	listener, err := net.Listen("tcp", addr)
 
+	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		return fmt.Errorf("listen on %s: %w", addr, err)
 	}

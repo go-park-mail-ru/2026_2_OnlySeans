@@ -1,0 +1,132 @@
+syntax = "proto3";
+
+package catalog.v1;
+
+import "google/protobuf/timestamp.proto";
+import "shared/proto/catalog/catalog.proto";
+import "shared/proto/persons/search.proto";
+
+option go_package = "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/catalog;catalogv1";
+
+// Served by the existing catalog process.
+service CatalogSearchService {
+    rpc Suggest(SearchSuggestionsRequest) returns (SearchSuggestionsResponse);
+    rpc SearchFilms(SearchFilmsRequest) returns (SearchFilmsResponse);
+    rpc CountFilms(CountFilmsRequest) returns (CountFilmsResponse);
+}
+
+message SearchSuggestionsRequest {
+    string query = 1;
+    int32 limit = 2;
+    FilmSearchMatch match = 3;
+}
+
+message SearchSuggestionsResponse {
+    repeated FilmSuggestion films = 1;
+    repeated persons.v1.PersonSuggestion persons = 2;
+    FilmSearchCounts film_counts = 3;
+    int64 persons_count = 4;
+}
+
+message FilmSuggestion {
+    int64 id = 1;
+    string title = 2;
+    optional string original_title = 3;
+    int32 year = 4;
+    string film_type = 5;
+    optional string poster_url = 6;
+    repeated string genres = 7;
+    bool title_match = 8;
+    repeated SearchMatchedPerson matched_persons = 9;
+}
+
+message SearchMatchedPerson {
+    int64 id = 1;
+    string name = 2;
+    // Roles held in this particular title.
+    repeated persons.v1.SearchPersonRole roles = 3;
+}
+
+enum FilmSearchMatch {
+    FILM_SEARCH_MATCH_UNSPECIFIED = 0; // Defaults to title and credits.
+    FILM_SEARCH_MATCH_ALL = 1;
+    FILM_SEARCH_MATCH_TITLE = 2;
+}
+
+enum FilmSearchType {
+    FILM_SEARCH_TYPE_UNSPECIFIED = 0; // Returns both movies and series.
+    FILM_SEARCH_TYPE_MOVIE = 1;
+    FILM_SEARCH_TYPE_SERIES = 2;
+}
+
+enum FilmSearchSort {
+    FILM_SEARCH_SORT_UNSPECIFIED = 0; // Defaults to relevance.
+    FILM_SEARCH_SORT_RELEVANCE = 1;
+    FILM_SEARCH_SORT_POPULARITY = 2;
+    FILM_SEARCH_SORT_RATING = 3;
+    FILM_SEARCH_SORT_RELEASE_DATE = 4;
+    FILM_SEARCH_SORT_ADDED_AT = 5;
+}
+
+enum FilmFilterMode {
+    FILM_FILTER_MODE_UNSPECIFIED = 0; // Defaults to all included values.
+    FILM_FILTER_MODE_ALL = 1;
+    FILM_FILTER_MODE_ANY = 2;
+}
+
+message FilmFacetFilter {
+    repeated string include = 1;
+    repeated string exclude = 2;
+    FilmFilterMode mode = 3;
+}
+
+// Shared by the page and count RPCs so both use the same search criteria.
+message FilmSearchCriteria {
+    string query = 1;
+    FilmSearchMatch match = 2;
+    FilmFacetFilter genres = 3;    // Genre slugs.
+    FilmFacetFilter countries = 4; // Uppercase two-letter country codes.
+    optional int32 year_from = 5;
+    optional int32 year_to = 6;
+    optional string release_from = 7; // Calendar date, YYYY-MM-DD.
+    optional string release_to = 8;   // Calendar date, YYYY-MM-DD.
+    optional double rating_from = 9;
+    optional double rating_to = 10;
+    // An empty list means all categories. Otherwise the age must equal one of the values.
+    repeated int32 age_ratings = 11;
+}
+
+message SearchFilmsRequest {
+    FilmSearchCriteria criteria = 1;
+    // Restricts the page only. Counts always include both types.
+    FilmSearchType film_type = 2;
+    FilmSearchSort sort = 3;
+    Pagination pagination = 4;
+}
+
+message FilmSearchResult {
+    FilmSuggestion film = 1;
+    int32 age_limit = 2;
+    optional double rating = 3;
+    int64 review_count = 4;
+    optional string release_date = 5; // Calendar date, YYYY-MM-DD.
+    google.protobuf.Timestamp added_at = 6;
+}
+
+message FilmSearchCounts {
+    int64 movies = 1;
+    int64 series = 2;
+}
+
+message SearchFilmsResponse {
+    repeated FilmSearchResult films = 1;
+    FilmSearchCounts counts = 2;
+}
+
+message CountFilmsRequest {
+    FilmSearchCriteria criteria = 1;
+}
+
+message CountFilmsResponse {
+    FilmSearchCounts counts = 1;
+}
