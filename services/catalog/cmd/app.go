@@ -20,6 +20,7 @@ import (
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/logger"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/postgres"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/s3"
+	pb "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/catalog"
 )
 
 func run(ctx context.Context) error {
@@ -114,6 +115,17 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("create catalog gRPC server: %w", err)
 	}
+
+	releaseRepo := catalogpostgres.NewReleaseRepo(db, appLogger)
+	releases := usecase.NewReleaseUseCase(releaseRepo, posterStorage)
+	pb.RegisterReleaseServiceServer(server, cataloggrpc.NewReleaseHandler(releases))
+
+	workerCtx, stopWorker := context.WithCancel(ctx)
+	workerDone := make(chan struct{})
+
+	go func() { defer close(workerDone); releases.RunReminders(workerCtx, appLogger) }()
+
+	defer func() { stopWorker(); <-workerDone }()
 	defer server.Stop()
 
 	listener, err := net.Listen("tcp", cfg.Address())

@@ -29,6 +29,7 @@ func NewProfileHandler(client userclient.UserClient, appLogger logger.Logger) *P
 func (h *ProfileHandler) Get(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	id, ok := middleware.UserIDFromContext(ctx)
+
 	if !ok {
 		httpresponse.WriteErrorContext(ctx, w, http.StatusUnauthorized, middleware.ErrUnauthorized.Error(), h.appLogger)
 		return
@@ -39,6 +40,7 @@ func (h *ProfileHandler) Get(w http.ResponseWriter, r *http.Request) {
 		httpresponse.WriteErrorContext(ctx, w, http.StatusUnauthorized, middleware.ErrUnauthorized.Error(), h.appLogger)
 		return
 	}
+
 	if err != nil {
 		httpresponse.WriteErrorContext(ctx, w, http.StatusInternalServerError, httpresponse.InternalErrorMessage, h.appLogger)
 		return
@@ -51,6 +53,7 @@ func (h *ProfileHandler) Get(w http.ResponseWriter, r *http.Request) {
 func (h *ProfileHandler) Update(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	id, ok := middleware.UserIDFromContext(ctx)
+
 	if !ok {
 		httpresponse.WriteErrorContext(ctx, w, http.StatusUnauthorized, middleware.ErrUnauthorized.Error(), h.appLogger)
 		return
@@ -58,7 +61,7 @@ func (h *ProfileHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	var body updateProfileRequest
 	if err := httprequest.DecodeJSON(w, r, &body); err != nil {
-		httpresponse.WriteErrorContext(ctx, w, http.StatusBadRequest, "Проверьте имя и почту.", h.appLogger)
+		httpresponse.WriteErrorContext(ctx, w, http.StatusBadRequest, httprequest.ErrInvalidBody.Error(), h.appLogger)
 		return
 	}
 
@@ -68,7 +71,9 @@ func (h *ProfileHandler) Update(w http.ResponseWriter, r *http.Request) {
 		if status == http.StatusInternalServerError && h.appLogger != nil {
 			h.appLogger.ErrorContext(ctx, "update profile failed", map[string]any{"error": err.Error()})
 		}
+
 		httpresponse.WriteErrorContext(ctx, w, status, message, h.appLogger)
+
 		return
 	}
 
@@ -79,24 +84,26 @@ func (h *ProfileHandler) Update(w http.ResponseWriter, r *http.Request) {
 func profileUpdateError(err error, myProfile bool) (int, string) {
 	switch {
 	case errors.Is(err, userclient.ErrInvalidEmail):
-		return http.StatusBadRequest, "Укажите корректную почту."
+		return http.StatusBadRequest, userclient.ErrInvalidEmail.Error()
 	case errors.Is(err, userclient.ErrInvalidUsername):
-		return http.StatusBadRequest, "Имя должно содержать от 2 до 32 допустимых символов."
+		return http.StatusBadRequest, userclient.ErrInvalidUsername.Error()
 	case errors.Is(err, userclient.ErrInvalidArgument):
-		return http.StatusBadRequest, "Проверьте имя и почту."
+		return http.StatusBadRequest, userclient.ErrInvalidArgument.Error()
 	case errors.Is(err, userclient.ErrEmailAlreadyExists):
 		if myProfile {
 			return http.StatusConflict, "email taken"
 		}
-		return http.StatusConflict, "Эта почта уже используется."
+
+		return http.StatusConflict, userclient.ErrEmailAlreadyExists.Error()
 	case errors.Is(err, userclient.ErrUsernameTaken):
 		if myProfile {
 			return http.StatusConflict, "username taken"
 		}
-		return http.StatusConflict, "Это имя уже используется."
+
+		return http.StatusConflict, userclient.ErrUsernameTaken.Error()
 	case errors.Is(err, userclient.ErrUserNotFound):
 		return http.StatusUnauthorized, middleware.ErrUnauthorized.Error()
 	default:
-		return http.StatusInternalServerError, "Не удалось сохранить профиль."
+		return http.StatusInternalServerError, httpresponse.InternalErrorMessage
 	}
 }

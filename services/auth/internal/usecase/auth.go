@@ -22,6 +22,7 @@ type AuthUseCase interface {
 	Login(ctx context.Context, email, password string) (*domain.Session, error)
 	Logout(ctx context.Context, sessionID uuid.UUID) error
 	CheckSession(ctx context.Context, sessionID uuid.UUID) (UserInfo, error)
+	RefreshSession(ctx context.Context, sessionID uuid.UUID) (*domain.Session, error)
 }
 
 type UserInfo struct {
@@ -107,4 +108,13 @@ func (u *authUseCase) CheckSession(ctx context.Context, sessionID uuid.UUID) (Us
 		UserID: int64(session.UserID),
 		Role:   session.Role,
 	}, nil
+}
+
+func (u *authUseCase) RefreshSession(ctx context.Context, sessionID uuid.UUID) (*domain.Session, error) {
+	session, err := u.sessionUC.Refresh(ctx, sessionID)
+	if err != nil {
+		return nil, fmt.Errorf("refresh session: %w", err)
+	}
+
+	return &session, nil
 }

@@ -6,17 +6,43 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strconv"
 	"time"
+
+	"github.com/google/uuid"
+	"github.com/redis/rueidis"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/services/auth/internal/domain"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/logger"
-	"github.com/google/uuid"
-	"github.com/redis/rueidis"
 )
 
 const (
-	sessionKeyPrefix = "session:"
+	sessionKeyPrefix     = "session:"
+	refreshNumberBase    = 10
+	refreshSessionScript = `
+local current = redis.call('GET', KEYS[1])
+if not current or redis.call('PTTL', KEYS[1]) <= 0 then
+    return false
+end
+if current ~= ARGV[1] then
+    return current
+end
+local milliseconds_per_second = 1000
+local current_time = redis.call('TIME')
+local now = current_time[1] * milliseconds_per_second + math.floor(current_time[2] / milliseconds_per_second)
+if tonumber(ARGV[3]) <= now then
+    return false
+end
+local remaining = tonumber(ARGV[4]) - now
+if remaining <= 0 then
+    return false
+end
+redis.call('SET', KEYS[1], ARGV[2], 'PX', remaining, 'XX')
+return ARGV[2]
+`
 )
+
+var refreshSessionLua = rueidis.NewLuaScript(refreshSessionScript)
 
 type sessionDTO struct {
 	ID        uuid.UUID     `json:"id"`
@@ -150,6 +176,7 @@ func (s *RedisSessionStore) logOperation(ctx context.Context, operation string, 
 	if errors.Is(err, domain.ErrSessionNotFound) {
 		fields["outcome"] = "not_found"
 		s.appLogger.InfoContext(ctx, "session operation completed", fields)
+
 		return
 	}
 
@@ -157,9 +184,64 @@ func (s *RedisSessionStore) logOperation(ctx context.Context, operation string, 
 		fields["outcome"] = "error"
 		fields["error"] = err.Error()
 		s.appLogger.ErrorContext(ctx, "session operation failed", fields)
+
 		return
 	}
 
 	fields["outcome"] = "ok"
 	s.appLogger.InfoContext(ctx, "session operation completed", fields)
+}
+
+func (s *RedisSessionStore) Refresh(ctx context.Context, sessionID uuid.UUID, expiresAt time.Time) (_ *domain.Session, operationErr error) {
+	started := time.Now()
+	defer func() { s.logOperation(ctx, "session.refresh", started, operationErr) }()
+
+	key := sessionKey(sessionID)
+
+	raw, err := s.client.Do(ctx, s.client.B().Get().Key(key).Build()).ToString()
+	if err != nil {
+		if rueidis.IsRedisNil(err) {
+			return nil, domain.ErrSessionNotFound
+		}
+
+		return nil, fmt.Errorf("get session for refresh: %w", err)
+	}
+
+	var current sessionDTO
+	if err = json.Unmarshal([]byte(raw), &current); err != nil {
+		return nil, fmt.Errorf("decode session for refresh: %w", err)
+	}
+
+	if !current.ExpiresAt.After(time.Now()) {
+		return nil, domain.ErrSessionNotFound
+	}
+
+	oldExpiresAt := current.ExpiresAt
+	current.ExpiresAt = expiresAt.UTC().Truncate(time.Millisecond)
+
+	data, err := json.Marshal(current)
+	if err != nil {
+		return nil, fmt.Errorf("encode refreshed session: %w", err)
+	}
+
+	result, err := refreshSessionLua.Exec(ctx, s.client, []string{key}, []string{
+		raw, string(data), strconv.FormatInt(oldExpiresAt.UnixMilli(), refreshNumberBase), strconv.FormatInt(current.ExpiresAt.UnixMilli(), refreshNumberBase),
+	}).ToString()
+	if err != nil {
+		if rueidis.IsRedisNil(err) {
+			return nil, domain.ErrSessionNotFound
+		}
+
+		return nil, fmt.Errorf("refresh session: %w", err)
+	}
+
+	if err = json.Unmarshal([]byte(result), &current); err != nil {
+		return nil, fmt.Errorf("decode refreshed session: %w", err)
+	}
+
+	if !current.ExpiresAt.After(time.Now()) {
+		return nil, domain.ErrSessionNotFound
+	}
+
+	return &domain.Session{ID: current.ID, UserID: current.UserID, Role: current.Role, ExpiresAt: current.ExpiresAt}, nil
 }

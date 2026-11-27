@@ -524,6 +524,50 @@ type Registration struct {
 	Username string `json:"username"`
 }
 
+// ReleaseCalendarItem defines model for ReleaseCalendarItem.
+type ReleaseCalendarItem struct {
+	// Film Фильм. Необязательные поля (original_title, duration_min, description, poster_url,
+	// trailer_url) без значения в JSON отсутствуют, null не возвращается.
+	//
+	// Example: {"age_limit":16,"description":"Банкир Энди Дюфрейн получает пожизненный срок за убийство, которого не совершал.","duration_min":142,"film_type":"movie","genres":[{"id":1,"name":"драма","slug":"drama"}],"id":1,"original_title":"The Shawshank Redemption","release_year":1994,"title":"Побег из Шоушенка"}
+	Film               Film                `json:"film"`
+	FilmId             int64               `json:"film_id"`
+	RussiaPremiereDate *openapi_types.Date `json:"russia_premiere_date"`
+	WorldPremiereDate  *openapi_types.Date `json:"world_premiere_date"`
+}
+
+// ReleaseCalendarPage defines model for ReleaseCalendarPage.
+type ReleaseCalendarPage struct {
+	Items  []ReleaseCalendarItem `json:"items"`
+	Limit  int                   `json:"limit"`
+	Offset int                   `json:"offset"`
+	Total  int64                 `json:"total"`
+}
+
+// ReleaseCalendarPatch defines model for ReleaseCalendarPatch.
+type ReleaseCalendarPatch struct {
+	RussiaPremiereDate *openapi_types.Date `json:"russia_premiere_date,omitempty"`
+	WorldPremiereDate  *openapi_types.Date `json:"world_premiere_date,omitempty"`
+}
+
+// ReleaseNotification defines model for ReleaseNotification.
+type ReleaseNotification struct {
+	CreatedAt        time.Time `json:"created_at"`
+	FilmId           *int64    `json:"film_id"`
+	Id               int64     `json:"id"`
+	IsRead           bool      `json:"is_read"`
+	Message          string    `json:"message"`
+	NotificationType *string   `json:"notification_type"`
+}
+
+// ReleaseNotificationPage defines model for ReleaseNotificationPage.
+type ReleaseNotificationPage struct {
+	Items  []ReleaseNotification `json:"items"`
+	Limit  int                   `json:"limit"`
+	Offset int                   `json:"offset"`
+	Total  int64                 `json:"total"`
+}
+
 // SavedFilmInput defines model for SavedFilmInput.
 type SavedFilmInput struct {
 	Saved bool `json:"saved"`
@@ -665,9 +709,27 @@ type UploadFilmPosterMultipartBody struct {
 	Poster openapi_types.File `json:"poster"`
 }
 
+// FilmReleasesParams defines parameters for FilmReleases.
+type FilmReleasesParams struct {
+	Limit  *int `form:"limit,omitempty" json:"limit,omitempty"`
+	Offset *int `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
 // UpdateMyAvatarMultipartBody defines parameters for UpdateMyAvatar.
 type UpdateMyAvatarMultipartBody struct {
 	Avatar openapi_types.File `json:"avatar"`
+}
+
+// MyNotificationsParams defines parameters for MyNotifications.
+type MyNotificationsParams struct {
+	Limit  *int `form:"limit,omitempty" json:"limit,omitempty"`
+	Offset *int `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// MyReleaseSubscriptionsParams defines parameters for MyReleaseSubscriptions.
+type MyReleaseSubscriptionsParams struct {
+	Limit  *int `form:"limit,omitempty" json:"limit,omitempty"`
+	Offset *int `form:"offset,omitempty" json:"offset,omitempty"`
 }
 
 // ListPersonsParams defines parameters for ListPersons.
@@ -677,6 +739,21 @@ type ListPersonsParams struct {
 
 	// Offset Сколько записей пропустить с начала. Не меньше 0.
 	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// ListReleasesParams defines parameters for ListReleases.
+type ListReleasesParams struct {
+	From    openapi_types.Date `form:"from" json:"from"`
+	To      openapi_types.Date `form:"to" json:"to"`
+	GenreId *int64             `form:"genre_id,omitempty" json:"genre_id,omitempty"`
+	Limit   *int               `form:"limit,omitempty" json:"limit,omitempty"`
+	Offset  *int               `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// FeaturedReleasesParams defines parameters for FeaturedReleases.
+type FeaturedReleasesParams struct {
+	GenreId *int64 `form:"genre_id,omitempty" json:"genre_id,omitempty"`
+	Limit   *int   `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
 // UploadAvatarMultipartRequestBody defines body for UploadAvatar for multipart/form-data ContentType.
@@ -693,6 +770,9 @@ type UploadFilmPosterMultipartRequestBody UploadFilmPosterMultipartBody
 
 // SetFilmRatingJSONRequestBody defines body for SetFilmRating for application/json ContentType.
 type SetFilmRatingJSONRequestBody = FilmRatingInput
+
+// UpdateReleaseJSONRequestBody defines body for UpdateRelease for application/json ContentType.
+type UpdateReleaseJSONRequestBody = ReleaseCalendarPatch
 
 // LoginUserJSONRequestBody defines body for LoginUser for application/json ContentType.
 type LoginUserJSONRequestBody = Credentials
@@ -842,6 +922,12 @@ type ServerInterface interface {
 	// GetMyFilmRating Получить личную оценку фильма
 	// (GET /api/films/{id}/rating/me)
 	GetMyFilmRating(w http.ResponseWriter, r *http.Request, id int64)
+	// FilmReleases Две даты премьер фильма
+	// (GET /api/films/{id}/releases)
+	FilmReleases(w http.ResponseWriter, r *http.Request, id int64, params FilmReleasesParams)
+	// UpdateRelease Изменить даты премьер фильма
+	// (PATCH /api/films/{id}/releases)
+	UpdateRelease(w http.ResponseWriter, r *http.Request, id int64)
 	// LoginUser Вход
 	// (POST /api/login)
 	LoginUser(w http.ResponseWriter, r *http.Request)
@@ -866,6 +952,12 @@ type ServerInterface interface {
 	// SetLibraryFilm Добавить или убрать фильм из списка
 	// (PUT /api/me/library/lists/{list}/{film})
 	SetLibraryFilm(w http.ResponseWriter, r *http.Request, list string, film int64)
+	// MyNotifications Свои уведомления
+	// (GET /api/me/notifications)
+	MyNotifications(w http.ResponseWriter, r *http.Request, params MyNotificationsParams)
+	// ReadMyNotification Отметить уведомление прочитанным
+	// (PUT /api/me/notifications/{id}/read)
+	ReadMyNotification(w http.ResponseWriter, r *http.Request, id int64)
 	// GetMyPreferences Получить настройки интерфейса
 	// (GET /api/me/preferences)
 	GetMyPreferences(w http.ResponseWriter, r *http.Request)
@@ -878,6 +970,15 @@ type ServerInterface interface {
 	// UpdateMyProfile Изменить своё имя и email
 	// (PUT /api/me/profile)
 	UpdateMyProfile(w http.ResponseWriter, r *http.Request)
+	// MyReleaseSubscriptions Свои подписки на премьеры
+	// (GET /api/me/release-subscriptions)
+	MyReleaseSubscriptions(w http.ResponseWriter, r *http.Request, params MyReleaseSubscriptionsParams)
+	// UnsubscribeFromRelease Отменить напоминание
+	// (DELETE /api/me/release-subscriptions/{id})
+	UnsubscribeFromRelease(w http.ResponseWriter, r *http.Request, id int64)
+	// SubscribeToRelease Напомнить о премьере
+	// (PUT /api/me/release-subscriptions/{id})
+	SubscribeToRelease(w http.ResponseWriter, r *http.Request, id int64)
 	// GetPersonCatalog Получить карточку и фильмографию персоны
 	// (GET /api/people/{id})
 	GetPersonCatalog(w http.ResponseWriter, r *http.Request, id int64)
@@ -896,9 +997,18 @@ type ServerInterface interface {
 	// UpdatePerson Изменить персону
 	// (PUT /api/persons/{id})
 	UpdatePerson(w http.ResponseWriter, r *http.Request, id PersonID)
+	// RefreshSession Продлить действующую сессию на три дня
+	// (POST /api/refresh)
+	RefreshSession(w http.ResponseWriter, r *http.Request)
 	// RegisterUser Регистрация
 	// (POST /api/register)
 	RegisterUser(w http.ResponseWriter, r *http.Request)
+	// ListReleases Календарь релизов
+	// (GET /api/releases)
+	ListReleases(w http.ResponseWriter, r *http.Request, params ListReleasesParams)
+	// FeaturedReleases Ближайшие премьеры для баннера
+	// (GET /api/releases/featured)
+	FeaturedReleases(w http.ResponseWriter, r *http.Request, params FeaturedReleasesParams)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -1479,6 +1589,87 @@ func (siw *ServerInterfaceWrapper) GetMyFilmRating(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
+// FilmReleases operation middleware
+func (siw *ServerInterfaceWrapper) FilmReleases(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", mux.Vars(r)["id"], &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params FilmReleasesParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "offset", r.URL.Query(), &params.Offset, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "offset"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.FilmReleases(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateRelease operation middleware
+func (siw *ServerInterfaceWrapper) UpdateRelease(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", mux.Vars(r)["id"], &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateRelease(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // LoginUser operation middleware
 func (siw *ServerInterfaceWrapper) LoginUser(w http.ResponseWriter, r *http.Request) {
 
@@ -1612,6 +1803,78 @@ func (siw *ServerInterfaceWrapper) SetLibraryFilm(w http.ResponseWriter, r *http
 	handler.ServeHTTP(w, r)
 }
 
+// MyNotifications operation middleware
+func (siw *ServerInterfaceWrapper) MyNotifications(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params MyNotificationsParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "offset", r.URL.Query(), &params.Offset, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "offset"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.MyNotifications(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ReadMyNotification operation middleware
+func (siw *ServerInterfaceWrapper) ReadMyNotification(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", mux.Vars(r)["id"], &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ReadMyNotification(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetMyPreferences operation middleware
 func (siw *ServerInterfaceWrapper) GetMyPreferences(w http.ResponseWriter, r *http.Request) {
 
@@ -1659,6 +1922,104 @@ func (siw *ServerInterfaceWrapper) UpdateMyProfile(w http.ResponseWriter, r *htt
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UpdateMyProfile(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// MyReleaseSubscriptions operation middleware
+func (siw *ServerInterfaceWrapper) MyReleaseSubscriptions(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params MyReleaseSubscriptionsParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "offset", r.URL.Query(), &params.Offset, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "offset"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.MyReleaseSubscriptions(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UnsubscribeFromRelease operation middleware
+func (siw *ServerInterfaceWrapper) UnsubscribeFromRelease(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", mux.Vars(r)["id"], &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UnsubscribeFromRelease(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SubscribeToRelease operation middleware
+func (siw *ServerInterfaceWrapper) SubscribeToRelease(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", mux.Vars(r)["id"], &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SubscribeToRelease(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1832,11 +2193,156 @@ func (siw *ServerInterfaceWrapper) UpdatePerson(w http.ResponseWriter, r *http.R
 	handler.ServeHTTP(w, r)
 }
 
+// RefreshSession operation middleware
+func (siw *ServerInterfaceWrapper) RefreshSession(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RefreshSession(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // RegisterUser operation middleware
 func (siw *ServerInterfaceWrapper) RegisterUser(w http.ResponseWriter, r *http.Request) {
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.RegisterUser(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListReleases operation middleware
+func (siw *ServerInterfaceWrapper) ListReleases(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListReleasesParams
+
+	// ------------- Required query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "from", r.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "from"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
+		}
+		return
+	}
+
+	// ------------- Required query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "to", r.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: "date"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "to"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "genre_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "genre_id", r.URL.Query(), &params.GenreId, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "genre_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "genre_id", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "offset", r.URL.Query(), &params.Offset, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "offset"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListReleases(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// FeaturedReleases operation middleware
+func (siw *ServerInterfaceWrapper) FeaturedReleases(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params FeaturedReleasesParams
+
+	// ------------- Optional query parameter "genre_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "genre_id", r.URL.Query(), &params.GenreId, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "genre_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "genre_id", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.FeaturedReleases(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1979,6 +2485,8 @@ func HandlerWithOptions(si ServerInterface, options GorillaServerOptions) http.H
 
 	r.HandleFunc(options.BaseURL+"/api/login", wrapper.LoginUser).Methods(http.MethodPost)
 
+	r.HandleFunc(options.BaseURL+"/api/refresh", wrapper.RefreshSession).Methods(http.MethodPost)
+
 	r.HandleFunc(options.BaseURL+"/api/logout", wrapper.LogoutUser).Methods(http.MethodPost)
 
 	r.HandleFunc(options.BaseURL+"/api/authorised", wrapper.GetAuthorised).Methods(http.MethodGet)
@@ -2034,6 +2542,24 @@ func HandlerWithOptions(si ServerInterface, options GorillaServerOptions) http.H
 	r.HandleFunc(options.BaseURL+"/api/films/{id}/people", wrapper.GetFilmPersons).Methods(http.MethodGet)
 
 	r.HandleFunc(options.BaseURL+"/api/people/{id}", wrapper.GetPersonCatalog).Methods(http.MethodGet)
+
+	r.HandleFunc(options.BaseURL+"/api/releases", wrapper.ListReleases).Methods(http.MethodGet)
+
+	r.HandleFunc(options.BaseURL+"/api/releases/featured", wrapper.FeaturedReleases).Methods(http.MethodGet)
+
+	r.HandleFunc(options.BaseURL+"/api/films/{id}/releases", wrapper.FilmReleases).Methods(http.MethodGet)
+
+	r.HandleFunc(options.BaseURL+"/api/films/{id}/releases", wrapper.UpdateRelease).Methods(http.MethodPatch)
+
+	r.HandleFunc(options.BaseURL+"/api/me/release-subscriptions", wrapper.MyReleaseSubscriptions).Methods(http.MethodGet)
+
+	r.HandleFunc(options.BaseURL+"/api/me/release-subscriptions/{id}", wrapper.UnsubscribeFromRelease).Methods(http.MethodDelete)
+
+	r.HandleFunc(options.BaseURL+"/api/me/release-subscriptions/{id}", wrapper.SubscribeToRelease).Methods(http.MethodPut)
+
+	r.HandleFunc(options.BaseURL+"/api/me/notifications", wrapper.MyNotifications).Methods(http.MethodGet)
+
+	r.HandleFunc(options.BaseURL+"/api/me/notifications/{id}/read", wrapper.ReadMyNotification).Methods(http.MethodPut)
 
 	return r
 }

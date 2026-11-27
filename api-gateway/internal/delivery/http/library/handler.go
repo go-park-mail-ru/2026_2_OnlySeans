@@ -18,9 +18,9 @@ import (
 )
 
 const (
-	saveFailedMsg   = "Не удалось сохранить библиотеку."
-	invalidDataMsg  = "Проверьте данные запроса."
-	filmNotFoundMsg = "Фильм не найден."
+	saveFailedMsg   = httpresponse.InternalErrorMessage
+	invalidDataMsg  = "invalid request data"
+	filmNotFoundMsg = "film not found"
 )
 
 type Handler struct {

@@ -85,3 +85,18 @@ func (mr *MockSessionUseCaseMockRecorder) Delete(ctx, id any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockSessionUseCase)(nil).Delete), ctx, id)
 }
+
+// Refresh mocks base method.
+func (m *MockSessionUseCase) Refresh(ctx context.Context, id uuid.UUID) (domain.Session, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Refresh", ctx, id)
+	ret0, _ := ret[0].(domain.Session)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Refresh indicates an expected call of Refresh.
+func (mr *MockSessionUseCaseMockRecorder) Refresh(ctx, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Refresh", reflect.TypeOf((*MockSessionUseCase)(nil).Refresh), ctx, id)
+}

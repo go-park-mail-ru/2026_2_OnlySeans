@@ -17,9 +17,10 @@ import (
 
 type sessionRepositoryStub struct {
 	repository.SessionRepository
-	create func(context.Context, domain.Session) error
-	get    func(context.Context, uuid.UUID) (*domain.Session, error)
-	delete func(context.Context, uuid.UUID) error
+	create  func(context.Context, domain.Session) error
+	get     func(context.Context, uuid.UUID) (*domain.Session, error)
+	delete  func(context.Context, uuid.UUID) error
+	refresh func(context.Context, uuid.UUID, time.Time) (*domain.Session, error)
 }
 
 func (s sessionRepositoryStub) Create(ctx context.Context, session domain.Session) error {
@@ -156,6 +157,48 @@ func TestSessionDelete(t *testing.T) {
 			uc := usecase.NewSessionUseCase(repo, time.Hour)
 			require.ErrorIs(t, uc.Delete(t.Context(), id), tt.repoErr)
 			require.Equal(t, 1, calls)
+		})
+	}
+}
+
+func (s sessionRepositoryStub) Refresh(ctx context.Context, id uuid.UUID, expiresAt time.Time) (*domain.Session, error) {
+	return s.refresh(ctx, id, expiresAt)
+}
+
+func TestSessionRefresh(t *testing.T) {
+	const sessionTTL = 72 * time.Hour
+	failure := errors.New("redis unavailable")
+	valid := domain.Session{ID: uuid.New(), UserID: 7, Role: "reader", ExpiresAt: time.Now().Add(sessionTTL)}
+	expired := valid
+	expired.ExpiresAt = time.Now().Add(-time.Hour)
+
+	for _, tc := range []struct {
+		name    string
+		session *domain.Session
+		failure error
+		want    error
+	}{
+		{name: "active", session: &valid},
+		{name: "missing", want: domain.ErrSessionNotFound},
+		{name: "expired", session: &expired, want: domain.ErrSessionExpired},
+		{name: "storage error", failure: failure, want: failure},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			before := time.Now()
+			repo := sessionRepositoryStub{refresh: func(_ context.Context, id uuid.UUID, expiresAt time.Time) (*domain.Session, error) {
+				require.Equal(t, valid.ID, id)
+				require.WithinDuration(t, before.Add(sessionTTL), expiresAt, time.Second)
+				return tc.session, tc.failure
+			}}
+			uc := usecase.NewSessionUseCase(repo, sessionTTL)
+			result, err := uc.Refresh(t.Context(), valid.ID)
+			require.ErrorIs(t, err, tc.want)
+
+			if tc.want != nil {
+				require.Empty(t, result)
+			} else {
+				require.Equal(t, valid, result)
+			}
 		})
 	}
 }

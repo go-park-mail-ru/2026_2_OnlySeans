@@ -1,5 +1,5 @@
 APP_PACKAGES := ./api-gateway/... ./services/... ./shared/...
-MOCK_PACKAGES := ./tests/mocks/auth/... ./tests/mocks/user/... ./tests/mocks/persons/... ./tests/mocks/shared/...
+MOCK_PACKAGES := ./tests/mocks/catalog/... ./tests/mocks/auth/... ./tests/mocks/user/... ./tests/mocks/persons/... ./tests/mocks/shared/...
 TEST_PACKAGES := $(MOCK_PACKAGES) ./tests/api-gateway/... ./tests/auth/... ./tests/catalog/... ./tests/persons/... ./tests/user/... ./tests/shared/...
 TEST_WORKSPACE := $(CURDIR)/go.work
 
@@ -56,3 +56,7 @@ test-api:
 	@echo "\n== Подборки (без входа, ожидаем 200) =="
 	curl -i "http://localhost:8080/api/collections?limit=2"
 	@rm -f cookies.txt
+
+.PHONY: proto-gen
+proto-gen:
+	PATH="$(shell go env GOPATH)/bin:$$PATH" protoc -I . --go_out=paths=source_relative:. --go-grpc_out=paths=source_relative:. shared/proto/catalog/releases.proto shared/proto/auth/auth.proto

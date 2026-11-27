@@ -178,3 +178,43 @@ func (a *openAPIAdapter) UpdatePerson(w http.ResponseWriter, r *http.Request, id
 func (a *openAPIAdapter) RegisterUser(w http.ResponseWriter, r *http.Request) {
 	a.next.ServeHTTP(w, r)
 }
+
+func (a *openAPIAdapter) FilmReleases(w http.ResponseWriter, r *http.Request, id int64, params openapi.FilmReleasesParams) {
+	a.next.ServeHTTP(w, r)
+}
+
+func (a *openAPIAdapter) MyNotifications(w http.ResponseWriter, r *http.Request, params openapi.MyNotificationsParams) {
+	a.next.ServeHTTP(w, r)
+}
+
+func (a *openAPIAdapter) ReadMyNotification(w http.ResponseWriter, r *http.Request, id int64) {
+	a.next.ServeHTTP(w, r)
+}
+
+func (a *openAPIAdapter) MyReleaseSubscriptions(w http.ResponseWriter, r *http.Request, params openapi.MyReleaseSubscriptionsParams) {
+	a.next.ServeHTTP(w, r)
+}
+
+func (a *openAPIAdapter) UnsubscribeFromRelease(w http.ResponseWriter, r *http.Request, id int64) {
+	a.next.ServeHTTP(w, r)
+}
+
+func (a *openAPIAdapter) SubscribeToRelease(w http.ResponseWriter, r *http.Request, id int64) {
+	a.next.ServeHTTP(w, r)
+}
+
+func (a *openAPIAdapter) ListReleases(w http.ResponseWriter, r *http.Request, params openapi.ListReleasesParams) {
+	a.next.ServeHTTP(w, r)
+}
+
+func (a *openAPIAdapter) FeaturedReleases(w http.ResponseWriter, r *http.Request, params openapi.FeaturedReleasesParams) {
+	a.next.ServeHTTP(w, r)
+}
+
+func (a *openAPIAdapter) UpdateRelease(w http.ResponseWriter, r *http.Request, id int64) {
+	a.next.ServeHTTP(w, r)
+}
+
+func (a *openAPIAdapter) RefreshSession(w http.ResponseWriter, r *http.Request) {
+	a.next.ServeHTTP(w, r)
+}

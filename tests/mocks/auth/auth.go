@@ -140,3 +140,18 @@ func (mr *MockAuthUseCaseMockRecorder) Logout(ctx, sessionID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Logout", reflect.TypeOf((*MockAuthUseCase)(nil).Logout), ctx, sessionID)
 }
+
+// RefreshSession mocks base method.
+func (m *MockAuthUseCase) RefreshSession(ctx context.Context, sessionID uuid.UUID) (*domain.Session, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RefreshSession", ctx, sessionID)
+	ret0, _ := ret[0].(*domain.Session)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RefreshSession indicates an expected call of RefreshSession.
+func (mr *MockAuthUseCaseMockRecorder) RefreshSession(ctx, sessionID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RefreshSession", reflect.TypeOf((*MockAuthUseCase)(nil).RefreshSession), ctx, sessionID)
+}

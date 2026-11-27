@@ -156,6 +156,7 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 		if err := h.authClient.Logout(ctx, cookie.Value); err != nil {
 			logAuthFailure(ctx, l, "logout", err)
 			httpresponse.WriteErrorContext(ctx, w, http.StatusInternalServerError, middleware.ErrInternal.Error(), l)
+
 			return
 		}
 	}
@@ -202,6 +203,7 @@ func (h *AuthHandler) Authorised(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logAuthFailure(ctx, l, "authorised.get_user", err)
 		httpresponse.WriteErrorContext(ctx, w, http.StatusInternalServerError, middleware.ErrInternal.Error(), l)
+
 		return
 	}
 
@@ -223,7 +225,48 @@ func logAuthFailure(ctx context.Context, appLogger logger.Logger, operation stri
 	if appLogger == nil {
 		return
 	}
+
 	fields := grpcutil.ErrorFields(err)
 	fields["operation"] = operation
 	appLogger.ErrorContext(ctx, "authentication request failed", fields)
+}
+
+func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	w.Header().Set("Cache-Control", "no-store")
+
+	if r.Method != http.MethodPost {
+		httpresponse.WriteErrorContext(ctx, w, http.StatusMethodNotAllowed, "method not supported", h.appLogger)
+		return
+	}
+
+	cookie, err := r.Cookie(SessionCookieName)
+	if err != nil || cookie.Value == "" {
+		httpresponse.WriteErrorContext(ctx, w, http.StatusUnauthorized, middleware.ErrUnauthorized.Error(), h.appLogger)
+		return
+	}
+
+	session, err := h.authClient.RefreshSession(ctx, cookie.Value)
+	if errors.Is(err, authclient.ErrSessionNotFound) {
+		h.clearSessionCookie(w)
+		httpresponse.WriteErrorContext(ctx, w, http.StatusUnauthorized, middleware.ErrUnauthorized.Error(), h.appLogger)
+
+		return
+	}
+
+	if err != nil {
+		logAuthFailure(ctx, h.appLogger, "refresh", err)
+		httpresponse.WriteErrorContext(ctx, w, http.StatusInternalServerError, httpresponse.InternalErrorMessage, h.appLogger)
+
+		return
+	}
+
+	if session == nil || session.GetExpiresAt() == nil {
+		httpresponse.WriteErrorContext(ctx, w, http.StatusInternalServerError, httpresponse.InternalErrorMessage, h.appLogger)
+		return
+	}
+
+	h.setSessionCookie(w, session.GetId(), session.GetExpiresAt().AsTime())
+	w.WriteHeader(http.StatusNoContent)
 }

@@ -19,6 +19,7 @@ import (
 	libraryhttp "github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/library"
 	personshttp "github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/persons"
 	ratingshttp "github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/ratings"
+	releaseshttp "github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/releases"
 	userhttp "github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/user"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/router"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/grpc_client/authclient"
@@ -112,6 +113,7 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("create ratings handler: %w", err)
 	}
 
+	releasesHandler := releaseshttp.NewHandler(pbcatalog.NewReleaseServiceClient(catalogConn), appLogger)
 	libraryHandler := libraryhttp.NewHandler(catalogClient, appLogger)
 	personalRatingHandler := ratingshttp.NewMyRatingHandler(catalogClient, appLogger)
 
@@ -142,6 +144,7 @@ func run(ctx context.Context) error {
 
 	handler, err := router.NewRouter(router.Handlers{
 		Auth:           authHandler,
+		Releases:       releasesHandler,
 		Assets:         assetsHandler,
 		Files:          avatarHandler,
 		Profile:        profileHandler,

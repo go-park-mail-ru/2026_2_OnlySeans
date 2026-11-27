@@ -67,3 +67,15 @@ type personCatalogHandler interface {
 type assetsHandler interface {
 	GetAsset(http.ResponseWriter, *http.Request)
 }
+
+type releasesHandler interface {
+	List(http.ResponseWriter, *http.Request)
+	Featured(http.ResponseWriter, *http.Request)
+	FilmReleases(http.ResponseWriter, *http.Request)
+	Update(http.ResponseWriter, *http.Request)
+	Subscriptions(http.ResponseWriter, *http.Request)
+	Subscribe(http.ResponseWriter, *http.Request)
+	Unsubscribe(http.ResponseWriter, *http.Request)
+	Notifications(http.ResponseWriter, *http.Request)
+	ReadNotification(http.ResponseWriter, *http.Request)
+}

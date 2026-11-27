@@ -8,4 +8,4 @@ grpc:
   port: "50052"
 
 user_service_addr: "127.0.0.1:50051"
-session_ttl: 168h
+session_ttl: 72h

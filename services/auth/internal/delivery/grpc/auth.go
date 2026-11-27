@@ -100,3 +100,25 @@ func (h *AuthHandler) CheckSession(ctx context.Context, req *pb.CheckSessionRequ
 		Role:   info.Role,
 	}, nil
 }
+
+func (h *AuthHandler) RefreshSession(ctx context.Context, req *pb.RefreshSessionRequest) (*pb.RefreshSessionResponse, error) {
+	sessionID, err := uuid.Parse(req.GetSessionId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid session id format")
+	}
+
+	session, err := h.usecase.RefreshSession(ctx, sessionID)
+	if errors.Is(err, domain.ErrSessionNotFound) || errors.Is(err, domain.ErrSessionExpired) {
+		return nil, status.Error(codes.Unauthenticated, domain.ErrSessionNotFound.Error())
+	}
+
+	if err != nil {
+		return nil, grpcutil.ToGRPCError(err)
+	}
+
+	if session == nil {
+		return nil, status.Error(codes.Internal, "internal server error")
+	}
+
+	return &pb.RefreshSessionResponse{Session: mapDomainToPBSession(*session)}, nil
+}

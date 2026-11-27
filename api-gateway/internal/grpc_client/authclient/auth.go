@@ -27,6 +27,7 @@ type AuthClient interface {
 	Login(ctx context.Context, email, password string) (*pbAuth.Session, error)
 	Logout(ctx context.Context, sessionID string) error
 	CheckSession(ctx context.Context, sessionID string) (SessionInfo, error)
+	RefreshSession(ctx context.Context, sessionID string) (*pbAuth.Session, error)
 }
 
 type SessionInfo struct {
@@ -115,4 +116,23 @@ func (c *authClient) CheckSession(ctx context.Context, sessionId string) (Sessio
 		UserID: resp.GetUserId(),
 		Role:   resp.GetRole(),
 	}, nil
+}
+
+func (c *authClient) RefreshSession(ctx context.Context, sessionID string) (*pbAuth.Session, error) {
+	response, err := c.client.RefreshSession(ctx, &pbAuth.RefreshSessionRequest{SessionId: sessionID})
+	if err != nil {
+		switch status.Code(err) {
+		case codes.NotFound, codes.Unauthenticated, codes.InvalidArgument:
+			return nil, ErrSessionNotFound
+		default:
+			return nil, fmt.Errorf("%w: %w", ErrInternal, err)
+		}
+	}
+
+	session := response.GetSession()
+	if session == nil || session.GetId() != sessionID || session.GetExpiresAt() == nil || session.GetExpiresAt().CheckValid() != nil {
+		return nil, ErrInternal
+	}
+
+	return session, nil
 }

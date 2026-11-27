@@ -337,7 +337,7 @@ func TestCORSAndCSRF(t *testing.T) {
 			response := httptest.NewRecorder()
 			handler.ServeHTTP(response, request)
 			require.Equal(t, tt.status, response.Code)
-			require.Equal(t, "GET, POST, PUT, DELETE, OPTIONS", response.Header().Get("Access-Control-Allow-Methods"))
+			require.Equal(t, "GET, POST, PUT, PATCH, DELETE, OPTIONS", response.Header().Get("Access-Control-Allow-Methods"))
 
 			if tt.allowed {
 				require.Equal(t, origin, response.Header().Get("Access-Control-Allow-Origin"))

@@ -14,6 +14,7 @@ func withCORS(next http.Handler, allowedOrigins []string) http.Handler {
 		http.MethodGet,
 		http.MethodPost,
 		http.MethodPut,
+		http.MethodPatch,
 		http.MethodDelete,
 		http.MethodOptions,
 	})
