@@ -4,6 +4,7 @@
 package openapi
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -13,6 +14,141 @@ import (
 	"github.com/oapi-codegen/runtime"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
+
+// Defines values for FilmFilmType.
+const (
+	FilmFilmTypeMovie  FilmFilmType = "movie"
+	FilmFilmTypeSeries FilmFilmType = "series"
+)
+
+// Valid indicates whether the value is a known member of the FilmFilmType enum.
+func (e FilmFilmType) Valid() bool {
+	switch e {
+	case FilmFilmTypeMovie:
+		return true
+	case FilmFilmTypeSeries:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FilmInputAgeLimit.
+const (
+	FilmInputAgeLimitN0  FilmInputAgeLimit = 0
+	FilmInputAgeLimitN12 FilmInputAgeLimit = 12
+	FilmInputAgeLimitN16 FilmInputAgeLimit = 16
+	FilmInputAgeLimitN18 FilmInputAgeLimit = 18
+	FilmInputAgeLimitN6  FilmInputAgeLimit = 6
+)
+
+// Valid indicates whether the value is a known member of the FilmInputAgeLimit enum.
+func (e FilmInputAgeLimit) Valid() bool {
+	switch e {
+	case FilmInputAgeLimitN0:
+		return true
+	case FilmInputAgeLimitN12:
+		return true
+	case FilmInputAgeLimitN16:
+		return true
+	case FilmInputAgeLimitN18:
+		return true
+	case FilmInputAgeLimitN6:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FilmInputFilmType.
+const (
+	FilmInputFilmTypeMovie  FilmInputFilmType = "movie"
+	FilmInputFilmTypeSeries FilmInputFilmType = "series"
+)
+
+// Valid indicates whether the value is a known member of the FilmInputFilmType enum.
+func (e FilmInputFilmType) Valid() bool {
+	switch e {
+	case FilmInputFilmTypeMovie:
+		return true
+	case FilmInputFilmTypeSeries:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PreferenceInputKey.
+const (
+	FrameCatalogView      PreferenceInputKey = "frame:catalog-view"
+	FrameSidebarCollapsed PreferenceInputKey = "frame:sidebar-collapsed"
+)
+
+// Valid indicates whether the value is a known member of the PreferenceInputKey enum.
+func (e PreferenceInputKey) Valid() bool {
+	switch e {
+	case FrameCatalogView:
+		return true
+	case FrameSidebarCollapsed:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PreferenceInputValue1.
+const (
+	PreferenceInputValue1Grid PreferenceInputValue1 = "grid"
+	PreferenceInputValue1List PreferenceInputValue1 = "list"
+)
+
+// Valid indicates whether the value is a known member of the PreferenceInputValue1 enum.
+func (e PreferenceInputValue1) Valid() bool {
+	switch e {
+	case PreferenceInputValue1Grid:
+		return true
+	case PreferenceInputValue1List:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PreferencesFrameCatalogView.
+const (
+	PreferencesFrameCatalogViewGrid PreferencesFrameCatalogView = "grid"
+	PreferencesFrameCatalogViewList PreferencesFrameCatalogView = "list"
+)
+
+// Valid indicates whether the value is a known member of the PreferencesFrameCatalogView enum.
+func (e PreferencesFrameCatalogView) Valid() bool {
+	switch e {
+	case PreferencesFrameCatalogViewGrid:
+		return true
+	case PreferencesFrameCatalogViewList:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProfileFilmType.
+const (
+	ProfileFilmTypeMovie  ProfileFilmType = "movie"
+	ProfileFilmTypeSeries ProfileFilmType = "series"
+)
+
+// Valid indicates whether the value is a known member of the ProfileFilmType enum.
+func (e ProfileFilmType) Valid() bool {
+	switch e {
+	case ProfileFilmTypeMovie:
+		return true
+	case ProfileFilmTypeSeries:
+		return true
+	default:
+		return false
+	}
+}
 
 // Defines values for SearchFilmResultAgeLimit.
 const (
@@ -536,9 +672,383 @@ func (e GetSearchSuggestionsParamsMatch) Valid() bool {
 	}
 }
 
+// AuthResponse Example: {"user":{"email":"viewer@example.com","id":1,"username":"Кинозритель"}}
+type AuthResponse struct {
+	// User Example: {"email":"viewer@example.com","id":1,"username":"Кинозритель"}
+	User User `json:"user"`
+}
+
+// AvatarURLResponse defines model for AvatarURLResponse.
+type AvatarURLResponse struct {
+	// Url Подписанная ссылка на чтение объекта из S3. Действует 15 минут.
+	Url string `json:"url"`
+}
+
+// CatalogFilmCredit defines model for CatalogFilmCredit.
+type CatalogFilmCredit struct {
+	Character string `json:"character"`
+
+	// Film Фильм. Необязательные поля (original_title, duration_min, description, poster_url,
+	// trailer_url) без значения в JSON отсутствуют, null не возвращается.
+	//
+	// Example: {"age_limit":16,"description":"Банкир Энди Дюфрейн получает пожизненный срок за убийство, которого не совершал.","duration_min":142,"film_type":"movie","genres":[{"id":1,"name":"драма","slug":"drama"}],"id":1,"original_title":"The Shawshank Redemption","release_year":1994,"title":"Побег из Шоушенка"}
+	Film Film   `json:"film"`
+	Role string `json:"role"`
+}
+
+// CatalogPerson defines model for CatalogPerson.
+type CatalogPerson struct {
+	Biography    string     `json:"biography"`
+	BirthDate    *time.Time `json:"birth_date,omitempty"`
+	BirthPlace   string     `json:"birth_place"`
+	DeathDate    *time.Time `json:"death_date,omitempty"`
+	Id           int64      `json:"id"`
+	Name         string     `json:"name"`
+	OriginalName string     `json:"original_name"`
+	PhotoCredit  string     `json:"photo_credit"`
+	PhotoSource  string     `json:"photo_source"`
+	PhotoUrl     *string    `json:"photo_url,omitempty"`
+	SourceUrl    string     `json:"source_url"`
+}
+
+// Collection Подборка с фильмами. Поля description и cover_url без значения в JSON отсутствуют.
+// Массив films в примере сокращён. Slug остаётся полем подборки, но в путях не используется.
+//
+// Example: {"description":"Фильмы, которые стоит посмотреть хотя бы раз.","films":[{"age_limit":16,"description":"Банкир Энди Дюфрейн получает пожизненный срок за убийство, которого не совершал.","duration_min":142,"film_type":"movie","genres":[{"id":1,"name":"драма","slug":"drama"}],"id":1,"original_title":"The Shawshank Redemption","release_year":1994,"title":"Побег из Шоушенка"}],"id":1,"slug":"best-of-all-time","title":"Лучшие фильмы всех времён"}
+type Collection struct {
+	CoverUrl    *string `json:"cover_url,omitempty"`
+	Description *string `json:"description,omitempty"`
+	Films       []Film  `json:"films"`
+	Id          int64   `json:"id"`
+	Slug        string  `json:"slug"`
+	Title       string  `json:"title"`
+}
+
+// CollectionRatingsResponse Example: {"limit":20,"offset":0,"ratings":[{"average_score":8.4,"film_id":1,"votes":17},{"average_score":0,"film_id":2,"votes":0}],"total":6}
+type CollectionRatingsResponse struct {
+	// Limit Размер страницы.
+	Limit int `json:"limit"`
+
+	// Offset Смещение страницы.
+	Offset  int                 `json:"offset"`
+	Ratings []FilmRatingSummary `json:"ratings"`
+
+	// Total Общее число фильмов в подборке.
+	Total int `json:"total"`
+}
+
+// CollectionResponse Example: {"collection":{"description":"Добрые фильмы для вечера с близкими.","films":[{"age_limit":0,"description":"Львёнок Симба должен вернуть себе трон, который отнял его коварный дядя.","duration_min":88,"film_type":"movie","genres":[{"id":6,"name":"мультфильм","slug":"animation"}],"id":7,"original_title":"The Lion King","release_year":1994,"title":"Король Лев"}],"id":2,"slug":"family","title":"Смотрим всей семьёй"},"limit":1,"offset":0,"total":4}
+type CollectionResponse struct {
+	// Collection Подборка с фильмами. Поля description и cover_url без значения в JSON отсутствуют.
+	// Массив films в примере сокращён. Slug остаётся полем подборки, но в путях не используется.
+	//
+	// Example: {"description":"Фильмы, которые стоит посмотреть хотя бы раз.","films":[{"age_limit":16,"description":"Банкир Энди Дюфрейн получает пожизненный срок за убийство, которого не совершал.","duration_min":142,"film_type":"movie","genres":[{"id":1,"name":"драма","slug":"drama"}],"id":1,"original_title":"The Shawshank Redemption","release_year":1994,"title":"Побег из Шоушенка"}],"id":1,"slug":"best-of-all-time","title":"Лучшие фильмы всех времён"}
+	Collection Collection `json:"collection"`
+	Limit      int        `json:"limit"`
+	Offset     int        `json:"offset"`
+
+	// Total Общее число фильмов в подборке.
+	Total int `json:"total"`
+}
+
+// CollectionsResponse Example: {"collections":[{"description":"Фильмы, которые стоит посмотреть хотя бы раз.","films":[{"age_limit":16,"description":"Банкир Энди Дюфрейн получает пожизненный срок за убийство, которого не совершал.","duration_min":142,"film_type":"movie","genres":[{"id":1,"name":"драма","slug":"drama"}],"id":1,"original_title":"The Shawshank Redemption","release_year":1994,"title":"Побег из Шоушенка"}],"id":1,"slug":"best-of-all-time","title":"Лучшие фильмы всех времён"}],"limit":1,"offset":0,"total":4}
+type CollectionsResponse struct {
+	Collections []Collection `json:"collections"`
+	Limit       int          `json:"limit"`
+	Offset      int          `json:"offset"`
+
+	// Total Общее число подборок.
+	Total int `json:"total"`
+}
+
+// CreateFilmResponse defines model for CreateFilmResponse.
+type CreateFilmResponse struct {
+	Id int64 `json:"id"`
+}
+
+// CreatePersonResponse Example: {"id":123}
+type CreatePersonResponse struct {
+	Id int64 `json:"id"`
+}
+
+// Credentials Example: {"email":"viewer@example.com","password":"Password1"}
+type Credentials struct {
+	// Email Проверяется как при регистрации. Пользователь ищется по исходной строке email.
+	Email string `json:"email"`
+
+	// Password Непустой пароль. Сложность при входе не проверяется.
+	Password *string `json:"password,omitempty"`
+}
+
 // Error Example: {"error":"invalid email or password"}
 type Error struct {
 	Error string `json:"error"`
+}
+
+// Film Фильм. Необязательные поля (original_title, duration_min, description, poster_url,
+// trailer_url) без значения в JSON отсутствуют, null не возвращается.
+//
+// Example: {"age_limit":16,"description":"Банкир Энди Дюфрейн получает пожизненный срок за убийство, которого не совершал.","duration_min":142,"film_type":"movie","genres":[{"id":1,"name":"драма","slug":"drama"}],"id":1,"original_title":"The Shawshank Redemption","release_year":1994,"title":"Побег из Шоушенка"}
+type Film struct {
+	// AgeLimit Возрастное ограничение. В данных встречаются 0, 6, 12, 16, 18.
+	AgeLimit      int32        `json:"age_limit"`
+	Description   *string      `json:"description,omitempty"`
+	DurationMin   *int32       `json:"duration_min,omitempty"`
+	FilmType      FilmFilmType `json:"film_type"`
+	Genres        []Genre      `json:"genres"`
+	Id            int64        `json:"id"`
+	OriginalTitle *string      `json:"original_title,omitempty"`
+
+	// PosterUrl Для файла в приватном bucket posters — временная подписанная ссылка RustFS,
+	// создаваемая при чтении фильма, списка или состава подборки.
+	// Срок действия задаётся s3.avatar_url_lifetime (по умолчанию 15 минут).
+	// Для обновления истёкшей ссылки нужно повторно запросить фильм или список.
+	// Внешний external_url возвращается без изменений. При отсутствии постера
+	// или объекта в RustFS поле отсутствует.
+	PosterUrl   *string `json:"poster_url,omitempty"`
+	ReleaseYear int32   `json:"release_year"`
+	Title       string  `json:"title"`
+	TrailerUrl  *string `json:"trailer_url,omitempty"`
+}
+
+// FilmFilmType defines model for Film.FilmType.
+type FilmFilmType string
+
+// FilmInput defines model for FilmInput.
+type FilmInput struct {
+	AgeLimit      FilmInputAgeLimit `json:"age_limit"`
+	Description   *string           `json:"description,omitempty"`
+	DurationMin   *int32            `json:"duration_min,omitempty"`
+	FilmType      FilmInputFilmType `json:"film_type"`
+	OriginalTitle *string           `json:"original_title,omitempty"`
+	ReleaseYear   int32             `json:"release_year"`
+	Title         string            `json:"title"`
+}
+
+// FilmInputAgeLimit defines model for FilmInput.AgeLimit.
+type FilmInputAgeLimit int32
+
+// FilmInputFilmType defines model for FilmInput.FilmType.
+type FilmInputFilmType string
+
+// FilmPersonsResponse defines model for FilmPersonsResponse.
+type FilmPersonsResponse struct {
+	People []PersonCredit `json:"people"`
+}
+
+// FilmRating defines model for FilmRating.
+type FilmRating struct {
+	CreatedAt time.Time `json:"created_at"`
+	FilmId    int64     `json:"film_id"`
+	Score     int       `json:"score"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// FilmRatingInput Example: {"score":8}
+type FilmRatingInput struct {
+	// Score Оценка фильма от 1 до 10.
+	Score int `json:"score"`
+}
+
+// FilmRatingResponse Example: {"rating":{"created_at":"2026-10-19T14:02:11Z","film_id":1,"score":8,"updated_at":"2026-10-19T14:02:11Z"}}
+type FilmRatingResponse struct {
+	Rating FilmRating `json:"rating"`
+}
+
+// FilmRatingSummary defines model for FilmRatingSummary.
+type FilmRatingSummary struct {
+	AverageScore float64 `json:"average_score"`
+	FilmId       int64   `json:"film_id"`
+	Votes        int64   `json:"votes"`
+}
+
+// FilmRatingSummaryResponse Example: {"rating":{"average_score":8.4,"film_id":1,"votes":17}}
+type FilmRatingSummaryResponse struct {
+	Rating FilmRatingSummary `json:"rating"`
+}
+
+// FilmResponse Example: {"film":{"age_limit":16,"description":"Банкир Энди Дюфрейн получает пожизненный срок за убийство, которого не совершал.","duration_min":142,"film_type":"movie","genres":[{"id":1,"name":"драма","slug":"drama"}],"id":1,"original_title":"The Shawshank Redemption","release_year":1994,"title":"Побег из Шоушенка"}}
+type FilmResponse struct {
+	// Film Фильм. Необязательные поля (original_title, duration_min, description, poster_url,
+	// trailer_url) без значения в JSON отсутствуют, null не возвращается.
+	//
+	// Example: {"age_limit":16,"description":"Банкир Энди Дюфрейн получает пожизненный срок за убийство, которого не совершал.","duration_min":142,"film_type":"movie","genres":[{"id":1,"name":"драма","slug":"drama"}],"id":1,"original_title":"The Shawshank Redemption","release_year":1994,"title":"Побег из Шоушенка"}
+	Film Film `json:"film"`
+}
+
+// FilmsResponse Example: {"films":[{"age_limit":16,"description":"Банкир Энди Дюфрейн получает пожизненный срок за убийство, которого не совершал.","duration_min":142,"film_type":"movie","genres":[{"id":1,"name":"драма","slug":"drama"}],"id":1,"original_title":"The Shawshank Redemption","release_year":1994,"title":"Побег из Шоушенка"}],"limit":1,"offset":0,"total":12}
+type FilmsResponse struct {
+	Films  []Film `json:"films"`
+	Limit  int    `json:"limit"`
+	Offset int    `json:"offset"`
+
+	// Total Общее число фильмов.
+	Total int `json:"total"`
+}
+
+// Genre defines model for Genre.
+type Genre struct {
+	Id   int64  `json:"id"`
+	Name string `json:"name"`
+	Slug string `json:"slug"`
+}
+
+// Library defines model for Library.
+type Library struct {
+	Favorite   []int64 `json:"favorite"`
+	Watched    []int64 `json:"watched"`
+	Watchlater []int64 `json:"watchlater"`
+}
+
+// Person Example: {"birth_date":"1990-01-02T00:00:00Z","created_at":"2026-11-05T12:00:00Z","first_name":"Анна","id":123,"last_name":"Иванова","photo_id":null,"updated_at":"2026-11-05T12:00:00Z"}
+type Person struct {
+	// BirthDate В ответе дата сериализуется как time.Time, включая время и часовой пояс.
+	BirthDate *time.Time `json:"birth_date"`
+	CreatedAt time.Time  `json:"created_at"`
+	FirstName string     `json:"first_name"`
+	Id        int64      `json:"id"`
+	LastName  string     `json:"last_name"`
+
+	// PhotoId Несмотря на имя поля, содержит адрес фотографии (внешний или /static/...), а не числовой ID.
+	PhotoId   *string   `json:"photo_id"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// PersonCatalogResponse defines model for PersonCatalogResponse.
+type PersonCatalogResponse struct {
+	Films  []CatalogFilmCredit `json:"films"`
+	Person CatalogPerson       `json:"person"`
+}
+
+// PersonCredit defines model for PersonCredit.
+type PersonCredit struct {
+	Character string        `json:"character"`
+	Person    CatalogPerson `json:"person"`
+	Role      string        `json:"role"`
+}
+
+// PersonInput Example: {"birth_date":"1990-01-02","first_name":"Анна","last_name":"Иванова"}
+type PersonInput struct {
+	// BirthDate Необязательная дата в формате YYYY-MM-DD, например 1990-01-02.
+	// Отсутствующее поле, null или пустая строка означают отсутствие даты.
+	// Текущая реализация принимает дату строго после 1800-01-01 и не в будущем.
+	BirthDate *string `json:"birth_date,omitempty"`
+
+	// FirstName Имя. Пробелы по краям обрезаются, длина считается в символах.
+	FirstName string `json:"first_name"`
+
+	// LastName Фамилия. Пробелы по краям обрезаются, длина считается в символах.
+	LastName string `json:"last_name"`
+}
+
+// PersonResponse defines model for PersonResponse.
+type PersonResponse struct {
+	// Person Example: {"birth_date":"1990-01-02T00:00:00Z","created_at":"2026-11-05T12:00:00Z","first_name":"Анна","id":123,"last_name":"Иванова","photo_id":null,"updated_at":"2026-11-05T12:00:00Z"}
+	Person Person `json:"person"`
+}
+
+// PersonalRatingResponse defines model for PersonalRatingResponse.
+type PersonalRatingResponse struct {
+	Rating *struct {
+		Score int32 `json:"score"`
+	} `json:"rating"`
+}
+
+// PersonsResponse defines model for PersonsResponse.
+type PersonsResponse struct {
+	Limit   int      `json:"limit"`
+	Offset  int      `json:"offset"`
+	Persons []Person `json:"persons"`
+	Total   int      `json:"total"`
+}
+
+// PreferenceInput defines model for PreferenceInput.
+type PreferenceInput struct {
+	Key   PreferenceInputKey    `json:"key"`
+	Value PreferenceInput_Value `json:"value"`
+}
+
+// PreferenceInputKey defines model for PreferenceInput.Key.
+type PreferenceInputKey string
+
+// PreferenceInputValue0 defines model for PreferenceInput.Value.0.
+type PreferenceInputValue0 = bool
+
+// PreferenceInputValue1 defines model for PreferenceInput.Value.1.
+type PreferenceInputValue1 string
+
+// PreferenceInput_Value defines model for PreferenceInput.Value.
+type PreferenceInput_Value struct {
+	union json.RawMessage
+}
+
+// Preferences defines model for Preferences.
+type Preferences struct {
+	FrameCatalogView      *PreferencesFrameCatalogView `json:"frame:catalog-view,omitempty"`
+	FrameSidebarCollapsed *bool                        `json:"frame:sidebar-collapsed,omitempty"`
+}
+
+// PreferencesFrameCatalogView defines model for Preferences.FrameCatalogView.
+type PreferencesFrameCatalogView string
+
+// Profile defines model for Profile.
+type Profile struct {
+	Favorites []ProfileFilm `json:"favorites"`
+	Ratings   []ProfileFilm `json:"ratings"`
+	Reviews   int           `json:"reviews"`
+	User      struct {
+		// AvatarFilename Имя текущего аватара. Отсутствует, если аватар не назначен. Для получения ссылки используется GET /api/avatars/{filename}.
+		AvatarFilename *string   `json:"avatar_filename,omitempty"`
+		CreatedAt      time.Time `json:"created_at"`
+		Email          string    `json:"email"`
+		Id             int       `json:"id"`
+		Username       string    `json:"username"`
+	} `json:"user"`
+}
+
+// ProfileFilm defines model for ProfileFilm.
+type ProfileFilm struct {
+	AgeLimit int     `json:"age_limit"`
+	Average  float64 `json:"average"`
+
+	// Genres Названия жанров через запятую.
+	Genres string  `json:"genres"`
+	Id     int     `json:"id"`
+	Poster *string `json:"poster"`
+
+	// Score Собственная оценка пользователя; присутствует в ratings.
+	Score *int            `json:"score,omitempty"`
+	Title string          `json:"title"`
+	Type  ProfileFilmType `json:"type"`
+	Year  int             `json:"year"`
+}
+
+// ProfileFilmType defines model for ProfileFilm.Type.
+type ProfileFilmType string
+
+// ProfileUpdate defines model for ProfileUpdate.
+type ProfileUpdate struct {
+	Email    openapi_types.Email `json:"email"`
+	Username string              `json:"username"`
+}
+
+// Registration Example: {"email":"viewer@example.com","password":"Password1","username":"Кинозритель"}
+type Registration struct {
+	// Email Email проверяется по ASCII-шаблону после удаления пробелов по краям. Сохраняется исходная строка.
+	Email string `json:"email"`
+
+	// Password От 8 до 32 символов. Только латинские буквы, цифры и разрешённые спецсимволы.
+	// Обязательны хотя бы одна заглавная латинская буква и одна цифра.
+	// Пробелы и Unicode-символы не допускаются, пароль не обрезается.
+	Password *string `json:"password,omitempty"`
+
+	// Username От 2 до 32 символов после обрезки пробелов по краям. Допускаются Unicode-буквы, ASCII-цифры, пробельные символы, дефис и подчёркивание.
+	Username string `json:"username"`
+}
+
+// SavedFilmInput defines model for SavedFilmInput.
+type SavedFilmInput struct {
+	Saved bool `json:"saved"`
 }
 
 // SearchCounts Число уникальных совпадений после фильтров, до limit и offset.
@@ -712,6 +1222,21 @@ type SearchSuggestionsResponse struct {
 	Persons []SearchPersonSuggestion `json:"persons"`
 }
 
+// UploadAvatarResponse Example: {"filename":"8c6c028589154f0a8d2bc0a0a31cd084.png"}
+type UploadAvatarResponse struct {
+	// Filename Имя сохранённого аватара, совпадает с avatar_filename в профиле.
+	Filename string `json:"filename"`
+}
+
+// User Example: {"email":"viewer@example.com","id":1,"username":"Кинозритель"}
+type User struct {
+	// AvatarFilename Имя текущего аватара. Отсутствует, если аватар не назначен. Для получения ссылки используется GET /api/avatars/{filename}.
+	AvatarFilename *string `json:"avatar_filename,omitempty"`
+	Email          string  `json:"email"`
+	Id             int     `json:"id"`
+	Username       string  `json:"username"`
+}
+
 // Limit defines model for Limit.
 type Limit = int
 
@@ -778,14 +1303,137 @@ type SearchYearFrom = int
 // SearchYearTo defines model for SearchYearTo.
 type SearchYearTo = int
 
+// AccountConflict Example: {"error":"invalid email or password"}
+type AccountConflict = Error
+
+// AvatarNotFound Example: {"error":"invalid email or password"}
+type AvatarNotFound = Error
+
+// AvatarTooLarge Example: {"error":"invalid email or password"}
+type AvatarTooLarge = Error
+
+// BadBody Example: {"error":"invalid email or password"}
+type BadBody = Error
+
+// CatalogForbidden Example: {"error":"invalid email or password"}
+type CatalogForbidden = Error
+
+// CollectionNotFound Example: {"error":"invalid email or password"}
+type CollectionNotFound = Error
+
+// FilmNotFound Example: {"error":"invalid email or password"}
+type FilmNotFound = Error
+
 // InternalError Example: {"error":"invalid email or password"}
 type InternalError = Error
+
+// InvalidAvatarFilename Example: {"error":"invalid email or password"}
+type InvalidAvatarFilename = Error
+
+// InvalidAvatarUpload Example: {"error":"invalid email or password"}
+type InvalidAvatarUpload = Error
+
+// InvalidCollectionRatingsRequest Example: {"error":"invalid email or password"}
+type InvalidCollectionRatingsRequest = Error
+
+// InvalidCollectionRequest Example: {"error":"invalid email or password"}
+type InvalidCollectionRequest = Error
+
+// InvalidCredentials Example: {"error":"invalid email or password"}
+type InvalidCredentials = Error
+
+// InvalidFilmId Example: {"error":"invalid email or password"}
+type InvalidFilmId = Error
+
+// InvalidPagination Example: {"error":"invalid email or password"}
+type InvalidPagination = Error
+
+// InvalidPersonID Example: {"error":"invalid email or password"}
+type InvalidPersonID = Error
+
+// InvalidPersonInput Example: {"error":"invalid email or password"}
+type InvalidPersonInput = Error
+
+// InvalidPersonsRequest Example: {"error":"invalid email or password"}
+type InvalidPersonsRequest = Error
+
+// InvalidRatingRequest Example: {"error":"invalid email or password"}
+type InvalidRatingRequest = Error
 
 // InvalidSearchRequest Example: {"error":"invalid email or password"}
 type InvalidSearchRequest = Error
 
+// PersonNotFound Example: {"error":"invalid email or password"}
+type PersonNotFound = Error
+
 // SearchSuggestions defines model for SearchSuggestions.
 type SearchSuggestions = SearchSuggestionsResponse
+
+// Unauthorized Example: {"error":"invalid email or password"}
+type Unauthorized = Error
+
+// UploadAvatarMultipartBody defines parameters for UploadAvatar.
+type UploadAvatarMultipartBody struct {
+	Avatar openapi_types.File `json:"avatar"`
+}
+
+// ListCollectionsParams defines parameters for ListCollections.
+type ListCollectionsParams struct {
+	// Limit Сколько записей вернуть. От 1 до 100.
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset Сколько записей пропустить с начала. Не меньше 0.
+	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// GetCollectionByIdParams defines parameters for GetCollectionById.
+type GetCollectionByIdParams struct {
+	// Limit Сколько записей вернуть. От 1 до 100.
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset Сколько записей пропустить с начала. Не меньше 0.
+	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// GetCollectionFilmRatingsParams defines parameters for GetCollectionFilmRatings.
+type GetCollectionFilmRatingsParams struct {
+	// Limit Размер страницы (по умолчанию 20).
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset Смещение от начала списка (по умолчанию 0).
+	Offset *int `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// ListFilmsParams defines parameters for ListFilms.
+type ListFilmsParams struct {
+	// Details При значении true возвращаются полные карточки фильмов.
+	Details *bool `form:"details,omitempty" json:"details,omitempty"`
+
+	// Limit Сколько записей вернуть. От 1 до 100.
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset Сколько записей пропустить с начала. Не меньше 0.
+	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// UploadFilmPosterMultipartBody defines parameters for UploadFilmPoster.
+type UploadFilmPosterMultipartBody struct {
+	Poster openapi_types.File `json:"poster"`
+}
+
+// UpdateMyAvatarMultipartBody defines parameters for UpdateMyAvatar.
+type UpdateMyAvatarMultipartBody struct {
+	Avatar openapi_types.File `json:"avatar"`
+}
+
+// ListPersonsParams defines parameters for ListPersons.
+type ListPersonsParams struct {
+	// Limit Сколько записей вернуть. От 1 до 100.
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset Сколько записей пропустить с начала. Не меньше 0.
+	Offset *Offset `form:"offset,omitempty" json:"offset,omitempty"`
+}
 
 // SearchFilmsParams defines parameters for SearchFilms.
 type SearchFilmsParams struct {
@@ -1007,8 +1655,226 @@ type GetSearchSuggestionsParams struct {
 // GetSearchSuggestionsParamsMatch defines parameters for GetSearchSuggestions.
 type GetSearchSuggestionsParamsMatch string
 
+// UploadAvatarMultipartRequestBody defines body for UploadAvatar for multipart/form-data ContentType.
+type UploadAvatarMultipartRequestBody UploadAvatarMultipartBody
+
+// CreateFilmJSONRequestBody defines body for CreateFilm for application/json ContentType.
+type CreateFilmJSONRequestBody = FilmInput
+
+// UpdateFilmJSONRequestBody defines body for UpdateFilm for application/json ContentType.
+type UpdateFilmJSONRequestBody = FilmInput
+
+// UploadFilmPosterMultipartRequestBody defines body for UploadFilmPoster for multipart/form-data ContentType.
+type UploadFilmPosterMultipartRequestBody UploadFilmPosterMultipartBody
+
+// SetFilmRatingJSONRequestBody defines body for SetFilmRating for application/json ContentType.
+type SetFilmRatingJSONRequestBody = FilmRatingInput
+
+// LoginUserJSONRequestBody defines body for LoginUser for application/json ContentType.
+type LoginUserJSONRequestBody = Credentials
+
+// UpdateMyProfileLegacyJSONRequestBody defines body for UpdateMyProfileLegacy for application/json ContentType.
+type UpdateMyProfileLegacyJSONRequestBody = ProfileUpdate
+
+// UpdateMyAvatarMultipartRequestBody defines body for UpdateMyAvatar for multipart/form-data ContentType.
+type UpdateMyAvatarMultipartRequestBody UpdateMyAvatarMultipartBody
+
+// SetLibraryFilmJSONRequestBody defines body for SetLibraryFilm for application/json ContentType.
+type SetLibraryFilmJSONRequestBody = SavedFilmInput
+
+// SaveMyPreferenceJSONRequestBody defines body for SaveMyPreference for application/json ContentType.
+type SaveMyPreferenceJSONRequestBody = PreferenceInput
+
+// UpdateMyProfileJSONRequestBody defines body for UpdateMyProfile for application/json ContentType.
+type UpdateMyProfileJSONRequestBody = ProfileUpdate
+
+// CreatePersonJSONRequestBody defines body for CreatePerson for application/json ContentType.
+type CreatePersonJSONRequestBody = PersonInput
+
+// UpdatePersonJSONRequestBody defines body for UpdatePerson for application/json ContentType.
+type UpdatePersonJSONRequestBody = PersonInput
+
+// RegisterUserJSONRequestBody defines body for RegisterUser for application/json ContentType.
+type RegisterUserJSONRequestBody = Registration
+
+// AsPreferenceInputValue0 returns the union data inside the PreferenceInput_Value as a PreferenceInputValue0
+func (t PreferenceInput_Value) AsPreferenceInputValue0() (PreferenceInputValue0, error) {
+	var body PreferenceInputValue0
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPreferenceInputValue0 overwrites any union data inside the PreferenceInput_Value as the provided PreferenceInputValue0
+func (t *PreferenceInput_Value) FromPreferenceInputValue0(v PreferenceInputValue0) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePreferenceInputValue0 performs a merge with any union data inside the PreferenceInput_Value, using the provided PreferenceInputValue0
+func (t *PreferenceInput_Value) MergePreferenceInputValue0(v PreferenceInputValue0) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPreferenceInputValue1 returns the union data inside the PreferenceInput_Value as a PreferenceInputValue1
+func (t PreferenceInput_Value) AsPreferenceInputValue1() (PreferenceInputValue1, error) {
+	var body PreferenceInputValue1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPreferenceInputValue1 overwrites any union data inside the PreferenceInput_Value as the provided PreferenceInputValue1
+func (t *PreferenceInput_Value) FromPreferenceInputValue1(v PreferenceInputValue1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePreferenceInputValue1 performs a merge with any union data inside the PreferenceInput_Value, using the provided PreferenceInputValue1
+func (t *PreferenceInput_Value) MergePreferenceInputValue1(v PreferenceInputValue1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t PreferenceInput_Value) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *PreferenceInput_Value) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// GetAuthorised Проверка авторизации
+	// (GET /api/authorised)
+	GetAuthorised(w http.ResponseWriter, r *http.Request)
+	// UploadAvatar Загрузить аватар
+	// (POST /api/avatars)
+	UploadAvatar(w http.ResponseWriter, r *http.Request)
+	// GetAvatarURL Получить ссылку на аватар
+	// (GET /api/avatars/{filename})
+	GetAvatarURL(w http.ResponseWriter, r *http.Request, filename string)
+	// ListCollections Список подборок
+	// (GET /api/collections)
+	ListCollections(w http.ResponseWriter, r *http.Request, params ListCollectionsParams)
+	// GetCollectionById Подборка по id
+	// (GET /api/collections/{id})
+	GetCollectionById(w http.ResponseWriter, r *http.Request, id int64, params GetCollectionByIdParams)
+	// GetCollectionFilmRatings Рейтинги фильмов подборки
+	// (GET /api/collections/{id}/ratings)
+	GetCollectionFilmRatings(w http.ResponseWriter, r *http.Request, id int64, params GetCollectionFilmRatingsParams)
+	// ListFilms Список фильмов
+	// (GET /api/films)
+	ListFilms(w http.ResponseWriter, r *http.Request, params ListFilmsParams)
+	// CreateFilm Создать фильм
+	// (POST /api/films)
+	CreateFilm(w http.ResponseWriter, r *http.Request)
+	// DeleteFilm Удалить фильм
+	// (DELETE /api/films/{id})
+	DeleteFilm(w http.ResponseWriter, r *http.Request, id int64)
+	// GetFilmById Фильм по id
+	// (GET /api/films/{id})
+	GetFilmById(w http.ResponseWriter, r *http.Request, id int64)
+	// UpdateFilm Обновить фильм
+	// (PUT /api/films/{id})
+	UpdateFilm(w http.ResponseWriter, r *http.Request, id int64)
+	// GetFilmPersons Получить участников фильма
+	// (GET /api/films/{id}/people)
+	GetFilmPersons(w http.ResponseWriter, r *http.Request, id int64)
+	// DeleteFilmPoster Удалить привязки постеров фильма
+	// (DELETE /api/films/{id}/poster)
+	DeleteFilmPoster(w http.ResponseWriter, r *http.Request, id int64)
+	// GetFilmPosterURL Получить ссылку на основной постер фильма
+	// (GET /api/films/{id}/poster)
+	GetFilmPosterURL(w http.ResponseWriter, r *http.Request, id int64)
+	// UploadFilmPoster Загрузить или заменить основной постер фильма
+	// (POST /api/films/{id}/poster)
+	UploadFilmPoster(w http.ResponseWriter, r *http.Request, id int64)
+	// DeleteFilmRating Удалить свою оценку
+	// (DELETE /api/films/{id}/rating)
+	DeleteFilmRating(w http.ResponseWriter, r *http.Request, id int64)
+	// GetFilmRating Средняя оценка фильма
+	// (GET /api/films/{id}/rating)
+	GetFilmRating(w http.ResponseWriter, r *http.Request, id int64)
+	// SetFilmRating Поставить или изменить оценку
+	// (PUT /api/films/{id}/rating)
+	SetFilmRating(w http.ResponseWriter, r *http.Request, id int64)
+	// GetMyFilmRating Получить личную оценку фильма
+	// (GET /api/films/{id}/rating/me)
+	GetMyFilmRating(w http.ResponseWriter, r *http.Request, id int64)
+	// LoginUser Вход
+	// (POST /api/login)
+	LoginUser(w http.ResponseWriter, r *http.Request)
+	// LogoutUser Выход
+	// (POST /api/logout)
+	LogoutUser(w http.ResponseWriter, r *http.Request)
+	// UpdateMyProfileLegacy Совместимый маршрут обновления имени и email
+	// (PUT /api/me)
+	UpdateMyProfileLegacy(w http.ResponseWriter, r *http.Request)
+	// DeleteMyAvatar Удалить свою аватарку
+	// (DELETE /api/me/avatar)
+	DeleteMyAvatar(w http.ResponseWriter, r *http.Request)
+	// GetMyAvatarURL Получить ссылку на свою текущую аватарку
+	// (GET /api/me/avatar)
+	GetMyAvatarURL(w http.ResponseWriter, r *http.Request)
+	// UpdateMyAvatar Обновить свою аватарку
+	// (PUT /api/me/avatar)
+	UpdateMyAvatar(w http.ResponseWriter, r *http.Request)
+	// GetMyLibrary Получить списки пользователя
+	// (GET /api/me/library)
+	GetMyLibrary(w http.ResponseWriter, r *http.Request)
+	// SetLibraryFilm Добавить или убрать фильм из списка
+	// (PUT /api/me/library/lists/{list}/{film})
+	SetLibraryFilm(w http.ResponseWriter, r *http.Request, list string, film int64)
+	// GetMyPreferences Получить настройки интерфейса
+	// (GET /api/me/preferences)
+	GetMyPreferences(w http.ResponseWriter, r *http.Request)
+	// SaveMyPreference Сохранить настройку интерфейса
+	// (PUT /api/me/preferences)
+	SaveMyPreference(w http.ResponseWriter, r *http.Request)
+	// GetMyProfile Получить свой профиль, избранное, оценки и число отзывов
+	// (GET /api/me/profile)
+	GetMyProfile(w http.ResponseWriter, r *http.Request)
+	// UpdateMyProfile Изменить своё имя и email
+	// (PUT /api/me/profile)
+	UpdateMyProfile(w http.ResponseWriter, r *http.Request)
+	// GetPersonCatalog Получить карточку и фильмографию персоны
+	// (GET /api/people/{id})
+	GetPersonCatalog(w http.ResponseWriter, r *http.Request, id int64)
+	// ListPersons Получить список персон
+	// (GET /api/persons)
+	ListPersons(w http.ResponseWriter, r *http.Request, params ListPersonsParams)
+	// CreatePerson Создать персону
+	// (POST /api/persons)
+	CreatePerson(w http.ResponseWriter, r *http.Request)
+	// DeletePerson Удалить персону
+	// (DELETE /api/persons/{id})
+	DeletePerson(w http.ResponseWriter, r *http.Request, id PersonID)
+	// GetPerson Получить карточку персоны
+	// (GET /api/persons/{id})
+	GetPerson(w http.ResponseWriter, r *http.Request, id PersonID)
+	// UpdatePerson Изменить персону
+	// (PUT /api/persons/{id})
+	UpdatePerson(w http.ResponseWriter, r *http.Request, id PersonID)
+	// RegisterUser Регистрация
+	// (POST /api/register)
+	RegisterUser(w http.ResponseWriter, r *http.Request)
 	// SearchFilms Найти фильмы и сериалы
 	// (GET /api/search/films)
 	SearchFilms(w http.ResponseWriter, r *http.Request, params SearchFilmsParams)
@@ -1028,6 +1894,942 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// GetAuthorised operation middleware
+func (siw *ServerInterfaceWrapper) GetAuthorised(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAuthorised(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UploadAvatar operation middleware
+func (siw *ServerInterfaceWrapper) UploadAvatar(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UploadAvatar(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAvatarURL operation middleware
+func (siw *ServerInterfaceWrapper) GetAvatarURL(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "filename" -------------
+	var filename string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "filename", mux.Vars(r)["filename"], &filename, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "filename", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAvatarURL(w, r, filename)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListCollections operation middleware
+func (siw *ServerInterfaceWrapper) ListCollections(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListCollectionsParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "offset", r.URL.Query(), &params.Offset, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "offset"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListCollections(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetCollectionById operation middleware
+func (siw *ServerInterfaceWrapper) GetCollectionById(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", mux.Vars(r)["id"], &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetCollectionByIdParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "offset", r.URL.Query(), &params.Offset, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "offset"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetCollectionById(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetCollectionFilmRatings operation middleware
+func (siw *ServerInterfaceWrapper) GetCollectionFilmRatings(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", mux.Vars(r)["id"], &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetCollectionFilmRatingsParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "offset", r.URL.Query(), &params.Offset, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "offset"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetCollectionFilmRatings(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListFilms operation middleware
+func (siw *ServerInterfaceWrapper) ListFilms(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListFilmsParams
+
+	// ------------- Optional query parameter "details" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "details", r.URL.Query(), &params.Details, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "details"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "details", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "offset", r.URL.Query(), &params.Offset, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "offset"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListFilms(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateFilm operation middleware
+func (siw *ServerInterfaceWrapper) CreateFilm(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateFilm(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteFilm operation middleware
+func (siw *ServerInterfaceWrapper) DeleteFilm(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", mux.Vars(r)["id"], &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteFilm(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetFilmById operation middleware
+func (siw *ServerInterfaceWrapper) GetFilmById(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", mux.Vars(r)["id"], &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetFilmById(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateFilm operation middleware
+func (siw *ServerInterfaceWrapper) UpdateFilm(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", mux.Vars(r)["id"], &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateFilm(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetFilmPersons operation middleware
+func (siw *ServerInterfaceWrapper) GetFilmPersons(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", mux.Vars(r)["id"], &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetFilmPersons(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteFilmPoster operation middleware
+func (siw *ServerInterfaceWrapper) DeleteFilmPoster(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", mux.Vars(r)["id"], &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteFilmPoster(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetFilmPosterURL operation middleware
+func (siw *ServerInterfaceWrapper) GetFilmPosterURL(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", mux.Vars(r)["id"], &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetFilmPosterURL(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UploadFilmPoster operation middleware
+func (siw *ServerInterfaceWrapper) UploadFilmPoster(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", mux.Vars(r)["id"], &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UploadFilmPoster(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteFilmRating operation middleware
+func (siw *ServerInterfaceWrapper) DeleteFilmRating(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", mux.Vars(r)["id"], &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteFilmRating(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetFilmRating operation middleware
+func (siw *ServerInterfaceWrapper) GetFilmRating(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", mux.Vars(r)["id"], &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetFilmRating(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetFilmRating operation middleware
+func (siw *ServerInterfaceWrapper) SetFilmRating(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", mux.Vars(r)["id"], &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetFilmRating(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetMyFilmRating operation middleware
+func (siw *ServerInterfaceWrapper) GetMyFilmRating(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", mux.Vars(r)["id"], &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetMyFilmRating(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// LoginUser operation middleware
+func (siw *ServerInterfaceWrapper) LoginUser(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.LoginUser(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// LogoutUser operation middleware
+func (siw *ServerInterfaceWrapper) LogoutUser(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.LogoutUser(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateMyProfileLegacy operation middleware
+func (siw *ServerInterfaceWrapper) UpdateMyProfileLegacy(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateMyProfileLegacy(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteMyAvatar operation middleware
+func (siw *ServerInterfaceWrapper) DeleteMyAvatar(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteMyAvatar(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetMyAvatarURL operation middleware
+func (siw *ServerInterfaceWrapper) GetMyAvatarURL(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetMyAvatarURL(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateMyAvatar operation middleware
+func (siw *ServerInterfaceWrapper) UpdateMyAvatar(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateMyAvatar(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetMyLibrary operation middleware
+func (siw *ServerInterfaceWrapper) GetMyLibrary(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetMyLibrary(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetLibraryFilm operation middleware
+func (siw *ServerInterfaceWrapper) SetLibraryFilm(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "list" -------------
+	var list string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "list", mux.Vars(r)["list"], &list, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "list", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "film" -------------
+	var film int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "film", mux.Vars(r)["film"], &film, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "film", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetLibraryFilm(w, r, list, film)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetMyPreferences operation middleware
+func (siw *ServerInterfaceWrapper) GetMyPreferences(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetMyPreferences(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SaveMyPreference operation middleware
+func (siw *ServerInterfaceWrapper) SaveMyPreference(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SaveMyPreference(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetMyProfile operation middleware
+func (siw *ServerInterfaceWrapper) GetMyProfile(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetMyProfile(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateMyProfile operation middleware
+func (siw *ServerInterfaceWrapper) UpdateMyProfile(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateMyProfile(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetPersonCatalog operation middleware
+func (siw *ServerInterfaceWrapper) GetPersonCatalog(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", mux.Vars(r)["id"], &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPersonCatalog(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListPersons operation middleware
+func (siw *ServerInterfaceWrapper) ListPersons(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListPersonsParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "offset", r.URL.Query(), &params.Offset, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "offset"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPersons(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreatePerson operation middleware
+func (siw *ServerInterfaceWrapper) CreatePerson(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreatePerson(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeletePerson operation middleware
+func (siw *ServerInterfaceWrapper) DeletePerson(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id PersonID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", mux.Vars(r)["id"], &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeletePerson(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetPerson operation middleware
+func (siw *ServerInterfaceWrapper) GetPerson(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id PersonID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", mux.Vars(r)["id"], &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPerson(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdatePerson operation middleware
+func (siw *ServerInterfaceWrapper) UpdatePerson(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id PersonID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", mux.Vars(r)["id"], &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdatePerson(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RegisterUser operation middleware
+func (siw *ServerInterfaceWrapper) RegisterUser(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RegisterUser(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
 
 // SearchFilms operation middleware
 func (siw *ServerInterfaceWrapper) SearchFilms(w http.ResponseWriter, r *http.Request) {
@@ -1799,6 +3601,82 @@ func HandlerWithOptions(si ServerInterface, options GorillaServerOptions) http.H
 		HandlerMiddlewares: options.Middlewares,
 		ErrorHandlerFunc:   options.ErrorHandlerFunc,
 	}
+
+	r.HandleFunc(options.BaseURL+"/api/me/profile", wrapper.GetMyProfile).Methods(http.MethodGet)
+
+	r.HandleFunc(options.BaseURL+"/api/me/profile", wrapper.UpdateMyProfile).Methods(http.MethodPut)
+
+	r.HandleFunc(options.BaseURL+"/api/me", wrapper.UpdateMyProfileLegacy).Methods(http.MethodPut)
+
+	r.HandleFunc(options.BaseURL+"/api/me/avatar", wrapper.DeleteMyAvatar).Methods(http.MethodDelete)
+
+	r.HandleFunc(options.BaseURL+"/api/me/avatar", wrapper.GetMyAvatarURL).Methods(http.MethodGet)
+
+	r.HandleFunc(options.BaseURL+"/api/me/avatar", wrapper.UpdateMyAvatar).Methods(http.MethodPut)
+
+	r.HandleFunc(options.BaseURL+"/api/avatars/{filename}", wrapper.GetAvatarURL).Methods(http.MethodGet)
+
+	r.HandleFunc(options.BaseURL+"/api/avatars", wrapper.UploadAvatar).Methods(http.MethodPost)
+
+	r.HandleFunc(options.BaseURL+"/api/register", wrapper.RegisterUser).Methods(http.MethodPost)
+
+	r.HandleFunc(options.BaseURL+"/api/login", wrapper.LoginUser).Methods(http.MethodPost)
+
+	r.HandleFunc(options.BaseURL+"/api/logout", wrapper.LogoutUser).Methods(http.MethodPost)
+
+	r.HandleFunc(options.BaseURL+"/api/authorised", wrapper.GetAuthorised).Methods(http.MethodGet)
+
+	r.HandleFunc(options.BaseURL+"/api/films", wrapper.ListFilms).Methods(http.MethodGet)
+
+	r.HandleFunc(options.BaseURL+"/api/films", wrapper.CreateFilm).Methods(http.MethodPost)
+
+	r.HandleFunc(options.BaseURL+"/api/films/{id}", wrapper.DeleteFilm).Methods(http.MethodDelete)
+
+	r.HandleFunc(options.BaseURL+"/api/films/{id}", wrapper.GetFilmById).Methods(http.MethodGet)
+
+	r.HandleFunc(options.BaseURL+"/api/films/{id}", wrapper.UpdateFilm).Methods(http.MethodPut)
+
+	r.HandleFunc(options.BaseURL+"/api/collections", wrapper.ListCollections).Methods(http.MethodGet)
+
+	r.HandleFunc(options.BaseURL+"/api/collections/{id}", wrapper.GetCollectionById).Methods(http.MethodGet)
+
+	r.HandleFunc(options.BaseURL+"/api/films/{id}/poster", wrapper.DeleteFilmPoster).Methods(http.MethodDelete)
+
+	r.HandleFunc(options.BaseURL+"/api/films/{id}/poster", wrapper.GetFilmPosterURL).Methods(http.MethodGet)
+
+	r.HandleFunc(options.BaseURL+"/api/films/{id}/poster", wrapper.UploadFilmPoster).Methods(http.MethodPost)
+
+	r.HandleFunc(options.BaseURL+"/api/films/{id}/rating", wrapper.DeleteFilmRating).Methods(http.MethodDelete)
+
+	r.HandleFunc(options.BaseURL+"/api/films/{id}/rating", wrapper.GetFilmRating).Methods(http.MethodGet)
+
+	r.HandleFunc(options.BaseURL+"/api/films/{id}/rating", wrapper.SetFilmRating).Methods(http.MethodPut)
+
+	r.HandleFunc(options.BaseURL+"/api/collections/{id}/ratings", wrapper.GetCollectionFilmRatings).Methods(http.MethodGet)
+
+	r.HandleFunc(options.BaseURL+"/api/persons", wrapper.ListPersons).Methods(http.MethodGet)
+
+	r.HandleFunc(options.BaseURL+"/api/persons", wrapper.CreatePerson).Methods(http.MethodPost)
+
+	r.HandleFunc(options.BaseURL+"/api/persons/{id}", wrapper.DeletePerson).Methods(http.MethodDelete)
+
+	r.HandleFunc(options.BaseURL+"/api/persons/{id}", wrapper.GetPerson).Methods(http.MethodGet)
+
+	r.HandleFunc(options.BaseURL+"/api/persons/{id}", wrapper.UpdatePerson).Methods(http.MethodPut)
+
+	r.HandleFunc(options.BaseURL+"/api/me/library", wrapper.GetMyLibrary).Methods(http.MethodGet)
+
+	r.HandleFunc(options.BaseURL+"/api/me/library/lists/{list}/{film}", wrapper.SetLibraryFilm).Methods(http.MethodPut)
+
+	r.HandleFunc(options.BaseURL+"/api/me/preferences", wrapper.GetMyPreferences).Methods(http.MethodGet)
+
+	r.HandleFunc(options.BaseURL+"/api/me/preferences", wrapper.SaveMyPreference).Methods(http.MethodPut)
+
+	r.HandleFunc(options.BaseURL+"/api/films/{id}/rating/me", wrapper.GetMyFilmRating).Methods(http.MethodGet)
+
+	r.HandleFunc(options.BaseURL+"/api/films/{id}/people", wrapper.GetFilmPersons).Methods(http.MethodGet)
+
+	r.HandleFunc(options.BaseURL+"/api/people/{id}", wrapper.GetPersonCatalog).Methods(http.MethodGet)
 
 	r.HandleFunc(options.BaseURL+"/api/search/suggest", wrapper.GetSearchSuggestions).Methods(http.MethodGet)
 

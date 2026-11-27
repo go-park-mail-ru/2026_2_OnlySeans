@@ -25,7 +25,7 @@ func catalogPersonFixture() (domain.CatalogPerson, *pb.CatalogPerson) {
 	death := time.Date(2020, time.February, 3, 0, 0, 0, 0, time.UTC)
 	photo := "/static/persons/7.jpg"
 
-	return domain.CatalogPerson{
+	person := domain.CatalogPerson{
 		ID:           7,
 		Name:         "Person Name",
 		OriginalName: "Original Name",
@@ -37,7 +37,9 @@ func catalogPersonFixture() (domain.CatalogPerson, *pb.CatalogPerson) {
 		BirthPlace:   "City",
 		Biography:    "Biography",
 		SourceURL:    "https://source.example/person",
-	}, &pb.CatalogPerson{
+	}
+
+	expected := &pb.CatalogPerson{
 		Id:           7,
 		Name:         "Person Name",
 		OriginalName: "Original Name",
@@ -50,6 +52,8 @@ func catalogPersonFixture() (domain.CatalogPerson, *pb.CatalogPerson) {
 		Biography:    "Biography",
 		SourceUrl:    "https://source.example/person",
 	}
+
+	return person, expected
 }
 
 func TestGetFilmPersons(t *testing.T) {

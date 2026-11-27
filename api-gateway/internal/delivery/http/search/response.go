@@ -5,7 +5,7 @@ import (
 
 	openapitypes "github.com/oapi-codegen/runtime/types"
 
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/search/openapi"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/openapi"
 	catalog "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/catalog"
 	persons "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/persons"
 )

@@ -3,6 +3,7 @@ package search
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -10,7 +11,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/search/openapi"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/openapi"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/router"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/middleware"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/logger"
 	catalog "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/catalog"
 	persons "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/persons"
 )
@@ -56,7 +60,7 @@ func TestSuggestKeepsHTTPContract(t *testing.T) {
 			FilmCounts: &catalog.FilmSearchCounts{Movies: 6, Series: 1},
 		}, nil
 	}}
-	handler := openapi.Handler(NewHandler(client, nil, nil))
+	handler := newSearchRouter(t, NewHandler(client, nil, nil))
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/search/suggest?q=+%D0%9D%D0%BE%D0%BB%D0%B0%D0%BD+", nil))
 	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
@@ -71,7 +75,7 @@ func TestSuggestKeepsHTTPContract(t *testing.T) {
 }
 
 func TestSuggestRejectsInvalidParametersBeforeCallingCatalog(t *testing.T) {
-	handler := openapi.Handler(NewHandler(nil, nil, nil))
+	handler := newSearchRouter(t, NewHandler(nil, nil, nil))
 
 	for _, query := range []string{"", "q=x", "q=one&q=two", "q=film&limit=0", "q=film&limit=NaN", "q=film&limit=6", "q=film&limit="} {
 		t.Run(query, func(t *testing.T) {
@@ -93,7 +97,7 @@ func TestSearchFilmsUsesGeneratedParamsAndCountsAllTabs(t *testing.T) {
 		personRequest = req
 		return &persons.CountPersonsResponse{Total: 2}, nil
 	}}
-	handler := openapi.Handler(NewHandler(films, people, nil))
+	handler := newSearchRouter(t, NewHandler(films, people, nil))
 	url := "/api/search/films?q=film&type=series&limit=1&offset=40&age_rating=12&age_rating=16&" +
 		"genre_include=drama&genre_include=crime&genre_mode=any&role_include=director&release_from=2020-02-29"
 	response := httptest.NewRecorder()
@@ -127,7 +131,7 @@ func TestSearchPersonsRequestsFilmCountsAndWorksCount(t *testing.T) {
 			},
 		}, nil
 	}}
-	handler := openapi.Handler(NewHandler(films, people, nil))
+	handler := newSearchRouter(t, NewHandler(films, people, nil))
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/search/persons?q=film&country_exclude=GB&sort=added_at&limit=1", nil))
 	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
@@ -140,4 +144,16 @@ func TestSearchPersonsRequestsFilmCountsAndWorksCount(t *testing.T) {
 	require.Len(t, body.Persons, 1)
 	require.EqualValues(t, 4, body.Persons[0].WorksCount)
 	require.Equal(t, []openapi.SearchPersonRole{"director"}, body.Persons[0].Roles)
+}
+
+func newSearchRouter(t *testing.T, search *Handler) http.Handler {
+	t.Helper()
+
+	appLogger, err := logger.NewLogger(io.Discard, logger.LogLevelInfo, "json")
+	require.NoError(t, err)
+
+	handler, err := router.NewRouter(router.Handlers{Search: search}, middleware.NewAuthMiddleware(nil, nil, appLogger), nil, appLogger)
+	require.NoError(t, err)
+
+	return handler
 }

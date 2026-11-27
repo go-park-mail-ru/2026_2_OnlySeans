@@ -11,7 +11,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/httpresponse"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/search/openapi"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/openapi"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/logger"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/searchquery"
 	catalog "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/catalog"

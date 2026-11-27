@@ -20,6 +20,8 @@ tags:
   - name: Отзывы
   - name: Персоны
   - name: Файлы
+  - name: Библиотека
+  - name: Настройки
   - name: Поиск
 security: []
 x-cors:
@@ -34,13 +36,14 @@ x-cors:
   allow-headers:
     - Content-Type
   description: |-
-    Разрешённый Origin берётся из server.allowed_origin в configs/config.yaml
-    (в текущем файле http://localhost:8000; значение по умолчанию в коде http://localhost:3000).
+    Разрешённые Origin задаются в http.allowed_origins конфигурации gateway.
+    В локальной конфигурации разрешён http://localhost:8000.
     Сравнение строгое: localhost и 127.0.0.1 — разные Origin.
     Если Origin совпал, сервер добавляет Access-Control-Allow-Origin,
     Access-Control-Allow-Credentials: true и Vary: Origin.
     OPTIONS всегда возвращает 204 до роутера, даже для неизвестного пути или другого Origin.
-    Запросы с другим Origin доходят до обработчика, но без разрешающих CORS-заголовков.
+    Для другого Origin разрешающие CORS-заголовки не добавляются.
+    CrossOriginProtection отклоняет небезопасные запросы с недоверенного Origin до обработчика.
     Фронтенд должен отправлять запросы с credentials: include.
 x-rate-limits:
   implementation-status: not-implemented
@@ -452,6 +455,13 @@ paths:
       x-implementation-status: implemented
       security: []
       parameters:
+        - name: details
+          in: query
+          required: false
+          description: При значении true возвращаются полные карточки фильмов.
+          schema:
+            type: boolean
+            default: false
         - $ref: '#/components/parameters/Limit'
         - $ref: '#/components/parameters/Offset'
       responses:
@@ -465,6 +475,40 @@ paths:
           $ref: '#/components/responses/InvalidPagination'
         '405':
           $ref: '#/components/responses/RouteMethodNotAllowed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags:
+      - Фильмы
+      operationId: createFilm
+      summary: Создать фильм
+      security:
+      - sessionCookie: []
+      x-required-roles:
+      - admin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FilmInput'
+      responses:
+        '201':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateFilmResponse'
+        '400':
+          $ref: '#/components/responses/BadBody'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '500':
           $ref: '#/components/responses/InternalError'
   /api/films/{id}:
@@ -501,6 +545,88 @@ paths:
           $ref: '#/components/responses/FilmNotFound'
         '405':
           $ref: '#/components/responses/RouteMethodNotAllowed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    put:
+      tags:
+      - Фильмы
+      operationId: updateFilm
+      summary: Обновить фильм
+      security:
+      - sessionCookie: []
+      x-required-roles:
+      - admin
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FilmInput'
+      responses:
+        '204':
+          description: Успешный ответ
+        '400':
+          $ref: '#/components/responses/BadBody'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Объект не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      tags:
+      - Фильмы
+      operationId: deleteFilm
+      summary: Удалить фильм
+      security:
+      - sessionCookie: []
+      x-required-roles:
+      - admin
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+      responses:
+        '204':
+          description: Успешный ответ
+        '400':
+          $ref: '#/components/responses/BadBody'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Объект не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '500':
           $ref: '#/components/responses/InternalError'
   /api/collections:
@@ -1159,6 +1285,215 @@ paths:
           $ref: '#/components/responses/RouteMethodNotAllowed'
         '500':
           $ref: '#/components/responses/InternalError'
+  /api/me/library:
+    get:
+      tags:
+      - Библиотека
+      operationId: getMyLibrary
+      summary: Получить списки пользователя
+      security:
+      - sessionCookie: []
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Library'
+        '400':
+          $ref: '#/components/responses/BadBody'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/me/library/lists/{list}/{film}:
+    put:
+      tags:
+      - Библиотека
+      operationId: setLibraryFilm
+      summary: Добавить или убрать фильм из списка
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: list
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: film
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SavedFilmInput'
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Library'
+        '400':
+          $ref: '#/components/responses/BadBody'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Объект не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/me/preferences:
+    get:
+      tags:
+      - Настройки
+      operationId: getMyPreferences
+      summary: Получить настройки интерфейса
+      security:
+      - sessionCookie: []
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Preferences'
+        '400':
+          $ref: '#/components/responses/BadBody'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    put:
+      tags:
+      - Настройки
+      operationId: saveMyPreference
+      summary: Сохранить настройку интерфейса
+      security:
+      - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PreferenceInput'
+      responses:
+        '204':
+          description: Успешный ответ
+        '400':
+          $ref: '#/components/responses/BadBody'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/films/{id}/rating/me:
+    get:
+      tags:
+      - Рейтинги
+      operationId: getMyFilmRating
+      summary: Получить личную оценку фильма
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonalRatingResponse'
+        '400':
+          $ref: '#/components/responses/BadBody'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Объект не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/films/{id}/people:
+    get:
+      tags:
+      - Персоны
+      operationId: getFilmPersons
+      summary: Получить участников фильма
+      security: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FilmPersonsResponse'
+        '400':
+          $ref: '#/components/responses/BadBody'
+        '404':
+          description: Объект не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/people/{id}:
+    get:
+      tags:
+      - Персоны
+      operationId: getPersonCatalog
+      summary: Получить карточку и фильмографию персоны
+      security: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonCatalogResponse'
+        '400':
+          $ref: '#/components/responses/BadBody'
+        '404':
+          description: Объект не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /api/search/suggest:
     get:
       tags:
@@ -1327,16 +1662,16 @@ components:
       in: cookie
       name: session_id
       description: |-
-        ID серверной сессии: 64 случайных hex-символа. Сессия действует 24 часа и не продлевается.
+        ID серверной сессии — UUID. Сессия действует 168 часов и не продлевается при активности.
         Браузер отправляет cookie с credentials: include. HttpOnly закрывает доступ из JavaScript.
   headers:
     SetSessionCookie:
       description: |-
-        Cookie session_id: Path=/; Expires (через 24 часа); HttpOnly; SameSite=Lax.
+        Cookie session_id: Path=/; Expires (через 168 часов); HttpOnly; SameSite=Lax.
         Secure задаётся полем CookieSecure обработчика, сейчас false. Domain и Max-Age не задаются.
       schema:
         type: string
-      example: session_id=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa; Path=/;
+      example: session_id=12345678-1234-4234-8234-123456789abc; Path=/;
         Expires=Fri, 02 Oct 2026 09:00:00 GMT; HttpOnly; SameSite=Lax
   parameters:
     PersonID:
@@ -1759,6 +2094,213 @@ components:
               format: int64
               minimum: 0
               description: Число уникальных фильмов и сериалов в фильмографии как актёра или режиссёра.
+    FilmInput:
+      type: object
+      additionalProperties: false
+      required:
+      - title
+      - film_type
+      - release_year
+      - age_limit
+      properties:
+        title:
+          type: string
+        original_title:
+          type: string
+          nullable: true
+        film_type:
+          type: string
+          enum:
+          - movie
+          - series
+        release_year:
+          type: integer
+          format: int32
+          minimum: 1888
+          maximum: 2200
+        duration_min:
+          type: integer
+          format: int32
+          nullable: true
+        age_limit:
+          type: integer
+          format: int32
+          enum:
+          - 0
+          - 6
+          - 12
+          - 16
+          - 18
+        description:
+          type: string
+          nullable: true
+    CreateFilmResponse:
+      type: object
+      required:
+      - id
+      properties:
+        id:
+          type: integer
+          format: int64
+    Library:
+      type: object
+      required:
+      - favorite
+      - watchlater
+      - watched
+      properties:
+        favorite:
+          type: array
+          items:
+            type: integer
+            format: int64
+        watchlater:
+          type: array
+          items:
+            type: integer
+            format: int64
+        watched:
+          type: array
+          items:
+            type: integer
+            format: int64
+    SavedFilmInput:
+      type: object
+      additionalProperties: false
+      required:
+      - saved
+      properties:
+        saved:
+          type: boolean
+    Preferences:
+      type: object
+      properties:
+        frame:sidebar-collapsed:
+          type: boolean
+        frame:catalog-view:
+          type: string
+          enum:
+          - grid
+          - list
+    PreferenceInput:
+      type: object
+      additionalProperties: false
+      required:
+      - key
+      - value
+      properties:
+        key:
+          type: string
+          enum:
+          - frame:sidebar-collapsed
+          - frame:catalog-view
+        value:
+          oneOf:
+          - type: boolean
+          - type: string
+            enum:
+            - grid
+            - list
+    PersonalRatingResponse:
+      type: object
+      required:
+      - rating
+      properties:
+        rating:
+          type: object
+          nullable: true
+          required:
+          - score
+          properties:
+            score:
+              type: integer
+              format: int32
+              minimum: 1
+              maximum: 10
+    CatalogPerson:
+      type: object
+      required:
+      - id
+      - name
+      - original_name
+      - photo_source
+      - photo_credit
+      - birth_place
+      - biography
+      - source_url
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        original_name:
+          type: string
+        photo_url:
+          type: string
+        photo_source:
+          type: string
+        photo_credit:
+          type: string
+        birth_date:
+          type: string
+          format: date-time
+        death_date:
+          type: string
+          format: date-time
+        birth_place:
+          type: string
+        biography:
+          type: string
+        source_url:
+          type: string
+    PersonCredit:
+      type: object
+      required:
+      - person
+      - role
+      - character
+      properties:
+        person:
+          $ref: '#/components/schemas/CatalogPerson'
+        role:
+          type: string
+        character:
+          type: string
+    FilmPersonsResponse:
+      type: object
+      required:
+      - people
+      properties:
+        people:
+          type: array
+          items:
+            $ref: '#/components/schemas/PersonCredit'
+    CatalogFilmCredit:
+      type: object
+      required:
+      - film
+      - role
+      - character
+      properties:
+        film:
+          $ref: '#/components/schemas/Film'
+        role:
+          type: string
+        character:
+          type: string
+    PersonCatalogResponse:
+      type: object
+      required:
+      - person
+      - films
+      properties:
+        person:
+          $ref: '#/components/schemas/CatalogPerson'
+        films:
+          type: array
+          items:
+            $ref: '#/components/schemas/CatalogFilmCredit'
     ProfileUpdate:
       type: object
       additionalProperties: false

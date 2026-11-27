@@ -3,7 +3,7 @@ MOCK_PACKAGES := ./tests/mocks/auth/... ./tests/mocks/user/... ./tests/mocks/per
 TEST_PACKAGES := $(MOCK_PACKAGES) ./tests/api-gateway/... ./tests/auth/... ./tests/catalog/... ./tests/persons/... ./tests/user/... ./tests/shared/...
 TEST_WORKSPACE := $(CURDIR)/go.work
 
-.PHONY: lint fmt test cover build run check test-api mocks
+.PHONY: lint fmt test cover build run check test-api mocks api-gen
 
 # Команды для проверки качества кода
 lint:
@@ -24,6 +24,9 @@ cover:
 
 mocks:
 	GOWORK=$(TEST_WORKSPACE) go generate .
+
+api-gen:
+	GOWORK=$(TEST_WORKSPACE) go tool oapi-codegen -config oapi-codegen.yaml documentation.yaml
 
 # Сборка приложения
 build:

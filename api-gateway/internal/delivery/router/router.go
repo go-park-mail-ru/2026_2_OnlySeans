@@ -6,8 +6,6 @@ import (
 	"github.com/gorilla/mux"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/auth"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/httpresponse"
-	searchapi "github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/search/openapi"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/user"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/middleware"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/logger"
@@ -15,7 +13,7 @@ import (
 
 type Handlers struct {
 	Auth           *auth.AuthHandler
-	Search         searchapi.ServerInterface
+	Search         searchHandler
 	Films          filmsHandler
 	Reviews        reviewsHandler
 	Persons        personsHandler
@@ -39,15 +37,6 @@ func NewRouter(handlers Handlers, authMiddleware *middleware.AuthMiddleware, all
 	r.HandleFunc("/api/register", authHandler.Register).Methods(http.MethodPost)
 	r.HandleFunc("/api/login", authHandler.Login).Methods(http.MethodPost)
 	r.HandleFunc("/api/logout", middleware.WrapMiddlewares(authHandler.Logout, authenticatedMiddlewares)).Methods(http.MethodPost)
-
-	if h := handlers.Search; h != nil {
-		searchapi.HandlerWithOptions(h, searchapi.GorillaServerOptions{
-			BaseRouter: r,
-			ErrorHandlerFunc: func(w http.ResponseWriter, req *http.Request, err error) {
-				httpresponse.WriteErrorContext(req.Context(), w, http.StatusBadRequest, err.Error(), appLogger)
-			},
-		})
-	}
 
 	if filesHandler := handlers.Files; filesHandler != nil {
 		r.HandleFunc("/api/me/avatar", middleware.WrapMiddlewares(filesHandler.GetMyAvatarURL, authenticatedMiddlewares)).Methods(http.MethodGet)
@@ -124,7 +113,7 @@ func NewRouter(handlers Handlers, authMiddleware *middleware.AuthMiddleware, all
 		r.HandleFunc("/static/{key:.*}", h.GetAsset).Methods(http.MethodGet)
 	}
 
-	handler, err := middleware.WithCORSAndCSRF(r, allowedOrigins)
+	handler, err := middleware.WithCORSAndCSRF(newOpenAPIHandler(r, handlers.Search, appLogger), allowedOrigins)
 	if err != nil {
 		return nil, err
 	}
