@@ -1,0 +1,15 @@
+go 1.26.0
+
+use (
+	.
+	./tests/api-gateway
+	./tests/auth
+	./tests/catalog
+	./tests/persons
+	./tests/user
+	./tests/shared
+	./tests/mocks/auth
+	./tests/mocks/user
+	./tests/mocks/persons
+	./tests/mocks/shared
+)

@@ -1,9 +1,14 @@
-.PHONY: lint fmt test cover build run check test-api mocks
+APP_PACKAGES := ./api-gateway/... ./services/... ./shared/...
+MOCK_PACKAGES := ./tests/mocks/auth/... ./tests/mocks/user/... ./tests/mocks/persons/... ./tests/mocks/shared/...
+TEST_PACKAGES := $(MOCK_PACKAGES) ./tests/api-gateway/... ./tests/auth/... ./tests/catalog/... ./tests/persons/... ./tests/user/... ./tests/shared/...
+TEST_WORKSPACE := $(CURDIR)/go.work
+
+.PHONY: lint fmt test cover build run check test-api mocks api-gen
 
 # Команды для проверки качества кода
 lint:
 	@test -z "$$(gofmt -l .)" || (echo "Неотформатированные файлы:"; gofmt -l .; exit 1)
-	go vet ./...
+	GOWORK=$(TEST_WORKSPACE) go vet $(APP_PACKAGES) $(TEST_PACKAGES)
 
 # Автоформатирование
 fmt:
@@ -11,13 +16,16 @@ fmt:
 
 # Запуск тестов (с проверкой гонок данных)
 test:
-	go test -race ./...
+	GOWORK=$(TEST_WORKSPACE) go test -race $(APP_PACKAGES) $(TEST_PACKAGES)
 
 cover:
 	bash scripts/coverage.sh
 
 mocks:
-	go generate
+	GOWORK=$(TEST_WORKSPACE) go generate .
+
+api-gen:
+	GOWORK=$(TEST_WORKSPACE) go tool oapi-codegen -config oapi-codegen.yaml documentation.yaml
 
 # Сборка приложения
 build:

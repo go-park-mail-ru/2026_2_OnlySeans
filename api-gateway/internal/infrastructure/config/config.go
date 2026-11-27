@@ -9,7 +9,16 @@ type HTTPConfig struct {
 	MaxPosterSize  int64    `yaml:"max_poster_size"`
 }
 
+type S3Config struct {
+	Endpoint  string `yaml:"endpoint" env:"S3_ENDPOINT"`
+	Region    string `yaml:"region" env:"S3_REGION"`
+	Bucket    string `yaml:"bucket" env:"S3_BUCKET"`
+	AccessKey string `yaml:"access_key" env:"RUSTFS_ACCESS_KEY"`
+	SecretKey string `yaml:"secret_key" env:"RUSTFS_SECRET_KEY"`
+}
+
 type Config struct {
+	S3                 S3Config                  `yaml:"s3"`
 	Logger             sharedconfig.LoggerConfig `yaml:"logger"`
 	HTTP               HTTPConfig                `yaml:"http"`
 	AuthServiceAddr    string                    `yaml:"auth_service_addr"`

@@ -3,6 +3,7 @@ package domain
 import "errors"
 
 var (
+	ErrFileNotFound       = errors.New("file not found")
 	ErrEmailAlreadyExists = errors.New("user with this email already exists")
 	ErrUserExists         = ErrEmailAlreadyExists
 	ErrUsernameTaken      = errors.New("user with this username already exists")

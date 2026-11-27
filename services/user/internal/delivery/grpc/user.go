@@ -14,10 +14,10 @@ import (
 type UserHandler struct {
 	pb.UnimplementedUserServiceServer
 	users    usecase.UserUseCase
-	profiles *usecase.ProfileUseCase
+	profiles usecase.ProfileUseCase
 }
 
-func NewUserHandler(users usecase.UserUseCase, profiles *usecase.ProfileUseCase) *UserHandler {
+func NewUserHandler(users usecase.UserUseCase, profiles usecase.ProfileUseCase) *UserHandler {
 	return &UserHandler{
 		users:    users,
 		profiles: profiles,

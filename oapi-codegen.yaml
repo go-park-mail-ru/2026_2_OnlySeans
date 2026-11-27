@@ -1,0 +1,11 @@
+package: openapi
+output: api-gateway/internal/delivery/http/openapi/api.gen.go
+generate:
+  models: true
+  gorilla-server: true
+output-options:
+  exclude-operation-ids:
+  - listFilmReviews
+  - createFilmReview
+  - updateReview
+  - deleteReview

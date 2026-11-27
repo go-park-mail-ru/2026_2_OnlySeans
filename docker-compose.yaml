@@ -201,6 +201,9 @@ services:
         condition: service_started
     ports:
       - "8080:8080"
+    environment:
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY}
     configs:
       - source: gateway_config
         target: /app/config.yaml
@@ -266,6 +269,10 @@ configs:
       shutdown_timeout: 10s
   gateway_config:
     content: |
+      s3:
+        endpoint: "http://rustfs:9000"
+        region: us-east-1
+        bucket: avatars
       logger:
         level: info
       http:

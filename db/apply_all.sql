@@ -14,3 +14,5 @@
 \ir ../services/catalog/db/migrations/000013_catalog_content.up.sql
 \ir ../services/catalog/db/migrations/000014_real_posters.up.sql
 \ir migrations/000015_review_version.up.sql
+\ir ../services/persons/db/migrations/000017_person_catalog_details.up.sql
+\ir ../services/catalog/db/migrations/000018_account_preferences.up.sql

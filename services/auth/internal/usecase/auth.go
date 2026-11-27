@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/google/uuid"
+
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/services/auth/internal/domain"
 	passwordutil "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/password"
-	"github.com/google/uuid"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/utils"
 )
 
 type UserClient interface {
@@ -57,7 +59,15 @@ func (u *authUseCase) IssueSession(ctx context.Context, userID int64, role strin
 }
 
 func (u *authUseCase) Login(ctx context.Context, email, password string) (*domain.Session, error) {
-	email = strings.ToLower(strings.TrimSpace(email))
+	email = strings.TrimSpace(email)
+
+	if err := utils.ValidateEmail(email); err != nil {
+		return nil, err
+	}
+
+	if err := utils.ValidatePasswordLength(password); err != nil {
+		return nil, err
+	}
 
 	currUser, err := u.userClient.GetUserByEmail(ctx, email)
 	if errors.Is(err, domain.ErrUserNotFound) {
@@ -72,6 +82,7 @@ func (u *authUseCase) Login(ctx context.Context, email, password string) (*domai
 		if errors.Is(err, passwordutil.ErrPasswordMismatch) {
 			return nil, domain.ErrInvalidCredentials
 		}
+
 		return nil, fmt.Errorf("verify password: %w", err)
 	}
 

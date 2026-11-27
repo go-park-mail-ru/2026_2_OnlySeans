@@ -28,9 +28,10 @@ const (
 )
 
 const (
-	limitParam  = "limit"
-	offsetParam = "offset"
-	idVar       = "id"
+	limitParam          = "limit"
+	offsetParam         = "offset"
+	idVar               = "id"
+	detailsEnabledValue = "true"
 )
 
 var (
@@ -137,7 +138,7 @@ func (h *Handler) ListFilms(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if r.URL.Query().Get("details") == "true" {
+	if r.URL.Query().Get("details") == detailsEnabledValue {
 		films := make([]filmResponseDTO, len(result.Films))
 		for i, film := range result.Films {
 			films[i] = toFilmResponseDTO(film)

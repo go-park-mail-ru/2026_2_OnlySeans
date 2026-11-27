@@ -4,14 +4,16 @@ import (
 	"context"
 	"errors"
 
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/services/auth/internal/domain"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/services/auth/internal/usecase"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/grpcutil"
-	pb "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/auth"
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/services/auth/internal/domain"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/services/auth/internal/usecase"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/grpcutil"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/utils"
+	pb "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/auth"
 )
 
 func mapDomainToPBSession(s domain.Session) *pb.Session {
@@ -46,7 +48,11 @@ func (h *AuthHandler) IssueSession(ctx context.Context, req *pb.IssueSessionRequ
 }
 
 func (h *AuthHandler) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResponse, error) {
-	session, err := h.usecase.Login(ctx, req.Email, req.Password)
+	session, err := h.usecase.Login(ctx, req.GetEmail(), req.GetPassword())
+	if errors.Is(err, utils.ErrInvalidEmail) || errors.Is(err, utils.ErrInvalidPassword) {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
 	if errors.Is(err, domain.ErrInvalidCredentials) {
 		return nil, status.Error(codes.Unauthenticated, "invalid email or password")
 	}

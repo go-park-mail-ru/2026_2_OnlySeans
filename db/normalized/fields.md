@@ -23,7 +23,7 @@ ER-диаграммы — в [er.md](er.md), DDL целиком — в `db/migra
 | `date` для дат без времени | дата рождения, премьеры, выхода серии |
 | `smallint` для небольших чисел | оценка 1–10, год, номера сезонов и серий, порядок сортировки |
 | `numeric(4,3)` для оценки модели | дробное значение 0…1 с фиксированной точностью, без двоичной плавающей точки |
-| Нет `array` и `json` | запрещено условием задания; любое множество вынесено в отдельное отношение |
+| Нет `array` и `json` в исходной учебной схеме | множества вынесены в отдельные отношения; позднее для служебных настроек интерфейса добавлено `account.preferences` типа `jsonb` |
 | **Индексов нет** | создаются только те, что СУБД делает сама под PRIMARY KEY и UNIQUE. Три частичных уникальных индекса — не оптимизация, а ограничения целостности, которые обычным UNIQUE не выразить. Индексы для скорости будут отдельной работой, каждый со своим обоснованием |
 | **Нет `ON UPDATE CASCADE`** | первичные ключи — IDENTITY, они никогда не меняются, поэтому каскад по UPDATE давал бы только лишние срабатывания |
 | `ON DELETE RESTRICT` на пользовательский контент | рецензии, оценки, история оценок и сообщения чата не исчезают вместе с учётной записью. Удаление аккаунта — мягкое, через `anonymize_account()` |
@@ -94,6 +94,7 @@ ER-диаграммы — в [er.md](er.md), DDL целиком — в `db/migra
 | birth_date | date | CHECK > 1900-01-01 | возраст не хранится: он производный |
 | bio | text | CHECK ≤ 2000 | «о себе» |
 | is_private | boolean | NN, DEFAULT false | приватность профиля |
+| preferences | jsonb | NN, DEFAULT `'{}'::jsonb` | настройки интерфейса: `frame:sidebar-collapsed` и `frame:catalog-view` |
 | avatar_file_id | bigint | FK → file, SET NULL | аватар — обычный файл из таблицы `file`, поэтому протокол и размер описаны там |
 | deleted_at | timestamptz | | мягкое удаление: NULL — запись активна |
 | — | — | CHECK deleted_at IS NULL OR (first_name, gender, birth_date, bio все NULL) | у удалённой записи персональных данных не остаётся: база не даст «удалить наполовину» |
@@ -112,6 +113,8 @@ ER-диаграммы — в [er.md](er.md), DDL целиком — в `db/migra
 | id | bigint IDENTITY | PK | |
 | storage_key | text | UQ, CHECK 1–512 | бакет и путь к объекту в S3/MinIO, например `poster/shawshank-1.jpg` |
 | external_url | text | UQ, CHECK `^[a-z][a-z0-9+.-]*://`, ≤ 1024 | адрес во внешнем сервисе. Проверяется только наличие схемы, потому что это может быть http, grpc или внутренний протокол хранилища |
+| source_url | text | допускается NULL | ссылка на источник изображения |
+| source_credit | text | допускается NULL | автор или правообладатель изображения |
 | — | — | CHECK `num_nonnulls(storage_key, external_url) = 1` | файл либо у нас, либо снаружи, но не то и другое |
 | mime_type | text | NN, CHECK `^[a-z]+/[a-z0-9.+-]{2,64}$` | image/jpeg, video/mp4 |
 | size_bytes | bigint | CHECK > 0 | |
@@ -246,7 +249,12 @@ ER-диаграммы — в [er.md](er.md), DDL целиком — в `db/migra
 | id | bigint IDENTITY | PK | |
 | first_name | text | NN, CHECK 1–128 | |
 | last_name | text | NN, CHECK 1–128 | |
+| original_name | text | допускается NULL | имя персоны в оригинальном написании |
 | birth_date | date | CHECK > 1800-01-01 | возраст вычисляется |
+| death_date | date | допускается NULL | дата смерти |
+| birth_place | text | допускается NULL | место рождения |
+| biography | text | допускается NULL | биография |
+| source_url | text | допускается NULL | ссылка на источник сведений о персоне |
 | photo_file_id | bigint | FK → file, SET NULL | фото — обычный файл |
 | created_at | timestamptz | NN, DEFAULT now() | |
 | updated_at | timestamptz | NN, DEFAULT now() | ведёт триггер |

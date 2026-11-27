@@ -114,7 +114,7 @@ func NewRouter(handlers Handlers, authMiddleware *middleware.AuthMiddleware, all
 	}
 	r.Use(middleware.CaptureMetricsRoute)
 
-	handler, err := middleware.WithCORSAndCSRF(r, allowedOrigins)
+	handler, err := middleware.WithCORSAndCSRF(newOpenAPIHandler(r), allowedOrigins)
 	if err != nil {
 		return nil, err
 	}

@@ -10,7 +10,7 @@ import (
 
 const messageSizeOverhead = 1 << 20
 
-func NewServer(handler *CatalogHandler, maxPosterSize int64) (*grpc.Server, error) {
+func NewServer(handler *CatalogHandler, maxPosterSize int64, opts ...grpc.ServerOption) (*grpc.Server, error) {
 	if handler == nil {
 		return nil, errors.New("catalog handler is required")
 	}
@@ -20,7 +20,8 @@ func NewServer(handler *CatalogHandler, maxPosterSize int64) (*grpc.Server, erro
 		return nil, errors.New("poster size must be positive and leave room for gRPC message overhead")
 	}
 
-	server := grpc.NewServer(grpc.MaxRecvMsgSize(int(maxPosterSize) + messageSizeOverhead))
+	opts = append(opts, grpc.MaxRecvMsgSize(int(maxPosterSize)+messageSizeOverhead))
+	server := grpc.NewServer(opts...)
 	pb.RegisterCatalogServiceServer(server, handler)
 
 	return server, nil
