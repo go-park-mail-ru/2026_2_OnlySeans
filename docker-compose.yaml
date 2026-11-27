@@ -65,6 +65,11 @@ services:
     environment:
       DATABASE_URL: "postgres://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}?sslmode=disable"
       REVIEWS_GRPC_TOKEN: "${REVIEWS_GRPC_TOKEN:-}"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/50051'"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     restart: always
 
   backend:
@@ -79,7 +84,7 @@ services:
       rustfs:
         condition: service_healthy
       reviews:
-        condition: service_started
+        condition: service_healthy
     environment:
       S3_ENDPOINT: "http://rustfs:9000"
       S3_PUBLIC_ENDPOINT: "${S3_PUBLIC_ENDPOINT:-http://localhost:8050}"

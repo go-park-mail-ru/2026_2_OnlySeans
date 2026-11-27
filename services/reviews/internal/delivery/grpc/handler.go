@@ -67,7 +67,7 @@ func (h *Handler) CreateReview(ctx context.Context, req *reviewspb.CreateReviewR
 	if req.GetUserId() <= 0 {
 		return nil, rpcError(domain.ErrUnauthorized)
 	}
-	input := reviewsusecase.NewCreateReviewInput(domain.UserID(req.GetUserId()), domain.FilmID(req.GetFilmId()), fromProtoInput(req.GetReview()))
+	input := reviewsusecase.NewCreateReviewInput(domain.UserID(req.GetUserId()), domain.FilmID(req.GetFilmId()), fromProtoReviewData(req.GetReview()))
 	result, err := h.operations.Create(ctx, input)
 	if err != nil {
 		return nil, rpcError(err)
@@ -87,7 +87,7 @@ func (h *Handler) UpdateReview(ctx context.Context, req *reviewspb.UpdateReviewR
 		return nil, rpcError(domain.ErrInvalidVersion)
 	}
 	// проверку авторства и версии выполняет существующий юзкейс
-	input := reviewsusecase.NewUpdateReviewInput(domain.UserID(req.GetUserId()), domain.ReviewID(req.GetReviewId()), fromProtoInput(req.GetReview()), int(version))
+	input := reviewsusecase.NewUpdateReviewInput(domain.UserID(req.GetUserId()), domain.ReviewID(req.GetReviewId()), fromProtoReviewData(req.GetReview()), int(version))
 	result, err := h.operations.Update(ctx, input)
 	if err != nil {
 		return nil, rpcError(err)
@@ -95,7 +95,7 @@ func (h *Handler) UpdateReview(ctx context.Context, req *reviewspb.UpdateReviewR
 	return &reviewspb.UpdateReviewResponse{Review: toProtoReview(result.Review)}, nil
 }
 
-func (h *Handler) DeleteReview(ctx context.Context, req *reviewspb.DeleteReviewRequest) (*emptypb.Empty, error) {
+func (h *Handler) DeleteReview(ctx context.Context, req *reviewspb.DeleteReviewRequest) (*reviewspb.DeleteReviewResponse, error) {
 	if req.GetReviewId() <= 0 {
 		return nil, status.Error(codes.InvalidArgument, "review_id must be positive")
 	}
@@ -106,10 +106,10 @@ func (h *Handler) DeleteReview(ctx context.Context, req *reviewspb.DeleteReviewR
 	if err := h.operations.Delete(ctx, input); err != nil {
 		return nil, rpcError(err)
 	}
-	return &emptypb.Empty{}, nil
+	return &reviewspb.DeleteReviewResponse{Empty: &emptypb.Empty{}}, nil
 }
 
-func fromProtoInput(input *reviewspb.ReviewInput) domain.ReviewInput {
+func fromProtoReviewData(input *reviewspb.ReviewData) domain.ReviewInput {
 	return domain.ReviewInput{Title: input.GetTitle(), Content: input.GetContent(), ContainsSpoilers: input.GetContainsSpoilers()}
 }
 

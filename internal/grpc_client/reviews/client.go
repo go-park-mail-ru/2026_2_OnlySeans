@@ -12,11 +12,10 @@ import (
 func Operations(client reviewspb.ReviewsServiceClient) reviewsdelivery.Operations {
 	return reviewsdelivery.Operations{
 		List: func(ctx context.Context, filmID domain.FilmID, limit, offset int) ([]domain.Review, int, error) {
-			// A page of 100 reviews with 20,000 UTF-8 characters can exceed the default 4 MiB limit.
-			const maxPageSize = 10 << 20
+			const maxReceiveMessageSize = 10 << 20
 			response, err := client.ListReviews(ctx, &reviewspb.ListReviewsRequest{
 				FilmId: int64(filmID), Limit: int32(limit), Offset: int64(offset),
-			}, grpc.MaxCallRecvMsgSize(maxPageSize))
+			}, grpc.MaxCallRecvMsgSize(maxReceiveMessageSize))
 			if err != nil {
 				return nil, 0, domainError(err)
 			}
@@ -29,7 +28,7 @@ func Operations(client reviewspb.ReviewsServiceClient) reviewsdelivery.Operation
 		},
 		Create: func(ctx context.Context, authorID domain.UserID, filmID domain.FilmID, input domain.ReviewInput) (domain.ReviewID, error) {
 			response, err := client.CreateReview(ctx, &reviewspb.CreateReviewRequest{
-				FilmId: int64(filmID), UserId: int64(authorID), Review: toProtoInput(input),
+				FilmId: int64(filmID), UserId: int64(authorID), Review: toProtoReviewData(input),
 			})
 			if err != nil {
 				return 0, domainError(err)
@@ -38,7 +37,7 @@ func Operations(client reviewspb.ReviewsServiceClient) reviewsdelivery.Operation
 		},
 		Update: func(ctx context.Context, userID domain.UserID, reviewID domain.ReviewID, input domain.ReviewInput, version int) (domain.Review, error) {
 			response, err := client.UpdateReview(ctx, &reviewspb.UpdateReviewRequest{
-				ReviewId: int64(reviewID), UserId: int64(userID), Review: toProtoInput(input), Version: int64(version),
+				ReviewId: int64(reviewID), UserId: int64(userID), Review: toProtoReviewData(input), Version: int64(version),
 			})
 			if err != nil {
 				return domain.Review{}, domainError(err)
@@ -54,8 +53,8 @@ func Operations(client reviewspb.ReviewsServiceClient) reviewsdelivery.Operation
 	}
 }
 
-func toProtoInput(input domain.ReviewInput) *reviewspb.ReviewInput {
-	return &reviewspb.ReviewInput{Title: input.Title, Content: input.Content, ContainsSpoilers: input.ContainsSpoilers}
+func toProtoReviewData(input domain.ReviewInput) *reviewspb.ReviewData {
+	return &reviewspb.ReviewData{Title: input.Title, Content: input.Content, ContainsSpoilers: input.ContainsSpoilers}
 }
 
 func fromProtoReview(review *reviewspb.Review) domain.Review {

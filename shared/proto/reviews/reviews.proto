@@ -30,7 +30,7 @@ message ListReviewsResponse {
   int64 total = 2;
 }
 
-message ReviewInput {
+message ReviewData {
   string title = 1;
   string content = 2;
   bool contains_spoilers = 3;
@@ -39,7 +39,7 @@ message ReviewInput {
 message CreateReviewRequest {
   int64 film_id = 1;
   int64 user_id = 2;
-  ReviewInput review = 3;
+  ReviewData review = 3;
 }
 
 message CreateReviewResponse {
@@ -49,7 +49,7 @@ message CreateReviewResponse {
 message UpdateReviewRequest {
   int64 review_id = 1;
   int64 user_id = 2;
-  ReviewInput review = 3;
+  ReviewData review = 3;
   int64 version = 4;
 }
 
@@ -62,10 +62,14 @@ message DeleteReviewRequest {
   int64 user_id = 2;
 }
 
+message DeleteReviewResponse {
+  google.protobuf.Empty empty = 1;
+}
+
 // Идентификатор user_id приходит из проверенной сессии HTTP-бэкенда
 service ReviewsService {
   rpc ListReviews(ListReviewsRequest) returns (ListReviewsResponse);
   rpc CreateReview(CreateReviewRequest) returns (CreateReviewResponse);
   rpc UpdateReview(UpdateReviewRequest) returns (UpdateReviewResponse);
-  rpc DeleteReview(DeleteReviewRequest) returns (google.protobuf.Empty);
+  rpc DeleteReview(DeleteReviewRequest) returns (DeleteReviewResponse);
 }

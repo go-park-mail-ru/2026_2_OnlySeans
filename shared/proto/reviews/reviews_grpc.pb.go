@@ -11,7 +11,6 @@ import (
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
-	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 // This is a compile-time assertion to ensure that this generated file
@@ -35,7 +34,7 @@ type ReviewsServiceClient interface {
 	ListReviews(ctx context.Context, in *ListReviewsRequest, opts ...grpc.CallOption) (*ListReviewsResponse, error)
 	CreateReview(ctx context.Context, in *CreateReviewRequest, opts ...grpc.CallOption) (*CreateReviewResponse, error)
 	UpdateReview(ctx context.Context, in *UpdateReviewRequest, opts ...grpc.CallOption) (*UpdateReviewResponse, error)
-	DeleteReview(ctx context.Context, in *DeleteReviewRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	DeleteReview(ctx context.Context, in *DeleteReviewRequest, opts ...grpc.CallOption) (*DeleteReviewResponse, error)
 }
 
 type reviewsServiceClient struct {
@@ -76,9 +75,9 @@ func (c *reviewsServiceClient) UpdateReview(ctx context.Context, in *UpdateRevie
 	return out, nil
 }
 
-func (c *reviewsServiceClient) DeleteReview(ctx context.Context, in *DeleteReviewRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *reviewsServiceClient) DeleteReview(ctx context.Context, in *DeleteReviewRequest, opts ...grpc.CallOption) (*DeleteReviewResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(emptypb.Empty)
+	out := new(DeleteReviewResponse)
 	err := c.cc.Invoke(ctx, ReviewsService_DeleteReview_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -95,7 +94,7 @@ type ReviewsServiceServer interface {
 	ListReviews(context.Context, *ListReviewsRequest) (*ListReviewsResponse, error)
 	CreateReview(context.Context, *CreateReviewRequest) (*CreateReviewResponse, error)
 	UpdateReview(context.Context, *UpdateReviewRequest) (*UpdateReviewResponse, error)
-	DeleteReview(context.Context, *DeleteReviewRequest) (*emptypb.Empty, error)
+	DeleteReview(context.Context, *DeleteReviewRequest) (*DeleteReviewResponse, error)
 	mustEmbedUnimplementedReviewsServiceServer()
 }
 
@@ -115,7 +114,7 @@ func (UnimplementedReviewsServiceServer) CreateReview(context.Context, *CreateRe
 func (UnimplementedReviewsServiceServer) UpdateReview(context.Context, *UpdateReviewRequest) (*UpdateReviewResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method UpdateReview not implemented")
 }
-func (UnimplementedReviewsServiceServer) DeleteReview(context.Context, *DeleteReviewRequest) (*emptypb.Empty, error) {
+func (UnimplementedReviewsServiceServer) DeleteReview(context.Context, *DeleteReviewRequest) (*DeleteReviewResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeleteReview not implemented")
 }
 func (UnimplementedReviewsServiceServer) mustEmbedUnimplementedReviewsServiceServer() {}
