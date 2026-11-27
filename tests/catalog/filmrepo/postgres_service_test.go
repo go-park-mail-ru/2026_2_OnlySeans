@@ -224,6 +224,39 @@ func checkPostgresService_ListFilmsEmptyPage(t *testing.T) {
 	assert.Empty(t, list)
 }
 
+func TestPostgresService_FilterFilmsByGenre(t *testing.T) {
+	service, mock := newPostgresService(t)
+
+	mock.ExpectBegin()
+	mock.ExpectQuery(`SELECT count\(\*\).*FROM film AS f.*g.slug = \$1`).
+		WithArgs("drama").
+		WillReturnRows(countRows(1))
+	mock.ExpectQuery(`FROM film AS f.*g.slug = \$1.*LIMIT \$2 OFFSET \$3`).
+		WithArgs("drama", 20, 0).
+		WillReturnRows(filmRows(shawshank()))
+	mock.ExpectQuery(`FROM film_genre`).
+		WithArgs([]int64{1}).
+		WillReturnRows(sqlmock.NewRows(genreColumns).AddRow(1, dramaGenre.ID, dramaGenre.Name, dramaGenre.Slug))
+	mock.ExpectCommit()
+
+	list, total, err := service.FilterFilms(context.Background(), domain.FilmFilter{GenreSlug: "drama"}, 20, 0)
+	require.NoError(t, err)
+	assert.Equal(t, 1, total)
+	assert.Equal(t, []domain.Film{withGenres(shawshank(), dramaGenre)}, list)
+}
+
+func TestPostgresService_ListGenres(t *testing.T) {
+	service, mock := newPostgresService(t)
+	mock.ExpectQuery(`SELECT id, name, slug.*FROM genre.*ORDER BY name`).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "slug"}).
+			AddRow(dramaGenre.ID, dramaGenre.Name, dramaGenre.Slug).
+			AddRow(crimeGenre.ID, crimeGenre.Name, crimeGenre.Slug))
+
+	genres, err := service.ListGenres(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, []domain.Genre{dramaGenre, crimeGenre}, genres)
+}
+
 func checkPostgresService_ListFilmsErrors(t *testing.T) {
 	interrupted := filmRows(shawshank(), ivan()).RowError(1, errStorage)
 

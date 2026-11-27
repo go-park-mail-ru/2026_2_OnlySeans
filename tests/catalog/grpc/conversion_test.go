@@ -236,6 +236,10 @@ func (s *conversionFilms) ListFilms(_ context.Context, limit, offset int) ([]dom
 
 	return nil, 0, nil
 }
+
+func (s *conversionFilms) FilterFilms(ctx context.Context, _ domain.FilmFilter, limit, offset int) ([]domain.Film, int, error) {
+	return s.ListFilms(ctx, limit, offset)
+}
 func (s *conversionFilms) CreateFilm(_ context.Context, input domain.CreateFilmInput) (domain.FilmID, error) {
 	s.calls++
 	s.input = input

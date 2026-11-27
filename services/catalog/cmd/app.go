@@ -81,6 +81,7 @@ func run(ctx context.Context) error {
 	ratingsRepo := catalogpostgres.NewRatingRepo(db, appLogger)
 	libraryRepo := catalogpostgres.NewLibraryRepo(db, appLogger)
 	preferencesRepo := catalogpostgres.NewPreferencesRepo(db, appLogger)
+	analyticsRepo := catalogpostgres.NewAnalyticsRepo(db, appLogger)
 
 	postersRepo, err := catalogpostgres.NewPosterRepo(db, appLogger)
 	if err != nil {
@@ -108,6 +109,7 @@ func run(ctx context.Context) error {
 		usecase.NewLibraryUseCase(libraryRepo),
 		usecase.NewPreferencesUseCase(preferencesRepo),
 		posters,
+		usecase.NewAnalyticsUseCase(analyticsRepo),
 	)
 
 	server, err := cataloggrpc.NewServer(handler, cfg.S3.MaxPosterSize, grpc.ChainUnaryInterceptor(grpcutil.UnaryServerRequestID, grpcutil.UnaryServerLogging("catalog", appLogger)))

@@ -11,7 +11,11 @@ type FilmReader interface {
 }
 
 type FilmLister interface {
-	ListFilms(ctx context.Context, limit, offset int) ([]domain.Film, int, error)
+	FilterFilms(ctx context.Context, filter domain.FilmFilter, limit, offset int) ([]domain.Film, int, error)
+}
+
+type GenreReader interface {
+	ListGenres(ctx context.Context) ([]domain.Genre, error)
 }
 
 type FilmWriter interface {

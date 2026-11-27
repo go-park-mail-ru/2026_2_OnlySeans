@@ -11,6 +11,7 @@ service CatalogService {
     rpc CreateFilm(CreateFilmRequest) returns (CreateFilmResponse);
     rpc GetFilm(GetFilmRequest) returns (GetFilmResponse);
     rpc ListFilms(ListFilmsRequest) returns (ListFilmsResponse);
+    rpc ListGenres(google.protobuf.Empty) returns (ListGenresResponse);
     rpc UpdateFilm(UpdateFilmRequest) returns (google.protobuf.Empty);
     rpc DeleteFilm(DeleteFilmRequest) returns (google.protobuf.Empty);
     rpc ListCollections(ListCollectionsRequest) returns (ListCollectionsResponse);
@@ -27,6 +28,9 @@ service CatalogService {
     rpc UploadPoster(UploadPosterRequest) returns (UploadPosterResponse);
     rpc GetPosterURL(GetPosterURLRequest) returns (GetPosterURLResponse);
     rpc DeletePoster(DeletePosterRequest) returns (google.protobuf.Empty);
+    rpc TopGenres(TopGenresRequest) returns (TopGenresResponse);
+    rpc GenreAge(GenreAgeRequest) returns (GenreAgeResponse);
+    rpc RecordFilmOpen(RecordFilmOpenRequest) returns (google.protobuf.Empty);
 }
 
 message Pagination {
@@ -82,11 +86,16 @@ message GetFilmResponse {
 
 message ListFilmsRequest {
     Pagination pagination = 1;
+    string genre_slug = 2;
 }
 
 message ListFilmsResponse {
     repeated Film films = 1;
     int64 total = 2;
+}
+
+message ListGenresResponse {
+    repeated Genre genres = 1;
 }
 
 message UpdateFilmRequest {
@@ -244,4 +253,45 @@ message GetPosterURLResponse {
 
 message DeletePosterRequest {
     int64 film_id = 1;
+}
+
+message TopGenresRequest {
+    google.protobuf.Timestamp from = 1;
+    google.protobuf.Timestamp to = 2;
+    int32 limit = 3;
+}
+
+message GenreOpenStat {
+    int64 genre_id = 1;
+    string name = 2;
+    string slug = 3;
+    int64 open_count = 4;
+}
+
+message TopGenresResponse {
+    repeated GenreOpenStat genres = 1;
+}
+
+message GenreAgeRequest {
+    string genre_slug = 1;
+    google.protobuf.Timestamp from = 2;
+    google.protobuf.Timestamp to = 3;
+}
+
+message AgeGroupOpenStat {
+    string age_group = 1;
+    int64 genre_open_count = 2;
+    int64 total_open_count = 3;
+    double share = 4;
+}
+
+message GenreAgeResponse {
+    string genre_slug = 1;
+    repeated AgeGroupOpenStat age_groups = 2;
+}
+
+message RecordFilmOpenRequest {
+    string visitor_public_id = 1;
+    optional int64 account_id = 2;
+    int64 film_id = 3;
 }

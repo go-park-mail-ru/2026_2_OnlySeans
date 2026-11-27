@@ -35,6 +35,10 @@ func (s filmStub) ListFilms(ctx context.Context, limit, offset int) ([]domain.Fi
 	return s.list(ctx, limit, offset)
 }
 
+func (s filmStub) FilterFilms(ctx context.Context, _ domain.FilmFilter, limit, offset int) ([]domain.Film, int, error) {
+	return s.list(ctx, limit, offset)
+}
+
 func (s filmStub) CreateFilm(ctx context.Context, input domain.CreateFilmInput) (domain.FilmID, error) {
 	return s.create(ctx, input)
 }

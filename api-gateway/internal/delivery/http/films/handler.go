@@ -2,12 +2,14 @@ package films
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
 
 	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/httprequest"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/httpresponse"
@@ -15,6 +17,7 @@ import (
 	"github.com/gorilla/mux"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/grpc_client/catalogclient"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/middleware"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/logger"
 )
@@ -25,7 +28,10 @@ const (
 	minLimit                = 1
 	maxLimit                = 100
 	defaultOffset           = 0
+	visitorCookieTTL        = 365 * 24 * time.Hour
 )
+
+const VisitorCookieName = "visitor_id"
 
 const (
 	limitParam          = "limit"
@@ -132,7 +138,7 @@ func (h *Handler) ListFilms(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := h.client.ListFilms(r.Context(), limit, offset)
+	result, err := h.client.ListFilms(r.Context(), r.URL.Query().Get("genre"), limit, offset)
 	if err != nil {
 		writeError(r.Context(), w, err, h.appLogger)
 		return
@@ -177,9 +183,39 @@ func (h *Handler) GetFilm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	visitorID := ensureVisitorCookie(w, r)
+	var accountID *int64
+	if id, ok := middleware.UserIDFromContext(r.Context()); ok {
+		accountID = &id
+	}
+
+	if err := h.client.RecordFilmOpen(r.Context(), visitorID, accountID, result.GetFilm().GetId()); err != nil {
+		h.appLogger.WarnContext(r.Context(), "film open analytics skipped", map[string]any{"error": err, "film_id": id})
+	}
+
 	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, filmResponse{
 		Film: toFilmResponseDTO(result.Film),
 	}, h.appLogger)
+}
+
+func ensureVisitorCookie(w http.ResponseWriter, r *http.Request) string {
+	if cookie, err := r.Cookie(VisitorCookieName); err == nil && len(cookie.Value) >= 16 && len(cookie.Value) <= 64 {
+		return cookie.Value
+	}
+
+	visitorID := rand.Text()
+	http.SetCookie(w, &http.Cookie{
+		Name:     VisitorCookieName,
+		Value:    visitorID,
+		Path:     "/",
+		Expires:  time.Now().Add(visitorCookieTTL),
+		MaxAge:   int(visitorCookieTTL / time.Second),
+		HttpOnly: true,
+		Secure:   r.TLS != nil,
+		SameSite: http.SameSiteLaxMode,
+	})
+
+	return visitorID
 }
 
 func (h *Handler) CreateFilm(w http.ResponseWriter, r *http.Request) {

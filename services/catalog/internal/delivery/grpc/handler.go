@@ -13,10 +13,11 @@ type CatalogHandler struct {
 	library     usecase.LibraryUseCase
 	preferences usecase.PreferencesUseCase
 	posters     usecase.PosterUseCase
+	analytics   usecase.AnalyticsUseCase
 }
 
-func NewCatalogHandler(films usecase.FilmUseCase, collections usecase.CollectionUseCase, ratings usecase.RatingUseCase, library usecase.LibraryUseCase, preferences usecase.PreferencesUseCase, posters usecase.PosterUseCase) *CatalogHandler {
-	return &CatalogHandler{
+func NewCatalogHandler(films usecase.FilmUseCase, collections usecase.CollectionUseCase, ratings usecase.RatingUseCase, library usecase.LibraryUseCase, preferences usecase.PreferencesUseCase, posters usecase.PosterUseCase, analytics ...usecase.AnalyticsUseCase) *CatalogHandler {
+	handler := &CatalogHandler{
 		films:       films,
 		collections: collections,
 		ratings:     ratings,
@@ -24,4 +25,9 @@ func NewCatalogHandler(films usecase.FilmUseCase, collections usecase.Collection
 		preferences: preferences,
 		posters:     posters,
 	}
+	if len(analytics) > 0 {
+		handler.analytics = analytics[0]
+	}
+
+	return handler
 }

@@ -48,6 +48,10 @@ type Film struct {
 	Genres           []Genre
 }
 
+type FilmFilter struct {
+	GenreSlug string
+}
+
 type CreateFilmInput struct {
 	Title         string
 	OriginalTitle *string

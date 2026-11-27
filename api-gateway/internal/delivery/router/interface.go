@@ -4,12 +4,18 @@ import "net/http"
 
 type filmsHandler interface {
 	ListFilms(http.ResponseWriter, *http.Request)
+	ListGenres(http.ResponseWriter, *http.Request)
 	GetFilm(http.ResponseWriter, *http.Request)
 	CreateFilm(http.ResponseWriter, *http.Request)
 	UpdateFilm(http.ResponseWriter, *http.Request)
 	DeleteFilm(http.ResponseWriter, *http.Request)
 	ListCollections(http.ResponseWriter, *http.Request)
 	GetCollection(http.ResponseWriter, *http.Request)
+}
+
+type analyticsHandler interface {
+	TopGenres(http.ResponseWriter, *http.Request)
+	GenreAge(http.ResponseWriter, *http.Request)
 }
 
 type reviewsHandler interface {

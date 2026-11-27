@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -13,6 +14,8 @@ type FilmUseCase interface {
 	CreateFilm(ctx context.Context, input domain.CreateFilmInput) (domain.FilmID, error)
 	GetFilmByID(ctx context.Context, id domain.FilmID) (domain.Film, error)
 	ListFilms(ctx context.Context, limit, offset int) ([]domain.Film, int, error)
+	FilterFilms(ctx context.Context, filter domain.FilmFilter, limit, offset int) ([]domain.Film, int, error)
+	ListGenres(ctx context.Context) ([]domain.Genre, error)
 	UpdateFilm(ctx context.Context, id domain.FilmID, input domain.CreateFilmInput) error
 	DeleteFilm(ctx context.Context, id domain.FilmID) error
 }
@@ -20,15 +23,22 @@ type FilmUseCase interface {
 type filmUseCase struct {
 	reader repository.FilmReader
 	lister repository.FilmLister
+	genres repository.GenreReader
 	writer repository.FilmWriter
 }
 
 func NewFilmUseCase(reader repository.FilmReader, lister repository.FilmLister, writer repository.FilmWriter) FilmUseCase {
+	genres, _ := writer.(repository.GenreReader)
 	return &filmUseCase{
 		reader: reader,
 		lister: lister,
+		genres: genres,
 		writer: writer,
 	}
+}
+
+func (u *filmUseCase) ListFilms(ctx context.Context, limit, offset int) ([]domain.Film, int, error) {
+	return u.FilterFilms(ctx, domain.FilmFilter{}, limit, offset)
 }
 
 func (u *filmUseCase) CreateFilm(ctx context.Context, input domain.CreateFilmInput) (domain.FilmID, error) {
@@ -59,17 +69,30 @@ func (u *filmUseCase) GetFilmByID(ctx context.Context, id domain.FilmID) (domain
 	return film, nil
 }
 
-func (u *filmUseCase) ListFilms(ctx context.Context, limit, offset int) ([]domain.Film, int, error) {
+func (u *filmUseCase) FilterFilms(ctx context.Context, filter domain.FilmFilter, limit, offset int) ([]domain.Film, int, error) {
 	if err := validatePagination(limit, offset); err != nil {
 		return nil, 0, err
 	}
 
-	films, total, err := u.lister.ListFilms(ctx, limit, offset)
+	films, total, err := u.lister.FilterFilms(ctx, filter, limit, offset)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list films: %w", err)
 	}
 
 	return films, total, nil
+}
+
+func (u *filmUseCase) ListGenres(ctx context.Context) ([]domain.Genre, error) {
+	if u.genres == nil {
+		return nil, errors.New("genre reader is required")
+	}
+
+	genres, err := u.genres.ListGenres(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list genres: %w", err)
+	}
+
+	return genres, nil
 }
 
 func (u *filmUseCase) UpdateFilm(ctx context.Context, id domain.FilmID, input domain.CreateFilmInput) error {

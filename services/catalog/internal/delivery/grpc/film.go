@@ -55,7 +55,7 @@ func (h *CatalogHandler) ListFilms(ctx context.Context, req *pb.ListFilmsRequest
 		return nil, toGRPCError(err)
 	}
 
-	films, total, err := h.films.ListFilms(ctx, limit, offset)
+	films, total, err := h.films.FilterFilms(ctx, domain.FilmFilter{GenreSlug: req.GetGenreSlug()}, limit, offset)
 	if err != nil {
 		return nil, toGRPCError(err)
 	}
@@ -64,6 +64,24 @@ func (h *CatalogHandler) ListFilms(ctx context.Context, req *pb.ListFilmsRequest
 		Films: toProtoFilms(films),
 		Total: int64(total),
 	}, nil
+}
+
+func (h *CatalogHandler) ListGenres(ctx context.Context, req *emptypb.Empty) (*pb.ListGenresResponse, error) {
+	if req == nil {
+		return nil, missingRequest()
+	}
+
+	genres, err := h.films.ListGenres(ctx)
+	if err != nil {
+		return nil, toGRPCError(err)
+	}
+
+	result := make([]*pb.Genre, len(genres))
+	for i, genre := range genres {
+		result[i] = &pb.Genre{Id: int64(genre.ID), Name: genre.Name, Slug: genre.Slug}
+	}
+
+	return &pb.ListGenresResponse{Genres: result}, nil
 }
 
 func (h *CatalogHandler) UpdateFilm(ctx context.Context, req *pb.UpdateFilmRequest) (*emptypb.Empty, error) {

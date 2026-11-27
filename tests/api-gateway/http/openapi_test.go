@@ -39,6 +39,10 @@ func (p openAPIRouteProbe) ListFilms(w http.ResponseWriter, r *http.Request) {
 	p.write(w, r, "ListFilms")
 }
 
+func (p openAPIRouteProbe) ListGenres(w http.ResponseWriter, r *http.Request) {
+	p.write(w, r, "ListGenres")
+}
+
 func (p openAPIRouteProbe) GetFilm(w http.ResponseWriter, r *http.Request) {
 	p.write(w, r, "GetFilm")
 }

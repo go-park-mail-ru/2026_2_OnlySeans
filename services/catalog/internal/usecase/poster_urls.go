@@ -47,8 +47,8 @@ func (r *PosterURLReader) GetFilmByID(ctx context.Context, id domain.FilmID) (do
 	return film, nil
 }
 
-func (r *PosterURLReader) ListFilms(ctx context.Context, limit, offset int) ([]domain.Film, int, error) {
-	films, total, err := r.lister.ListFilms(ctx, limit, offset)
+func (r *PosterURLReader) FilterFilms(ctx context.Context, filter domain.FilmFilter, limit, offset int) ([]domain.Film, int, error) {
+	films, total, err := r.lister.FilterFilms(ctx, filter, limit, offset)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -59,6 +59,10 @@ func (r *PosterURLReader) ListFilms(ctx context.Context, limit, offset int) ([]d
 	}
 
 	return result, total, nil
+}
+
+func (r *PosterURLReader) ListFilms(ctx context.Context, limit, offset int) ([]domain.Film, int, error) {
+	return r.FilterFilms(ctx, domain.FilmFilter{}, limit, offset)
 }
 
 func (r *PosterURLReader) ListCollections(ctx context.Context, limit, offset int) ([]domain.Collection, int, error) {

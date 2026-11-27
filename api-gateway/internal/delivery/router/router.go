@@ -23,6 +23,7 @@ type Handlers struct {
 	PersonalRating personalRatingHandler
 	PersonCatalog  personCatalogHandler
 	Assets         assetsHandler
+	Analytics      analyticsHandler
 }
 
 func NewRouter(handlers Handlers, authMiddleware *middleware.AuthMiddleware, allowedOrigins []string, appLogger logger.Logger) (http.Handler, error) {
@@ -52,13 +53,19 @@ func NewRouter(handlers Handlers, authMiddleware *middleware.AuthMiddleware, all
 
 	if filmsHandler := handlers.Films; filmsHandler != nil {
 		r.HandleFunc("/api/films", filmsHandler.ListFilms).Methods(http.MethodGet)
-		r.HandleFunc("/api/films/{id}", filmsHandler.GetFilm).Methods(http.MethodGet)
+		r.HandleFunc("/api/films/{id}", middleware.WrapMiddlewares(filmsHandler.GetFilm, []middleware.Middleware{authMiddleware.OptionalAuthenticate})).Methods(http.MethodGet)
+		r.HandleFunc("/api/genres", filmsHandler.ListGenres).Methods(http.MethodGet)
 		r.HandleFunc("/api/films", middleware.WrapMiddlewares(filmsHandler.CreateFilm, adminMiddlewares)).Methods(http.MethodPost)
 		r.HandleFunc("/api/films/{id}", middleware.WrapMiddlewares(filmsHandler.UpdateFilm, adminMiddlewares)).Methods(http.MethodPut)
 		r.HandleFunc("/api/films/{id}", middleware.WrapMiddlewares(filmsHandler.DeleteFilm, adminMiddlewares)).Methods(http.MethodDelete)
 
 		r.HandleFunc("/api/collections", filmsHandler.ListCollections).Methods(http.MethodGet)
 		r.HandleFunc("/api/collections/{id}", filmsHandler.GetCollection).Methods(http.MethodGet)
+	}
+
+	if analyticsHandler := handlers.Analytics; analyticsHandler != nil {
+		r.HandleFunc("/api/admin/analytics/genres", middleware.WrapMiddlewares(analyticsHandler.TopGenres, adminMiddlewares)).Methods(http.MethodGet)
+		r.HandleFunc("/api/admin/analytics/genres/{slug}/age", middleware.WrapMiddlewares(analyticsHandler.GenreAge, adminMiddlewares)).Methods(http.MethodGet)
 	}
 
 	r.HandleFunc("/api/authorised", middleware.WrapMiddlewares(authHandler.Authorised, authenticatedMiddlewares)).Methods(http.MethodGet)

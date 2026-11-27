@@ -62,6 +62,27 @@ func (m *AuthMiddleware) Authenticate(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+func (m *AuthMiddleware) OptionalAuthenticate(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		cookie, err := r.Cookie("session_id")
+		if err != nil || cookie.Value == "" {
+			next(w, r)
+			return
+		}
+
+		session, err := m.authClient.CheckSession(r.Context(), cookie.Value)
+		if err != nil {
+			m.appLogger.WarnContext(r.Context(), "optional authentication failed", map[string]any{"error": err})
+			next(w, r)
+			return
+		}
+
+		ctx := ContextWithUserID(r.Context(), session.UserID)
+		ctx = ContextWithRole(ctx, session.Role)
+		next(w, r.WithContext(ctx))
+	}
+}
+
 func (m *AuthMiddleware) RequireAdmin(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()

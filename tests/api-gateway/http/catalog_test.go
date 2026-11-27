@@ -25,6 +25,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	analyticshttp "github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/analytics"
 	authhttp "github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/auth"
 	fileshttp "github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/files"
 	filmshttp "github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/films"
@@ -174,6 +175,7 @@ func testGateway(t *testing.T, expected []rpcExpectation, role string) (http.Han
 		Library:        libraryhttp.NewHandler(client, appLogger),
 		Posters:        posters,
 		PersonCatalog:  people,
+		Analytics:      analyticshttp.NewHandler(client, appLogger),
 	}, middleware.NewAuthMiddleware(auth, users, appLogger), []string{"http://localhost:8000"}, appLogger)
 	require.NoError(t, err)
 
@@ -284,15 +286,26 @@ func TestCatalogHTTPContract(t *testing.T) {
 			name:   "film details",
 			method: http.MethodGet,
 			path:   "/api/films/42",
-			rpc: []rpcExpectation{{
-				method: "GetFilm",
-				request: &pb.GetFilmRequest{
-					FilmId: 42,
+			rpc: []rpcExpectation{
+				{
+					method: "GetFilm",
+					request: &pb.GetFilmRequest{
+						FilmId: 42,
+					},
+					response: &pb.GetFilmResponse{
+						Film: film,
+					},
 				},
-				response: &pb.GetFilmResponse{
-					Film: film,
+				{
+					method: "RecordFilmOpen",
+					request: &pb.RecordFilmOpenRequest{
+						VisitorPublicId: "test_visitor_id_123456",
+						AccountId:       proto.Int64(7),
+						FilmId:          42,
+					},
+					response: &emptypb.Empty{},
 				},
-			}},
+			},
 			status: 200,
 			json:   `{"film":{"id":42,"title":"Film","film_type":"movie","release_year":2020,"age_limit":12,"genres":[]}}`,
 		},
@@ -818,6 +831,7 @@ func TestCatalogHTTPContract(t *testing.T) {
 					Value: "test-session",
 				})
 			}
+			request.AddCookie(&http.Cookie{Name: filmshttp.VisitorCookieName, Value: "test_visitor_id_123456"})
 
 			response := httptest.NewRecorder()
 			handler.ServeHTTP(response, request)

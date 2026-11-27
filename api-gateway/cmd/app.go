@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
+	analyticshttp "github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/analytics"
 	assetshttp "github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/assets"
 	authhttp "github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/auth"
 	fileshttp "github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/files"
@@ -101,6 +102,7 @@ func run(ctx context.Context) error {
 	defer func() { _ = catalogConn.Close() }()
 
 	catalogClient := catalogclient.NewCatalogClient(pbcatalog.NewCatalogServiceClient(catalogConn))
+	analyticsHandler := analyticshttp.NewHandler(catalogClient, appLogger)
 
 	filmsHandler, err := filmshttp.NewHandler(catalogClient, appLogger)
 	if err != nil {
@@ -143,6 +145,7 @@ func run(ctx context.Context) error {
 	handler, err := router.NewRouter(router.Handlers{
 		Auth:           authHandler,
 		Assets:         assetsHandler,
+		Analytics:      analyticsHandler,
 		Files:          avatarHandler,
 		Profile:        profileHandler,
 		Persons:        personsHandler,

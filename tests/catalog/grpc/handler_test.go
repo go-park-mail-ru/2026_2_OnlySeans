@@ -110,6 +110,14 @@ func (s *catalogStub) ListFilms(_ context.Context, limit, offset int) ([]domain.
 	return []domain.Film{sampleFilm()}, 37, s.check("ListFilms", limit == 2 && offset == 4)
 }
 
+func (s *catalogStub) FilterFilms(_ context.Context, _ domain.FilmFilter, limit, offset int) ([]domain.Film, int, error) {
+	return []domain.Film{sampleFilm()}, 37, s.check("ListFilms", limit == 2 && offset == 4)
+}
+
+func (s *catalogStub) ListGenres(context.Context) ([]domain.Genre, error) {
+	return sampleFilm().Genres, s.err
+}
+
 func (s *catalogStub) UpdateFilm(_ context.Context, id domain.FilmID, input domain.CreateFilmInput) error {
 	return s.check("UpdateFilm", id == 42 && validInput(input))
 }

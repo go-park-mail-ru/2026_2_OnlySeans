@@ -4,14 +4,17 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"time"
 
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	pb "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/catalog"
 )
 
 type CatalogClient interface {
-	ListFilms(ctx context.Context, limit, offset int) (*pb.ListFilmsResponse, error)
+	ListFilms(ctx context.Context, genreSlug string, limit, offset int) (*pb.ListFilmsResponse, error)
+	ListGenres(ctx context.Context) (*pb.ListGenresResponse, error)
 	GetFilm(ctx context.Context, id int64) (*pb.GetFilmResponse, error)
 	CreateFilm(ctx context.Context, input *pb.FilmInput) (*pb.CreateFilmResponse, error)
 	UpdateFilm(ctx context.Context, id int64, input *pb.FilmInput) (*emptypb.Empty, error)
@@ -30,6 +33,9 @@ type CatalogClient interface {
 	GetPosterURL(ctx context.Context, id int64) (*pb.GetPosterURLResponse, error)
 	DeletePoster(ctx context.Context, id int64) (*emptypb.Empty, error)
 	SavePreference(ctx context.Context, request *pb.SavePreferenceRequest) (*emptypb.Empty, error)
+	TopGenres(ctx context.Context, from, to time.Time, limit int) (*pb.TopGenresResponse, error)
+	GenreAge(ctx context.Context, genreSlug string, from, to time.Time) (*pb.GenreAgeResponse, error)
+	RecordFilmOpen(ctx context.Context, visitorPublicID string, accountID *int64, filmID int64) error
 }
 
 type catalogClient struct {
@@ -51,9 +57,10 @@ func pagination(limit, offset int) *pb.Pagination {
 	}
 }
 
-func (c *catalogClient) ListFilms(ctx context.Context, limit, offset int) (*pb.ListFilmsResponse, error) {
+func (c *catalogClient) ListFilms(ctx context.Context, genreSlug string, limit, offset int) (*pb.ListFilmsResponse, error) {
 	result, err := c.client.ListFilms(ctx, &pb.ListFilmsRequest{
 		Pagination: pagination(limit, offset),
+		GenreSlug:  genreSlug,
 	})
 	if err != nil {
 		return nil, fromGRPCError(err)
@@ -64,6 +71,51 @@ func (c *catalogClient) ListFilms(ctx context.Context, limit, offset int) (*pb.L
 	}
 
 	return result, nil
+}
+
+func (c *catalogClient) ListGenres(ctx context.Context) (*pb.ListGenresResponse, error) {
+	result, err := c.client.ListGenres(ctx, &emptypb.Empty{})
+	if err != nil {
+		return nil, fromGRPCError(err)
+	}
+	if result == nil {
+		return nil, ErrInternal
+	}
+
+	return result, nil
+}
+
+func (c *catalogClient) TopGenres(ctx context.Context, from, to time.Time, limit int) (*pb.TopGenresResponse, error) {
+	result, err := c.client.TopGenres(ctx, &pb.TopGenresRequest{From: timestamppb.New(from), To: timestamppb.New(to), Limit: int32(limit)})
+	if err != nil {
+		return nil, fromGRPCError(err)
+	}
+	if result == nil {
+		return nil, ErrInternal
+	}
+
+	return result, nil
+}
+
+func (c *catalogClient) GenreAge(ctx context.Context, genreSlug string, from, to time.Time) (*pb.GenreAgeResponse, error) {
+	result, err := c.client.GenreAge(ctx, &pb.GenreAgeRequest{GenreSlug: genreSlug, From: timestamppb.New(from), To: timestamppb.New(to)})
+	if err != nil {
+		return nil, fromGRPCError(err)
+	}
+	if result == nil {
+		return nil, ErrInternal
+	}
+
+	return result, nil
+}
+
+func (c *catalogClient) RecordFilmOpen(ctx context.Context, visitorPublicID string, accountID *int64, filmID int64) error {
+	_, err := c.client.RecordFilmOpen(ctx, &pb.RecordFilmOpenRequest{VisitorPublicId: visitorPublicID, AccountId: accountID, FilmId: filmID})
+	if err != nil {
+		return fromGRPCError(err)
+	}
+
+	return nil
 }
 
 func (c *catalogClient) GetFilm(ctx context.Context, id int64) (*pb.GetFilmResponse, error) {
