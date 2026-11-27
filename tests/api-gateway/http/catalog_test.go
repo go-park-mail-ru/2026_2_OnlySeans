@@ -49,7 +49,7 @@ type authStub struct {
 }
 
 func (s authStub) CheckSession(context.Context, string) (authclient.SessionInfo, error) {
-	return authclient.SessionInfo{
+	return authclient.SessionInfo{LastRefreshedAt: time.Now(),
 		UserID: 7,
 		Role:   s.role,
 	}, nil

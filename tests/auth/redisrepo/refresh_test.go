@@ -134,14 +134,20 @@ func TestRedisConcurrentRefresh(t *testing.T) {
 	store := redisrepo.NewRedisSessionStore(client, nil)
 	sessions := usecase.NewSessionUseCase(store, refreshTTL)
 	errors := make(chan error, requests)
+	results := make(chan domain.Session, requests)
 
 	var wg sync.WaitGroup
 	for range requests {
-		wg.Go(func() { _, err := sessions.Refresh(t.Context(), original.ID); errors <- err })
+		wg.Go(func() {
+			result, err := sessions.Refresh(t.Context(), original.ID)
+			errors <- err
+			results <- result
+		})
 	}
 
 	wg.Wait()
 	close(errors)
+	close(results)
 
 	for err := range errors {
 		require.NoError(t, err)
@@ -150,5 +156,52 @@ func TestRedisConcurrentRefresh(t *testing.T) {
 	result, err := store.Get(t.Context(), original.ID)
 	require.NoError(t, err)
 	require.Equal(t, original.UserID, result.UserID)
+
+	for refreshed := range results {
+		require.Equal(t, result.ExpiresAt, refreshed.ExpiresAt)
+		require.Equal(t, result.LastRefreshedAt, refreshed.LastRefreshedAt)
+	}
+
 	require.WithinDuration(t, time.Now().Add(refreshTTL), result.ExpiresAt, time.Second)
+}
+
+func TestDailyRefreshDoesNotWriteAgain(t *testing.T) {
+	client := testRedis(t)
+	original, key := createSession(t, client)
+	store := redisrepo.NewRedisSessionStore(client, nil)
+	sessions := usecase.NewSessionUseCase(store, refreshTTL)
+	first, err := sessions.Refresh(t.Context(), original.ID)
+	require.NoError(t, err)
+	require.WithinDuration(t, time.Now(), first.LastRefreshedAt, time.Second)
+	raw, err := client.Do(t.Context(), client.B().Get().Key(key).Build()).ToString()
+	require.NoError(t, err)
+	second, err := store.Refresh(t.Context(), original.ID, time.Now().Add(2*refreshTTL))
+	require.NoError(t, err)
+	require.Equal(t, first, *second)
+	after, err := client.Do(t.Context(), client.B().Get().Key(key).Build()).ToString()
+	require.NoError(t, err)
+	require.Equal(t, raw, after)
+}
+
+func TestDailyRefreshUpdatesYesterdaySession(t *testing.T) {
+	client := testRedis(t)
+	session := domain.Session{
+		ID:              uuid.New(),
+		UserID:          7,
+		Role:            "reader",
+		ExpiresAt:       time.Now().Add(time.Hour),
+		LastRefreshedAt: time.Now().AddDate(0, 0, -1),
+	}
+	store := redisrepo.NewRedisSessionStore(client, nil)
+	require.NoError(t, store.Create(t.Context(), session))
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		require.NoError(t, store.Delete(ctx, session.ID))
+	})
+
+	refreshed, err := usecase.NewSessionUseCase(store, refreshTTL).Refresh(t.Context(), session.ID)
+	require.NoError(t, err)
+	require.WithinDuration(t, time.Now().Add(refreshTTL), refreshed.ExpiresAt, time.Second)
+	require.WithinDuration(t, time.Now(), refreshed.LastRefreshedAt, time.Second)
 }

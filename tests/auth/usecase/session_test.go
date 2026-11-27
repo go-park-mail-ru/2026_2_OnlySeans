@@ -63,6 +63,7 @@ func TestSessionCreate(t *testing.T) {
 			require.Equal(t, domain.UserID(7), saved.UserID)
 			require.Equal(t, "reader", saved.Role)
 			require.WithinDuration(t, before.Add(time.Hour), saved.ExpiresAt, time.Second)
+			require.WithinDuration(t, before, saved.LastRefreshedAt, time.Second)
 
 			if tt.repoErr == nil {
 				require.Equal(t, saved, session)

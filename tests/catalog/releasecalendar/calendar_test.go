@@ -97,6 +97,20 @@ func TestCalendarPostgresLifecycle(t *testing.T) {
 		require.NotEqualValues(t, film, item.Film.ID)
 	}
 
+	worldFilter := f
+	worldFilter.Region = domain.ReleaseRegionWorld
+	worldFilter.FilmID = domain.FilmID(film)
+	items, total, err = uc.List(ctx, worldFilter, 0)
+	require.NoError(t, err)
+	require.EqualValues(t, 1, total)
+	require.EqualValues(t, film, items[0].Film.ID)
+	worldFilter.From = day(t, next)
+	worldFilter.To = worldFilter.From.AddDate(0, 0, 1)
+	items, total, err = uc.List(ctx, worldFilter, 0)
+	require.NoError(t, err)
+	require.Zero(t, total)
+	require.Empty(t, items)
+
 	require.NoError(t, uc.Update(ctx, film, domain.ReleaseInput{RussiaPremiereDate: &tomorrow, RussiaPremiereDateSet: true}))
 	items, _, err = uc.List(ctx, f, 0)
 	require.NoError(t, err)

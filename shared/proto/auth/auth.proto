@@ -19,6 +19,7 @@ message Session {
     int64 user_id = 2;
     string role = 3;
     google.protobuf.Timestamp expires_at = 4;
+    google.protobuf.Timestamp last_refreshed_at = 5;
 }
 
 message LoginRequest {
@@ -46,6 +47,8 @@ message CheckSessionRequest {
 message CheckSessionResponse {
     int64 user_id = 1;
     string role = 2;
+    google.protobuf.Timestamp expires_at = 3;
+    google.protobuf.Timestamp last_refreshed_at = 4;
 }
 
 message LogoutRequest {

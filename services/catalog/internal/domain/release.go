@@ -6,6 +6,9 @@ import (
 )
 
 const (
+	ReleaseRegionWorld  = "world"
+	ReleaseRegionRussia = "russia"
+
 	minReleaseYear        = 1888
 	maxReleaseYear        = 2200
 	releaseTimezoneName   = "Europe/Moscow"
@@ -27,6 +30,7 @@ type Release struct {
 }
 
 type ReleaseFilter struct {
+	Region   string
 	From     time.Time
 	To       time.Time
 	FilmID   FilmID

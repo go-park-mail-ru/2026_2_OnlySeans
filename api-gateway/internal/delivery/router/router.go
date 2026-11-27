@@ -126,7 +126,7 @@ func NewRouter(handlers Handlers, authMiddleware *middleware.AuthMiddleware, all
 		r.HandleFunc("/static/{key:.*}", h.GetAsset).Methods(http.MethodGet)
 	}
 
-	handler, err := middleware.WithCORSAndCSRF(newOpenAPIHandler(r), allowedOrigins)
+	handler, err := middleware.WithCORSAndCSRF(authMiddleware.OptionalAuthenticate(newOpenAPIHandler(r)), allowedOrigins)
 	if err != nil {
 		return nil, err
 	}

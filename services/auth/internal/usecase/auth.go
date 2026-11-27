@@ -5,12 +5,22 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/services/auth/internal/domain"
 	passwordutil "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/password"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/utils"
+)
+
+const (
+	issueSessionErrorFormat   = "failed to issue session: %w"
+	getUserByEmailErrorFormat = "get user by email: %w"
+	verifyPasswordErrorFormat = "verify password: %w"
+	createSessionErrorFormat  = "failed to create session: %w"
+	destroySessionErrorFormat = "failed to destroy session: %w"
+	refreshSessionErrorFormat = "refresh session: %w"
 )
 
 type UserClient interface {
@@ -26,8 +36,10 @@ type AuthUseCase interface {
 }
 
 type UserInfo struct {
-	UserID int64
-	Role   string
+	ExpiresAt       time.Time
+	LastRefreshedAt time.Time
+	UserID          int64
+	Role            string
 }
 
 type authUseCase struct {
@@ -47,7 +59,7 @@ func NewAuthUseCase(uc UserClient, suc SessionUseCase, verifier domain.PasswordV
 func (u *authUseCase) IssueSession(ctx context.Context, userID int64, role string) (*domain.Session, error) {
 	createdSession, err := u.sessionUC.Create(ctx, domain.UserID(userID), role)
 	if err != nil {
-		return nil, fmt.Errorf("failed to issue session: %w", err)
+		return nil, fmt.Errorf(issueSessionErrorFormat, err)
 	}
 
 	return &createdSession, nil
@@ -70,7 +82,7 @@ func (u *authUseCase) Login(ctx context.Context, email, password string) (*domai
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("get user by email: %w", err)
+		return nil, fmt.Errorf(getUserByEmailErrorFormat, err)
 	}
 
 	if err := u.passwordVerifier.Verify(password, currUser.PasswordHash); err != nil {
@@ -78,12 +90,12 @@ func (u *authUseCase) Login(ctx context.Context, email, password string) (*domai
 			return nil, domain.ErrInvalidCredentials
 		}
 
-		return nil, fmt.Errorf("verify password: %w", err)
+		return nil, fmt.Errorf(verifyPasswordErrorFormat, err)
 	}
 
 	createdSession, err := u.sessionUC.Create(ctx, currUser.ID, string(currUser.Role))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create session: %w", err)
+		return nil, fmt.Errorf(createSessionErrorFormat, err)
 	}
 
 	return &createdSession, nil
@@ -92,7 +104,7 @@ func (u *authUseCase) Login(ctx context.Context, email, password string) (*domai
 func (u *authUseCase) Logout(ctx context.Context, sessionID uuid.UUID) error {
 	err := u.sessionUC.Delete(ctx, sessionID)
 	if err != nil {
-		return fmt.Errorf("failed to destroy session: %w", err)
+		return fmt.Errorf(destroySessionErrorFormat, err)
 	}
 
 	return nil
@@ -105,15 +117,17 @@ func (u *authUseCase) CheckSession(ctx context.Context, sessionID uuid.UUID) (Us
 	}
 
 	return UserInfo{
-		UserID: int64(session.UserID),
-		Role:   session.Role,
+		UserID:          int64(session.UserID),
+		ExpiresAt:       session.ExpiresAt,
+		LastRefreshedAt: session.LastRefreshedAt,
+		Role:            session.Role,
 	}, nil
 }
 
 func (u *authUseCase) RefreshSession(ctx context.Context, sessionID uuid.UUID) (*domain.Session, error) {
 	session, err := u.sessionUC.Refresh(ctx, sessionID)
 	if err != nil {
-		return nil, fmt.Errorf("refresh session: %w", err)
+		return nil, fmt.Errorf(refreshSessionErrorFormat, err)
 	}
 
 	return &session, nil

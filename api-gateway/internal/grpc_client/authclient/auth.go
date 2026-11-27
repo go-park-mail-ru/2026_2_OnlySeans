@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -31,8 +32,10 @@ type AuthClient interface {
 }
 
 type SessionInfo struct {
-	UserID int64
-	Role   string
+	ExpiresAt       time.Time
+	LastRefreshedAt time.Time
+	UserID          int64
+	Role            string
 }
 
 type authClient struct {
@@ -113,8 +116,10 @@ func (c *authClient) CheckSession(ctx context.Context, sessionId string) (Sessio
 	}
 
 	return SessionInfo{
-		UserID: resp.GetUserId(),
-		Role:   resp.GetRole(),
+		UserID:          resp.GetUserId(),
+		ExpiresAt:       resp.GetExpiresAt().AsTime(),
+		LastRefreshedAt: resp.GetLastRefreshedAt().AsTime(),
+		Role:            resp.GetRole(),
 	}, nil
 }
 

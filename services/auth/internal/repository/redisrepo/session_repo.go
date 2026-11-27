@@ -14,41 +14,76 @@ import (
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/services/auth/internal/domain"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/logger"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/sessionpolicy"
 )
 
 const (
 	sessionKeyPrefix     = "session:"
 	refreshNumberBase    = 10
 	refreshSessionScript = `
-local current = redis.call('GET', KEYS[1])
-if not current or redis.call('PTTL', KEYS[1]) <= 0 then
+local session_key_index = 1
+local expected_session_arg_index = 1
+local updated_session_arg_index = 2
+local previous_expiry_arg_index = 3
+local next_expiry_arg_index = 4
+local seconds_part_index = 1
+local microseconds_part_index = 2
+local current = redis.call('GET', KEYS[session_key_index])
+if not current or redis.call('PTTL', KEYS[session_key_index]) <= 0 then
     return false
 end
-if current ~= ARGV[1] then
+if current ~= ARGV[expected_session_arg_index] then
     return current
 end
 local milliseconds_per_second = 1000
 local current_time = redis.call('TIME')
-local now = current_time[1] * milliseconds_per_second + math.floor(current_time[2] / milliseconds_per_second)
-if tonumber(ARGV[3]) <= now then
+local now = current_time[seconds_part_index] * milliseconds_per_second + math.floor(current_time[microseconds_part_index] / milliseconds_per_second)
+if tonumber(ARGV[previous_expiry_arg_index]) <= now then
     return false
 end
-local remaining = tonumber(ARGV[4]) - now
+local remaining = tonumber(ARGV[next_expiry_arg_index]) - now
 if remaining <= 0 then
     return false
 end
-redis.call('SET', KEYS[1], ARGV[2], 'PX', remaining, 'XX')
-return ARGV[2]
+redis.call('SET', KEYS[session_key_index], ARGV[updated_session_arg_index], 'PX', remaining, 'XX')
+return ARGV[updated_session_arg_index]
 `
+)
+
+const (
+	sessionCreateOperation             = "session.create"
+	sessionGetOperation                = "session.get"
+	sessionDeleteOperation             = "session.delete"
+	sessionRefreshOperation            = "session.refresh"
+	encodeSessionErrorFormat           = "encode session: %w"
+	createSessionErrorFormat           = "create session: %w"
+	getSessionErrorFormat              = "get session: %w"
+	decodeSessionErrorFormat           = "decode session: %w"
+	deleteSessionErrorFormat           = "delete session: %w"
+	getSessionForRefreshErrorFormat    = "get session for refresh: %w"
+	decodeSessionForRefreshErrorFormat = "decode session for refresh: %w"
+	encodeRefreshedSessionErrorFormat  = "encode refreshed session: %w"
+	refreshSessionErrorFormat          = "refresh session: %w"
+	decodeRefreshedSessionErrorFormat  = "decode refreshed session: %w"
+	sessionBackendField                = "backend"
+	sessionBackendName                 = "redis"
+	sessionOperationField              = "operation"
+	sessionDurationField               = "duration_ms"
+	sessionOutcomeField                = "outcome"
+	sessionErrorField                  = "error"
+	sessionOutcomeNotFound             = "not_found"
+	sessionOutcomeError                = "error"
+	sessionOutcomeOK                   = "ok"
 )
 
 var refreshSessionLua = rueidis.NewLuaScript(refreshSessionScript)
 
 type sessionDTO struct {
-	ID        uuid.UUID     `json:"id"`
-	UserID    domain.UserID `json:"user_id"`
-	Role      string        `json:"role"`
-	ExpiresAt time.Time     `json:"expires_at"`
+	ID              uuid.UUID     `json:"id"`
+	UserID          domain.UserID `json:"user_id"`
+	Role            string        `json:"role"`
+	ExpiresAt       time.Time     `json:"expires_at"`
+	LastRefreshedAt time.Time     `json:"last_refreshed_at"`
 }
 
 type RedisSessionStore struct {
@@ -73,7 +108,7 @@ func sessionKey(id uuid.UUID) string {
 func (s *RedisSessionStore) Create(ctx context.Context, session domain.Session) (operationErr error) {
 	started := time.Now()
 	defer func() {
-		s.logOperation(ctx, "session.create", started, operationErr)
+		s.logOperation(ctx, sessionCreateOperation, started, operationErr)
 	}()
 
 	remaining := time.Until(session.ExpiresAt)
@@ -82,13 +117,14 @@ func (s *RedisSessionStore) Create(ctx context.Context, session domain.Session) 
 	}
 
 	data, err := json.Marshal(sessionDTO{
-		ID:        session.ID,
-		UserID:    session.UserID,
-		Role:      session.Role,
-		ExpiresAt: session.ExpiresAt,
+		ID:              session.ID,
+		UserID:          session.UserID,
+		Role:            session.Role,
+		ExpiresAt:       session.ExpiresAt,
+		LastRefreshedAt: session.LastRefreshedAt,
 	})
 	if err != nil {
-		return fmt.Errorf("encode session: %w", err)
+		return fmt.Errorf(encodeSessionErrorFormat, err)
 	}
 
 	cmd := s.client.B().
@@ -100,7 +136,7 @@ func (s *RedisSessionStore) Create(ctx context.Context, session domain.Session) 
 
 	res := s.client.Do(ctx, cmd)
 	if res.Error() != nil {
-		return fmt.Errorf("create session: %w", res.Error())
+		return fmt.Errorf(createSessionErrorFormat, res.Error())
 	}
 
 	return nil
@@ -109,7 +145,7 @@ func (s *RedisSessionStore) Create(ctx context.Context, session domain.Session) 
 func (s *RedisSessionStore) Get(ctx context.Context, sessionID uuid.UUID) (_ *domain.Session, operationErr error) {
 	started := time.Now()
 	defer func() {
-		s.logOperation(ctx, "session.get", started, operationErr)
+		s.logOperation(ctx, sessionGetOperation, started, operationErr)
 	}()
 
 	cmd := s.client.B().
@@ -123,12 +159,12 @@ func (s *RedisSessionStore) Get(ctx context.Context, sessionID uuid.UUID) (_ *do
 			return nil, domain.ErrSessionNotFound
 		}
 
-		return nil, fmt.Errorf("get session: %w", err)
+		return nil, fmt.Errorf(getSessionErrorFormat, err)
 	}
 
 	var session sessionDTO
 	if err := json.Unmarshal([]byte(rawSession), &session); err != nil {
-		return nil, fmt.Errorf("decode session: %w", err)
+		return nil, fmt.Errorf(decodeSessionErrorFormat, err)
 	}
 
 	if !session.ExpiresAt.After(time.Now()) {
@@ -136,17 +172,18 @@ func (s *RedisSessionStore) Get(ctx context.Context, sessionID uuid.UUID) (_ *do
 	}
 
 	return &domain.Session{
-		ID:        session.ID,
-		UserID:    session.UserID,
-		Role:      session.Role,
-		ExpiresAt: session.ExpiresAt,
+		ID:              session.ID,
+		UserID:          session.UserID,
+		Role:            session.Role,
+		ExpiresAt:       session.ExpiresAt,
+		LastRefreshedAt: session.LastRefreshedAt,
 	}, nil
 }
 
 func (s *RedisSessionStore) Delete(ctx context.Context, sessionID uuid.UUID) (operationErr error) {
 	started := time.Now()
 	defer func() {
-		s.logOperation(ctx, "session.delete", started, operationErr)
+		s.logOperation(ctx, sessionDeleteOperation, started, operationErr)
 	}()
 
 	cmd := s.client.B().
@@ -156,7 +193,7 @@ func (s *RedisSessionStore) Delete(ctx context.Context, sessionID uuid.UUID) (op
 
 	err := s.client.Do(ctx, cmd).Error()
 	if err != nil {
-		return fmt.Errorf("delete session: %w", err)
+		return fmt.Errorf(deleteSessionErrorFormat, err)
 	}
 
 	return nil
@@ -168,33 +205,33 @@ func (s *RedisSessionStore) logOperation(ctx context.Context, operation string, 
 	}
 
 	fields := map[string]any{
-		"backend":     "redis",
-		"operation":   operation,
-		"duration_ms": time.Since(started).Milliseconds(),
+		sessionBackendField:   sessionBackendName,
+		sessionOperationField: operation,
+		sessionDurationField:  time.Since(started).Milliseconds(),
 	}
 
 	if errors.Is(err, domain.ErrSessionNotFound) {
-		fields["outcome"] = "not_found"
+		fields[sessionOutcomeField] = sessionOutcomeNotFound
 		s.appLogger.InfoContext(ctx, "session operation completed", fields)
 
 		return
 	}
 
 	if err != nil {
-		fields["outcome"] = "error"
-		fields["error"] = err.Error()
+		fields[sessionOutcomeField] = sessionOutcomeError
+		fields[sessionErrorField] = err.Error()
 		s.appLogger.ErrorContext(ctx, "session operation failed", fields)
 
 		return
 	}
 
-	fields["outcome"] = "ok"
+	fields[sessionOutcomeField] = sessionOutcomeOK
 	s.appLogger.InfoContext(ctx, "session operation completed", fields)
 }
 
 func (s *RedisSessionStore) Refresh(ctx context.Context, sessionID uuid.UUID, expiresAt time.Time) (_ *domain.Session, operationErr error) {
 	started := time.Now()
-	defer func() { s.logOperation(ctx, "session.refresh", started, operationErr) }()
+	defer func() { s.logOperation(ctx, sessionRefreshOperation, started, operationErr) }()
 
 	key := sessionKey(sessionID)
 
@@ -204,44 +241,64 @@ func (s *RedisSessionStore) Refresh(ctx context.Context, sessionID uuid.UUID, ex
 			return nil, domain.ErrSessionNotFound
 		}
 
-		return nil, fmt.Errorf("get session for refresh: %w", err)
+		return nil, fmt.Errorf(getSessionForRefreshErrorFormat, err)
 	}
 
 	var current sessionDTO
 	if err = json.Unmarshal([]byte(raw), &current); err != nil {
-		return nil, fmt.Errorf("decode session for refresh: %w", err)
+		return nil, fmt.Errorf(decodeSessionForRefreshErrorFormat, err)
 	}
 
 	if !current.ExpiresAt.After(time.Now()) {
 		return nil, domain.ErrSessionNotFound
 	}
 
+	if !sessionpolicy.NeedsRefresh(current.LastRefreshedAt, started) {
+		return &domain.Session{
+			ID:              current.ID,
+			UserID:          current.UserID,
+			Role:            current.Role,
+			ExpiresAt:       current.ExpiresAt,
+			LastRefreshedAt: current.LastRefreshedAt,
+		}, nil
+	}
+
 	oldExpiresAt := current.ExpiresAt
 	current.ExpiresAt = expiresAt.UTC().Truncate(time.Millisecond)
+	current.LastRefreshedAt = started.UTC().Truncate(time.Millisecond)
 
 	data, err := json.Marshal(current)
 	if err != nil {
-		return nil, fmt.Errorf("encode refreshed session: %w", err)
+		return nil, fmt.Errorf(encodeRefreshedSessionErrorFormat, err)
 	}
 
 	result, err := refreshSessionLua.Exec(ctx, s.client, []string{key}, []string{
-		raw, string(data), strconv.FormatInt(oldExpiresAt.UnixMilli(), refreshNumberBase), strconv.FormatInt(current.ExpiresAt.UnixMilli(), refreshNumberBase),
+		raw,
+		string(data),
+		strconv.FormatInt(oldExpiresAt.UnixMilli(), refreshNumberBase),
+		strconv.FormatInt(current.ExpiresAt.UnixMilli(), refreshNumberBase),
 	}).ToString()
 	if err != nil {
 		if rueidis.IsRedisNil(err) {
 			return nil, domain.ErrSessionNotFound
 		}
 
-		return nil, fmt.Errorf("refresh session: %w", err)
+		return nil, fmt.Errorf(refreshSessionErrorFormat, err)
 	}
 
 	if err = json.Unmarshal([]byte(result), &current); err != nil {
-		return nil, fmt.Errorf("decode refreshed session: %w", err)
+		return nil, fmt.Errorf(decodeRefreshedSessionErrorFormat, err)
 	}
 
 	if !current.ExpiresAt.After(time.Now()) {
 		return nil, domain.ErrSessionNotFound
 	}
 
-	return &domain.Session{ID: current.ID, UserID: current.UserID, Role: current.Role, ExpiresAt: current.ExpiresAt}, nil
+	return &domain.Session{
+		ID:              current.ID,
+		UserID:          current.UserID,
+		Role:            current.Role,
+		ExpiresAt:       current.ExpiresAt,
+		LastRefreshedAt: current.LastRefreshedAt,
+	}, nil
 }

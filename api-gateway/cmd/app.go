@@ -141,6 +141,7 @@ func run(ctx context.Context) error {
 	profileHandler := userhttp.NewProfileHandler(userClient, appLogger)
 	avatarHandler := userhttp.NewAvatarHandler(userClient, appLogger)
 	authMiddleware := middleware.NewAuthMiddleware(authClient, userClient, appLogger)
+	authMiddleware.CookieSecure = cfg.HTTP.CookieSecure
 
 	handler, err := router.NewRouter(router.Handlers{
 		Auth:           authHandler,
@@ -171,7 +172,9 @@ func run(ctx context.Context) error {
 
 	serverErr := make(chan error, 1)
 	go func() {
-		appLogger.Info("Gateway HTTP server starting", map[string]any{"address": server.Addr})
+		appLogger.Info("Gateway HTTP server starting", map[string]any{
+			"address": server.Addr,
+		})
 		serverErr <- server.ListenAndServe()
 	}()
 

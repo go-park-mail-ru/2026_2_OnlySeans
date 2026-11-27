@@ -20,6 +20,7 @@ func TestReleaseRejectsInvalidRangeBeforeRepository(t *testing.T) {
 	for _, filter := range []domain.ReleaseFilter{
 		{},
 		{From: from},
+		{From: from, To: from.AddDate(0, 1, 0), Region: "invalid"},
 		{From: from, To: from},
 		{From: from, To: from.AddDate(0, 0, -1)},
 		{From: from, To: from.AddDate(0, 0, 63)},
@@ -101,4 +102,16 @@ func TestReleaseWorkerStopsAfterCancellation(t *testing.T) {
 
 	uc := usecase.NewReleaseUseCase(repo, nil)
 	uc.RunReminders(ctx, nil)
+}
+
+func TestReleaseRegionIsForwarded(t *testing.T) {
+	for _, region := range []string{"", domain.ReleaseRegionRussia, domain.ReleaseRegionWorld} {
+		t.Run(region, func(t *testing.T) {
+			repo := mocks.NewMockReleaseRepository(gomock.NewController(t))
+			filter := domain.ReleaseFilter{Region: region, FilmID: 42, Limit: releaselimits.DefaultLimit}
+			repo.EXPECT().List(gomock.Any(), filter, int64(0)).Return([]domain.Release{}, int64(0), nil)
+			_, _, err := usecase.NewReleaseUseCase(repo, nil).List(t.Context(), filter, 0)
+			require.NoError(t, err)
+		})
+	}
 }

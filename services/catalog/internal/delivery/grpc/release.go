@@ -42,7 +42,7 @@ func (h *ReleaseHandler) ListReleases(ctx context.Context, req *pb.ListReleasesR
 		return nil, missingRequest()
 	}
 
-	f := domain.ReleaseFilter{FilmID: domain.FilmID(req.FilmId), GenreID: domain.GenreID(req.GenreId), Limit: int(req.Limit), Offset: int(req.Offset), Featured: req.Featured}
+	f := domain.ReleaseFilter{Region: req.Region, FilmID: domain.FilmID(req.FilmId), GenreID: domain.GenreID(req.GenreId), Limit: int(req.Limit), Offset: int(req.Offset), Featured: req.Featured}
 	var err error
 
 	if req.From != "" {

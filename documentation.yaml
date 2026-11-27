@@ -389,14 +389,15 @@ paths:
       operationId: refreshSession
       summary: Продлить действующую сессию на три дня
       description: |-
-        Cookie session_id обязательна. Продлевает существующую сессию на 72 часа от момента запроса.
-        Атомарно обновляет expires_at и TTL записи Redis; ID сессии сохраняется.
+        Cookie session_id обязательна. Продлевает существующую сессию на 72 часа от момента запроса,
+        если в текущий календарный день по Москве её ещё не продлевали. Повторный запрос срок не меняет.
+        Атомарно обновляет last_refreshed_at, expires_at и TTL записи Redis; ID сессии сохраняется.
         Возвращает обновлённую HttpOnly cookie с новым Expires. Тело запроса не требуется.
         Отсутствующая, истёкшая, удалённая или некорректная сессия: 401.
         Удалённая при logout сессия не восстанавливается. Ошибки Redis: 500, не 401.
         Ответ имеет Cache-Control: no-store. Запрос фронтенда — credentials: include.
-        GET и другие методы не продлевают сессию автоматически. Фронт вызывает POST /api/refresh
-        при открытии приложения и периодически, пока пользователь активен.
+        Middleware автоматически продлевает действующую сессию при первом авторизованном запросе нового дня.
+        Фронтенду не требуется отдельно вызывать POST /api/refresh.
       x-implementation-status: implemented
       security:
         - sessionCookie: []
@@ -1530,13 +1531,19 @@ paths:
       - Календарь релизов
       operationId: listReleases
       summary: Календарь релизов
-      description: 'Календарь по russia_premiere_date. Обязательный диапазон [from, to), максимум 62 дня. Фильмы без
-        российской даты не включаются. Сортировка russia_premiere_date, film_id. Календарь и список используют один
+      description: 'Календарь по дате премьеры выбранного региона (по умолчанию russia). Обязательный диапазон [from, to), максимум 62 дня. Фильмы без
+        даты выбранного региона не включаются. Сортировка по выбранной дате, film_id. Календарь и список используют один
         ответ. Даты YYYY-MM-DD без пересчёта часового пояса. Пустой результат: items: []. Для заполнения месяца загрузить
         все страницы до total. Выбор страны и типа выхода не поддерживается. Cache-Control: no-store.'
       x-implementation-status: implemented
       security: []
       parameters:
+      - name: region
+        in: query
+        schema:
+          type: string
+          enum: [world, russia]
+          default: russia
       - name: from
         in: query
         required: true
@@ -1608,11 +1615,17 @@ paths:
       - Календарь релизов
       operationId: featuredReleases
       summary: Ближайшие премьеры для баннера
-      description: 'Ближайшие российские премьеры: от сегодняшней даты по Europe/Moscow на 62 дня вперёд. По умолчанию
-        3 фильма, максимум 10. offset разрешён только 0. Фильмы без российской даты не включаются.'
+      description: 'Ближайшие премьеры выбранного региона (по умолчанию russia): от сегодняшней даты по Europe/Moscow на 62 дня вперёд. По умолчанию
+        3 фильма, максимум 10. offset разрешён только 0. Фильмы без даты выбранного региона не включаются.'
       x-implementation-status: implemented
       security: []
       parameters:
+      - name: region
+        in: query
+        schema:
+          type: string
+          enum: [world, russia]
+          default: russia
       - name: genre_id
         in: query
         required: false
@@ -2079,7 +2092,8 @@ components:
       name: session_id
       description: |-
         ID серверной сессии — UUID. Новые сессии действуют 72 часа.
-        POST /api/refresh продлевает действующую сессию ещё на 72 часа; другие запросы срок не меняют.
+        Middleware продлевает действующую сессию на 72 часа при первом авторизованном запросе нового дня
+        по Москве. POST /api/refresh соблюдает такое же ограничение: не чаще одного раза в день.
         Браузер отправляет cookie с credentials: include. HttpOnly закрывает доступ из JavaScript.
   headers:
     SetSessionCookie:

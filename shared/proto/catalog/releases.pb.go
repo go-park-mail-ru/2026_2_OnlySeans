@@ -92,6 +92,7 @@ type ListReleasesRequest struct {
 	Limit         int32                  `protobuf:"varint,7,opt,name=limit,proto3" json:"limit,omitempty"`
 	Offset        int32                  `protobuf:"varint,8,opt,name=offset,proto3" json:"offset,omitempty"`
 	Featured      bool                   `protobuf:"varint,9,opt,name=featured,proto3" json:"featured,omitempty"`
+	Region        string                 `protobuf:"bytes,10,opt,name=region,proto3" json:"region,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -173,6 +174,13 @@ func (x *ListReleasesRequest) GetFeatured() bool {
 		return x.Featured
 	}
 	return false
+}
+
+func (x *ListReleasesRequest) GetRegion() string {
+	if x != nil {
+		return x.Region
+	}
+	return ""
 }
 
 type ReleaseList struct {
@@ -666,7 +674,7 @@ const file_shared_proto_catalog_releases_proto_rawDesc = "" +
 	"\x13world_premiere_date\x18\a \x01(\tH\x00R\x11worldPremiereDate\x88\x01\x01\x125\n" +
 	"\x14russia_premiere_date\x18\b \x01(\tH\x01R\x12russiaPremiereDate\x88\x01\x01B\x16\n" +
 	"\x14_world_premiere_dateB\x17\n" +
-	"\x15_russia_premiere_dateJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03J\x04\b\x03\x10\x04J\x04\b\x04\x10\x05J\x04\b\x05\x10\x06\"\xc3\x01\n" +
+	"\x15_russia_premiere_dateJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03J\x04\b\x03\x10\x04J\x04\b\x04\x10\x05J\x04\b\x05\x10\x06\"\xdb\x01\n" +
 	"\x13ListReleasesRequest\x12\x12\n" +
 	"\x04from\x18\x01 \x01(\tR\x04from\x12\x0e\n" +
 	"\x02to\x18\x02 \x01(\tR\x02to\x12\x17\n" +
@@ -674,7 +682,9 @@ const file_shared_proto_catalog_releases_proto_rawDesc = "" +
 	"\bgenre_id\x18\x06 \x01(\x03R\agenreId\x12\x14\n" +
 	"\x05limit\x18\a \x01(\x05R\x05limit\x12\x16\n" +
 	"\x06offset\x18\b \x01(\x05R\x06offset\x12\x1a\n" +
-	"\bfeatured\x18\t \x01(\bR\bfeaturedJ\x04\b\x03\x10\x04J\x04\b\x04\x10\x05\"N\n" +
+	"\bfeatured\x18\t \x01(\bR\bfeatured\x12\x16\n" +
+	"\x06region\x18\n" +
+	" \x01(\tR\x06regionJ\x04\b\x03\x10\x04J\x04\b\x04\x10\x05\"N\n" +
 	"\vReleaseList\x12)\n" +
 	"\x05items\x18\x01 \x03(\v2\x13.catalog.v1.ReleaseR\x05items\x12\x14\n" +
 	"\x05total\x18\x02 \x01(\x03R\x05total\"\xb3\x02\n" +

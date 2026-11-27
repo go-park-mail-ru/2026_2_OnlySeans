@@ -150,6 +150,42 @@ func (e ProfileFilmType) Valid() bool {
 	}
 }
 
+// Defines values for ListReleasesParamsRegion.
+const (
+	ListReleasesParamsRegionRussia ListReleasesParamsRegion = "russia"
+	ListReleasesParamsRegionWorld  ListReleasesParamsRegion = "world"
+)
+
+// Valid indicates whether the value is a known member of the ListReleasesParamsRegion enum.
+func (e ListReleasesParamsRegion) Valid() bool {
+	switch e {
+	case ListReleasesParamsRegionRussia:
+		return true
+	case ListReleasesParamsRegionWorld:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FeaturedReleasesParamsRegion.
+const (
+	FeaturedReleasesParamsRegionRussia FeaturedReleasesParamsRegion = "russia"
+	FeaturedReleasesParamsRegionWorld  FeaturedReleasesParamsRegion = "world"
+)
+
+// Valid indicates whether the value is a known member of the FeaturedReleasesParamsRegion enum.
+func (e FeaturedReleasesParamsRegion) Valid() bool {
+	switch e {
+	case FeaturedReleasesParamsRegionRussia:
+		return true
+	case FeaturedReleasesParamsRegionWorld:
+		return true
+	default:
+		return false
+	}
+}
+
 // AuthResponse Example: {"user":{"email":"viewer@example.com","id":1,"username":"Кинозритель"}}
 type AuthResponse struct {
 	// User Example: {"email":"viewer@example.com","id":1,"username":"Кинозритель"}
@@ -743,18 +779,26 @@ type ListPersonsParams struct {
 
 // ListReleasesParams defines parameters for ListReleases.
 type ListReleasesParams struct {
-	From    openapi_types.Date `form:"from" json:"from"`
-	To      openapi_types.Date `form:"to" json:"to"`
-	GenreId *int64             `form:"genre_id,omitempty" json:"genre_id,omitempty"`
-	Limit   *int               `form:"limit,omitempty" json:"limit,omitempty"`
-	Offset  *int               `form:"offset,omitempty" json:"offset,omitempty"`
+	Region  *ListReleasesParamsRegion `form:"region,omitempty" json:"region,omitempty"`
+	From    openapi_types.Date        `form:"from" json:"from"`
+	To      openapi_types.Date        `form:"to" json:"to"`
+	GenreId *int64                    `form:"genre_id,omitempty" json:"genre_id,omitempty"`
+	Limit   *int                      `form:"limit,omitempty" json:"limit,omitempty"`
+	Offset  *int                      `form:"offset,omitempty" json:"offset,omitempty"`
 }
+
+// ListReleasesParamsRegion defines parameters for ListReleases.
+type ListReleasesParamsRegion string
 
 // FeaturedReleasesParams defines parameters for FeaturedReleases.
 type FeaturedReleasesParams struct {
-	GenreId *int64 `form:"genre_id,omitempty" json:"genre_id,omitempty"`
-	Limit   *int   `form:"limit,omitempty" json:"limit,omitempty"`
+	Region  *FeaturedReleasesParamsRegion `form:"region,omitempty" json:"region,omitempty"`
+	GenreId *int64                        `form:"genre_id,omitempty" json:"genre_id,omitempty"`
+	Limit   *int                          `form:"limit,omitempty" json:"limit,omitempty"`
 }
+
+// FeaturedReleasesParamsRegion defines parameters for FeaturedReleases.
+type FeaturedReleasesParamsRegion string
 
 // UploadAvatarMultipartRequestBody defines body for UploadAvatar for multipart/form-data ContentType.
 type UploadAvatarMultipartRequestBody UploadAvatarMultipartBody
@@ -2230,6 +2274,19 @@ func (siw *ServerInterfaceWrapper) ListReleases(w http.ResponseWriter, r *http.R
 	// Parameter object where we will unmarshal all parameters from the context
 	var params ListReleasesParams
 
+	// ------------- Optional query parameter "region" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "region", r.URL.Query(), &params.Region, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "region"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "region", Err: err})
+		}
+		return
+	}
+
 	// ------------- Required query parameter "from" -------------
 
 	err = runtime.BindQueryParameterWithOptions("form", true, true, "from", r.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date"})
@@ -2314,6 +2371,19 @@ func (siw *ServerInterfaceWrapper) FeaturedReleases(w http.ResponseWriter, r *ht
 
 	// Parameter object where we will unmarshal all parameters from the context
 	var params FeaturedReleasesParams
+
+	// ------------- Optional query parameter "region" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "region", r.URL.Query(), &params.Region, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "region"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "region", Err: err})
+		}
+		return
+	}
 
 	// ------------- Optional query parameter "genre_id" -------------
 

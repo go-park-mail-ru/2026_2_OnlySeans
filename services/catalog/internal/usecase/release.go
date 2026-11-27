@@ -45,6 +45,10 @@ func (u *ReleaseUseCase) List(ctx context.Context, f domain.ReleaseFilter, user 
 		return nil, 0, err
 	}
 
+	if f.Region != "" && f.Region != domain.ReleaseRegionWorld && f.Region != domain.ReleaseRegionRussia {
+		return nil, 0, domain.ErrInvalidRelease
+	}
+
 	if f.FilmID < 0 || f.GenreID < 0 || user < 0 {
 		return nil, 0, domain.ErrInvalidRelease
 	}

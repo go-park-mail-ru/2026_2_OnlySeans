@@ -214,3 +214,14 @@ func TestNotificationResponseAndOwnership(t *testing.T) {
 	h.ReadNotification(w, r)
 	require.Equal(t, 204, w.Code)
 }
+
+func TestWorldRegionIsForwarded(t *testing.T) {
+	client := mocks.NewMockReleaseServiceClient(gomock.NewController(t))
+	client.EXPECT().ListReleases(gomock.Any(), &pb.ListReleasesRequest{
+		From: "2026-12-01", To: "2027-01-01", Region: "world", Limit: releaselimits.DefaultLimit,
+	}).Return(&pb.ReleaseList{}, nil)
+
+	w := httptest.NewRecorder()
+	releases.NewHandler(client, nil).List(w, httptest.NewRequest("GET", "/api/releases?from=2026-12-01&to=2027-01-01&region=world", nil))
+	require.Equal(t, http.StatusOK, w.Code)
+}

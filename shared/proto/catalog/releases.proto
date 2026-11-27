@@ -28,6 +28,7 @@ message ListReleasesRequest {
   int32 limit = 7;
   int32 offset = 8;
   bool featured = 9;
+  string region = 10;
 }
 message ReleaseList { repeated Release items = 1; int64 total = 2; }
 message ReleaseInput {

@@ -31,13 +31,15 @@ func NewSessionUseCase(sr repository.SessionRepository, ttl time.Duration) Sessi
 
 func (s *sessionUseCase) Create(ctx context.Context, userID domain.UserID, role string) (domain.Session, error) {
 	sessionID := uuid.New()
-	expiresAt := time.Now().Add(s.sessionTTL)
+	now := time.Now()
+	expiresAt := now.Add(s.sessionTTL)
 
 	session := domain.Session{
-		ID:        sessionID,
-		UserID:    userID,
-		Role:      role,
-		ExpiresAt: expiresAt,
+		ID:              sessionID,
+		UserID:          userID,
+		Role:            role,
+		ExpiresAt:       expiresAt,
+		LastRefreshedAt: now,
 	}
 
 	err := s.sessionRepo.Create(ctx, session)

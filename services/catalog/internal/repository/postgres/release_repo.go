@@ -17,22 +17,26 @@ const (
 
 	releaseFilmExistsQuery = `SELECT id FROM film WHERE id=$1`
 
+	releaseDateQuery = `(CASE WHEN $6::boolean THEN f.world_premiere_date ELSE f.russia_premiere_date END)`
+
 	releaseFilterQuery = ` FROM film f
- WHERE ($1::date IS NULL OR f.russia_premiere_date >= $1)
- AND ($2::date IS NULL OR f.russia_premiere_date < $2)
- AND ($3::bigint=0 OR f.id=$3)
- AND ($4::bigint=0 OR EXISTS (SELECT 1 FROM film_genre g WHERE g.film_id=f.id AND g.genre_id=$4))
- AND ($5::bigint=0 OR EXISTS (SELECT 1 FROM release_subscription s WHERE s.film_id=f.id AND s.account_id=$5))`
+	WHERE ($1::date IS NULL OR ` + releaseDateQuery + ` >= $1)
+	AND ($2::date IS NULL OR ` + releaseDateQuery + ` < $2)
+	AND ($3::bigint=0 OR f.id=$3)
+	AND ($4::bigint=0 OR EXISTS (SELECT 1 FROM film_genre g WHERE g.film_id=f.id AND g.genre_id=$4))
+	AND ($5::bigint=0 OR EXISTS (SELECT 1 FROM release_subscription s WHERE s.film_id=f.id AND s.account_id=$5))
+	`
 
 	countReleasesQuery = `SELECT count(*)` + releaseFilterQuery
 
 	listReleasesQuery = `SELECT f.world_premiere_date,f.russia_premiere_date,` + filmColumns + releaseFilterQuery +
-		` ORDER BY f.russia_premiere_date NULLS LAST,f.id LIMIT $6 OFFSET $7`
+		` ORDER BY ` + releaseDateQuery + ` NULLS LAST,f.id LIMIT $7 OFFSET $8`
 
 	updateReleaseDatesQuery = `UPDATE film SET
- world_premiere_date=CASE WHEN $2 THEN $3::date ELSE world_premiere_date END,
- russia_premiere_date=CASE WHEN $4 THEN $5::date ELSE russia_premiere_date END
- WHERE id=$1`
+	world_premiere_date=CASE WHEN $2 THEN $3::date ELSE world_premiere_date END,
+	russia_premiere_date=CASE WHEN $4 THEN $5::date ELSE russia_premiere_date END
+	WHERE id=$1
+	`
 
 	deleteReleaseSubscriptionQuery = `DELETE FROM release_subscription WHERE account_id=$1 AND film_id=$2`
 
@@ -47,15 +51,16 @@ const (
 	markReleaseNotificationReadQuery = `UPDATE notification SET is_read=true WHERE id=$1 AND account_id=$2`
 
 	deliverReleaseRemindersQuery = `WITH due AS MATERIALIZED (
- SELECT s.account_id,f.id AS film_id,f.title,f.russia_premiere_date
- FROM release_subscription s JOIN film f ON f.id=s.film_id
- WHERE (f.russia_premiere_date + TIME '09:00') AT TIME ZONE 'Europe/Moscow' <= $1
- AND f.russia_premiere_date >= (s.created_at AT TIME ZONE 'Europe/Moscow')::date
- AND NOT EXISTS (SELECT 1 FROM notification n WHERE n.account_id=s.account_id AND n.film_id=f.id AND n.notification_type='release_reminder')
- ORDER BY f.russia_premiere_date,f.id,s.account_id LIMIT $2 FOR SHARE OF f,s
- ) INSERT INTO notification (account_id,message,film_id,notification_type)
- SELECT account_id,'Премьера «' || title || '» в России — ' || to_char(russia_premiere_date,'DD.MM.YYYY') || '.',film_id,'release_reminder' FROM due
- ON CONFLICT (account_id,film_id,notification_type) WHERE film_id IS NOT NULL DO NOTHING`
+	SELECT s.account_id,f.id AS film_id,f.title,f.russia_premiere_date
+	FROM release_subscription s JOIN film f ON f.id=s.film_id
+	WHERE (f.russia_premiere_date + TIME '09:00') AT TIME ZONE 'Europe/Moscow' <= $1
+	AND f.russia_premiere_date >= (s.created_at AT TIME ZONE 'Europe/Moscow')::date
+	AND NOT EXISTS (SELECT 1 FROM notification n WHERE n.account_id=s.account_id AND n.film_id=f.id AND n.notification_type='release_reminder')
+	ORDER BY f.russia_premiere_date,f.id,s.account_id LIMIT $2 FOR SHARE OF f,s
+	) INSERT INTO notification (account_id,message,film_id,notification_type)
+	SELECT account_id,'Премьера «' || title || '» в России — ' || to_char(russia_premiere_date,'DD.MM.YYYY') || '.',film_id,'release_reminder' FROM due
+	ON CONFLICT (account_id,film_id,notification_type) WHERE film_id IS NOT NULL DO NOTHING
+	`
 )
 
 type ReleaseRepo struct {
@@ -104,7 +109,14 @@ func (r *ReleaseRepo) List(ctx context.Context, f domain.ReleaseFilter, user int
 		}
 	}
 
-	args := []any{dateArgument(f.From), dateArgument(f.To), f.FilmID, f.GenreID, user}
+	args := []any{
+		dateArgument(f.From),
+		dateArgument(f.To),
+		f.FilmID,
+		f.GenreID,
+		user,
+		f.Region == domain.ReleaseRegionWorld,
+	}
 	var total int64
 
 	if err = tx.QueryRowContext(ctx, countReleasesQuery, args...).Scan(&total); err != nil {

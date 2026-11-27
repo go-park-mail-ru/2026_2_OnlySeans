@@ -35,6 +35,7 @@ const (
 	fromQueryParam    = "from"
 	toQueryParam      = "to"
 	genreIDQueryParam = "genre_id"
+	regionQueryParam  = "region"
 
 	defaultFeaturedLimit = 3
 	maxFeaturedLimit     = 10
@@ -68,7 +69,9 @@ func (h *Handler) fail(w http.ResponseWriter, r *http.Request, err error) {
 	}
 
 	if code >= http.StatusInternalServerError && h.appLogger != nil {
-		h.appLogger.ErrorContext(r.Context(), "release request failed", map[string]any{"error": err.Error()})
+		h.appLogger.ErrorContext(r.Context(), "release request failed", map[string]any{
+			"error": err.Error(),
+		})
 	}
 
 	message := status.Convert(err).Message()
@@ -162,7 +165,7 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request, featured, film bo
 		return
 	}
 
-	req := &pb.ListReleasesRequest{From: q.Get(fromQueryParam), To: q.Get(toQueryParam), Limit: limit, Offset: offset, Featured: featured}
+	req := &pb.ListReleasesRequest{Region: q.Get(regionQueryParam), From: q.Get(fromQueryParam), To: q.Get(toQueryParam), Limit: limit, Offset: offset, Featured: featured}
 	if film {
 		req.FilmId, err = pathID(r)
 		if err != nil {
