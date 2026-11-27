@@ -112,7 +112,6 @@ func scanFilmSearchResult(row rowScanner, counts *usecase.FilmSearchCounts) (*us
 		return nil, fmt.Errorf("scan film search result: %w", err)
 	}
 
-	// An empty page still has a row with the totals and a null film ID.
 	if id == nil {
 		return nil, nil
 	}
@@ -143,7 +142,6 @@ func filmSearchArgs(criteria usecase.FilmSearchCriteria, fullCards bool) []any {
 	}
 }
 
-// SQL fragments are selected from fixed literals. Client text is always bound separately.
 func filmSearchOrder(sort usecase.FilmSearchSort) string {
 	switch sort {
 	case usecase.FilmSearchSortPopularity:

@@ -12,7 +12,6 @@ import (
 )
 
 type CatalogSearchRepository interface {
-	// SearchFilms and SuggestFilms return counts before applying the page or suggestion limit.
 	SearchFilms(context.Context, SearchFilmsInput) (SearchFilmsOutput, error)
 	SuggestFilms(context.Context, SuggestFilmsInput) (SuggestFilmsOutput, error)
 	CountFilms(context.Context, FilmSearchCriteria) (FilmSearchCounts, error)
