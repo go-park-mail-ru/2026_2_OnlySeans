@@ -37,15 +37,9 @@ func (uc *ListFilmsUseCase) Run(ctx context.Context, input ListFilmsInput) (*Lis
 		"offset": input.Offset,
 	})
 
-	var films []domain.Film
-	var total int
-	var err error
+	filter := domain.FilmFilter{GenreSlug: input.GenreSlug}
 
-	if input.GenreSlug != "" {
-		films, total, err = uc.repository.ListFilmsByGenre(ctx, input.Limit, input.Offset, input.GenreSlug)
-	} else {
-		films, total, err = uc.repository.ListFilms(ctx, input.Limit, input.Offset)
-	}
+	films, total, err := uc.repository.FilterFilms(ctx, filter, input.Limit, input.Offset)
 
 	if err != nil {
 		logging.Failure(ctx, uc.appLogger, "list films failed", err, map[string]any{

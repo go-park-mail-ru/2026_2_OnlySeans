@@ -185,7 +185,7 @@ func TestInMemoryService_ListFilms(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			films, total, err := service.ListFilms(context.Background(), tt.limit, tt.offset)
+			films, total, err := service.FilterFilms(context.Background(), entities.FilmFilter{}, tt.limit, tt.offset)
 			if err != nil {
 				t.Fatalf("ListFilms: %v", err)
 			}
@@ -203,11 +203,11 @@ func TestInMemoryService_ReturnsCopies(t *testing.T) {
 	service := newTestService(t, 1)
 	ctx := context.Background()
 
-	films, _, _ := service.ListFilms(ctx, 1, 0)
+	films, _, _ := service.FilterFilms(ctx, entities.FilmFilter{}, 1, 0)
 	films[0].Genres[0].Name = "changed"
 	films[0].Title = "changed"
 
-	again, _, _ := service.ListFilms(ctx, 1, 0)
+	again, _, _ := service.FilterFilms(ctx, entities.FilmFilter{}, 1, 0)
 	if again[0].Genres[0].Name != genreDrama.Name || again[0].Title != "film" {
 		t.Errorf("mutating result changed stored film: %+v", again[0])
 	}
@@ -397,7 +397,7 @@ func TestSeedMatchesDatabaseConstraints(t *testing.T) {
 		t.Fatalf("NewSeededService: %v", err)
 	}
 
-	seedFilms, total, err := service.ListFilms(ctx, 1000, 0)
+	seedFilms, total, err := service.FilterFilms(ctx, entities.FilmFilter{}, 1000, 0)
 	if err != nil {
 		t.Fatalf("ListFilms: %v", err)
 	}

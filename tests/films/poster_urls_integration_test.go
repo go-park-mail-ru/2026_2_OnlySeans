@@ -86,7 +86,7 @@ func TestPostgresPosterURLSelection(t *testing.T) {
 			film, err := repo.GetFilmByID(ctx, domain.FilmID(9))
 			require.NoError(t, err)
 			require.Equal(t, tt.want, film.PosterURL)
-			list, total, err := repo.ListFilms(ctx, 20, 0)
+			list, total, err := repo.FilterFilms(ctx, domain.FilmFilter{}, 20, 0)
 			require.NoError(t, err)
 			require.Equal(t, 1, total)
 			require.Equal(t, tt.want, list[0].PosterURL)

@@ -54,25 +54,13 @@ func (r *RepositoryWithPosterURLs) GetFilmByID(ctx context.Context, id domain.Fi
 	return film, nil
 }
 
-func (r *RepositoryWithPosterURLs) ListFilms(ctx context.Context, limit, offset int) ([]domain.Film, int, error) {
-	films, total, err := r.films.ListFilms(ctx, limit, offset)
+func (r *RepositoryWithPosterURLs) FilterFilms(ctx context.Context, filter domain.FilmFilter, limit, offset int) ([]domain.Film, int, error) {
+	films, total, err := r.films.FilterFilms(ctx, filter, limit, offset)
 	if err != nil {
 		return nil, 0, err
 	}
 
 	result, err := r.attachPosterURLs(ctx, films)
-
-	return result, total, err
-}
-
-func (r *RepositoryWithPosterURLs) ListFilmsByGenre(ctx context.Context, limit, offset int, genreSlug string) ([]domain.Film, int, error) {
-	films, total, err := r.films.ListFilmsByGenre(ctx, limit, offset, genreSlug)
-	if err != nil {
-		return nil, 0, err
-	}
-
-	result, err := r.attachPosterURLs(ctx, films)
-
 	return result, total, err
 }
 

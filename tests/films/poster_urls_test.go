@@ -79,7 +79,7 @@ func TestFilmPosterSignedURLs(t *testing.T) {
 				case "get":
 					repo.EXPECT().GetFilmByID(gomock.Any(), domain.FilmID(9)).Return(original, tt.repoErr)
 				case "list":
-					repo.EXPECT().ListFilms(gomock.Any(), 3, 4).Return(source, 12, tt.repoErr)
+					repo.EXPECT().FilterFilms(gomock.Any(), domain.FilmFilter{}, 3, 4).Return(source, 12, tt.repoErr)
 				case "collection":
 					collections.EXPECT().ListCollectionFilms(gomock.Any(), domain.CollectionID(5), 3, 4).Return(source, 12, tt.repoErr)
 				}
@@ -93,7 +93,7 @@ func TestFilmPosterSignedURLs(t *testing.T) {
 					film, err = reader.GetFilmByID(t.Context(), 9)
 					films = []domain.Film{film}
 				case "list":
-					films, total, err = reader.ListFilms(t.Context(), 3, 4)
+					films, total, err = reader.FilterFilms(t.Context(), domain.FilmFilter{}, 3, 4)
 				case "collection":
 					films, total, err = reader.ListCollectionFilms(t.Context(), 5, 3, 4)
 				}

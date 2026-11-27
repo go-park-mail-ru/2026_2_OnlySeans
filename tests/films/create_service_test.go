@@ -34,7 +34,7 @@ func TestInMemoryServiceCreateFilm(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "Alien", firstFilm.Title)
 
-	films, total, err := service.ListFilms(context.Background(), 20, 0)
+	films, total, err := service.FilterFilms(context.Background(), domain.FilmFilter{}, 20, 0)
 	require.NoError(t, err)
 	require.Equal(t, 2, total)
 	require.Len(t, films, 2)

@@ -17,7 +17,7 @@ func TestListFilmsDetails(t *testing.T) {
 	for _, query := range []string{"", "&details=false", "&details=true"} {
 		t.Run(query, func(t *testing.T) {
 			repo := mocks.NewMockFilmRepository(gomock.NewController(t))
-			repo.EXPECT().ListFilms(gomock.Any(), 2, 3).Return([]domain.Film{{ID: 1, Title: "Film", Description: &description, FilmType: domain.FilmTypeMovie, DurationMin: &duration, AgeLimit: 16}}, 7, nil)
+			repo.EXPECT().FilterFilms(gomock.Any(), domain.FilmFilter{}, 2, 3).Return([]domain.Film{{ID: 1, Title: "Film", Description: &description, FilmType: domain.FilmTypeMovie, DurationMin: &duration, AgeLimit: 16}}, 7, nil)
 			handler := newTestRouter(t, repo)
 			rec := httptest.NewRecorder()
 			handler.ServeHTTP(rec, httptest.NewRequest("GET", "/api/films?limit=2&offset=3"+query, nil))
@@ -49,7 +49,7 @@ func TestListFilmsDetails(t *testing.T) {
 func TestListFilmsByGenre(t *testing.T) {
 	repo := mocks.NewMockFilmRepository(gomock.NewController(t))
 	repo.EXPECT().
-		ListFilmsByGenre(gomock.Any(), 2, 3, "comedy").
+		FilterFilms(gomock.Any(), domain.FilmFilter{GenreSlug: "comedy"}, 2, 3).
 		Return([]domain.Film{{ID: 7, Title: "Comedy"}}, 4, nil)
 
 	handler := newTestRouter(t, repo)

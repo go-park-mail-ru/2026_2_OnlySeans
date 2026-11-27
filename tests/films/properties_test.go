@@ -30,7 +30,7 @@ func TestInMemoryService_PagesCoverAllFilmsOnce(t *testing.T) {
 	for limit := 1; limit <= filmCount+3; limit++ {
 		var got []entities.FilmID
 		for offset := 0; ; offset += limit {
-			page, total, err := service.ListFilms(ctx, limit, offset)
+			page, total, err := service.FilterFilms(ctx, entities.FilmFilter{}, limit, offset)
 			if err != nil {
 				t.Fatalf("limit %d, offset %d: %v", limit, offset, err)
 			}
@@ -69,7 +69,7 @@ func TestInMemoryService_ConcurrentReadsAndWrites(t *testing.T) {
 		}()
 		go func() {
 			defer wg.Done()
-			page, total, err := service.ListFilms(ctx, filmCount, 0)
+			page, total, err := service.FilterFilms(ctx, entities.FilmFilter{}, filmCount, 0)
 			if err != nil {
 				t.Errorf("ListFilms: %v", err)
 			}
@@ -83,7 +83,7 @@ func TestInMemoryService_ConcurrentReadsAndWrites(t *testing.T) {
 	}
 	wg.Wait()
 
-	page, total, err := service.ListFilms(ctx, filmCount, 0)
+	page, total, err := service.FilterFilms(ctx, entities.FilmFilter{}, filmCount, 0)
 	if err != nil || total != filmCount || len(page) != filmCount {
 		t.Fatalf("ListFilms = %d films, total %d, err %v", len(page), total, err)
 	}

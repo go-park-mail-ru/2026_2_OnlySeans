@@ -135,11 +135,11 @@ func (s *InMemoryService) AddCollection(collection domain.Collection, filmIDs ..
 	return nil
 }
 
-func (s *InMemoryService) ListFilmsByGenre(ctx context.Context, limit, offset int, genreSlug string) ([]domain.Film, int, error) {
+func (s *InMemoryService) FilterFilms(_ context.Context, filter domain.FilmFilter, limit, offset int) ([]domain.Film, int, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	if genreSlug == "" {
+	if filter.GenreSlug == "" {
 		return s.filmsPage(s.filmIDs, limit, offset), len(s.filmIDs), nil
 	}
 
@@ -147,7 +147,7 @@ func (s *InMemoryService) ListFilmsByGenre(ctx context.Context, limit, offset in
 	for _, id := range s.filmIDs {
 		film := s.films[id]
 		for _, genre := range film.Genres {
-			if genre.Slug == genreSlug {
+			if genre.Slug == filter.GenreSlug {
 				matchingIDs = append(matchingIDs, id)
 				break
 			}
@@ -155,13 +155,6 @@ func (s *InMemoryService) ListFilmsByGenre(ctx context.Context, limit, offset in
 	}
 
 	return s.filmsPage(matchingIDs, limit, offset), len(matchingIDs), nil
-}
-
-func (s *InMemoryService) ListFilms(_ context.Context, limit, offset int) ([]domain.Film, int, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	return s.filmsPage(s.filmIDs, limit, offset), len(s.filmIDs), nil
 }
 
 func (s *InMemoryService) GetFilmByID(_ context.Context, id domain.FilmID) (domain.Film, error) {

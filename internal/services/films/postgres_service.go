@@ -283,7 +283,7 @@ func (s *PostgresService) DeleteFilm(ctx context.Context, id domain.FilmID) (ope
 	return nil
 }
 
-func (s *PostgresService) listFilms(ctx context.Context, limit, offset int, genreSlug string) (_ []domain.Film, _ int, operationErr error) {
+func (s *PostgresService) FilterFilms(ctx context.Context, filter domain.FilmFilter, limit, offset int) (_ []domain.Film, _ int, operationErr error) {
 	operationLog := storage.StartOperation(ctx, s.appLogger, "postgres", "film.list_films", map[string]any{"limit": limit, "offset": offset})
 	defer func() { operationLog.Finish(operationErr) }()
 
@@ -300,12 +300,12 @@ func (s *PostgresService) listFilms(ctx context.Context, limit, offset int, genr
 	listQuery := listFilmsQuery
 	listArgs := []any{limit, offset}
 
-	if genreSlug != "" {
+	if filter.GenreSlug != "" {
 		countQuery = countFilmsByGenreQuery
-		countArgs = []any{genreSlug}
+		countArgs = []any{filter.GenreSlug}
 
 		listQuery = listFilmsByGenreQuery
-		listArgs = []any{genreSlug, limit, offset}
+		listArgs = []any{filter.GenreSlug, limit, offset}
 	}
 
 	var total int
@@ -341,14 +341,6 @@ func (s *PostgresService) listFilms(ctx context.Context, limit, offset int, genr
 		return nil, 0, fmt.Errorf("list films: %w", err)
 	}
 	return list, total, nil
-}
-
-func (s *PostgresService) ListFilms(ctx context.Context, limit, offset int) (_ []domain.Film, _ int, operationErr error) {
-	return s.listFilms(ctx, limit, offset, "")
-}
-
-func (s *PostgresService) ListFilmsByGenre(ctx context.Context, limit, offset int, genreSlug string) ([]domain.Film, int, error) {
-	return s.listFilms(ctx, limit, offset, genreSlug)
 }
 
 func (s *PostgresService) ListGenres(ctx context.Context) ([]domain.Genre, error) {

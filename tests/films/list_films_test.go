@@ -17,7 +17,7 @@ func TestListFilmsUseCaseRun(t *testing.T) {
 	expectedFilms := []entities.Film{{ID: 1}}
 
 	repository := mocks.NewMockFilmRepository(gomock.NewController(t))
-	repository.EXPECT().ListFilms(ctx, 2, 1).Return(expectedFilms, 5, nil)
+	repository.EXPECT().FilterFilms(ctx, entities.FilmFilter{}, 2, 1).Return(expectedFilms, 5, nil)
 	uc, err := filmsusecase.NewListFilmsUseCase(repository, testutil.DiscardLogger())
 	if err != nil {
 		t.Fatalf("filmsusecase.NewListFilmsUseCase: %v", err)
@@ -42,7 +42,7 @@ func TestListFilmsUseCaseRunReturnsRepositoryError(t *testing.T) {
 	repositoryErr := errors.New("storage unavailable")
 
 	repository := mocks.NewMockFilmRepository(gomock.NewController(t))
-	repository.EXPECT().ListFilms(gomock.Any(), 10, 0).Return(nil, 0, repositoryErr)
+	repository.EXPECT().FilterFilms(gomock.Any(), entities.FilmFilter{}, 10, 0).Return(nil, 0, repositoryErr)
 	uc, err := filmsusecase.NewListFilmsUseCase(repository, testutil.DiscardLogger())
 	if err != nil {
 		t.Fatalf("filmsusecase.NewListFilmsUseCase: %v", err)

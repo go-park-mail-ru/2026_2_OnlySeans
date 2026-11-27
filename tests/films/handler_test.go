@@ -709,7 +709,7 @@ func TestHandler_InternalErrorIsHidden(t *testing.T) {
 			collections := mocks.NewMockCollectionRepository(gomock.NewController(t))
 			switch tt.target {
 			case "/api/films":
-				service.EXPECT().ListFilms(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, 0, errStorage)
+				service.EXPECT().FilterFilms(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, 0, errStorage)
 			case "/api/films/1":
 				service.EXPECT().GetFilmByID(gomock.Any(), domain.FilmID(1)).Return(domain.Film{}, errStorage)
 			case "/api/collections":

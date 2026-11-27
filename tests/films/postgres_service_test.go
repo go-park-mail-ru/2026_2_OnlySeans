@@ -178,7 +178,7 @@ func TestPostgresService_ListFilms(t *testing.T) {
 			AddRow(11, dramaGenre.ID, dramaGenre.Name, dramaGenre.Slug))
 	mock.ExpectCommit()
 
-	list, total, err := service.ListFilms(context.Background(), 2, 0)
+	list, total, err := service.FilterFilms(context.Background(), domain.FilmFilter{}, 2, 0)
 	require.NoError(t, err)
 	assert.Equal(t, 13, total)
 	assert.Equal(t, []domain.Film{withGenres(shawshank()), withGenres(ivan(), dramaGenre)}, list,
@@ -203,7 +203,7 @@ func TestPostgresService_ListFilmsByGenre(t *testing.T) {
 			AddRow(1, crimeGenre.ID, crimeGenre.Name, crimeGenre.Slug))
 	mock.ExpectCommit()
 
-	list, total, err := service.ListFilmsByGenre(context.Background(), 1, 2, dramaGenre.Slug)
+	list, total, err := service.FilterFilms(context.Background(), domain.FilmFilter{GenreSlug: dramaGenre.Slug}, 1, 2)
 	require.NoError(t, err)
 	assert.Equal(t, 3, total)
 	assert.Equal(t, []domain.Film{withGenres(shawshank(), dramaGenre, crimeGenre)}, list)
@@ -217,7 +217,7 @@ func TestPostgresService_ListFilmsEmptyPage(t *testing.T) {
 	mock.ExpectQuery(`ORDER BY f.id`).WillReturnRows(filmRows())
 	mock.ExpectCommit()
 
-	list, total, err := service.ListFilms(context.Background(), 20, 100)
+	list, total, err := service.FilterFilms(context.Background(), domain.FilmFilter{}, 20, 100)
 	require.NoError(t, err)
 	assert.Equal(t, 13, total)
 	assert.NotNil(t, list)
@@ -262,7 +262,7 @@ func TestPostgresService_ListFilmsErrors(t *testing.T) {
 			service, mock := newPostgresService(t)
 			tt.setup(mock)
 
-			list, total, err := service.ListFilms(context.Background(), 20, 0)
+			list, total, err := service.FilterFilms(context.Background(), domain.FilmFilter{}, 20, 0)
 			assert.ErrorIs(t, err, errStorage)
 			assert.Nil(t, list)
 			assert.Zero(t, total)

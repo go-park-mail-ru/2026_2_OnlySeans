@@ -139,12 +139,15 @@ type CollectionFilmRatingRepository interface {
 	GetCollectionFilmRatingSummaries(ctx context.Context, collectionID CollectionID, limit, offset int) ([]FilmRatingSummary, int, error)
 }
 
+type FilmFilter struct {
+	GenreSlug string
+}
+
 type FilmRepository interface {
 	CreateFilm(ctx context.Context, input CreateFilmInput) (FilmID, error)
 	UpdateFilm(ctx context.Context, id FilmID, input CreateFilmInput) error
 	DeleteFilm(ctx context.Context, id FilmID) error
-	ListFilms(ctx context.Context, limit, offset int) ([]Film, int, error)
-	ListFilmsByGenre(ctx context.Context, limit, offset int, genreslug string) ([]Film, int, error)
+	FilterFilms(ctx context.Context, filter FilmFilter, limit, offset int) ([]Film, int, error)
 	GetFilmByID(ctx context.Context, id FilmID) (Film, error)
 }
 
