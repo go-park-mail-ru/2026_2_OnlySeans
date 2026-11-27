@@ -51,7 +51,7 @@ func TestPostgresAvatarRepoSave(t *testing.T) {
 
 			t.Cleanup(func() { mock.ExpectClose(); require.NoError(t, db.Close()) })
 
-			repo := filesservice.NewPostgresAvatarRepo(db)
+			repo := filesservice.NewPostgresAvatarRepo(db, nil)
 
 			mock.ExpectBegin()
 
@@ -137,7 +137,7 @@ func TestPostgresAvatarRepoGet(t *testing.T) {
 
 			t.Cleanup(func() { mock.ExpectClose(); require.NoError(t, db.Close()) })
 
-			repo := filesservice.NewPostgresAvatarRepo(db)
+			repo := filesservice.NewPostgresAvatarRepo(db, nil)
 
 			query := mock.ExpectQuery("SELECT f.storage_key, f.mime_type, f.size_bytes").WithArgs(int64(7))
 
@@ -196,7 +196,7 @@ func TestPostgresAvatarRepoDelete(t *testing.T) {
 
 			t.Cleanup(func() { mock.ExpectClose(); require.NoError(t, db.Close()) })
 
-			repo := filesservice.NewPostgresAvatarRepo(db)
+			repo := filesservice.NewPostgresAvatarRepo(db, nil)
 
 			query := mock.ExpectQuery("UPDATE account SET avatar_file_id = NULL").WithArgs(int64(7))
 			if tt.queryErr != nil {

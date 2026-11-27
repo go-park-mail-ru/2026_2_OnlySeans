@@ -17,6 +17,7 @@ import (
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/services/auth/internal/usecase"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/grpcutil"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/logger"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/metrics"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/password"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/redis"
 	pbauth "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/auth"
@@ -39,6 +40,14 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("create logger: %w", err)
 	}
 
+	appMetrics := metrics.New()
+	closeMetrics, err := appMetrics.Listen(os.Getenv("METRICS_ADDR"))
+	if err != nil {
+		return err
+	}
+
+	defer closeMetrics()
+
 	redisClient, err := redis.NewClientWithPing(ctx, cfg.Redis.URL)
 	if err != nil {
 		return fmt.Errorf("connect to Redis: %w", err)
@@ -56,10 +65,12 @@ func run(ctx context.Context) error {
 
 	defer func() { _ = userConn.Close() }()
 
+	userConn.Connect()
+
 	userClient := grpcclient.New(pbuser.NewUserServiceClient(userConn))
-	sessionRepo := redisrepo.NewRedisSessionStore(redisClient, appLogger)
+	sessionRepo := redisrepo.NewRedisSessionStore(redisClient, appLogger, appMetrics)
 	sessions := usecase.NewSessionUseCase(sessionRepo, cfg.SessionTTL)
-	auth := usecase.NewAuthUseCase(userClient, sessions, &password.BcryptPasswordService{})
+	auth := usecase.NewAuthUseCase(userClient, sessions, &password.BcryptPasswordService{}, appMetrics)
 
 	server := grpc.NewServer(grpc.ChainUnaryInterceptor(grpcutil.UnaryServerRequestID, grpcutil.UnaryServerLogging("auth", appLogger)))
 	pbauth.RegisterAuthServiceServer(server, authgrpc.NewAuthHandler(auth))

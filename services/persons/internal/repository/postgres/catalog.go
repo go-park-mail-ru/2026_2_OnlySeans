@@ -11,12 +11,12 @@ import (
 )
 
 type CatalogRepo struct {
-	db        *sql.DB
-	appLogger logger.Logger
+	db         *sql.DB
+	operations storage.OperationRecorder
 }
 
-func NewCatalogRepo(db *sql.DB, appLogger logger.Logger) *CatalogRepo {
-	return &CatalogRepo{appLogger: appLogger, db: db}
+func NewCatalogRepo(db *sql.DB, appLogger logger.Logger, observers ...storage.ExternalObserver) *CatalogRepo {
+	return &CatalogRepo{operations: storage.NewOperationRecorder(appLogger, observers...), db: db}
 }
 
 const (
@@ -51,7 +51,7 @@ func scanCatalogPerson(row catalogScanner) (domain.CatalogPerson, error) {
 	return p, err
 }
 func (r *CatalogRepo) FilmPersons(ctx context.Context, id int64) (_ []domain.PersonCredit, operationErr error) {
-	operationLog := storage.StartOperation(ctx, r.appLogger, "postgres", "person_catalog.film_persons", map[string]any{"film_id": id})
+	operationLog := r.operations.Start(ctx, "postgres", "person_catalog.film_persons", map[string]any{"film_id": id})
 	defer func() { operationLog.Finish(operationErr) }()
 
 	persons := []domain.PersonCredit{}
@@ -72,7 +72,7 @@ func (r *CatalogRepo) FilmPersons(ctx context.Context, id int64) (_ []domain.Per
 	return persons, rows.Err()
 }
 func (r *CatalogRepo) Get(ctx context.Context, id int64) (_ domain.CatalogPerson, _ []domain.FilmCredit, operationErr error) {
-	operationLog := storage.StartOperation(ctx, r.appLogger, "postgres", "person_catalog.get", map[string]any{"person_id": id})
+	operationLog := r.operations.Start(ctx, "postgres", "person_catalog.get", map[string]any{"person_id": id})
 	defer func() { operationLog.Finish(operationErr) }()
 
 	operationLog.Stage = "query"

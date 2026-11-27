@@ -70,14 +70,14 @@ const (
 )
 
 type FilmRepo struct {
-	appLogger logger.Logger
-	db        *sql.DB
+	operations storage.OperationRecorder
+	db         *sql.DB
 }
 
-func NewFilmRepo(db *sql.DB, appLogger logger.Logger) *FilmRepo {
+func NewFilmRepo(db *sql.DB, appLogger logger.Logger, observers ...storage.ExternalObserver) *FilmRepo {
 	return &FilmRepo{
-		appLogger: appLogger,
-		db:        db,
+		operations: storage.NewOperationRecorder(appLogger, observers...),
+		db:         db,
 	}
 }
 
@@ -107,17 +107,17 @@ type querier interface {
 	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
 }
 
-func attachGenresTx(ctx context.Context, q querier, films []domain.Film, appLogger logger.Logger) (operationErr error) {
-	operationLog := storage.StartOperation(ctx, appLogger, "postgres", "film.load_genres", map[string]any{
+func attachGenresTx(ctx context.Context, q querier, films []domain.Film, operations storage.OperationRecorder) (operationErr error) {
+	if len(films) == 0 {
+		return nil
+	}
+
+	operationLog := operations.Start(ctx, "postgres", "film.load_genres", map[string]any{
 		"film_count": len(films),
 	})
 	defer func() { operationLog.Finish(operationErr) }()
 
 	operationLog.Stage = "query"
-
-	if len(films) == 0 {
-		return nil
-	}
 
 	ids := make([]int64, 0, len(films))
 	positions := make(map[domain.FilmID]int, len(films))
@@ -155,7 +155,7 @@ func attachGenresTx(ctx context.Context, q querier, films []domain.Film, appLogg
 }
 
 func (s *FilmRepo) GetFilmByID(ctx context.Context, id domain.FilmID) (_ domain.Film, operationErr error) {
-	operationLog := storage.StartOperation(ctx, s.appLogger, "postgres", "film.get_film_by_id", map[string]any{
+	operationLog := s.operations.Start(ctx, "postgres", "film.get_film_by_id", map[string]any{
 		"film_id": id,
 	})
 	defer func() { operationLog.Finish(operationErr) }()
@@ -164,6 +164,7 @@ func (s *FilmRepo) GetFilmByID(ctx context.Context, id domain.FilmID) (_ domain.
 	film, err := scanFilm(s.db.QueryRowContext(ctx, getFilmQuery, id))
 
 	if errors.Is(err, sql.ErrNoRows) {
+		operationLog.NotFound = true
 		return domain.Film{}, domain.ErrFilmNotFound
 	}
 
@@ -172,7 +173,7 @@ func (s *FilmRepo) GetFilmByID(ctx context.Context, id domain.FilmID) (_ domain.
 	}
 
 	films := []domain.Film{film}
-	if err := attachGenresTx(ctx, s.db, films, s.appLogger); err != nil {
+	if err := attachGenresTx(ctx, s.db, films, s.operations); err != nil {
 		return domain.Film{}, err
 	}
 
@@ -180,7 +181,7 @@ func (s *FilmRepo) GetFilmByID(ctx context.Context, id domain.FilmID) (_ domain.
 }
 
 func (s *FilmRepo) CreateFilm(ctx context.Context, input domain.CreateFilmInput) (_ domain.FilmID, operationErr error) {
-	operationLog := storage.StartOperation(ctx, s.appLogger, "postgres", "film.create_film", map[string]any{})
+	operationLog := s.operations.Start(ctx, "postgres", "film.create_film", map[string]any{})
 	defer func() { operationLog.Finish(operationErr) }()
 
 	var id domain.FilmID
@@ -203,7 +204,7 @@ func (s *FilmRepo) CreateFilm(ctx context.Context, input domain.CreateFilmInput)
 }
 
 func (s *FilmRepo) UpdateFilm(ctx context.Context, id domain.FilmID, input domain.CreateFilmInput) (operationErr error) {
-	operationLog := storage.StartOperation(ctx, s.appLogger, "postgres", "film.update_film", map[string]any{
+	operationLog := s.operations.Start(ctx, "postgres", "film.update_film", map[string]any{
 		"film_id": id,
 	})
 	defer func() { operationLog.Finish(operationErr) }()
@@ -221,6 +222,7 @@ func (s *FilmRepo) UpdateFilm(ctx context.Context, id domain.FilmID, input domai
 	}
 
 	if affected == 0 {
+		operationLog.NotFound = true
 		return domain.ErrFilmNotFound
 	}
 
@@ -228,7 +230,7 @@ func (s *FilmRepo) UpdateFilm(ctx context.Context, id domain.FilmID, input domai
 }
 
 func (s *FilmRepo) DeleteFilm(ctx context.Context, id domain.FilmID) (operationErr error) {
-	operationLog := storage.StartOperation(ctx, s.appLogger, "postgres", "film.delete_film", map[string]any{
+	operationLog := s.operations.Start(ctx, "postgres", "film.delete_film", map[string]any{
 		"film_id": id,
 	})
 	defer func() { operationLog.Finish(operationErr) }()
@@ -246,6 +248,7 @@ func (s *FilmRepo) DeleteFilm(ctx context.Context, id domain.FilmID) (operationE
 	}
 
 	if affected == 0 {
+		operationLog.NotFound = true
 		return domain.ErrFilmNotFound
 	}
 
@@ -253,7 +256,7 @@ func (s *FilmRepo) DeleteFilm(ctx context.Context, id domain.FilmID) (operationE
 }
 
 func (s *FilmRepo) ListFilms(ctx context.Context, limit, offset int) (_ []domain.Film, _ int, operationErr error) {
-	operationLog := storage.StartOperation(ctx, s.appLogger, "postgres", "film.list_films", map[string]any{
+	operationLog := s.operations.Start(ctx, "postgres", "film.list_films", map[string]any{
 		"limit":  limit,
 		"offset": offset,
 	})
@@ -302,7 +305,7 @@ func (s *FilmRepo) ListFilms(ctx context.Context, limit, offset int) (_ []domain
 		return nil, 0, fmt.Errorf("list films: %w", err)
 	}
 
-	if err := attachGenresTx(ctx, tx, list, s.appLogger); err != nil {
+	if err := attachGenresTx(ctx, tx, list, s.operations); err != nil {
 		return nil, 0, err
 	}
 

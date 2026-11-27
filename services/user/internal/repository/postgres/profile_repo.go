@@ -8,17 +8,20 @@ import (
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/services/user/internal/domain"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/services/user/internal/repository"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/logger"
 	pgutil "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/postgres"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/storage"
 )
 
 type ProfileRepo struct {
-	db pgutil.DB
+	db         pgutil.DB
+	operations storage.OperationRecorder
 }
 
 var _ repository.ProfileReader = (*ProfileRepo)(nil)
 
-func NewProfileRepo(db pgutil.DB) *ProfileRepo {
-	return &ProfileRepo{db: db}
+func NewProfileRepo(db pgutil.DB, appLogger logger.Logger, observers ...storage.ExternalObserver) *ProfileRepo {
+	return &ProfileRepo{db: db, operations: storage.NewOperationRecorder(appLogger, observers...)}
 }
 
 const (
@@ -52,7 +55,14 @@ const (
         ORDER BY rating.updated_at DESC, f.id`
 )
 
-func (r *ProfileRepo) GetProfile(ctx context.Context, id int64) (*domain.Profile, error) {
+func (r *ProfileRepo) GetProfile(ctx context.Context, id int64) (_ *domain.Profile, operationErr error) {
+	operation := r.operations.Start(ctx, "postgres", "profile.get_profile", map[string]any{"user_id": id})
+	operation.Stage = "begin"
+	defer func() {
+		operation.NotFound = errors.Is(operationErr, domain.ErrUserNotFound)
+		operation.Finish(operationErr)
+	}()
+
 	tx, err := r.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelRepeatableRead, ReadOnly: true})
 	if err != nil {
 		return nil, fmt.Errorf("begin profile read: %w", err)

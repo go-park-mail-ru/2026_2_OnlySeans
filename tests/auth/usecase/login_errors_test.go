@@ -10,6 +10,7 @@ import (
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/services/auth/internal/domain"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/services/auth/internal/usecase"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/services/auth/tests/mocks"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/metrics"
 	passwordutil "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/password"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/utils"
 )
@@ -81,7 +82,7 @@ func TestLoginErrors(t *testing.T) {
 				verifier.EXPECT().Verify(tt.password, "stored hash").Return(tt.verifyErr).Times(tt.verifyCalls)
 			}
 
-			uc := usecase.NewAuthUseCase(users, sessions, verifier)
+			uc := usecase.NewAuthUseCase(users, sessions, verifier, metrics.New())
 			result, err := uc.Login(t.Context(), tt.email, tt.password)
 			require.Nil(t, result)
 			require.ErrorIs(t, err, tt.wantErr)

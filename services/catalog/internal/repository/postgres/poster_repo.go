@@ -35,11 +35,11 @@ const (
 )
 
 type PosterRepo struct {
-	appLogger logger.Logger
-	db        *sql.DB
+	operations storage.OperationRecorder
+	db         *sql.DB
 }
 
-func NewPosterRepo(db *sql.DB, appLogger logger.Logger) (*PosterRepo, error) {
+func NewPosterRepo(db *sql.DB, appLogger logger.Logger, observers ...storage.ExternalObserver) (*PosterRepo, error) {
 	if db == nil {
 		return nil, errors.New("poster database is nil")
 	}
@@ -49,8 +49,8 @@ func NewPosterRepo(db *sql.DB, appLogger logger.Logger) (*PosterRepo, error) {
 	}
 
 	return &PosterRepo{
-		appLogger: appLogger,
-		db:        db,
+		operations: storage.NewOperationRecorder(appLogger, observers...),
+		db:         db,
 	}, nil
 }
 
@@ -60,7 +60,7 @@ func (r *PosterRepo) SavePoster(
 	userID domain.UserID,
 	poster domain.PosterFile,
 ) (operationErr error) {
-	operationLog := storage.StartOperation(ctx, r.appLogger, "postgres", "poster.save_poster", map[string]any{
+	operationLog := r.operations.Start(ctx, "postgres", "poster.save_poster", map[string]any{
 		"film_id": filmID,
 		"user_id": userID,
 	})
@@ -81,6 +81,7 @@ func (r *PosterRepo) SavePoster(
 
 	err = tx.QueryRowContext(ctx, lockPosterFilmQuery, filmID).Scan(&existingFilmID)
 	if errors.Is(err, sql.ErrNoRows) {
+		operationLog.NotFound = true
 		return domain.ErrFilmNotFound
 	}
 
@@ -131,7 +132,7 @@ const getFilmPosterQuery = `
 const deleteFilmPosterQuery = `DELETE FROM film_file WHERE film_id = $1 AND file_role = 'poster'`
 
 func (r *PosterRepo) GetPoster(ctx context.Context, filmID domain.FilmID) (_ *domain.PosterFile, operationErr error) {
-	operation := storage.StartOperation(ctx, r.appLogger, "postgres", "poster.get_poster", map[string]any{
+	operation := r.operations.Start(ctx, "postgres", "poster.get_poster", map[string]any{
 		"film_id": filmID,
 	})
 	defer func() { operation.Finish(operationErr) }()
@@ -140,6 +141,7 @@ func (r *PosterRepo) GetPoster(ctx context.Context, filmID domain.FilmID) (_ *do
 
 	err := r.db.QueryRowContext(ctx, getFilmPosterQuery, filmID).Scan(&poster.Filename, &mime, &poster.Size, &poster.ExternalURL)
 	if errors.Is(err, sql.ErrNoRows) {
+		operation.NotFound = true
 		return nil, domain.ErrFilmNotFound
 	}
 
@@ -148,6 +150,7 @@ func (r *PosterRepo) GetPoster(ctx context.Context, filmID domain.FilmID) (_ *do
 	}
 
 	if !mime.Valid {
+		operation.NotFound = true
 		return nil, domain.ErrFileNotFound
 	}
 
@@ -157,7 +160,7 @@ func (r *PosterRepo) GetPoster(ctx context.Context, filmID domain.FilmID) (_ *do
 }
 
 func (r *PosterRepo) DeletePoster(ctx context.Context, filmID domain.FilmID) (operationErr error) {
-	operation := storage.StartOperation(ctx, r.appLogger, "postgres", "poster.delete_poster", map[string]any{
+	operation := r.operations.Start(ctx, "postgres", "poster.delete_poster", map[string]any{
 		"film_id": filmID,
 	})
 	defer func() { operation.Finish(operationErr) }()
@@ -175,6 +178,7 @@ func (r *PosterRepo) DeletePoster(ctx context.Context, filmID domain.FilmID) (op
 
 	err = tx.QueryRowContext(ctx, lockPosterFilmQuery, filmID).Scan(&id)
 	if errors.Is(err, sql.ErrNoRows) {
+		operation.NotFound = true
 		return domain.ErrFilmNotFound
 	}
 

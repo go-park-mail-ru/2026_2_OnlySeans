@@ -60,19 +60,19 @@ const (
 )
 
 type LibraryRepo struct {
-	db        *sql.DB
-	appLogger logger.Logger
+	db         *sql.DB
+	operations storage.OperationRecorder
 }
 
-func NewLibraryRepo(db *sql.DB, appLogger logger.Logger) *LibraryRepo {
+func NewLibraryRepo(db *sql.DB, appLogger logger.Logger, observers ...storage.ExternalObserver) *LibraryRepo {
 	return &LibraryRepo{
-		appLogger: appLogger,
-		db:        db,
+		operations: storage.NewOperationRecorder(appLogger, observers...),
+		db:         db,
 	}
 }
 
 func (r *LibraryRepo) Get(ctx context.Context, user domain.UserID) (_ domain.Library, operationErr error) {
-	operationLog := storage.StartOperation(ctx, r.appLogger, "postgres", "library.get", map[string]any{
+	operationLog := r.operations.Start(ctx, "postgres", "library.get", map[string]any{
 		"user_id": user,
 	})
 	defer func() { operationLog.Finish(operationErr) }()
@@ -113,7 +113,7 @@ func (r *LibraryRepo) Get(ctx context.Context, user domain.UserID) (_ domain.Lib
 }
 
 func (r *LibraryRepo) SetSaved(ctx context.Context, user domain.UserID, list domain.List, film domain.FilmID, saved bool) (err error) {
-	operationLog := storage.StartOperation(ctx, r.appLogger, "postgres", "library.set_saved", map[string]any{
+	operationLog := r.operations.Start(ctx, "postgres", "library.set_saved", map[string]any{
 		"user_id": user,
 		"list":    list,
 		"film_id": film,
@@ -124,6 +124,7 @@ func (r *LibraryRepo) SetSaved(ctx context.Context, user domain.UserID, list dom
 	defer func() {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == foreignKeyViolation && pgErr.ConstraintName == "folder_item_film_id_fkey" {
+			operationLog.NotFound = true
 			err = domain.ErrFilmNotFound
 		}
 	}()

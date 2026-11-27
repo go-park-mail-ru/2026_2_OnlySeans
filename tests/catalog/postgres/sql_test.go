@@ -97,7 +97,7 @@ const (
 		`
 	listFilmsQuery = `
 		SELECT ` + filmColumns +
-		` FROM film AS f 
+		` FROM film AS f
 		ORDER BY f.id
 		LIMIT $1 OFFSET $2`
 	lockAccountQuery          = `SELECT id FROM account WHERE id = $1 FOR UPDATE`

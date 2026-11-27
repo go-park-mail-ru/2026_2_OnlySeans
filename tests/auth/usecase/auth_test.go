@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/services/auth/internal/domain"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/metrics"
 )
 
 func TestLoginPreservesEmailCase(t *testing.T) {
@@ -85,7 +86,7 @@ func TestLoginPreservesEmailCase(t *testing.T) {
 				)
 			}
 
-			uc := usecase.NewAuthUseCase(users, sessions, verifier)
+			uc := usecase.NewAuthUseCase(users, sessions, verifier, metrics.New())
 
 			got, err := uc.Login(t.Context(), tt.email, "Password1")
 			if tt.wantErr != nil {

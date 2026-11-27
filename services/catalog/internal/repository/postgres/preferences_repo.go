@@ -19,8 +19,8 @@ const (
 )
 
 type PreferencesRepo struct {
-	db        *sql.DB
-	appLogger logger.Logger
+	db         *sql.DB
+	operations storage.OperationRecorder
 }
 
 type preferencesRow struct {
@@ -28,15 +28,15 @@ type preferencesRow struct {
 	CatalogView      *domain.CatalogView `json:"frame:catalog-view"`
 }
 
-func NewPreferencesRepo(db *sql.DB, appLogger logger.Logger) *PreferencesRepo {
+func NewPreferencesRepo(db *sql.DB, appLogger logger.Logger, observers ...storage.ExternalObserver) *PreferencesRepo {
 	return &PreferencesRepo{
-		db:        db,
-		appLogger: appLogger,
+		db:         db,
+		operations: storage.NewOperationRecorder(appLogger, observers...),
 	}
 }
 
 func (r *PreferencesRepo) Preferences(ctx context.Context, user domain.UserID) (_ domain.Preferences, operationErr error) {
-	operationLog := storage.StartOperation(ctx, r.appLogger, "postgres", "preferences.preferences", map[string]any{
+	operationLog := r.operations.Start(ctx, "postgres", "preferences.preferences", map[string]any{
 		"user_id": user,
 	})
 	defer func() { operationLog.Finish(operationErr) }()
@@ -60,7 +60,7 @@ func (r *PreferencesRepo) Preferences(ctx context.Context, user domain.UserID) (
 }
 
 func (r *PreferencesRepo) SavePreference(ctx context.Context, user domain.UserID, update domain.PreferenceUpdate) (operationErr error) {
-	operationLog := storage.StartOperation(ctx, r.appLogger, "postgres", "preferences.save_preference", map[string]any{
+	operationLog := r.operations.Start(ctx, "postgres", "preferences.save_preference", map[string]any{
 		"user_id": user,
 	})
 	defer func() { operationLog.Finish(operationErr) }()

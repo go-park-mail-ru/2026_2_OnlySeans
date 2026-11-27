@@ -19,6 +19,7 @@ import (
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/grpcutil"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/imageutil"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/logger"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/metrics"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/password"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/postgres"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/s3"
@@ -32,6 +33,14 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("create logger: %w", err)
 	}
+
+	appMetrics := metrics.New()
+	closeMetrics, err := appMetrics.Listen(os.Getenv("METRICS_ADDR"))
+	if err != nil {
+		return err
+	}
+
+	defer closeMetrics()
 
 	db, err := postgres.Connect(ctx, cfg.Postgres.URL)
 	if err != nil {
@@ -51,7 +60,7 @@ func run(ctx context.Context) error {
 	}
 
 	storage, err := s3.NewS3Storage(
-		s3Client, cfg.S3.Bucket, cfg.S3.PublicEndpoint, cfg.S3.AvatarURLLifetime, appLogger,
+		s3Client, cfg.S3.Bucket, cfg.S3.PublicEndpoint, cfg.S3.AvatarURLLifetime, appLogger, appMetrics,
 	)
 	if err != nil {
 		return fmt.Errorf("create S3 storage: %w", err)
@@ -68,9 +77,9 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("check S3 bucket %q: %w", cfg.S3.Bucket, err)
 	}
 
-	userRepo := userpostgres.NewPostgresUserRepo(db, appLogger)
-	avatarRepo := userpostgres.NewPostgresAvatarRepo(db)
-	profileRepo := userpostgres.NewProfileRepo(db)
+	userRepo := userpostgres.NewPostgresUserRepo(db, appLogger, appMetrics)
+	avatarRepo := userpostgres.NewPostgresAvatarRepo(db, appLogger, appMetrics)
+	profileRepo := userpostgres.NewProfileRepo(db, appLogger, appMetrics)
 
 	files := users3.NewFileStorage(storage)
 	hasher := &password.BcryptPasswordService{}

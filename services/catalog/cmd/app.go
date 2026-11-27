@@ -18,6 +18,7 @@ import (
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/services/catalog/internal/usecase"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/grpcutil"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/logger"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/metrics"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/postgres"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/s3"
 )
@@ -32,6 +33,14 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("create logger: %w", err)
 	}
+
+	appMetrics := metrics.New()
+	closeMetrics, err := appMetrics.Listen(os.Getenv("METRICS_ADDR"))
+	if err != nil {
+		return err
+	}
+
+	defer closeMetrics()
 
 	db, err := postgres.Connect(ctx, cfg.Postgres.URL)
 	if err != nil {
@@ -56,7 +65,7 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("create S3 client: %w", err)
 	}
 
-	storage, err := s3.NewS3Storage(s3Client, cfg.S3.Bucket, cfg.S3.PublicEndpoint, cfg.S3.PosterURLLifetime, appLogger)
+	storage, err := s3.NewS3Storage(s3Client, cfg.S3.Bucket, cfg.S3.PublicEndpoint, cfg.S3.PosterURLLifetime, appLogger, appMetrics)
 	if err != nil {
 		return fmt.Errorf("create S3 storage: %w", err)
 	}
@@ -77,12 +86,12 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("create poster storage: %w", err)
 	}
 
-	filmsRepo := catalogpostgres.NewFilmRepo(db, appLogger)
-	ratingsRepo := catalogpostgres.NewRatingRepo(db, appLogger)
-	libraryRepo := catalogpostgres.NewLibraryRepo(db, appLogger)
-	preferencesRepo := catalogpostgres.NewPreferencesRepo(db, appLogger)
+	filmsRepo := catalogpostgres.NewFilmRepo(db, appLogger, appMetrics)
+	ratingsRepo := catalogpostgres.NewRatingRepo(db, appLogger, appMetrics)
+	libraryRepo := catalogpostgres.NewLibraryRepo(db, appLogger, appMetrics)
+	preferencesRepo := catalogpostgres.NewPreferencesRepo(db, appLogger, appMetrics)
 
-	postersRepo, err := catalogpostgres.NewPosterRepo(db, appLogger)
+	postersRepo, err := catalogpostgres.NewPosterRepo(db, appLogger, appMetrics)
 	if err != nil {
 		return fmt.Errorf("create poster repository: %w", err)
 	}

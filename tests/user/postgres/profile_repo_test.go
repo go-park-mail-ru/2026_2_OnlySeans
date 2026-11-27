@@ -33,7 +33,7 @@ func TestProfileRepoGet(t *testing.T) {
 				}
 			})
 
-			repo := authrepo.NewProfileRepo(db)
+			repo := authrepo.NewProfileRepo(db, nil)
 
 			begin := mock.ExpectBegin()
 			if phase == "begin" {

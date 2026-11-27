@@ -49,19 +49,19 @@ const (
 )
 
 type PostgresUserRepo struct {
-	appLogger logger.Logger
-	db        pgutil.DB
+	operations storage.OperationRecorder
+	db         pgutil.DB
 }
 
-func NewPostgresUserRepo(db pgutil.DB, appLogger logger.Logger) repository.UserRepository {
+func NewPostgresUserRepo(db pgutil.DB, appLogger logger.Logger, observers ...storage.ExternalObserver) repository.UserRepository {
 	return &PostgresUserRepo{
-		appLogger: appLogger,
-		db:        db,
+		operations: storage.NewOperationRecorder(appLogger, observers...),
+		db:         db,
 	}
 }
 
 func (r *PostgresUserRepo) CreateUser(ctx context.Context, user domain.User) (_ int64, operationErr error) {
-	operationLog := storage.StartOperation(ctx, r.appLogger, "postgres", "account.create", map[string]any{})
+	operationLog := r.operations.Start(ctx, "postgres", "account.create", map[string]any{})
 	defer func() { finishUserOperation(operationLog, operationErr) }()
 
 	var id int64
@@ -85,7 +85,7 @@ func (r *PostgresUserRepo) CreateUser(ctx context.Context, user domain.User) (_ 
 }
 
 func (r *PostgresUserRepo) GetUserByEmail(ctx context.Context, email string) (_ domain.User, operationErr error) {
-	operationLog := storage.StartOperation(ctx, r.appLogger, "postgres", "account.get_by_email", map[string]any{})
+	operationLog := r.operations.Start(ctx, "postgres", "account.get_by_email", map[string]any{})
 	defer func() { finishUserOperation(operationLog, operationErr) }()
 
 	var user domain.User
@@ -106,7 +106,7 @@ func (r *PostgresUserRepo) GetUserByEmail(ctx context.Context, email string) (_ 
 }
 
 func (r *PostgresUserRepo) GetUserByID(ctx context.Context, id int64) (_ domain.User, operationErr error) {
-	operationLog := storage.StartOperation(ctx, r.appLogger, "postgres", "account.get_user", map[string]any{"user_id": id})
+	operationLog := r.operations.Start(ctx, "postgres", "account.get_user", map[string]any{"user_id": id})
 	defer func() { finishUserOperation(operationLog, operationErr) }()
 
 	var user domain.User
@@ -127,7 +127,7 @@ func (r *PostgresUserRepo) GetUserByID(ctx context.Context, id int64) (_ domain.
 }
 
 func (r *PostgresUserRepo) UpdateProfile(ctx context.Context, userID int64, username, email *string) (_ domain.User, operationErr error) {
-	operationLog := storage.StartOperation(ctx, r.appLogger, "postgres", "profile.update_profile", map[string]any{"user_id": userID})
+	operationLog := r.operations.Start(ctx, "postgres", "profile.update_profile", map[string]any{"user_id": userID})
 	defer func() { finishUserOperation(operationLog, operationErr) }()
 
 	var user domain.User

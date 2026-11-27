@@ -29,6 +29,7 @@ import (
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/middleware"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/grpcutil"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/logger"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/metrics"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/s3"
 	pbauth "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/auth"
 	pbcatalog "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/catalog"
@@ -100,6 +101,11 @@ func run(ctx context.Context) error {
 
 	defer func() { _ = catalogConn.Close() }()
 
+	authConn.Connect()
+	userConn.Connect()
+	personsConn.Connect()
+	catalogConn.Connect()
+
 	catalogClient := catalogclient.NewCatalogClient(pbcatalog.NewCatalogServiceClient(catalogConn))
 
 	filmsHandler, err := filmshttp.NewHandler(catalogClient, appLogger)
@@ -140,18 +146,22 @@ func run(ctx context.Context) error {
 	avatarHandler := userhttp.NewAvatarHandler(userClient, appLogger)
 	authMiddleware := middleware.NewAuthMiddleware(authClient, userClient, appLogger)
 
+	appMetrics := metrics.New()
+
 	handler, err := router.NewRouter(router.Handlers{
-		Auth:           authHandler,
-		Assets:         assetsHandler,
-		Files:          avatarHandler,
-		Profile:        profileHandler,
-		Persons:        personsHandler,
-		PersonCatalog:  personCatalogHandler,
-		Films:          filmsHandler,
-		Ratings:        ratingsHandler,
-		PersonalRating: personalRatingHandler,
-		Library:        libraryHandler,
-		Posters:        postersHandler,
+		Metrics:         appMetrics.Handler(),
+		MetricsObserver: appMetrics,
+		Auth:            authHandler,
+		Assets:          assetsHandler,
+		Files:           avatarHandler,
+		Profile:         profileHandler,
+		Persons:         personsHandler,
+		PersonCatalog:   personCatalogHandler,
+		Films:           filmsHandler,
+		Ratings:         ratingsHandler,
+		PersonalRating:  personalRatingHandler,
+		Library:         libraryHandler,
+		Posters:         postersHandler,
 	}, authMiddleware, cfg.HTTP.AllowedOrigins, appLogger)
 	if err != nil {
 		return fmt.Errorf("create Gateway router: %w", err)

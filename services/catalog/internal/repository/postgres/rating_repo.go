@@ -72,19 +72,19 @@ const (
 )
 
 type RatingRepo struct {
-	db        *sql.DB
-	appLogger logger.Logger
+	db         *sql.DB
+	operations storage.OperationRecorder
 }
 
-func NewRatingRepo(db *sql.DB, appLogger logger.Logger) *RatingRepo {
+func NewRatingRepo(db *sql.DB, appLogger logger.Logger, observers ...storage.ExternalObserver) *RatingRepo {
 	return &RatingRepo{
-		db:        db,
-		appLogger: appLogger,
+		db:         db,
+		operations: storage.NewOperationRecorder(appLogger, observers...),
 	}
 }
 
 func (r *RatingRepo) SetFilmRating(ctx context.Context, accountID domain.UserID, filmID domain.FilmID, score int) (_ domain.FilmRating, operationErr error) {
-	operationLog := storage.StartOperation(ctx, r.appLogger, "postgres", "rating.set_film_rating", map[string]any{
+	operationLog := r.operations.Start(ctx, "postgres", "rating.set_film_rating", map[string]any{
 		"user_id": accountID,
 		"film_id": filmID,
 		"score":   score,
@@ -107,6 +107,7 @@ func (r *RatingRepo) SetFilmRating(ctx context.Context, accountID domain.UserID,
 
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == foreignKeyViolation && pgErr.ConstraintName == "film_rating_film_id_fkey" {
+		operationLog.NotFound = true
 		return domain.FilmRating{}, domain.ErrFilmNotFound
 	}
 
@@ -118,7 +119,7 @@ func (r *RatingRepo) SetFilmRating(ctx context.Context, accountID domain.UserID,
 }
 
 func (r *RatingRepo) GetFilmRatingSummary(ctx context.Context, filmID domain.FilmID) (_ domain.FilmRatingSummary, operationErr error) {
-	operationLog := storage.StartOperation(ctx, r.appLogger, "postgres", "rating.get_film_rating_summary", map[string]any{
+	operationLog := r.operations.Start(ctx, "postgres", "rating.get_film_rating_summary", map[string]any{
 		"film_id": filmID,
 	})
 	defer func() { operationLog.Finish(operationErr) }()
@@ -137,9 +138,6 @@ func (r *RatingRepo) GetFilmRatingSummary(ctx context.Context, filmID domain.Fil
 }
 
 func (r *RatingRepo) GetFilmRatingsSummaries(ctx context.Context, filmIDs []domain.FilmID) (_ []domain.FilmRatingSummary, operationErr error) {
-	operationLog := storage.StartOperation(ctx, r.appLogger, "postgres", "rating.get_film_ratings_summaries", map[string]any{})
-	defer func() { operationLog.Finish(operationErr) }()
-
 	summaries := make([]domain.FilmRatingSummary, 0, len(filmIDs))
 	if len(filmIDs) == 0 {
 		return summaries, nil
@@ -159,6 +157,9 @@ func (r *RatingRepo) GetFilmRatingsSummaries(ctx context.Context, filmIDs []doma
 	}
 
 	query := fmt.Sprintf(getFilmRatingSummariesQuery, values.String())
+	operationLog := r.operations.Start(ctx, "postgres", "rating.get_film_ratings_summaries", map[string]any{})
+	defer func() { operationLog.Finish(operationErr) }()
+
 	operationLog.Stage = "query"
 
 	rows, err := r.db.QueryContext(ctx, query, args...)
@@ -185,7 +186,7 @@ func (r *RatingRepo) GetFilmRatingsSummaries(ctx context.Context, filmIDs []doma
 }
 
 func (r *RatingRepo) GetCollectionFilmRatingSummaries(ctx context.Context, collectionID domain.CollectionID, limit, offset int) (_ []domain.FilmRatingSummary, _ int, operationErr error) {
-	operationLog := storage.StartOperation(ctx, r.appLogger, "postgres", "rating.get_collection_film_rating_summaries", map[string]any{
+	operationLog := r.operations.Start(ctx, "postgres", "rating.get_collection_film_rating_summaries", map[string]any{
 		"collection_id": collectionID,
 		"limit":         limit,
 		"offset":        offset,
@@ -229,6 +230,7 @@ func (r *RatingRepo) GetCollectionFilmRatingSummaries(ctx context.Context, colle
 	}
 
 	if !foundCollection {
+		operationLog.NotFound = true
 		return nil, 0, domain.ErrCollectionNotFound
 	}
 
@@ -236,7 +238,7 @@ func (r *RatingRepo) GetCollectionFilmRatingSummaries(ctx context.Context, colle
 }
 
 func (r *RatingRepo) DeleteFilmRating(ctx context.Context, accountID domain.UserID, filmID domain.FilmID) (operationErr error) {
-	operationLog := storage.StartOperation(ctx, r.appLogger, "postgres", "rating.delete_film_rating", map[string]any{
+	operationLog := r.operations.Start(ctx, "postgres", "rating.delete_film_rating", map[string]any{
 		"user_id": accountID,
 		"film_id": filmID,
 	})
@@ -255,6 +257,7 @@ func (r *RatingRepo) DeleteFilmRating(ctx context.Context, accountID domain.User
 	}
 
 	if affected == 0 {
+		operationLog.NotFound = true
 		return domain.ErrRatingNotFound
 	}
 
@@ -262,7 +265,7 @@ func (r *RatingRepo) DeleteFilmRating(ctx context.Context, accountID domain.User
 }
 
 func (r *RatingRepo) GetMyScore(ctx context.Context, user domain.UserID, film domain.FilmID) (_ *int, operationErr error) {
-	operationLog := storage.StartOperation(ctx, r.appLogger, "postgres", "rating.get_my_score", map[string]any{
+	operationLog := r.operations.Start(ctx, "postgres", "rating.get_my_score", map[string]any{
 		"user_id": user,
 		"film_id": film,
 	})

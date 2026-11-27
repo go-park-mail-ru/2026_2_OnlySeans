@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/services/catalog/internal/domain"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/storage"
 )
 
 const (
@@ -58,7 +57,7 @@ func scanCollection(row rowScanner) (domain.Collection, error) {
 }
 
 func (s *FilmRepo) GetCollectionByID(ctx context.Context, id domain.CollectionID) (_ domain.Collection, operationErr error) {
-	operationLog := storage.StartOperation(ctx, s.appLogger, "postgres", "film.get_collection_by_id", map[string]any{
+	operationLog := s.operations.Start(ctx, "postgres", "film.get_collection_by_id", map[string]any{
 		"collection_id": id,
 	})
 	defer func() { operationLog.Finish(operationErr) }()
@@ -67,6 +66,7 @@ func (s *FilmRepo) GetCollectionByID(ctx context.Context, id domain.CollectionID
 	collection, err := scanCollection(s.db.QueryRowContext(ctx, getCollectionQuery, id))
 
 	if errors.Is(err, sql.ErrNoRows) {
+		operationLog.NotFound = true
 		return domain.Collection{}, domain.ErrCollectionNotFound
 	}
 
@@ -78,7 +78,7 @@ func (s *FilmRepo) GetCollectionByID(ctx context.Context, id domain.CollectionID
 }
 
 func (s *FilmRepo) ListCollections(ctx context.Context, limit, offset int) (_ []domain.Collection, _ int, operationErr error) {
-	operationLog := storage.StartOperation(ctx, s.appLogger, "postgres", "film.list_collections", map[string]any{
+	operationLog := s.operations.Start(ctx, "postgres", "film.list_collections", map[string]any{
 		"limit":  limit,
 		"offset": offset,
 	})
@@ -137,7 +137,7 @@ func (s *FilmRepo) ListCollections(ctx context.Context, limit, offset int) (_ []
 }
 
 func (s *FilmRepo) ListCollectionFilms(ctx context.Context, collectionID domain.CollectionID, limit, offset int) (_ []domain.Film, _ int, operationErr error) {
-	operationLog := storage.StartOperation(ctx, s.appLogger, "postgres", "film.list_collection_films", map[string]any{
+	operationLog := s.operations.Start(ctx, "postgres", "film.list_collection_films", map[string]any{
 		"collection_id": collectionID,
 		"limit":         limit,
 		"offset":        offset,
@@ -191,7 +191,7 @@ func (s *FilmRepo) ListCollectionFilms(ctx context.Context, collectionID domain.
 		return nil, 0, fmt.Errorf("list collection films: %w", err)
 	}
 
-	if err := attachGenresTx(ctx, tx, list, s.appLogger); err != nil {
+	if err := attachGenresTx(ctx, tx, list, s.operations); err != nil {
 		return nil, 0, err
 	}
 

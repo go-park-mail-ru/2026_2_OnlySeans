@@ -29,17 +29,23 @@ type UserInfo struct {
 	Role   string
 }
 
+type BusinessMetrics interface {
+	RecordBusinessSuccess(operation string)
+}
+
 type authUseCase struct {
 	userClient       UserClient
 	sessionUC        SessionUseCase
 	passwordVerifier domain.PasswordVerifier
+	metrics          BusinessMetrics
 }
 
-func NewAuthUseCase(uc UserClient, suc SessionUseCase, verifier domain.PasswordVerifier) AuthUseCase {
+func NewAuthUseCase(uc UserClient, suc SessionUseCase, verifier domain.PasswordVerifier, metrics BusinessMetrics) AuthUseCase {
 	return &authUseCase{
 		userClient:       uc,
 		sessionUC:        suc,
 		passwordVerifier: verifier,
+		metrics:          metrics,
 	}
 }
 
@@ -85,6 +91,7 @@ func (u *authUseCase) Login(ctx context.Context, email, password string) (*domai
 		return nil, fmt.Errorf("failed to create session: %w", err)
 	}
 
+	u.metrics.RecordBusinessSuccess("auth.login")
 	return &createdSession, nil
 }
 
@@ -94,6 +101,7 @@ func (u *authUseCase) Logout(ctx context.Context, sessionID uuid.UUID) error {
 		return fmt.Errorf("failed to destroy session: %w", err)
 	}
 
+	u.metrics.RecordBusinessSuccess("auth.logout")
 	return nil
 }
 
@@ -103,6 +111,7 @@ func (u *authUseCase) CheckSession(ctx context.Context, sessionID uuid.UUID) (Us
 		return UserInfo{}, err
 	}
 
+	u.metrics.RecordBusinessSuccess("auth.checkSession")
 	return UserInfo{
 		UserID: int64(session.UserID),
 		Role:   session.Role,

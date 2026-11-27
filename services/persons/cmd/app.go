@@ -15,6 +15,7 @@ import (
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/services/persons/internal/usecase"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/grpcutil"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/logger"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/metrics"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/postgres"
 	pb "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/persons"
 )
@@ -31,6 +32,14 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("create logger: %w", err)
 	}
 
+	appMetrics := metrics.New()
+	closeMetrics, err := appMetrics.Listen(os.Getenv("METRICS_ADDR"))
+	if err != nil {
+		return err
+	}
+
+	defer closeMetrics()
+
 	db, err := postgres.Connect(ctx, cfg.Postgres.URL)
 	if err != nil {
 		return fmt.Errorf("connect to PostgreSQL: %w", err)
@@ -38,8 +47,8 @@ func run(ctx context.Context) error {
 
 	defer func() { _ = db.Close() }()
 
-	personRepo := personspostgres.NewPersonRepo(db, appLogger)
-	catalogRepo := personspostgres.NewCatalogRepo(db, appLogger)
+	personRepo := personspostgres.NewPersonRepo(db, appLogger, appMetrics)
+	catalogRepo := personspostgres.NewCatalogRepo(db, appLogger, appMetrics)
 
 	persons := usecase.NewPersonUseCase(personRepo)
 	catalog := usecase.NewCatalogUseCase(catalogRepo)

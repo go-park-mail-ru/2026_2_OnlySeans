@@ -8,7 +8,9 @@ import (
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/services/user/internal/domain"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/services/user/internal/repository"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/logger"
 	pgutil "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/postgres"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/storage"
 )
 
 const (
@@ -41,16 +43,24 @@ const (
 )
 
 type PostgresAvatarRepo struct {
-	db pgutil.DB
+	db         pgutil.DB
+	operations storage.OperationRecorder
 }
 
 var _ repository.AvatarRepository = (*PostgresAvatarRepo)(nil)
 
-func NewPostgresAvatarRepo(db pgutil.DB) *PostgresAvatarRepo {
-	return &PostgresAvatarRepo{db: db}
+func NewPostgresAvatarRepo(db pgutil.DB, appLogger logger.Logger, observers ...storage.ExternalObserver) *PostgresAvatarRepo {
+	return &PostgresAvatarRepo{db: db, operations: storage.NewOperationRecorder(appLogger, observers...)}
 }
 
-func (r *PostgresAvatarRepo) SaveAvatar(ctx context.Context, userID int64, file domain.AvatarFile) error {
+func (r *PostgresAvatarRepo) SaveAvatar(ctx context.Context, userID int64, file domain.AvatarFile) (operationErr error) {
+	operation := r.operations.Start(ctx, "postgres", "avatar.save_avatar", map[string]any{"user_id": userID})
+	operation.Stage = "begin"
+	defer func() {
+		operation.NotFound = errors.Is(operationErr, domain.ErrUserNotFound)
+		operation.Finish(operationErr)
+	}()
+
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin avatar transaction: %w", err)
@@ -81,7 +91,14 @@ func (r *PostgresAvatarRepo) SaveAvatar(ctx context.Context, userID int64, file 
 	return nil
 }
 
-func (r *PostgresAvatarRepo) GetAvatar(ctx context.Context, userID int64) (*domain.AvatarFile, error) {
+func (r *PostgresAvatarRepo) GetAvatar(ctx context.Context, userID int64) (_ *domain.AvatarFile, operationErr error) {
+	operation := r.operations.Start(ctx, "postgres", "avatar.get_avatar", map[string]any{"user_id": userID})
+	operation.Stage = "query"
+	defer func() {
+		operation.NotFound = errors.Is(operationErr, domain.ErrUserNotFound) || errors.Is(operationErr, domain.ErrAvatarNotFound)
+		operation.Finish(operationErr)
+	}()
+
 	var filename, contentType sql.NullString
 	var size sql.NullInt64
 	err := r.db.QueryRowContext(ctx, getAvatarQuery, userID).Scan(&filename, &contentType, &size)
@@ -102,7 +119,14 @@ func (r *PostgresAvatarRepo) GetAvatar(ctx context.Context, userID int64) (*doma
 	}, nil
 }
 
-func (r *PostgresAvatarRepo) DeleteAvatar(ctx context.Context, userID int64) error {
+func (r *PostgresAvatarRepo) DeleteAvatar(ctx context.Context, userID int64) (operationErr error) {
+	operation := r.operations.Start(ctx, "postgres", "avatar.delete_avatar", map[string]any{"user_id": userID})
+	operation.Stage = "query"
+	defer func() {
+		operation.NotFound = errors.Is(operationErr, domain.ErrUserNotFound)
+		operation.Finish(operationErr)
+	}()
+
 	var accountID int64
 	err := r.db.QueryRowContext(ctx, detachAvatarQuery, userID).Scan(&accountID)
 	if errors.Is(err, sql.ErrNoRows) {
