@@ -127,6 +127,8 @@ func run(ctx context.Context) error {
 	authClient := authclient.NewAuthClient(pbauth.NewAuthServiceClient(authConn))
 	userClient := userclient.NewUserClient(pbuser.NewUserServiceClient(userConn))
 	personClient := personsclient.NewPersonClient(pbpersons.NewPersonServiceClient(personsConn))
+	catalogSearchClient := pbcatalog.NewCatalogSearchServiceClient(catalogConn)
+	personSearchClient := pbpersons.NewPersonSearchServiceClient(personsConn)
 
 	personsHandler, err := personshttp.NewHandler(personClient, appLogger)
 	if err != nil {
@@ -142,11 +144,7 @@ func run(ctx context.Context) error {
 	authHandler.CookieSecure = cfg.HTTP.CookieSecure
 	profileHandler := userhttp.NewProfileHandler(userClient, appLogger)
 	avatarHandler := userhttp.NewAvatarHandler(userClient, appLogger)
-	searchHandler := searchhttp.NewHandler(
-		pbcatalog.NewCatalogSearchServiceClient(catalogConn),
-		pbpersons.NewPersonSearchServiceClient(personsConn),
-		appLogger,
-	)
+	searchHandler := searchhttp.NewHandler(catalogSearchClient, personSearchClient, appLogger)
 	authMiddleware := middleware.NewAuthMiddleware(authClient, userClient, appLogger)
 
 	handler, err := router.NewRouter(router.Handlers{
