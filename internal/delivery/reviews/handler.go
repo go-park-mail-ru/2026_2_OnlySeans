@@ -319,6 +319,25 @@ func queryInt(r *http.Request, key string, fallback int) (int, bool) {
 }
 
 func writeError(ctx context.Context, w http.ResponseWriter, err error, appLogger logger.Logger) {
+	if errors.Is(err, domain.ErrFeatureDisabled) {
+		httpresponse.WriteJSONContext(ctx, w, http.StatusForbidden, businessErrorResponse{
+			Error: domain.ErrFeatureDisabled.Error(),
+			Code:  "feature_disabled",
+		}, appLogger)
+		return
+	}
+	var tooLong *domain.ReviewTooLongError
+	if errors.As(err, &tooLong) {
+		httpresponse.WriteJSONContext(ctx, w, http.StatusBadRequest, businessErrorResponse{
+			Error: domain.ErrReviewTooLong.Error(),
+			Code:  "review_too_long",
+			Details: map[string]any{
+				"max_length": tooLong.MaxLength,
+				"revision":   tooLong.Revision,
+			},
+		}, appLogger)
+		return
+	}
 	for _, known := range clientErrors {
 		if errors.Is(err, known.err) {
 			httpresponse.WriteErrorContext(ctx, w, known.status, known.message, appLogger)
@@ -327,4 +346,10 @@ func writeError(ctx context.Context, w http.ResponseWriter, err error, appLogger
 	}
 
 	httpresponse.WriteErrorContext(ctx, w, http.StatusInternalServerError, httpresponse.InternalErrorMessage, appLogger)
+}
+
+type businessErrorResponse struct {
+	Error   string         `json:"error"`
+	Code    string         `json:"code"`
+	Details map[string]any `json:"details,omitempty"`
 }

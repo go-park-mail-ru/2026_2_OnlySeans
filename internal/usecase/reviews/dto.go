@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"strings"
+	"unicode/utf8"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 )
@@ -10,6 +11,17 @@ type CreateReviewInput struct {
 	AuthorID domain.UserID
 	FilmID   domain.FilmID
 	Review   domain.ReviewInput
+}
+
+func validateDynamicContentLength(content string, policy domain.ReviewPolicy) error {
+	limit := policy.MaxLength
+	if limit < domain.MinReviewContentLen || limit > domain.MaxReviewContentLen {
+		limit = domain.MaxReviewContentLen
+	}
+	if utf8.RuneCountInString(content) > limit {
+		return &domain.ReviewTooLongError{MaxLength: limit, Revision: policy.Revision}
+	}
+	return nil
 }
 
 func NewCreateReviewInput(authorID domain.UserID, filmID domain.FilmID, review domain.ReviewInput) CreateReviewInput {

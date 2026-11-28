@@ -1,0 +1,29 @@
+# Include these locations in the existing HTTPS server block.
+# Runtime is served by the product backend and must precede the broader admin route.
+location = /api/onlineconf/runtime {
+    proxy_pass http://127.0.0.1:8080;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_no_cache 1;
+    proxy_cache_bypass 1;
+}
+
+# OnlineConf admin API. Authentication and authorization are enforced by OnlineConf.
+location ^~ /api/onlineconf/admin/ {
+    proxy_pass http://127.0.0.1:8081;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+}
+
+# Separate admin SPA on the same origin. Build it into this directory.
+location ^~ /onlineconf/ {
+    alias /var/www/onlyseans-onlineconf/;
+    try_files $uri $uri/ /onlineconf/index.html;
+}
+
+# The snapshot endpoint is Docker-network-only and is never routed to the public origin.
+location ^~ /internal/ {
+    return 404;
+}

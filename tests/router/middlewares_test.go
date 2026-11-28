@@ -236,10 +236,10 @@ func newTestReviewsHandler(t *testing.T, films *filmsservice.InMemoryService, ap
 	list, err := reviewsusecase.NewListReviewsUseCase(repo, films, appLogger)
 	require.NoError(t, err)
 
-	create, err := reviewsusecase.NewCreateReviewUseCase(repo, films, appLogger)
+	create, err := reviewsusecase.NewCreateReviewUseCase(repo, films, routerReviewPolicy{}, appLogger)
 	require.NoError(t, err)
 
-	update, err := reviewsusecase.NewUpdateReviewUseCase(repo, appLogger)
+	update, err := reviewsusecase.NewUpdateReviewUseCase(repo, routerReviewPolicy{}, appLogger)
 	require.NoError(t, err)
 
 	del, err := reviewsusecase.NewDeleteReviewUseCase(repo, appLogger)
@@ -313,6 +313,45 @@ func TestRequireAuth(t *testing.T) {
 			var body map[string]string
 			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
 			assert.Equal(t, tt.wantError, body["error"])
+		})
+	}
+}
+
+func TestOptionalAuth(t *testing.T) {
+	tests := []struct {
+		name       string
+		cookie     *http.Cookie
+		authErr    error
+		wantStatus int
+		wantUser   domain.UserID
+		wantNext   bool
+	}{
+		{"guest", nil, nil, http.StatusOK, 0, true},
+		{"invalid cookie", &http.Cookie{Name: auth.SessionCookieName, Value: "bad"}, domain.ErrUnauthorized, http.StatusUnauthorized, 0, false},
+		{"valid cookie", &http.Cookie{Name: auth.SessionCookieName, Value: "good"}, nil, http.StatusOK, 42, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			authn := mocks.NewMockAuthenticator(gomock.NewController(t))
+			if tt.cookie != nil {
+				authn.EXPECT().Authenticate(gomock.Any(), tt.cookie.Value).Return(domain.UserID(42), tt.authErr)
+			}
+			called := false
+			var gotUser domain.UserID
+			handler := router.OptionalAuth(authn)(func(w http.ResponseWriter, r *http.Request) {
+				called = true
+				gotUser, _ = auth.UserIDFromContext(r.Context())
+				w.WriteHeader(http.StatusOK)
+			})
+			req := httptest.NewRequest(http.MethodGet, "/api/onlineconf/runtime", nil)
+			if tt.cookie != nil {
+				req.AddCookie(tt.cookie)
+			}
+			rec := httptest.NewRecorder()
+			handler(rec, req)
+			require.Equal(t, tt.wantStatus, rec.Code)
+			require.Equal(t, tt.wantNext, called)
+			require.Equal(t, tt.wantUser, gotUser)
 		})
 	}
 }

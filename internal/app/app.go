@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sync"
 	"syscall"
 	"time"
 
@@ -17,14 +18,17 @@ import (
 	filesdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/files"
 	filmsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/films"
 	librarydelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/library"
+	onlineconfdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/onlineconf"
 	persondelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/persons"
 	ratingsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/ratings"
 	reviewsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/reviews"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/router"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	authservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/auth"
 	filesservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/files"
 	filmsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/films"
 	libraryservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/library"
+	onlineconfservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/onlineconf"
 	personservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/persons"
 	ratingsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/ratings"
 	reviewsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/reviews"
@@ -88,6 +92,36 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 	appLogger, err := logger.NewLogger(logFile, loggerCfg.Level, loggerCfg.Format)
 	if err != nil {
 		return fmt.Errorf("create logger: %w", err)
+	}
+
+	onlineConfCfg, err := config.LoadOnlineConf(os.LookupEnv)
+	if err != nil {
+		return fmt.Errorf("load onlineconf config: %w", err)
+	}
+	var reviewPolicy domain.ReviewPolicyProvider = onlineconfservice.FallbackProvider{}
+	var onlineConfCache *onlineconfservice.Cache
+	if onlineConfCfg.URL == "" {
+		appLogger.Warn("onlineconf is not configured; fail-closed fallback is active", nil)
+	} else {
+		client, err := onlineconfservice.NewHTTPClient(
+			&http.Client{Timeout: onlineConfCfg.HTTPTimeout},
+			onlineConfCfg.URL,
+			onlineConfCfg.SnapshotPath,
+			onlineConfCfg.ServiceToken,
+		)
+		if err != nil {
+			return fmt.Errorf("create onlineconf client: %w", err)
+		}
+		onlineConfCache, err = onlineconfservice.NewCache(client, onlineConfCfg.RefreshInterval, appLogger)
+		if err != nil {
+			return fmt.Errorf("create onlineconf cache: %w", err)
+		}
+		startupCtx, cancel := context.WithTimeout(context.Background(), onlineConfCfg.HTTPTimeout)
+		if err := onlineConfCache.Refresh(startupCtx); err != nil {
+			appLogger.Warn("initial onlineconf snapshot load failed; fail-closed fallback is active", map[string]any{"error": err})
+		}
+		cancel()
+		reviewPolicy = onlineConfCache
 	}
 
 	s3Client, err := storage.NewS3Client(*s3Cfg)
@@ -250,12 +284,12 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 		return fmt.Errorf("create list reviews use case: %w", err)
 	}
 
-	createReviewUC, err := reviewsusecase.NewCreateReviewUseCase(reviewsRepo, filmsRepo, appLogger)
+	createReviewUC, err := reviewsusecase.NewCreateReviewUseCase(reviewsRepo, filmsRepo, reviewPolicy, appLogger)
 	if err != nil {
 		return fmt.Errorf("create review use case: %w", err)
 	}
 
-	updateReviewUC, err := reviewsusecase.NewUpdateReviewUseCase(reviewsRepo, appLogger)
+	updateReviewUC, err := reviewsusecase.NewUpdateReviewUseCase(reviewsRepo, reviewPolicy, appLogger)
 	if err != nil {
 		return fmt.Errorf("create update review use case: %w", err)
 	}
@@ -421,6 +455,10 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 	personalRatingHandler := ratingsdelivery.NewMyRatingHandler(getMyRatingUC, appLogger)
 	personCatalogHandler := persondelivery.NewCatalogHandler(getFilmPersonsUC, getPersonCatalogUC, appLogger)
 	assetsHandler := assetsdelivery.NewHandler(s3Client, s3Cfg.Bucket, appLogger)
+	onlineConfHandler, err := onlineconfdelivery.NewHandler(reviewPolicy, appLogger)
+	if err != nil {
+		return fmt.Errorf("create onlineconf runtime handler: %w", err)
+	}
 
 	httpHandler, err := router.NewRouter(router.Handlers{
 		Auth:           authHandler,
@@ -435,6 +473,7 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 		PersonalRating: personalRatingHandler,
 		PersonCatalog:  personCatalogHandler,
 		Assets:         assetsHandler,
+		OnlineConf:     onlineConfHandler,
 	}, cfg.Server.AllowedOrigins, appLogger)
 	if err != nil {
 		return fmt.Errorf("create router: %w", err)
@@ -448,10 +487,32 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 		IdleTimeout:  cfg.Server.IdleTimeout,
 	}
 
-	return serve(server, cfg.Server.ShutdownTimeout, appLogger)
+	stopOnlineConf := startOnlineConfWorker(onlineConfCache)
+	return serve(server, cfg.Server.ShutdownTimeout, appLogger, stopOnlineConf)
 }
 
-func serve(server *http.Server, shutdownTimeout time.Duration, appLogger logger.Logger) error {
+func startOnlineConfWorker(cache *onlineconfservice.Cache) func() {
+	if cache == nil {
+		return func() {}
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	var wg sync.WaitGroup
+	var once sync.Once
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		cache.Run(ctx)
+	}()
+	return func() {
+		once.Do(func() {
+			cancel()
+			wg.Wait()
+		})
+	}
+}
+
+func serve(server *http.Server, shutdownTimeout time.Duration, appLogger logger.Logger, stopWorkers func()) error {
+	defer stopWorkers()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
@@ -471,6 +532,7 @@ func serve(server *http.Server, shutdownTimeout time.Duration, appLogger logger.
 	case <-ctx.Done():
 	}
 
+	stopWorkers()
 	appLogger.Info("shutting down", map[string]any{"addr": server.Addr})
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()

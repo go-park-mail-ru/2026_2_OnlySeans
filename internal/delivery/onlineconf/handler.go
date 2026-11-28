@@ -1,0 +1,48 @@
+package onlineconf
+
+import (
+	"errors"
+	"net/http"
+
+	authdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/httpresponse"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
+)
+
+type Handler struct {
+	policy domain.ReviewPolicyProvider
+	logger logger.Logger
+}
+
+func NewHandler(policy domain.ReviewPolicyProvider, appLogger logger.Logger) (*Handler, error) {
+	if policy == nil {
+		return nil, domain.ErrNilReviewPolicy
+	}
+	if appLogger == nil {
+		return nil, errors.New("onlineconf handler logger is nil")
+	}
+	return &Handler{policy: policy, logger: appLogger}, nil
+}
+
+func (h *Handler) Runtime(w http.ResponseWriter, r *http.Request) {
+	userID, _ := authdelivery.UserIDFromContext(r.Context())
+	policy := h.policy.ReviewPolicy(userID)
+	w.Header().Set("Cache-Control", "private, no-store")
+	w.Header().Set("Vary", "Cookie")
+	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, runtimeResponse{
+		Revision: policy.Revision,
+		Configs: map[string]int{
+			domain.ReviewMaxLengthKey: policy.MaxLength,
+		},
+		Flags: map[string]bool{
+			domain.ReviewWriteEnabledKey: policy.WriteEnabled,
+		},
+	}, h.logger)
+}
+
+type runtimeResponse struct {
+	Revision int64           `json:"revision"`
+	Configs  map[string]int  `json:"configs"`
+	Flags    map[string]bool `json:"flags"`
+}

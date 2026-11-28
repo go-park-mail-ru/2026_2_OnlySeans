@@ -7,6 +7,7 @@ import (
 	"io"
 	"math"
 	"net"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -17,12 +18,17 @@ import (
 )
 
 const (
-	EnvServerHost  = "SERVER_HOST"
-	EnvServerPort  = "SERVER_PORT"
-	EnvDatabaseURL = "DATABASE_URL"
-	EnvRedisURL    = "REDIS_URL"
-	EnvLogLevel    = "LOG_LEVEL"
-	EnvLogFormat   = "LOG_FORMAT"
+	EnvServerHost                = "SERVER_HOST"
+	EnvServerPort                = "SERVER_PORT"
+	EnvDatabaseURL               = "DATABASE_URL"
+	EnvRedisURL                  = "REDIS_URL"
+	EnvLogLevel                  = "LOG_LEVEL"
+	EnvLogFormat                 = "LOG_FORMAT"
+	EnvOnlineConfURL             = "ONLINECONF_URL"
+	EnvOnlineConfServiceToken    = "ONLINECONF_SERVICE_TOKEN"
+	EnvOnlineConfRefreshInterval = "ONLINECONF_REFRESH_INTERVAL"
+	EnvOnlineConfHTTPTimeout     = "ONLINECONF_HTTP_TIMEOUT"
+	EnvOnlineConfSnapshotPath    = "ONLINECONF_SNAPSHOT_PATH"
 
 	EnvS3Endpoint       = "S3_ENDPOINT"
 	EnvS3PublicEndpoint = "S3_PUBLIC_ENDPOINT"
@@ -60,8 +66,11 @@ const (
 	defaultRedisHost = "localhost"
 	defaultRedisPort = 8020
 
-	defaultLogLvl    = logger.LogLevelInfo
-	defaultLogFormat = "text"
+	defaultLogLvl                    = logger.LogLevelInfo
+	defaultLogFormat                 = "text"
+	defaultOnlineConfRefreshInterval = 10 * time.Second
+	defaultOnlineConfHTTPTimeout     = 2 * time.Second
+	defaultOnlineConfSnapshotPath    = "/internal/onlineconf/snapshot"
 
 	defaultAvatarURLLifetime    = 15 * time.Minute
 	defaultMaxPosterSize        = 5 << 20
@@ -126,6 +135,14 @@ type LoggerConfig struct {
 	File   string              `yaml:"file"`
 }
 
+type OnlineConf struct {
+	URL             string
+	ServiceToken    string
+	RefreshInterval time.Duration
+	HTTPTimeout     time.Duration
+	SnapshotPath    string
+}
+
 func (s *Server) Addr() string {
 	return net.JoinHostPort(s.Host, strconv.Itoa(s.Port))
 }
@@ -177,6 +194,67 @@ func DefaultLogger() *LoggerConfig {
 		Format: defaultLogFormat,
 		File:   "logs/app.log",
 	}
+}
+
+func LoadOnlineConf(lookupEnv func(string) (string, bool)) (*OnlineConf, error) {
+	cfg := &OnlineConf{
+		RefreshInterval: defaultOnlineConfRefreshInterval,
+		HTTPTimeout:     defaultOnlineConfHTTPTimeout,
+		SnapshotPath:    defaultOnlineConfSnapshotPath,
+	}
+	if value, ok := lookupEnv(EnvOnlineConfURL); ok {
+		cfg.URL = strings.TrimSpace(value)
+	}
+	if value, ok := lookupEnv(EnvOnlineConfServiceToken); ok {
+		cfg.ServiceToken = value
+	}
+	if value, ok := lookupEnv(EnvOnlineConfSnapshotPath); ok {
+		cfg.SnapshotPath = strings.TrimSpace(value)
+	}
+	if value, ok := lookupEnv(EnvOnlineConfRefreshInterval); ok {
+		parsed, err := time.ParseDuration(value)
+		if err != nil {
+			return nil, fmt.Errorf("%s must be a duration: %w", EnvOnlineConfRefreshInterval, err)
+		}
+		cfg.RefreshInterval = parsed
+	}
+	if value, ok := lookupEnv(EnvOnlineConfHTTPTimeout); ok {
+		parsed, err := time.ParseDuration(value)
+		if err != nil {
+			return nil, fmt.Errorf("%s must be a duration: %w", EnvOnlineConfHTTPTimeout, err)
+		}
+		cfg.HTTPTimeout = parsed
+	}
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+	return cfg, nil
+}
+
+func (c *OnlineConf) Validate() error {
+	if c.RefreshInterval <= 0 {
+		return errors.New("onlineconf refresh interval must be positive")
+	}
+	if c.HTTPTimeout <= 0 {
+		return errors.New("onlineconf HTTP timeout must be positive")
+	}
+	if c.SnapshotPath == "" || !strings.HasPrefix(c.SnapshotPath, "/") {
+		return errors.New("onlineconf snapshot path must start with /")
+	}
+	if c.URL == "" {
+		return nil
+	}
+	if strings.TrimSpace(c.ServiceToken) == "" {
+		return fmt.Errorf("%s is required when %s is configured", EnvOnlineConfServiceToken, EnvOnlineConfURL)
+	}
+	parsed, err := url.Parse(c.URL)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		return fmt.Errorf("%s must be an absolute HTTP URL", EnvOnlineConfURL)
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return fmt.Errorf("%s must use http or https", EnvOnlineConfURL)
+	}
+	return nil
 }
 
 func Load(path string) (*Config, error) {

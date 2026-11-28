@@ -115,6 +115,34 @@ func RequireAuth(authn Authenticator) Middleware {
 	}
 }
 
+// OptionalAuth keeps guest runtime public, but rejects an explicitly supplied
+// invalid session instead of silently evaluating it as another user.
+func OptionalAuth(authn Authenticator) Middleware {
+	return func(next http.HandlerFunc) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			cookie, err := r.Cookie(auth.SessionCookieName)
+			if errors.Is(err, http.ErrNoCookie) {
+				next(w, r)
+				return
+			}
+			if err != nil || cookie.Value == "" {
+				writeError(r.Context(), w, http.StatusUnauthorized, domain.ErrUnauthorized)
+				return
+			}
+			userID, err := authn.Authenticate(r.Context(), cookie.Value)
+			if err != nil {
+				if errors.Is(err, domain.ErrUnauthorized) {
+					writeError(r.Context(), w, http.StatusUnauthorized, domain.ErrUnauthorized)
+					return
+				}
+				writeError(r.Context(), w, http.StatusInternalServerError, domain.ErrInternal)
+				return
+			}
+			next(w, r.WithContext(auth.ContextWithUserID(r.Context(), userID)))
+		}
+	}
+}
+
 type csrfMiddleware struct {
 	protection *http.CrossOriginProtection
 }

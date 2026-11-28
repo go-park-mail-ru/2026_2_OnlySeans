@@ -19,14 +19,18 @@ type reviewCases struct {
 }
 
 func newReviewCases(t *testing.T, films domain.FilmRepository) reviewCases {
+	return newReviewCasesWithPolicy(t, films, enabledPolicy())
+}
+
+func newReviewCasesWithPolicy(t *testing.T, films domain.FilmRepository, policy domain.ReviewPolicyProvider) reviewCases {
 	t.Helper()
 	repo := reviewsservice.NewInMemoryReviewRepo()
 	appLogger := newReviewsTestLogger()
 	list, err := usecase.NewListReviewsUseCase(repo, films, appLogger)
 	require.NoError(t, err)
-	create, err := usecase.NewCreateReviewUseCase(repo, films, appLogger)
+	create, err := usecase.NewCreateReviewUseCase(repo, films, policy, appLogger)
 	require.NoError(t, err)
-	update, err := usecase.NewUpdateReviewUseCase(repo, appLogger)
+	update, err := usecase.NewUpdateReviewUseCase(repo, policy, appLogger)
 	require.NoError(t, err)
 	remove, err := usecase.NewDeleteReviewUseCase(repo, appLogger)
 	require.NoError(t, err)
