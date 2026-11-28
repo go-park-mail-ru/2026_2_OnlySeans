@@ -43,12 +43,19 @@ services:
   redis:
     image: redis:7-alpine
     container_name: redis_db
-    ports:
-      - "8020:6379"
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        hash=$$(printf '%s' "$$REDIS_PASSWORD" | sha256sum | cut -d ' ' -f 1)
+        printf 'user default off\nuser session on #%s ~session:* +get +set +del +watch +unwatch +multi +exec +ping +hello +client +select +ttl +pttl\n' "$$hash" > /tmp/users.acl
+        exec redis-server --aclfile /tmp/users.acl
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", 'REDISCLI_AUTH="$$REDIS_PASSWORD" redis-cli --user session ping | grep -qx PONG']
       interval: 5s
       timeout: 5s
       retries: 5
@@ -97,6 +104,8 @@ services:
       context: .
       dockerfile: services/user/Dockerfile
     depends_on:
+      calendar-migrate:
+        condition: service_completed_successfully
       db:
         condition: service_healthy
       rustfs-init:
@@ -115,6 +124,8 @@ services:
     restart: unless-stopped
 
   auth:
+    environment:
+      REDIS_URL: redis://session:${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}@redis:6379/1
     build:
       context: .
       dockerfile: services/auth/Dockerfile

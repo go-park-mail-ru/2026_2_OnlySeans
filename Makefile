@@ -1,7 +1,7 @@
 APP_PACKAGES := ./api-gateway/... ./services/... ./shared/...
 MOCK_PACKAGES := ./tests/mocks/catalog/... ./tests/mocks/auth/... ./tests/mocks/user/... ./tests/mocks/persons/... ./tests/mocks/shared/...
 TEST_PACKAGES := $(MOCK_PACKAGES) ./tests/api-gateway/... ./tests/auth/... ./tests/catalog/... ./tests/persons/... ./tests/user/... ./tests/shared/...
-INTEGRATION_PACKAGES := ./tests/api-gateway/integration/... ./tests/catalog/integration/... ./tests/persons ./tests/migrations/...
+INTEGRATION_PACKAGES := ./tests/api-gateway/integration/... ./tests/catalog/integration/... ./tests/catalog/releasecalendar/... ./tests/persons ./tests/migrations/...
 TEST_WORKSPACE := $(CURDIR)/go.work
 
 .PHONY: lint fmt test test-integration test-integration-compile cover build run check test-api mocks api-gen
@@ -25,7 +25,7 @@ test-integration-compile:
 
 # Реальный прогон не должен молча пропускаться из-за отсутствующей конфигурации.
 test-integration:
-	@for name in POSTERS_TEST_DATABASE_URL AVATAR_TEST_DATABASE_URL PERSONS_TEST_DATABASE_URL MIGRATIONS_TEST_DATABASE_URL INTEGRATION_S3_ENDPOINT INTEGRATION_S3_BUCKET RUSTFS_ACCESS_KEY RUSTFS_SECRET_KEY; do \
+	@for name in POSTERS_TEST_DATABASE_URL AVATAR_TEST_DATABASE_URL PERSONS_TEST_DATABASE_URL MIGRATIONS_TEST_DATABASE_URL RELEASE_CALENDAR_TEST_DSN INTEGRATION_S3_ENDPOINT INTEGRATION_S3_BUCKET RUSTFS_ACCESS_KEY RUSTFS_SECRET_KEY; do \
 		test -n "$$(printenv $$name)" || { echo "Set $$name for integration tests"; exit 1; }; \
 	done
 	GOWORK=$(TEST_WORKSPACE) go test -race -count=1 -tags=integration $(INTEGRATION_PACKAGES)

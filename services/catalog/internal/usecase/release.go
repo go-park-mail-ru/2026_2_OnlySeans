@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -72,7 +73,7 @@ func (u *ReleaseUseCase) List(ctx context.Context, f domain.ReleaseFilter, user 
 		return nil, 0, fmt.Errorf("list releases: %w", err)
 	}
 
-	urls := map[string]string{}
+	urls := map[string]*string{}
 
 	for i := range items {
 		film := &items[i].Film
@@ -81,15 +82,21 @@ func (u *ReleaseUseCase) List(ctx context.Context, f domain.ReleaseFilter, user 
 			url, ok := urls[key]
 
 			if !ok {
-				url, err = u.posters.GetURL(ctx, key)
-				if err != nil {
-					return nil, 0, fmt.Errorf("release poster URL: %w", err)
+				value, urlErr := u.posters.GetURL(ctx, key)
+				if errors.Is(urlErr, domain.ErrFileNotFound) {
+					urls[key] = nil
+					continue
 				}
 
+				if urlErr != nil {
+					return nil, 0, fmt.Errorf("release poster URL: %w", urlErr)
+				}
+
+				url = &value
 				urls[key] = url
 			}
 
-			film.PosterURL = &url
+			film.PosterURL = url
 		}
 	}
 

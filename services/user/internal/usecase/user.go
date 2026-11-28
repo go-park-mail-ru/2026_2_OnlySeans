@@ -188,7 +188,7 @@ func (u *userUseCase) UpdateAvatar(ctx context.Context, userID int64, imageData 
 		return "", domain.ErrAvatarTooLarge
 	}
 
-	user, err := u.GetByID(ctx, userID)
+	_, err := u.GetByID(ctx, userID)
 	if err != nil {
 		return "", err
 	}
@@ -222,42 +222,14 @@ func (u *userUseCase) UpdateAvatar(ctx context.Context, userID int64, imageData 
 		return "", errors.Join(saveErr, u.deleteAvatarFile(ctx, filename))
 	}
 
-	if user.AvatarFilename != nil && *user.AvatarFilename != "" {
-		u.cleanupOldAvatar(ctx, *user.AvatarFilename)
-	}
-
 	return filename, nil
 }
 
 func (u *userUseCase) DeleteAvatar(ctx context.Context, userID int64) error {
-	user, err := u.GetByID(ctx, userID)
-	if err != nil {
-		return err
-	}
-
-	if user.AvatarFilename == nil || *user.AvatarFilename == "" {
-		return nil
-	}
-
 	if err := u.avatarRepo.DeleteAvatar(ctx, userID); err != nil {
-		if errors.Is(err, domain.ErrUserNotFound) {
-			return err
-		}
-		return fmt.Errorf("failed to reset avatar in db: %w", err)
+		return fmt.Errorf("detach avatar: %w", err)
 	}
-
-	u.cleanupOldAvatar(ctx, *user.AvatarFilename)
-
 	return nil
-}
-
-func (u *userUseCase) cleanupOldAvatar(ctx context.Context, filename string) {
-	if err := u.deleteAvatarFile(ctx, filename); err != nil && u.appLogger != nil {
-		u.appLogger.WarnContext(ctx, "could not remove old avatar", map[string]any{
-			"filename": filename,
-			"error":    err,
-		})
-	}
 }
 
 func (u *userUseCase) deleteAvatarFile(ctx context.Context, filename string) error {

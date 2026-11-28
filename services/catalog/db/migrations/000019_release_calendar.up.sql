@@ -9,6 +9,13 @@ UPDATE film f SET
     russia_premiere_date = (SELECT min(r.release_date) FROM film_release r
         JOIN country c ON c.id=r.country_id
         WHERE r.film_id=f.id AND r.release_type='cinema' AND c.iso_code='RU');
+DO $$ BEGIN
+    IF to_regclass(format('%I.film_calendar_date_archive',current_schema())) IS NOT NULL THEN
+        UPDATE film f SET world_premiere_date=a.world_premiere_date,russia_premiere_date=a.russia_premiere_date
+        FROM film_calendar_date_archive a WHERE a.film_id=f.id;
+        DROP TABLE film_calendar_date_archive;
+    END IF;
+END $$;
 CREATE INDEX film_russia_premiere_idx ON film (russia_premiere_date, id)
     WHERE russia_premiere_date IS NOT NULL;
 ALTER TABLE notification ADD COLUMN film_id bigint REFERENCES film(id) ON DELETE SET NULL;

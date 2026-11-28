@@ -115,3 +115,41 @@ func TestReleaseRegionIsForwarded(t *testing.T) {
 		})
 	}
 }
+
+type releasePosterStub struct {
+	calls int
+	err   error
+}
+
+func (s *releasePosterStub) GetURL(context.Context, string) (string, error) {
+	s.calls++
+	return "https://media.example/poster", s.err
+}
+
+func TestReleaseListToleratesMissingPosterAndCachesMiss(t *testing.T) {
+	for _, failure := range []error{domain.ErrFileNotFound, errors.New("storage unavailable")} {
+		t.Run(failure.Error(), func(t *testing.T) {
+			repo := mocks.NewMockReleaseRepository(gomock.NewController(t))
+			key := "missing.png"
+			repo.EXPECT().List(gomock.Any(), gomock.Any(), int64(0)).Return([]domain.Release{
+				{Film: domain.Film{ID: 1, PosterStorageKey: &key}},
+				{Film: domain.Film{ID: 2, PosterStorageKey: &key}},
+			}, int64(2), nil)
+
+			posters := &releasePosterStub{err: failure}
+
+			items, total, err := usecase.NewReleaseUseCase(repo, posters).List(t.Context(), domain.ReleaseFilter{FilmID: 1}, 0)
+			if errors.Is(failure, domain.ErrFileNotFound) {
+				require.NoError(t, err)
+				require.Len(t, items, 2)
+				require.EqualValues(t, 2, total)
+				require.Nil(t, items[0].Film.PosterURL)
+				require.Nil(t, items[1].Film.PosterURL)
+			} else {
+				require.ErrorIs(t, err, failure)
+			}
+
+			require.Equal(t, 1, posters.calls)
+		})
+	}
+}

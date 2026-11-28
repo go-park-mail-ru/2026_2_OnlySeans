@@ -82,7 +82,7 @@ func TestPremiereDatesSurviveMigrationRoundTrip(t *testing.T) {
 		_, err = db.Exec(`UPDATE film SET world_premiere_date=$1,russia_premiere_date=$1 WHERE id=2`, date)
 		require.NoError(t, err)
 
-		for _, migration := range []string{"000020_release_date_sync.down.sql", "000019_release_calendar.down.sql", "000019_release_calendar.up.sql", "000020_release_date_sync.up.sql"} {
+		for _, migration := range []string{"000021_preserve_release_history.down.sql", "000019_release_calendar.down.sql", "000019_release_calendar.up.sql", "000021_preserve_release_history.up.sql"} {
 			source, err := os.ReadFile(filepath.Join(root, migration))
 			require.NoError(t, err)
 			_, err = db.Exec(string(source))

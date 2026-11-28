@@ -25,14 +25,20 @@ END $$;
 \endif
 INSERT INTO calendar_schema_migrations(version) VALUES (19);
 \endif
-SELECT EXISTS (SELECT 1 FROM calendar_schema_migrations WHERE version=20) AS migrated \gset
+SELECT EXISTS (SELECT 1 FROM calendar_schema_migrations WHERE version=21) AS migrated \gset
 \if :migrated
 \else
-SELECT EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid='film'::regclass AND tgname='film_premiere_dates_sync') AS existing \gset
+\ir ../services/catalog/db/migrations/000021_preserve_release_history.up.sql
+INSERT INTO calendar_schema_migrations(version) VALUES (21);
+\endif
+SELECT EXISTS (SELECT 1 FROM calendar_schema_migrations WHERE version=22) AS migrated \gset
+\if :migrated
+\else
+SELECT to_regclass(format('%I.file_cleanup_queue',current_schema())) IS NOT NULL AS existing \gset
 \if :existing
 \else
-\ir ../services/catalog/db/migrations/000020_release_date_sync.up.sql
+\ir migrations/000022_file_cleanup.up.sql
 \endif
-INSERT INTO calendar_schema_migrations(version) VALUES (20);
+INSERT INTO calendar_schema_migrations(version) VALUES (22);
 \endif
 SELECT pg_advisory_unlock(2026020019);

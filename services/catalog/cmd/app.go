@@ -16,6 +16,7 @@ import (
 	catalogpostgres "github.com/go-park-mail-ru/2026_2_OnlySeans/services/catalog/internal/repository/postgres"
 	catalogs3 "github.com/go-park-mail-ru/2026_2_OnlySeans/services/catalog/internal/repository/s3"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/services/catalog/internal/usecase"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/filecleanup"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/grpcutil"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/logger"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/postgres"
@@ -125,7 +126,10 @@ func run(ctx context.Context) error {
 
 	go func() { defer close(workerDone); releases.RunReminders(workerCtx, appLogger) }()
 
-	defer func() { stopWorker(); <-workerDone }()
+	cleanupDone := make(chan struct{})
+	go func() { defer close(cleanupDone); filecleanup.New(db, storage).Run(workerCtx, appLogger) }()
+
+	defer func() { stopWorker(); <-workerDone; <-cleanupDone }()
 	defer server.Stop()
 
 	listener, err := net.Listen("tcp", cfg.Address())
