@@ -27,7 +27,11 @@ func New(t *testing.T, db *sql.DB, storage *shareds3.S3Storage) *grpc.ClientConn
 	require.NoError(t, err)
 	objects, err := posters3.NewPosterStorage(storage)
 	require.NoError(t, err)
-	posters, err := usecase.NewPosterUseCase(repo, films, objects, usecase.PosterOptions{MaxSize: 5 << 20, MaxDimension: 4096, CleanupTimeout: 5 * time.Second}, log)
+	posters, err := usecase.NewPosterUseCase(repo, films, objects, usecase.PosterOptions{
+		MaxSize:        5 << 20,
+		MaxDimension:   4096,
+		CleanupTimeout: 5 * time.Second,
+	}, log)
 	require.NoError(t, err)
 	handler := delivery.NewCatalogHandler(usecase.NewFilmUseCase(reader, reader, films), usecase.NewCollectionUseCase(reader), nil, nil, nil, posters)
 	server, err := delivery.NewServer(handler, 5<<20)

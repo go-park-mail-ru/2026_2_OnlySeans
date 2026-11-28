@@ -34,25 +34,68 @@ func (c refreshRPC) RefreshSession(_ context.Context, req *pb.RefreshSessionRequ
 	return c.response, c.failure
 }
 func TestRefreshClientErrors(t *testing.T) {
-	valid := &pb.Session{Id: "session", ExpiresAt: timestamppb.New(time.Now().Add(time.Hour))}
+	valid := &pb.Session{
+		Id:        "session",
+		ExpiresAt: timestamppb.New(time.Now().Add(time.Hour)),
+	}
 	for _, tc := range []struct {
 		name     string
 		response *pb.RefreshSessionResponse
 		failure  error
 		want     error
 	}{
-		{name: "success", response: &pb.RefreshSessionResponse{Session: valid}},
-		{name: "missing", failure: status.Error(codes.NotFound, "missing"), want: authclient.ErrSessionNotFound},
-		{name: "expired", failure: status.Error(codes.Unauthenticated, "expired"), want: authclient.ErrSessionNotFound},
-		{name: "invalid", failure: status.Error(codes.InvalidArgument, "invalid"), want: authclient.ErrSessionNotFound},
-		{name: "storage error", failure: status.Error(codes.Unavailable, "private"), want: authclient.ErrInternal},
-		{name: "nil response", want: authclient.ErrInternal},
-		{name: "empty response", response: &pb.RefreshSessionResponse{}, want: authclient.ErrInternal},
-		{name: "missing expiry", response: &pb.RefreshSessionResponse{Session: &pb.Session{Id: "session"}}, want: authclient.ErrInternal},
-		{name: "wrong session", response: &pb.RefreshSessionResponse{Session: &pb.Session{Id: "other", ExpiresAt: valid.ExpiresAt}}, want: authclient.ErrInternal},
+		{
+			name:     "success",
+			response: &pb.RefreshSessionResponse{Session: valid},
+		},
+		{
+			name:    "missing",
+			failure: status.Error(codes.NotFound, "missing"),
+			want:    authclient.ErrSessionNotFound,
+		},
+		{
+			name:    "expired",
+			failure: status.Error(codes.Unauthenticated, "expired"),
+			want:    authclient.ErrSessionNotFound,
+		},
+		{
+			name:    "invalid",
+			failure: status.Error(codes.InvalidArgument, "invalid"),
+			want:    authclient.ErrSessionNotFound,
+		},
+		{
+			name:    "storage error",
+			failure: status.Error(codes.Unavailable, "private"),
+			want:    authclient.ErrInternal,
+		},
+		{
+			name: "nil response",
+			want: authclient.ErrInternal,
+		},
+		{
+			name:     "empty response",
+			response: &pb.RefreshSessionResponse{},
+			want:     authclient.ErrInternal,
+		},
+		{
+			name:     "missing expiry",
+			response: &pb.RefreshSessionResponse{Session: &pb.Session{Id: "session"}},
+			want:     authclient.ErrInternal,
+		},
+		{
+			name: "wrong session",
+			response: &pb.RefreshSessionResponse{Session: &pb.Session{
+				Id:        "other",
+				ExpiresAt: valid.ExpiresAt,
+			}},
+			want: authclient.ErrInternal,
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			client := authclient.NewAuthClient(refreshRPC{response: tc.response, failure: tc.failure})
+			client := authclient.NewAuthClient(refreshRPC{
+				response: tc.response,
+				failure:  tc.failure,
+			})
 			result, err := client.RefreshSession(t.Context(), "session")
 			require.ErrorIs(t, err, tc.want)
 
@@ -90,7 +133,10 @@ func (c checkSessionRPC) CheckSession(context.Context, *pb.CheckSessionRequest, 
 
 func TestCheckSessionDetectsOldAuthContract(t *testing.T) {
 	for _, supported := range []bool{false, true} {
-		response := &pb.CheckSessionResponse{UserId: 7, Role: "reader"}
+		response := &pb.CheckSessionResponse{
+			UserId: 7,
+			Role:   "reader",
+		}
 		if supported {
 			response.ExpiresAt = timestamppb.New(time.Now().Add(time.Hour))
 			response.LastRefreshedAt = timestamppb.New(time.Time{})

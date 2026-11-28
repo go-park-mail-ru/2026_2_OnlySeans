@@ -19,7 +19,12 @@ type Worker struct {
 	storage Storage
 }
 
-func New(db *sql.DB, storage Storage) *Worker { return &Worker{db: db, storage: storage} }
+func New(db *sql.DB, storage Storage) *Worker {
+	return &Worker{
+		db:      db,
+		storage: storage,
+	}
+}
 
 func (w *Worker) ProcessOne(ctx context.Context) (processed bool, operationErr error) {
 	tx, err := w.db.BeginTx(ctx, nil)
@@ -29,13 +34,17 @@ func (w *Worker) ProcessOne(ctx context.Context) (processed bool, operationErr e
 	var id int64
 
 	defer func() {
-		_ = tx.Rollback()
+		if rollbackErr := tx.Rollback(); rollbackErr != nil && !errors.Is(rollbackErr, sql.ErrTxDone) {
+			operationErr = errors.Join(operationErr, fmt.Errorf("rollback file cleanup: %w", rollbackErr))
+		}
 
 		if operationErr != nil && id != 0 {
 			retryCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Second)
 			defer cancel()
 
-			_, _ = w.db.ExecContext(retryCtx, `UPDATE file_cleanup_queue SET attempts=attempts+1,next_attempt_at=now()+interval '1 minute' WHERE file_id=$1`, id)
+			if _, retryErr := w.db.ExecContext(retryCtx, `UPDATE file_cleanup_queue SET attempts=attempts+1,next_attempt_at=now()+interval '1 minute' WHERE file_id=$1`, id); retryErr != nil {
+				operationErr = errors.Join(operationErr, fmt.Errorf("schedule cleanup retry for file %d: %w", id, retryErr))
+			}
 		}
 	}()
 
@@ -93,7 +102,7 @@ func (w *Worker) Run(ctx context.Context, log logger.Logger) {
 			cancel()
 
 			if err != nil && ctx.Err() == nil && log != nil {
-				log.ErrorContext(ctx, "file cleanup failed; queued for retry", map[string]any{"error": err.Error()})
+				log.ErrorContext(ctx, "file cleanup failed", map[string]any{"error": err.Error()})
 			}
 
 			if !processed || err != nil {

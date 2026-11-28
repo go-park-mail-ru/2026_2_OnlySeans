@@ -167,7 +167,10 @@ func TestCleanupLocksOutConcurrentAttachment(t *testing.T) {
 	execCleanup(t, db, `UPDATE account SET avatar_file_id=$1 WHERE id=1`, id)
 	execCleanup(t, db, `UPDATE account SET avatar_file_id=NULL WHERE id=1`)
 
-	storage := blockingCleanupStorage{started: make(chan struct{}), proceed: make(chan struct{})}
+	storage := blockingCleanupStorage{
+		started: make(chan struct{}),
+		proceed: make(chan struct{}),
+	}
 
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()

@@ -8,8 +8,6 @@ import (
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/logger"
 )
 
-const InternalErrorMessage = "internal server error"
-
 //easyjson:json
 type ErrorResponse struct {
 	Error string `json:"error"`
@@ -24,7 +22,7 @@ func WriteJSONContext(ctx context.Context, w http.ResponseWriter, status int, bo
 	if err != nil {
 		logError(ctx, appLogger, "encode response failed", err)
 		status = http.StatusInternalServerError
-		data, _ = json.Marshal(ErrorResponse{Error: InternalErrorMessage})
+		data, _ = json.Marshal(ErrorResponse{Error: "internal server error"})
 	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
@@ -39,7 +37,7 @@ func WriteError(w http.ResponseWriter, status int, message string, appLogger log
 
 func WriteErrorContext(ctx context.Context, w http.ResponseWriter, status int, message string, appLogger logger.Logger) {
 	if status >= http.StatusInternalServerError {
-		message = InternalErrorMessage
+		message = "internal server error"
 	}
 	WriteJSONContext(ctx, w, status, ErrorResponse{Error: message}, appLogger)
 }

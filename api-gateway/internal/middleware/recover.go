@@ -12,7 +12,10 @@ func WithRecover(next http.Handler, appLogger logger.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tracked, ok := w.(*responseWriter)
 		if !ok {
-			tracked = &responseWriter{ResponseWriter: w, status: http.StatusOK}
+			tracked = &responseWriter{
+				ResponseWriter: w,
+				status:         http.StatusOK,
+			}
 		}
 
 		defer func() {
@@ -24,7 +27,7 @@ func WithRecover(next http.Handler, appLogger logger.Logger) http.Handler {
 				})
 
 				if !tracked.wroteHeader {
-					httpresponse.WriteErrorContext(r.Context(), tracked, http.StatusInternalServerError, httpresponse.InternalErrorMessage, appLogger)
+					httpresponse.WriteErrorContext(r.Context(), tracked, http.StatusInternalServerError, "internal server error", appLogger)
 				}
 			}
 		}()

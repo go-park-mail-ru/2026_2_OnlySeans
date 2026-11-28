@@ -42,7 +42,14 @@ func (h *ReleaseHandler) ListReleases(ctx context.Context, req *pb.ListReleasesR
 		return nil, missingRequest()
 	}
 
-	f := domain.ReleaseFilter{Region: req.Region, FilmID: domain.FilmID(req.FilmId), GenreID: domain.GenreID(req.GenreId), Limit: int(req.Limit), Offset: int(req.Offset), Featured: req.Featured}
+	f := domain.ReleaseFilter{
+		Region:   req.Region,
+		FilmID:   domain.FilmID(req.FilmId),
+		GenreID:  domain.GenreID(req.GenreId),
+		Limit:    int(req.Limit),
+		Offset:   int(req.Offset),
+		Featured: req.Featured,
+	}
 	var err error
 
 	if req.From != "" {
@@ -100,7 +107,10 @@ func (h *ReleaseHandler) ListReleaseSubscriptions(ctx context.Context, req *pb.R
 		return nil, releaseError(domain.ErrUnauthorized)
 	}
 
-	items, total, err := h.releases.List(ctx, domain.ReleaseFilter{Limit: int(req.Limit), Offset: int(req.Offset)}, req.UserId)
+	items, total, err := h.releases.List(ctx, domain.ReleaseFilter{
+		Limit:  int(req.Limit),
+		Offset: int(req.Offset),
+	}, req.UserId)
 	if err != nil {
 		return nil, releaseError(err)
 	}
@@ -118,9 +128,19 @@ func (h *ReleaseHandler) ListNotifications(ctx context.Context, req *pb.ReleaseU
 		return nil, releaseError(err)
 	}
 
-	result := &pb.NotificationList{Total: total, Items: make([]*pb.Notification, len(items))}
+	result := &pb.NotificationList{
+		Total: total,
+		Items: make([]*pb.Notification, len(items)),
+	}
 	for i, n := range items {
-		result.Items[i] = &pb.Notification{Id: n.ID, Message: n.Message, IsRead: n.IsRead, CreatedAt: timestamppb.New(n.CreatedAt), FilmId: n.FilmID, NotificationType: n.Type}
+		result.Items[i] = &pb.Notification{
+			Id:               n.ID,
+			Message:          n.Message,
+			IsRead:           n.IsRead,
+			CreatedAt:        timestamppb.New(n.CreatedAt),
+			FilmId:           n.FilmID,
+			NotificationType: n.Type,
+		}
 	}
 
 	return result, nil
@@ -158,7 +178,10 @@ func premiereDate(date *time.Time) *string {
 }
 
 func protoReleases(items []domain.Release, total int64) *pb.ReleaseList {
-	result := &pb.ReleaseList{Total: total, Items: make([]*pb.Release, len(items))}
+	result := &pb.ReleaseList{
+		Total: total,
+		Items: make([]*pb.Release, len(items)),
+	}
 
 	for i, event := range items {
 		film := toProtoFilm(event.Film)

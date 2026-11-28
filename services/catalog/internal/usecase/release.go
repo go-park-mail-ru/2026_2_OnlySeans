@@ -23,7 +23,11 @@ type ReleaseUseCase struct {
 }
 
 func NewReleaseUseCase(repo repository.ReleaseRepository, posters PosterURLStorage) *ReleaseUseCase {
-	return &ReleaseUseCase{repo: repo, posters: posters, now: time.Now}
+	return &ReleaseUseCase{
+		repo:    repo,
+		posters: posters,
+		now:     time.Now,
+	}
 }
 
 func ReleasePagination(limit, offset int) (int, int, error) {

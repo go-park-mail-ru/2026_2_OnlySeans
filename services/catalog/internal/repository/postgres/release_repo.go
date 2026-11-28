@@ -71,7 +71,10 @@ type ReleaseRepo struct {
 }
 
 func NewReleaseRepo(db *sql.DB, appLogger logger.Logger) *ReleaseRepo {
-	return &ReleaseRepo{db: db, appLogger: appLogger}
+	return &ReleaseRepo{
+		db:        db,
+		appLogger: appLogger,
+	}
 }
 
 func releaseDBError(err error) error {
@@ -95,7 +98,10 @@ func dateArgument(t time.Time) any {
 }
 
 func (r *ReleaseRepo) List(ctx context.Context, f domain.ReleaseFilter, user int64) ([]domain.Release, int64, error) {
-	tx, err := r.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true, Isolation: sql.LevelRepeatableRead})
+	tx, err := r.db.BeginTx(ctx, &sql.TxOptions{
+		ReadOnly:  true,
+		Isolation: sql.LevelRepeatableRead,
+	})
 	if err != nil {
 		return nil, 0, err
 	}
@@ -243,7 +249,10 @@ func (r *ReleaseRepo) SetSubscription(ctx context.Context, user, id int64, on bo
 }
 
 func (r *ReleaseRepo) Notifications(ctx context.Context, user int64, limit, offset int) ([]domain.Notification, int64, error) {
-	tx, err := r.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true, Isolation: sql.LevelRepeatableRead})
+	tx, err := r.db.BeginTx(ctx, &sql.TxOptions{
+		ReadOnly:  true,
+		Isolation: sql.LevelRepeatableRead,
+	})
 	if err != nil {
 		return nil, 0, err
 	}

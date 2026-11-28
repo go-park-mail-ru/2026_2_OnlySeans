@@ -61,7 +61,7 @@ func TestWriteError(t *testing.T) {
 			name:    "internal details hidden",
 			status:  http.StatusInternalServerError,
 			message: "postgres password=secret",
-			want:    httpresponse.InternalErrorMessage,
+			want:    "internal server error",
 		},
 	}
 	for _, tt := range tests {

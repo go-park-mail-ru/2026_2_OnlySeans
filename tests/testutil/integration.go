@@ -42,7 +42,12 @@ func IntegrationS3(t *testing.T) (*shareds3.S3Storage, string) {
 	if endpoint == "" || bucket == "" || access == "" || secret == "" {
 		t.Skip("set INTEGRATION_S3_ENDPOINT, INTEGRATION_S3_BUCKET, RUSTFS_ACCESS_KEY and RUSTFS_SECRET_KEY for object storage integration")
 	}
-	client, err := shareds3.NewS3Client(shareds3.ClientConfig{Endpoint: endpoint, Region: "us-east-1", AccessKey: access, SecretKey: secret})
+	client, err := shareds3.NewS3Client(shareds3.ClientConfig{
+		Endpoint:  endpoint,
+		Region:    "us-east-1",
+		AccessKey: access,
+		SecretKey: secret,
+	})
 	require.NoError(t, err)
 	storage, err := shareds3.NewS3Storage(client, bucket, endpoint, 15*time.Minute, DiscardLogger())
 	require.NoError(t, err)

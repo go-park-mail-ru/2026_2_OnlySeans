@@ -53,7 +53,10 @@ func WithLogging(next http.Handler, appLogger logger.Logger) http.Handler {
 			"path":   r.URL.Path,
 		})
 
-		wrapped := &responseWriter{ResponseWriter: w, status: http.StatusOK}
+		wrapped := &responseWriter{
+			ResponseWriter: w,
+			status:         http.StatusOK,
+		}
 		next.ServeHTTP(wrapped, r)
 
 		appLogMap := map[string]any{

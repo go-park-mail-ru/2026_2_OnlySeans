@@ -109,7 +109,10 @@ func (m *AuthMiddleware) OptionalAuthenticate(next http.Handler) http.Handler {
 		}
 
 		session, err := m.checkSession(w, r)
-		ctx := context.WithValue(r.Context(), sessionCheckKey{}, sessionCheckResult{session: session, err: err})
+		ctx := context.WithValue(r.Context(), sessionCheckKey{}, sessionCheckResult{
+			session: session,
+			err:     err,
+		})
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

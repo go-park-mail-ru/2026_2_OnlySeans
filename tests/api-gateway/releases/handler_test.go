@@ -40,8 +40,15 @@ func TestListAndInputValidation(t *testing.T) {
 
 	client := mocks.NewMockReleaseServiceClient(gomock.NewController(t))
 	gomock.InOrder(
-		client.EXPECT().ListReleases(gomock.Any(), &pb.ListReleasesRequest{From: "2026-12-01", To: "2027-01-01", Limit: releaselimits.DefaultLimit}).Return(&pb.ReleaseList{}, nil),
-		client.EXPECT().ListReleases(gomock.Any(), &pb.ListReleasesRequest{Featured: true, Limit: 3}).Return(&pb.ReleaseList{}, nil),
+		client.EXPECT().ListReleases(gomock.Any(), &pb.ListReleasesRequest{
+			From:  "2026-12-01",
+			To:    "2027-01-01",
+			Limit: releaselimits.DefaultLimit,
+		}).Return(&pb.ReleaseList{}, nil),
+		client.EXPECT().ListReleases(gomock.Any(), &pb.ListReleasesRequest{
+			Featured: true,
+			Limit:    3,
+		}).Return(&pb.ReleaseList{}, nil),
 	)
 
 	h := releases.NewHandler(client, nil)
@@ -63,8 +70,21 @@ func TestListAndInputValidation(t *testing.T) {
 func TestPremiereDateResponse(t *testing.T) {
 	date := "2026-12-17"
 	client := mocks.NewMockReleaseServiceClient(gomock.NewController(t))
-	client.EXPECT().ListReleases(gomock.Any(), &pb.ListReleasesRequest{From: "2026-12-01", To: "2027-01-01", Limit: releaselimits.DefaultLimit}).Return(
-		&pb.ReleaseList{Total: 1, Items: []*pb.Release{{Film: &pb.Film{Id: 42, Title: "Film"}, RussiaPremiereDate: &date}}}, nil,
+	client.EXPECT().ListReleases(gomock.Any(), &pb.ListReleasesRequest{
+		From:  "2026-12-01",
+		To:    "2027-01-01",
+		Limit: releaselimits.DefaultLimit,
+	}).Return(
+		&pb.ReleaseList{
+			Total: 1,
+			Items: []*pb.Release{{
+				Film: &pb.Film{
+					Id:    42,
+					Title: "Film",
+				},
+				RussiaPremiereDate: &date,
+			}},
+		}, nil,
 	)
 
 	h := releases.NewHandler(client, nil)
@@ -86,8 +106,17 @@ func TestPatchPreservesAbsentFieldsAndRejectsBadBody(t *testing.T) {
 	date := "2027-01-03"
 	client := mocks.NewMockReleaseServiceClient(gomock.NewController(t))
 	gomock.InOrder(
-		client.EXPECT().UpdateRelease(gomock.Any(), &pb.UpdateReleaseRequest{FilmId: 9, Input: &pb.ReleaseInput{RussiaPremiereDate: &date, RussiaPremiereDateSet: true}}).Return(&emptypb.Empty{}, nil),
-		client.EXPECT().UpdateRelease(gomock.Any(), &pb.UpdateReleaseRequest{FilmId: 9, Input: &pb.ReleaseInput{RussiaPremiereDateSet: true}}).Return(&emptypb.Empty{}, nil),
+		client.EXPECT().UpdateRelease(gomock.Any(), &pb.UpdateReleaseRequest{
+			FilmId: 9,
+			Input: &pb.ReleaseInput{
+				RussiaPremiereDate:    &date,
+				RussiaPremiereDateSet: true,
+			},
+		}).Return(&emptypb.Empty{}, nil),
+		client.EXPECT().UpdateRelease(gomock.Any(), &pb.UpdateReleaseRequest{
+			FilmId: 9,
+			Input:  &pb.ReleaseInput{RussiaPremiereDateSet: true},
+		}).Return(&emptypb.Empty{}, nil),
 	)
 
 	h := releases.NewHandler(client, nil)
@@ -110,8 +139,16 @@ func TestPatchPreservesAbsentFieldsAndRejectsBadBody(t *testing.T) {
 func TestSubscriptionIdentityIdempotentMethodsAndErrors(t *testing.T) {
 	client := mocks.NewMockReleaseServiceClient(gomock.NewController(t))
 	gomock.InOrder(
-		client.EXPECT().SetReleaseSubscription(gomock.Any(), &pb.SetReleaseSubscriptionRequest{UserId: 42, FilmId: 7, Subscribed: true}).Return(&emptypb.Empty{}, nil),
-		client.EXPECT().SetReleaseSubscription(gomock.Any(), &pb.SetReleaseSubscriptionRequest{UserId: 42, FilmId: 7, Subscribed: false}).Return(&emptypb.Empty{}, nil),
+		client.EXPECT().SetReleaseSubscription(gomock.Any(), &pb.SetReleaseSubscriptionRequest{
+			UserId:     42,
+			FilmId:     7,
+			Subscribed: true,
+		}).Return(&emptypb.Empty{}, nil),
+		client.EXPECT().SetReleaseSubscription(gomock.Any(), &pb.SetReleaseSubscriptionRequest{
+			UserId:     42,
+			FilmId:     7,
+			Subscribed: false,
+		}).Return(&emptypb.Empty{}, nil),
 	)
 
 	h := releases.NewHandler(client, nil)
@@ -130,12 +167,28 @@ func TestSubscriptionIdentityIdempotentMethodsAndErrors(t *testing.T) {
 		code codes.Code
 		want int
 	}{
-		{code: codes.FailedPrecondition, want: 409},
-		{code: codes.NotFound, want: 404},
-		{code: codes.Unavailable, want: 503},
-		{code: codes.Internal, want: 500},
+		{
+			code: codes.FailedPrecondition,
+			want: 409,
+		},
+		{
+			code: codes.NotFound,
+			want: 404,
+		},
+		{
+			code: codes.Unavailable,
+			want: 503,
+		},
+		{
+			code: codes.Internal,
+			want: 500,
+		},
 	} {
-		client.EXPECT().SetReleaseSubscription(gomock.Any(), &pb.SetReleaseSubscriptionRequest{UserId: 42, FilmId: 7, Subscribed: true}).Return(nil, status.Error(tc.code, "database internals"))
+		client.EXPECT().SetReleaseSubscription(gomock.Any(), &pb.SetReleaseSubscriptionRequest{
+			UserId:     42,
+			FilmId:     7,
+			Subscribed: true,
+		}).Return(nil, status.Error(tc.code, "database internals"))
 
 		w = httptest.NewRecorder()
 		h.Subscribe(w, req())
@@ -156,26 +209,50 @@ func TestRoutesRequireSessionAndAdvertisePatch(t *testing.T) {
 	require.NoError(t, err)
 	client := mocks.NewMockReleaseServiceClient(gomock.NewController(t))
 	h := releases.NewHandler(client, log)
-	routes, err := router.NewRouter(router.Handlers{Auth: &authhttp.AuthHandler{}, Releases: h}, middleware.NewAuthMiddleware(nil, nil, log), []string{"http://localhost:8000"}, log)
+	routes, err := router.NewRouter(router.Handlers{
+		Auth:     &authhttp.AuthHandler{},
+		Releases: h,
+	}, middleware.NewAuthMiddleware(nil, nil, log), []string{"http://localhost:8000"}, log)
 	require.NoError(t, err)
 
 	for _, tc := range []struct {
 		method string
 		path   string
 	}{
-		{method: "PATCH", path: "/api/films/1/releases"},
-		{method: "PUT", path: "/api/me/release-subscriptions/1"},
-		{method: "DELETE", path: "/api/me/release-subscriptions/1"},
-		{method: "GET", path: "/api/me/release-subscriptions"},
-		{method: "GET", path: "/api/me/notifications"},
-		{method: "PUT", path: "/api/me/notifications/1/read"},
+		{
+			method: "PATCH",
+			path:   "/api/films/1/releases",
+		},
+		{
+			method: "PUT",
+			path:   "/api/me/release-subscriptions/1",
+		},
+		{
+			method: "DELETE",
+			path:   "/api/me/release-subscriptions/1",
+		},
+		{
+			method: "GET",
+			path:   "/api/me/release-subscriptions",
+		},
+		{
+			method: "GET",
+			path:   "/api/me/notifications",
+		},
+		{
+			method: "PUT",
+			path:   "/api/me/notifications/1/read",
+		},
 	} {
 		w := httptest.NewRecorder()
 		routes.ServeHTTP(w, httptest.NewRequest(tc.method, tc.path, nil))
 		require.Equal(t, 401, w.Code, tc.path)
 	}
 
-	client.EXPECT().ListReleases(gomock.Any(), &pb.ListReleasesRequest{Featured: true, Limit: 3}).Return(&pb.ReleaseList{}, nil)
+	client.EXPECT().ListReleases(gomock.Any(), &pb.ListReleasesRequest{
+		Featured: true,
+		Limit:    3,
+	}).Return(&pb.ReleaseList{}, nil)
 
 	w := httptest.NewRecorder()
 	routes.ServeHTTP(w, httptest.NewRequest("GET", "/api/releases/featured", nil))
@@ -195,9 +272,18 @@ func TestNotificationResponseAndOwnership(t *testing.T) {
 	client := mocks.NewMockReleaseServiceClient(gomock.NewController(t))
 	film := int64(42)
 	kind := "release_reminder"
-	client.EXPECT().ListNotifications(gomock.Any(), &pb.ReleaseUserRequest{UserId: 7, Limit: 10}).Return(&pb.NotificationList{
+	client.EXPECT().ListNotifications(gomock.Any(), &pb.ReleaseUserRequest{
+		UserId: 7,
+		Limit:  10,
+	}).Return(&pb.NotificationList{
 		Total: 1,
-		Items: []*pb.Notification{{Id: 12, Message: "Premiere", FilmId: &film, NotificationType: &kind, CreatedAt: timestamppb.New(time.Date(2026, time.December, 17, 9, 0, 0, 0, time.UTC))}},
+		Items: []*pb.Notification{{
+			Id:               12,
+			Message:          "Premiere",
+			FilmId:           &film,
+			NotificationType: &kind,
+			CreatedAt:        timestamppb.New(time.Date(2026, time.December, 17, 9, 0, 0, 0, time.UTC)),
+		}},
 	}, nil)
 
 	h := releases.NewHandler(client, nil)
@@ -207,7 +293,10 @@ func TestNotificationResponseAndOwnership(t *testing.T) {
 	h.Notifications(w, r)
 	require.Equal(t, 200, w.Code)
 	require.JSONEq(t, `{"items":[{"id":12,"message":"Premiere","is_read":false,"created_at":"2026-12-17T09:00:00Z","film_id":42,"notification_type":"release_reminder"}],"total":1,"limit":10,"offset":0}`, w.Body.String())
-	client.EXPECT().ReadNotification(gomock.Any(), &pb.ReadNotificationRequest{UserId: 7, NotificationId: 12}).Return(&emptypb.Empty{}, nil)
+	client.EXPECT().ReadNotification(gomock.Any(), &pb.ReadNotificationRequest{
+		UserId:         7,
+		NotificationId: 12,
+	}).Return(&emptypb.Empty{}, nil)
 	r = mux.SetURLVars(httptest.NewRequest("PUT", "/api/me/notifications/12/read", nil), map[string]string{"id": "12"})
 	r = r.WithContext(middleware.ContextWithUserID(r.Context(), 7))
 	w = httptest.NewRecorder()

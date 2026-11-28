@@ -21,15 +21,14 @@ import (
 )
 
 const (
-	idVar          = "id"
-	maxBodyBytes   = 1 << 20
-	internalErrMsg = "internal server error"
-	defaultLimit   = 20
-	minLimit       = 1
-	maxLimit       = 100
-	defaultOffset  = 0
-	limitParam     = "limit"
-	offsetParam    = "offset"
+	idVar         = "id"
+	maxBodyBytes  = 1 << 20
+	defaultLimit  = 20
+	minLimit      = 1
+	maxLimit      = 100
+	defaultOffset = 0
+	limitParam    = "limit"
+	offsetParam   = "offset"
 )
 
 var (
@@ -237,6 +236,6 @@ func writeError(ctx context.Context, w http.ResponseWriter, err error, appLogger
 	case errors.Is(err, catalogclient.ErrRatingNotFound):
 		httpresponse.WriteErrorContext(ctx, w, http.StatusNotFound, catalogclient.ErrRatingNotFound.Error(), appLogger)
 	default:
-		httpresponse.WriteErrorContext(ctx, w, http.StatusInternalServerError, internalErrMsg, appLogger)
+		httpresponse.WriteErrorContext(ctx, w, http.StatusInternalServerError, "internal server error", appLogger)
 	}
 }

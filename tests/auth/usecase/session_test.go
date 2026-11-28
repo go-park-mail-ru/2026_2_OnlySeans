@@ -169,7 +169,12 @@ func (s sessionRepositoryStub) Refresh(ctx context.Context, id uuid.UUID, expire
 func TestSessionRefresh(t *testing.T) {
 	const sessionTTL = 72 * time.Hour
 	failure := errors.New("redis unavailable")
-	valid := domain.Session{ID: uuid.New(), UserID: 7, Role: "reader", ExpiresAt: time.Now().Add(sessionTTL)}
+	valid := domain.Session{
+		ID:        uuid.New(),
+		UserID:    7,
+		Role:      "reader",
+		ExpiresAt: time.Now().Add(sessionTTL),
+	}
 	expired := valid
 	expired.ExpiresAt = time.Now().Add(-time.Hour)
 
@@ -179,10 +184,24 @@ func TestSessionRefresh(t *testing.T) {
 		failure error
 		want    error
 	}{
-		{name: "active", session: &valid},
-		{name: "missing", want: domain.ErrSessionNotFound},
-		{name: "expired", session: &expired, want: domain.ErrSessionExpired},
-		{name: "storage error", failure: failure, want: failure},
+		{
+			name:    "active",
+			session: &valid,
+		},
+		{
+			name: "missing",
+			want: domain.ErrSessionNotFound,
+		},
+		{
+			name:    "expired",
+			session: &expired,
+			want:    domain.ErrSessionExpired,
+		},
+		{
+			name:    "storage error",
+			failure: failure,
+			want:    failure,
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			before := time.Now()

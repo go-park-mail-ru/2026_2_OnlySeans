@@ -20,12 +20,7 @@ const (
 	SessionCookieName          = "session_id"
 	roleUser                   = "reader"
 	expiredSessionCookieMaxAge = -1
-	methodNotSupportedMessage  = "method not supported"
 	requestBodyField           = "body"
-	registerOperation          = "register"
-	loginOperation             = "login"
-	logoutOperation            = "logout"
-	authorisedGetUserOperation = "authorised.get_user"
 	authOperationField         = "operation"
 )
 
@@ -49,7 +44,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	l := h.appLogger
 
 	if r.Method != http.MethodPost {
-		httpresponse.WriteErrorContext(ctx, w, http.StatusMethodNotAllowed, methodNotSupportedMessage, l)
+		httpresponse.WriteErrorContext(ctx, w, http.StatusMethodNotAllowed, "method not supported", l)
 		return
 	}
 
@@ -97,7 +92,7 @@ func writeRegisterError(ctx context.Context, w http.ResponseWriter, err error, a
 	case errors.Is(err, userclient.ErrUsernameTaken):
 		httpresponse.WriteErrorContext(ctx, w, http.StatusConflict, userclient.ErrUsernameTaken.Error(), appLogger)
 	default:
-		logAuthFailure(ctx, appLogger, registerOperation, err)
+		logAuthFailure(ctx, appLogger, "register", err)
 		httpresponse.WriteErrorContext(ctx, w, http.StatusInternalServerError, middleware.ErrInternal.Error(), appLogger)
 	}
 }
@@ -107,7 +102,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	l := h.appLogger
 
 	if r.Method != http.MethodPost {
-		httpresponse.WriteErrorContext(ctx, w, http.StatusMethodNotAllowed, methodNotSupportedMessage, l)
+		httpresponse.WriteErrorContext(ctx, w, http.StatusMethodNotAllowed, "method not supported", l)
 		return
 	}
 
@@ -146,7 +141,7 @@ func writeLoginError(ctx context.Context, w http.ResponseWriter, err error, appL
 	case errors.Is(err, authclient.ErrInvalidCredentials):
 		httpresponse.WriteErrorContext(ctx, w, http.StatusUnauthorized, authclient.ErrInvalidCredentials.Error(), appLogger)
 	default:
-		logAuthFailure(ctx, appLogger, loginOperation, err)
+		logAuthFailure(ctx, appLogger, "login", err)
 		httpresponse.WriteErrorContext(ctx, w, http.StatusInternalServerError, middleware.ErrInternal.Error(), appLogger)
 	}
 }
@@ -156,13 +151,13 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	l := h.appLogger
 
 	if r.Method != http.MethodPost {
-		httpresponse.WriteErrorContext(ctx, w, http.StatusMethodNotAllowed, methodNotSupportedMessage, l)
+		httpresponse.WriteErrorContext(ctx, w, http.StatusMethodNotAllowed, "method not supported", l)
 		return
 	}
 
 	if cookie, err := r.Cookie(SessionCookieName); err == nil {
 		if err := h.authClient.Logout(ctx, cookie.Value); err != nil {
-			logAuthFailure(ctx, l, logoutOperation, err)
+			logAuthFailure(ctx, l, "logout", err)
 			httpresponse.WriteErrorContext(ctx, w, http.StatusInternalServerError, middleware.ErrInternal.Error(), l)
 
 			return
@@ -211,7 +206,7 @@ func (h *AuthHandler) Authorised(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.userClient.GetByID(ctx, id)
 	if err != nil {
-		logAuthFailure(ctx, l, authorisedGetUserOperation, err)
+		logAuthFailure(ctx, l, "authorised.get_user", err)
 		httpresponse.WriteErrorContext(ctx, w, http.StatusInternalServerError, middleware.ErrInternal.Error(), l)
 
 		return

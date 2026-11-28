@@ -92,7 +92,10 @@ func TestRustFSAvatarHTTP(t *testing.T) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, server.URL+"/api/avatars", &body)
 	require.NoError(t, err)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
-	req.AddCookie(&http.Cookie{Name: authdelivery.SessionCookieName, Value: "integration-session"})
+	req.AddCookie(&http.Cookie{
+		Name:  authdelivery.SessionCookieName,
+		Value: "integration-session",
+	})
 	response, err := httpClient.Do(req)
 	require.NoError(t, err)
 	defer response.Body.Close()
@@ -130,7 +133,10 @@ func TestRustFSAvatarHTTP(t *testing.T) {
 	require.Equal(t, imageData.Bytes(), actual)
 	profileRequest, err := http.NewRequestWithContext(ctx, http.MethodGet, server.URL+"/api/authorised", nil)
 	require.NoError(t, err)
-	profileRequest.AddCookie(&http.Cookie{Name: authdelivery.SessionCookieName, Value: "integration-session"})
+	profileRequest.AddCookie(&http.Cookie{
+		Name:  authdelivery.SessionCookieName,
+		Value: "integration-session",
+	})
 	profileResponse, err := httpClient.Do(profileRequest)
 	require.NoError(t, err)
 	defer profileResponse.Body.Close()

@@ -32,7 +32,11 @@ func TestConcurrentAvatarsAndPosterCleanupInS3(t *testing.T) {
 	defer cancel()
 
 	users := pb.NewUserServiceClient(userfixture.New(t, db, storage))
-	created, err := users.CreateUser(ctx, &pb.CreateUserRequest{Email: "cleanup@example.test", Username: "cleanup", Password: "Password123"})
+	created, err := users.CreateUser(ctx, &pb.CreateUserRequest{
+		Email:    "cleanup@example.test",
+		Username: "cleanup",
+		Password: "Password123",
+	})
 	require.NoError(t, err)
 
 	user := created.GetUserId()
@@ -55,7 +59,10 @@ func TestConcurrentAvatarsAndPosterCleanupInS3(t *testing.T) {
 	var wg sync.WaitGroup
 	for range 4 {
 		wg.Go(func() {
-			response, err := users.UpdateAvatar(ctx, &pb.UpdateAvatarRequest{UserId: user, ImageData: imageData.Bytes()})
+			response, err := users.UpdateAvatar(ctx, &pb.UpdateAvatarRequest{
+				UserId:    user,
+				ImageData: imageData.Bytes(),
+			})
 			if err != nil {
 				t.Errorf("concurrent avatar upload: %v", err)
 				return
@@ -103,18 +110,32 @@ func TestConcurrentAvatarsAndPosterCleanupInS3(t *testing.T) {
 
 	log := testutil.DiscardLogger()
 	films := postgres.NewFilmRepo(db, log)
-	film, err := films.CreateFilm(ctx, domain.CreateFilmInput{Title: "Cleanup test", FilmType: domain.FilmTypeMovie, ReleaseYear: 2026, AgeLimit: 0})
+	film, err := films.CreateFilm(ctx, domain.CreateFilmInput{
+		Title:       "Cleanup test",
+		FilmType:    domain.FilmTypeMovie,
+		ReleaseYear: 2026,
+		AgeLimit:    0,
+	})
 	require.NoError(t, err)
 	repo, err := postgres.NewPosterRepo(db, log)
 	require.NoError(t, err)
 	objects, err := posters3.NewPosterStorage(storage)
 	require.NoError(t, err)
-	posters, err := usecase.NewPosterUseCase(repo, films, objects, usecase.PosterOptions{MaxSize: 5 << 20, MaxDimension: 4096, CleanupTimeout: 5 * time.Second}, log)
+	posters, err := usecase.NewPosterUseCase(repo, films, objects, usecase.PosterOptions{
+		MaxSize:        5 << 20,
+		MaxDimension:   4096,
+		CleanupTimeout: 5 * time.Second,
+	}, log)
 	require.NoError(t, err)
 	var previous string
 
 	for range 2 {
-		key, err := posters.UploadPoster(ctx, usecase.UploadPosterInput{UserID: domain.UserID(user), FilmID: film, Body: bytes.NewReader(imageData.Bytes()), Size: int64(imageData.Len())})
+		key, err := posters.UploadPoster(ctx, usecase.UploadPosterInput{
+			UserID: domain.UserID(user),
+			FilmID: film,
+			Body:   bytes.NewReader(imageData.Bytes()),
+			Size:   int64(imageData.Len()),
+		})
 		require.NoError(t, err)
 		keys <- key
 

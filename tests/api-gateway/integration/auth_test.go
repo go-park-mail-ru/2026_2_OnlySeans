@@ -26,5 +26,8 @@ type integrationUsers struct {
 }
 
 func (u *integrationUsers) GetByID(context.Context, int64) (*pb.User, error) {
-	return &pb.User{Id: 1, Role: u.role}, nil
+	return &pb.User{
+		Id:   1,
+		Role: u.role,
+	}, nil
 }

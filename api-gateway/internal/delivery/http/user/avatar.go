@@ -24,7 +24,10 @@ type AvatarHandler struct {
 }
 
 func NewAvatarHandler(client userclient.UserClient, appLogger logger.Logger) *AvatarHandler {
-	return &AvatarHandler{userClient: client, appLogger: appLogger}
+	return &AvatarHandler{
+		userClient: client,
+		appLogger:  appLogger,
+	}
 }
 
 //easyjson:json
@@ -173,7 +176,7 @@ func (h *AvatarHandler) writeAvatarError(w http.ResponseWriter, r *http.Request,
 	case errors.Is(err, userclient.ErrAvatarTooLarge):
 		status, message = http.StatusRequestEntityTooLarge, err.Error()
 	default:
-		status, message = http.StatusInternalServerError, httpresponse.InternalErrorMessage
+		status, message = http.StatusInternalServerError, "internal server error"
 	}
 	httpresponse.WriteErrorContext(r.Context(), w, status, message, h.appLogger)
 }

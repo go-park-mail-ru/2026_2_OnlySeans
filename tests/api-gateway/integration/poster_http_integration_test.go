@@ -119,7 +119,10 @@ func TestRustFSPosterHTTP(t *testing.T) {
 			require.NoError(t, err)
 			request.Header.Set("Content-Type", writer.FormDataContentType())
 			if tt.authenticated {
-				request.AddCookie(&http.Cookie{Name: authdelivery.SessionCookieName, Value: "integration-session"})
+				request.AddCookie(&http.Cookie{
+					Name:  authdelivery.SessionCookieName,
+					Value: "integration-session",
+				})
 			}
 			response, err := httpClient.Do(request)
 			require.NoError(t, err)
@@ -186,7 +189,10 @@ func TestRustFSPosterHTTP(t *testing.T) {
 		users.role = role
 		request, err := http.NewRequestWithContext(ctx, http.MethodDelete, server.URL+"/api/films/9/poster", nil)
 		require.NoError(t, err)
-		request.AddCookie(&http.Cookie{Name: authdelivery.SessionCookieName, Value: "integration-session"})
+		request.AddCookie(&http.Cookie{
+			Name:  authdelivery.SessionCookieName,
+			Value: "integration-session",
+		})
 		response, err := httpClient.Do(request)
 		require.NoError(t, err)
 		response.Body.Close()

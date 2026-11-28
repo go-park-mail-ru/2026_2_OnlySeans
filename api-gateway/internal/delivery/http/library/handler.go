@@ -17,12 +17,6 @@ import (
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/logger"
 )
 
-const (
-	saveFailedMsg   = httpresponse.InternalErrorMessage
-	invalidDataMsg  = "invalid request data"
-	filmNotFoundMsg = "film not found"
-)
-
 type Handler struct {
 	client    catalogclient.CatalogClient
 	appLogger logger.Logger
@@ -41,15 +35,15 @@ func user(r *http.Request) int64 {
 }
 
 func (h *Handler) fail(ctx context.Context, w http.ResponseWriter, err error) {
-	status, message := http.StatusInternalServerError, saveFailedMsg
+	status, message := http.StatusInternalServerError, "internal server error"
 
 	switch {
 	case errors.Is(err, catalogclient.ErrInvalidLibraryData), errors.Is(err, catalogclient.ErrInvalidPreferences), errors.Is(err, catalogclient.ErrInvalidArgument), errors.Is(err, httprequest.ErrInvalidBody):
-		status, message = http.StatusBadRequest, invalidDataMsg
+		status, message = http.StatusBadRequest, "invalid request data"
 	case errors.Is(err, catalogclient.ErrUnauthorized):
 		status, message = http.StatusUnauthorized, catalogclient.ErrUnauthorized.Error()
 	case errors.Is(err, catalogclient.ErrFilmNotFound):
-		status, message = http.StatusNotFound, filmNotFoundMsg
+		status, message = http.StatusNotFound, "film not found"
 	default:
 		h.appLogger.ErrorContext(ctx, "library request failed", map[string]any{
 			"error": err.Error(),

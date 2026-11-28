@@ -40,7 +40,12 @@ func testRedis(t *testing.T) rueidis.Client {
 func createSession(t *testing.T, client rueidis.Client) (domain.Session, string) {
 	t.Helper()
 
-	session := domain.Session{ID: uuid.New(), UserID: 7, Role: "admin", ExpiresAt: time.Now().Add(time.Hour)}
+	session := domain.Session{
+		ID:        uuid.New(),
+		UserID:    7,
+		Role:      "admin",
+		ExpiresAt: time.Now().Add(time.Hour),
+	}
 	store := redisrepo.NewRedisSessionStore(client, nil)
 	require.NoError(t, store.Create(t.Context(), session))
 	key := "session:" + session.ID.String()
@@ -111,7 +116,10 @@ type logoutAfterReadDedicated struct {
 
 func (c *logoutAfterReadClient) Dedicated(fn func(rueidis.DedicatedClient) error) error {
 	return c.Client.Dedicated(func(client rueidis.DedicatedClient) error {
-		return fn(&logoutAfterReadDedicated{DedicatedClient: client, owner: c})
+		return fn(&logoutAfterReadDedicated{
+			DedicatedClient: client,
+			owner:           c,
+		})
 	})
 }
 
@@ -132,7 +140,10 @@ func (c *logoutAfterReadDedicated) Do(ctx context.Context, command rueidis.Compl
 func TestRedisRefreshDoesNotRestoreConcurrentLogout(t *testing.T) {
 	client := testRedis(t)
 	original, key := createSession(t, client)
-	proxy := &logoutAfterReadClient{Client: client, key: key}
+	proxy := &logoutAfterReadClient{
+		Client: client,
+		key:    key,
+	}
 	store := redisrepo.NewRedisSessionStore(proxy, nil)
 	_, err := store.Refresh(t.Context(), original.ID, time.Now().Add(refreshTTL))
 	require.NoError(t, proxy.deleteError)

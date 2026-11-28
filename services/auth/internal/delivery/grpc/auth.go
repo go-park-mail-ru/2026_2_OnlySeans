@@ -16,11 +16,6 @@ import (
 	pb "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/auth"
 )
 
-const (
-	invalidSessionIDMessage = "invalid session id format"
-	internalErrorMessage    = "internal server error"
-)
-
 func mapDomainToPBSession(s domain.Session) *pb.Session {
 	return &pb.Session{
 		Id:              s.ID.String(),
@@ -75,7 +70,7 @@ func (h *AuthHandler) Login(ctx context.Context, req *pb.LoginRequest) (*pb.Logi
 func (h *AuthHandler) Logout(ctx context.Context, req *pb.LogoutRequest) (*pb.LogoutResponse, error) {
 	sessionID, err := uuid.Parse(req.SessionId)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, invalidSessionIDMessage)
+		return nil, status.Error(codes.InvalidArgument, "invalid session id format")
 	}
 
 	err = h.usecase.Logout(ctx, sessionID)
@@ -89,7 +84,7 @@ func (h *AuthHandler) Logout(ctx context.Context, req *pb.LogoutRequest) (*pb.Lo
 func (h *AuthHandler) CheckSession(ctx context.Context, req *pb.CheckSessionRequest) (*pb.CheckSessionResponse, error) {
 	sessionID, err := uuid.Parse(req.SessionId)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, invalidSessionIDMessage)
+		return nil, status.Error(codes.InvalidArgument, "invalid session id format")
 	}
 
 	info, err := h.usecase.CheckSession(ctx, sessionID)
@@ -112,7 +107,7 @@ func (h *AuthHandler) CheckSession(ctx context.Context, req *pb.CheckSessionRequ
 func (h *AuthHandler) RefreshSession(ctx context.Context, req *pb.RefreshSessionRequest) (*pb.RefreshSessionResponse, error) {
 	sessionID, err := uuid.Parse(req.GetSessionId())
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, invalidSessionIDMessage)
+		return nil, status.Error(codes.InvalidArgument, "invalid session id format")
 	}
 
 	session, err := h.usecase.RefreshSession(ctx, sessionID)
@@ -125,7 +120,7 @@ func (h *AuthHandler) RefreshSession(ctx context.Context, req *pb.RefreshSession
 	}
 
 	if session == nil {
-		return nil, status.Error(codes.Internal, internalErrorMessage)
+		return nil, status.Error(codes.Internal, "internal server error")
 	}
 
 	return &pb.RefreshSessionResponse{Session: mapDomainToPBSession(*session)}, nil

@@ -53,7 +53,10 @@ const (
 )
 
 func (r *ProfileRepo) GetProfile(ctx context.Context, id int64) (*domain.Profile, error) {
-	tx, err := r.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelRepeatableRead, ReadOnly: true})
+	tx, err := r.db.BeginTx(ctx, &sql.TxOptions{
+		Isolation: sql.LevelRepeatableRead,
+		ReadOnly:  true,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("begin profile read: %w", err)
 	}

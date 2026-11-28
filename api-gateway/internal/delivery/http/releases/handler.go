@@ -20,8 +20,6 @@ import (
 )
 
 const (
-	invalidRequestMessage = "invalid request parameters or body"
-
 	decimalBase           = 10
 	idBitSize             = 64
 	queryNumberBitSize    = 32
@@ -47,7 +45,10 @@ type Handler struct {
 }
 
 func NewHandler(client pb.ReleaseServiceClient, appLogger logger.Logger) *Handler {
-	return &Handler{client: client, appLogger: appLogger}
+	return &Handler{
+		client:    client,
+		appLogger: appLogger,
+	}
 }
 
 func (h *Handler) fail(w http.ResponseWriter, r *http.Request, err error) {
@@ -76,7 +77,7 @@ func (h *Handler) fail(w http.ResponseWriter, r *http.Request, err error) {
 
 	message := status.Convert(err).Message()
 	if code >= http.StatusInternalServerError {
-		message = httpresponse.InternalErrorMessage
+		message = "internal server error"
 	}
 
 	httpresponse.WriteErrorContext(r.Context(), w, code, message, h.appLogger)
@@ -85,7 +86,7 @@ func (h *Handler) fail(w http.ResponseWriter, r *http.Request, err error) {
 func pathID(r *http.Request) (int64, error) {
 	id, err := strconv.ParseInt(mux.Vars(r)[idPathParam], decimalBase, idBitSize)
 	if err != nil || id <= 0 {
-		return 0, status.Error(codes.InvalidArgument, invalidRequestMessage)
+		return 0, status.Error(codes.InvalidArgument, "invalid request parameters or body")
 	}
 
 	return id, nil
@@ -98,12 +99,12 @@ func queryNumber(r *http.Request, key string, fallback int32) (int32, error) {
 	}
 
 	if len(raw) != singleQueryValueCount {
-		return 0, status.Error(codes.InvalidArgument, invalidRequestMessage)
+		return 0, status.Error(codes.InvalidArgument, "invalid request parameters or body")
 	}
 
 	n, err := strconv.ParseInt(raw[0], decimalBase, queryNumberBitSize)
 	if err != nil || n < 0 {
-		return 0, status.Error(codes.InvalidArgument, invalidRequestMessage)
+		return 0, status.Error(codes.InvalidArgument, "invalid request parameters or body")
 	}
 
 	return int32(n), nil
@@ -112,7 +113,7 @@ func queryNumber(r *http.Request, key string, fallback int32) (int32, error) {
 func page(r *http.Request) (int32, int32, error) {
 	limit, err := queryNumber(r, limitQueryParam, releaselimits.DefaultLimit)
 	if err != nil || limit < releaselimits.MinLimit || limit > releaselimits.MaxLimit {
-		return 0, 0, status.Error(codes.InvalidArgument, invalidRequestMessage)
+		return 0, 0, status.Error(codes.InvalidArgument, "invalid request parameters or body")
 	}
 
 	offset, err := queryNumber(r, offsetQueryParam, releaselimits.MinOffset)
@@ -131,7 +132,11 @@ func userRequest(r *http.Request) (*pb.ReleaseUserRequest, error) {
 		return nil, err
 	}
 
-	return &pb.ReleaseUserRequest{UserId: user, Limit: limit, Offset: offset}, nil
+	return &pb.ReleaseUserRequest{
+		UserId: user,
+		Limit:  limit,
+		Offset: offset,
+	}, nil
 }
 
 func (h *Handler) List(w http.ResponseWriter, r *http.Request)         { h.list(w, r, false, false) }
@@ -150,18 +155,25 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request, featured, film bo
 		}
 
 		if limit > maxFeaturedLimit || offset != releaselimits.MinOffset {
-			h.fail(w, r, status.Error(codes.InvalidArgument, invalidRequestMessage))
+			h.fail(w, r, status.Error(codes.InvalidArgument, "invalid request parameters or body"))
 			return
 		}
 	}
 
 	q := r.URL.Query()
 	if q.Has(countryQueryParam) || q.Has(typeQueryParam) {
-		h.fail(w, r, status.Error(codes.InvalidArgument, invalidRequestMessage))
+		h.fail(w, r, status.Error(codes.InvalidArgument, "invalid request parameters or body"))
 		return
 	}
 
-	req := &pb.ListReleasesRequest{Region: q.Get(regionQueryParam), From: q.Get(fromQueryParam), To: q.Get(toQueryParam), Limit: limit, Offset: offset, Featured: featured}
+	req := &pb.ListReleasesRequest{
+		Region:   q.Get(regionQueryParam),
+		From:     q.Get(fromQueryParam),
+		To:       q.Get(toQueryParam),
+		Limit:    limit,
+		Offset:   offset,
+		Featured: featured,
+	}
 	if film {
 		req.FilmId, err = pathID(r)
 		if err != nil {
@@ -173,7 +185,7 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request, featured, film bo
 	if raw := q.Get(genreIDQueryParam); q.Has(genreIDQueryParam) {
 		req.GenreId, err = strconv.ParseInt(raw, decimalBase, idBitSize)
 		if err != nil || req.GenreId <= 0 {
-			h.fail(w, r, status.Error(codes.InvalidArgument, invalidRequestMessage))
+			h.fail(w, r, status.Error(codes.InvalidArgument, "invalid request parameters or body"))
 			return
 		}
 	}
@@ -227,23 +239,26 @@ type updateReleaseRequest struct {
 func decodeUpdateReleaseRequest(w http.ResponseWriter, r *http.Request) (*pb.ReleaseInput, error) {
 	var in updateReleaseRequest
 	if err := httprequest.DecodeJSON(w, r, &in); err != nil {
-		return nil, status.Error(codes.InvalidArgument, invalidRequestMessage)
+		return nil, status.Error(codes.InvalidArgument, "invalid request parameters or body")
 	}
 
-	result := &pb.ReleaseInput{WorldPremiereDateSet: in.WorldPremiereDate != nil, RussiaPremiereDateSet: in.RussiaPremiereDate != nil}
+	result := &pb.ReleaseInput{
+		WorldPremiereDateSet:  in.WorldPremiereDate != nil,
+		RussiaPremiereDateSet: in.RussiaPremiereDate != nil,
+	}
 	if !result.WorldPremiereDateSet && !result.RussiaPremiereDateSet {
-		return nil, status.Error(codes.InvalidArgument, invalidRequestMessage)
+		return nil, status.Error(codes.InvalidArgument, "invalid request parameters or body")
 	}
 
 	if result.WorldPremiereDateSet {
 		if err := json.Unmarshal(in.WorldPremiereDate, &result.WorldPremiereDate); err != nil {
-			return nil, status.Error(codes.InvalidArgument, invalidRequestMessage)
+			return nil, status.Error(codes.InvalidArgument, "invalid request parameters or body")
 		}
 	}
 
 	if result.RussiaPremiereDateSet {
 		if err := json.Unmarshal(in.RussiaPremiereDate, &result.RussiaPremiereDate); err != nil {
-			return nil, status.Error(codes.InvalidArgument, invalidRequestMessage)
+			return nil, status.Error(codes.InvalidArgument, "invalid request parameters or body")
 		}
 	}
 
@@ -263,7 +278,10 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = h.client.UpdateRelease(r.Context(), &pb.UpdateReleaseRequest{FilmId: id, Input: in})
+	_, err = h.client.UpdateRelease(r.Context(), &pb.UpdateReleaseRequest{
+		FilmId: id,
+		Input:  in,
+	})
 	if err != nil {
 		h.fail(w, r, err)
 		return
@@ -287,7 +305,11 @@ func (h *Handler) setSubscription(w http.ResponseWriter, r *http.Request, on boo
 		return
 	}
 
-	_, err = h.client.SetReleaseSubscription(r.Context(), &pb.SetReleaseSubscriptionRequest{UserId: user, FilmId: id, Subscribed: on})
+	_, err = h.client.SetReleaseSubscription(r.Context(), &pb.SetReleaseSubscriptionRequest{
+		UserId:     user,
+		FilmId:     id,
+		Subscribed: on,
+	})
 	if err != nil {
 		h.fail(w, r, err)
 		return
@@ -373,7 +395,10 @@ func (h *Handler) ReadNotification(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = h.client.ReadNotification(r.Context(), &pb.ReadNotificationRequest{UserId: user, NotificationId: id})
+	_, err = h.client.ReadNotification(r.Context(), &pb.ReadNotificationRequest{
+		UserId:         user,
+		NotificationId: id,
+	})
 	if err != nil {
 		h.fail(w, r, err)
 		return

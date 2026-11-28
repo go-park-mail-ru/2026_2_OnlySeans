@@ -18,18 +18,42 @@ import (
 )
 
 func TestRefreshSession(t *testing.T) {
-	session := &domain.Session{ID: uuid.New(), UserID: 7, Role: "reader", ExpiresAt: time.Now().Add(time.Hour)}
+	session := &domain.Session{
+		ID:        uuid.New(),
+		UserID:    7,
+		Role:      "reader",
+		ExpiresAt: time.Now().Add(time.Hour),
+	}
 	for _, tc := range []struct {
 		name    string
 		failure error
 		code    codes.Code
 		result  *domain.Session
 	}{
-		{name: "success", code: codes.OK, result: session},
-		{name: "missing", failure: domain.ErrSessionNotFound, code: codes.Unauthenticated},
-		{name: "expired", failure: domain.ErrSessionExpired, code: codes.Unauthenticated},
-		{name: "storage error", failure: errors.New("private failure"), code: codes.Internal},
-		{name: "nil result", code: codes.Internal},
+		{
+			name:   "success",
+			code:   codes.OK,
+			result: session,
+		},
+		{
+			name:    "missing",
+			failure: domain.ErrSessionNotFound,
+			code:    codes.Unauthenticated,
+		},
+		{
+			name:    "expired",
+			failure: domain.ErrSessionExpired,
+			code:    codes.Unauthenticated,
+		},
+		{
+			name:    "storage error",
+			failure: errors.New("private failure"),
+			code:    codes.Internal,
+		},
+		{
+			name: "nil result",
+			code: codes.Internal,
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			uc := mocks.NewMockAuthUseCase(gomock.NewController(t))

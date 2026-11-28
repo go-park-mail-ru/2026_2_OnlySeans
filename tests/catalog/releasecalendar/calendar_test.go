@@ -32,12 +32,21 @@ func TestReleaseInputValidation(t *testing.T) {
 		require.ErrorIs(t, err, domain.ErrInvalidRelease, date)
 	}
 
-	require.NoError(t, (domain.ReleaseInput{WorldPremiereDate: ptr("2028-02-29"), WorldPremiereDateSet: true}).Validate())
+	require.NoError(t, (domain.ReleaseInput{
+		WorldPremiereDate:    ptr("2028-02-29"),
+		WorldPremiereDateSet: true,
+	}).Validate())
 	require.NoError(t, (domain.ReleaseInput{RussiaPremiereDateSet: true}).Validate())
-	require.NoError(t, (domain.ReleaseInput{WorldPremiereDateSet: true, RussiaPremiereDateSet: true}).Validate())
+	require.NoError(t, (domain.ReleaseInput{
+		WorldPremiereDateSet:  true,
+		RussiaPremiereDateSet: true,
+	}).Validate())
 	require.ErrorIs(t, (domain.ReleaseInput{}).Validate(), domain.ErrInvalidRelease)
 	require.ErrorIs(t, (domain.ReleaseInput{RussiaPremiereDate: ptr("2028-02-29")}).Validate(), domain.ErrInvalidRelease)
-	require.ErrorIs(t, (domain.ReleaseInput{RussiaPremiereDate: ptr("2026-02-29"), RussiaPremiereDateSet: true}).Validate(), domain.ErrInvalidRelease)
+	require.ErrorIs(t, (domain.ReleaseInput{
+		RussiaPremiereDate:    ptr("2026-02-29"),
+		RussiaPremiereDateSet: true,
+	}).Validate(), domain.ErrInvalidRelease)
 }
 
 func TestCalendarPostgresLifecycle(t *testing.T) {
@@ -86,8 +95,16 @@ func TestCalendarPostgresLifecycle(t *testing.T) {
 	require.Nil(t, items[0].WorldPremiereDate)
 	require.Nil(t, items[0].RussiaPremiereDate)
 	require.ErrorIs(t, uc.SetSubscription(ctx, user, film, true), domain.ErrReleaseUnavailable)
-	require.NoError(t, uc.Update(ctx, film, domain.ReleaseInput{WorldPremiereDate: &tomorrow, WorldPremiereDateSet: true}))
-	f := domain.ReleaseFilter{From: day(t, tomorrow), To: day(t, next), GenreID: domain.GenreID(genre)}
+	require.NoError(t, uc.Update(ctx, film, domain.ReleaseInput{
+		WorldPremiereDate:    &tomorrow,
+		WorldPremiereDateSet: true,
+	}))
+
+	f := domain.ReleaseFilter{
+		From:    day(t, tomorrow),
+		To:      day(t, next),
+		GenreID: domain.GenreID(genre),
+	}
 	items, _, err = uc.List(ctx, f, 0)
 	require.NoError(t, err)
 
@@ -109,7 +126,10 @@ func TestCalendarPostgresLifecycle(t *testing.T) {
 	require.Zero(t, total)
 	require.Empty(t, items)
 
-	require.NoError(t, uc.Update(ctx, film, domain.ReleaseInput{RussiaPremiereDate: &tomorrow, RussiaPremiereDateSet: true}))
+	require.NoError(t, uc.Update(ctx, film, domain.ReleaseInput{
+		RussiaPremiereDate:    &tomorrow,
+		RussiaPremiereDateSet: true,
+	}))
 	items, _, err = uc.List(ctx, f, 0)
 	require.NoError(t, err)
 
@@ -128,7 +148,10 @@ func TestCalendarPostgresLifecycle(t *testing.T) {
 	require.True(t, found)
 	require.NoError(t, uc.SetSubscription(ctx, user, film, true))
 	require.NoError(t, uc.SetSubscription(ctx, user, film, true))
-	require.NoError(t, uc.Update(ctx, film, domain.ReleaseInput{RussiaPremiereDate: &next, RussiaPremiereDateSet: true}))
+	require.NoError(t, uc.Update(ctx, film, domain.ReleaseInput{
+		RussiaPremiereDate:    &next,
+		RussiaPremiereDateSet: true,
+	}))
 	items, total, err = uc.List(ctx, domain.ReleaseFilter{}, user)
 	require.NoError(t, err)
 	require.EqualValues(t, 1, total)
@@ -161,7 +184,10 @@ func TestCalendarPostgresLifecycle(t *testing.T) {
 	count, err := repo.DeliverReminders(ctx, after)
 	require.NoError(t, err)
 	require.Zero(t, count)
-	require.NoError(t, uc.Update(ctx, film, domain.ReleaseInput{RussiaPremiereDate: &next, RussiaPremiereDateSet: true}))
+	require.NoError(t, uc.Update(ctx, film, domain.ReleaseInput{
+		RussiaPremiereDate:    &next,
+		RussiaPremiereDateSet: true,
+	}))
 	require.NoError(t, uc.SetSubscription(ctx, user, film, false))
 	require.NoError(t, uc.SetSubscription(ctx, user, film, false))
 	count, err = repo.DeliverReminders(ctx, after)

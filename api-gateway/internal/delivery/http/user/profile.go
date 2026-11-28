@@ -23,7 +23,10 @@ type updateProfileRequest struct {
 }
 
 func NewProfileHandler(client userclient.UserClient, appLogger logger.Logger) *ProfileHandler {
-	return &ProfileHandler{userClient: client, appLogger: appLogger}
+	return &ProfileHandler{
+		userClient: client,
+		appLogger:  appLogger,
+	}
 }
 
 func (h *ProfileHandler) Get(w http.ResponseWriter, r *http.Request) {
@@ -42,7 +45,7 @@ func (h *ProfileHandler) Get(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
-		httpresponse.WriteErrorContext(ctx, w, http.StatusInternalServerError, httpresponse.InternalErrorMessage, h.appLogger)
+		httpresponse.WriteErrorContext(ctx, w, http.StatusInternalServerError, "internal server error", h.appLogger)
 		return
 	}
 
@@ -104,6 +107,6 @@ func profileUpdateError(err error, myProfile bool) (int, string) {
 	case errors.Is(err, userclient.ErrUserNotFound):
 		return http.StatusUnauthorized, middleware.ErrUnauthorized.Error()
 	default:
-		return http.StatusInternalServerError, httpresponse.InternalErrorMessage
+		return http.StatusInternalServerError, "internal server error"
 	}
 }

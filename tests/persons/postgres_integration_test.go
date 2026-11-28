@@ -47,19 +47,29 @@ func TestPostgresPersonRepoUpdate(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name:  "update with birth date and photo",
-			id:    1,
-			input: domain.PersonInput{FirstName: "Anna", LastName: "Smith", BirthDate: &birthDate},
+			name: "update with birth date and photo",
+			id:   1,
+			input: domain.PersonInput{
+				FirstName: "Anna",
+				LastName:  "Smith",
+				BirthDate: &birthDate,
+			},
 		},
 		{
-			name:  "clear birth date",
-			id:    1,
-			input: domain.PersonInput{FirstName: "Jane", LastName: "Smith"},
+			name: "clear birth date",
+			id:   1,
+			input: domain.PersonInput{
+				FirstName: "Jane",
+				LastName:  "Smith",
+			},
 		},
 		{
-			name:    "missing person",
-			id:      999,
-			input:   domain.PersonInput{FirstName: "Jane", LastName: "Smith"},
+			name: "missing person",
+			id:   999,
+			input: domain.PersonInput{
+				FirstName: "Jane",
+				LastName:  "Smith",
+			},
 			wantErr: domain.ErrPersonNotFound,
 		},
 	}

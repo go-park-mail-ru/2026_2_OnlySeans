@@ -135,7 +135,12 @@ func TestPostgresPosterRepoLifecycle(t *testing.T) {
 					require.NoError(t, err)
 				})
 			}
-			err := repo.SavePoster(ctx, tt.filmID, tt.userID, domain.PosterFile{Filename: tt.filename, ContentType: "image/png", Size: 123})
+
+			err := repo.SavePoster(ctx, tt.filmID, tt.userID, domain.PosterFile{
+				Filename:    tt.filename,
+				ContentType: "image/png",
+				Size:        123,
+			})
 			switch {
 			case tt.wantErr != nil:
 				require.ErrorIs(t, err, tt.wantErr)

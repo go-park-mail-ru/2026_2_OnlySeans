@@ -20,13 +20,38 @@ func TestReleaseRejectsInvalidRangeBeforeRepository(t *testing.T) {
 	for _, filter := range []domain.ReleaseFilter{
 		{},
 		{From: from},
-		{From: from, To: from.AddDate(0, 1, 0), Region: "invalid"},
-		{From: from, To: from},
-		{From: from, To: from.AddDate(0, 0, -1)},
-		{From: from, To: from.AddDate(0, 0, 63)},
-		{From: from, To: from.AddDate(0, 1, 0), Limit: releaselimits.MaxLimit + 1},
-		{From: from, To: from.AddDate(0, 1, 0), Offset: -1},
-		{From: from, To: from.AddDate(0, 1, 0), GenreID: -1},
+		{
+			From:   from,
+			To:     from.AddDate(0, 1, 0),
+			Region: "invalid",
+		},
+		{
+			From: from,
+			To:   from,
+		},
+		{
+			From: from,
+			To:   from.AddDate(0, 0, -1),
+		},
+		{
+			From: from,
+			To:   from.AddDate(0, 0, 63),
+		},
+		{
+			From:  from,
+			To:    from.AddDate(0, 1, 0),
+			Limit: releaselimits.MaxLimit + 1,
+		},
+		{
+			From:   from,
+			To:     from.AddDate(0, 1, 0),
+			Offset: -1,
+		},
+		{
+			From:    from,
+			To:      from.AddDate(0, 1, 0),
+			GenreID: -1,
+		},
 	} {
 		repo := mocks.NewMockReleaseRepository(gomock.NewController(t))
 		uc := usecase.NewReleaseUseCase(repo, nil)
@@ -55,7 +80,10 @@ func TestReleaseListPreservesTotalForEmptyPage(t *testing.T) {
 func TestReleaseRepositoryFailureIsPreserved(t *testing.T) {
 	repo := mocks.NewMockReleaseRepository(gomock.NewController(t))
 	failure := errors.New("database unavailable")
-	repo.EXPECT().List(gomock.Any(), domain.ReleaseFilter{FilmID: 42, Limit: releaselimits.DefaultLimit}, int64(0)).Return(nil, int64(0), failure)
+	repo.EXPECT().List(gomock.Any(), domain.ReleaseFilter{
+		FilmID: 42,
+		Limit:  releaselimits.DefaultLimit,
+	}, int64(0)).Return(nil, int64(0), failure)
 	uc := usecase.NewReleaseUseCase(repo, nil)
 	_, _, err := uc.List(t.Context(), domain.ReleaseFilter{FilmID: 42}, 0)
 	require.ErrorIs(t, err, failure)
@@ -67,7 +95,10 @@ func TestReleaseUpdateValidatesAndPreservesExplicitNull(t *testing.T) {
 	require.ErrorIs(t, uc.Update(t.Context(), 42, domain.ReleaseInput{}), domain.ErrInvalidRelease)
 
 	date := "2026-02-30"
-	require.ErrorIs(t, uc.Update(t.Context(), 42, domain.ReleaseInput{RussiaPremiereDateSet: true, RussiaPremiereDate: &date}), domain.ErrInvalidRelease)
+	require.ErrorIs(t, uc.Update(t.Context(), 42, domain.ReleaseInput{
+		RussiaPremiereDateSet: true,
+		RussiaPremiereDate:    &date,
+	}), domain.ErrInvalidRelease)
 	clear := domain.ReleaseInput{RussiaPremiereDateSet: true}
 	repo.EXPECT().Update(gomock.Any(), int64(42), clear).Return(nil)
 	require.NoError(t, uc.Update(t.Context(), 42, clear))
@@ -108,7 +139,11 @@ func TestReleaseRegionIsForwarded(t *testing.T) {
 	for _, region := range []string{"", domain.ReleaseRegionRussia, domain.ReleaseRegionWorld} {
 		t.Run(region, func(t *testing.T) {
 			repo := mocks.NewMockReleaseRepository(gomock.NewController(t))
-			filter := domain.ReleaseFilter{Region: region, FilmID: 42, Limit: releaselimits.DefaultLimit}
+			filter := domain.ReleaseFilter{
+				Region: region,
+				FilmID: 42,
+				Limit:  releaselimits.DefaultLimit,
+			}
 			repo.EXPECT().List(gomock.Any(), filter, int64(0)).Return([]domain.Release{}, int64(0), nil)
 			_, _, err := usecase.NewReleaseUseCase(repo, nil).List(t.Context(), filter, 0)
 			require.NoError(t, err)
@@ -132,8 +167,14 @@ func TestReleaseListToleratesMissingPosterAndCachesMiss(t *testing.T) {
 			repo := mocks.NewMockReleaseRepository(gomock.NewController(t))
 			key := "missing.png"
 			repo.EXPECT().List(gomock.Any(), gomock.Any(), int64(0)).Return([]domain.Release{
-				{Film: domain.Film{ID: 1, PosterStorageKey: &key}},
-				{Film: domain.Film{ID: 2, PosterStorageKey: &key}},
+				{Film: domain.Film{
+					ID:               1,
+					PosterStorageKey: &key,
+				}},
+				{Film: domain.Film{
+					ID:               2,
+					PosterStorageKey: &key,
+				}},
 			}, int64(2), nil)
 
 			posters := &releasePosterStub{err: failure}
