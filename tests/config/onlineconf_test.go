@@ -51,6 +51,8 @@ func TestLoadOnlineConfRejectsUnsafeConfiguration(t *testing.T) {
 		{config.EnvOnlineConfURL: "postgres://onlineconf", config.EnvOnlineConfRuntimeServiceToken: "secret"},
 		{config.EnvOnlineConfURL: "http://onlineconf:8081"},
 		{config.EnvOnlineConfRefreshInterval: "0s"},
+		{config.EnvOnlineConfRefreshInterval: "2m"},
+		{config.EnvOnlineConfHTTPTimeout: "3s"},
 		{config.EnvOnlineConfHTTPTimeout: "not-a-duration"},
 		{config.EnvOnlineConfSnapshotPath: "internal/snapshot"},
 	}

@@ -31,7 +31,8 @@ func (h *Handler) Runtime(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "private, no-store")
 	w.Header().Add("Vary", "Cookie")
 	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, runtimeResponse{
-		Revision: policy.Revision,
+		Revision:      policy.Revision,
+		SnapshotReady: policy.SnapshotReady,
 		Configs: map[string]int{
 			domain.ReviewMaxLengthKey: policy.MaxLength,
 		},
@@ -42,7 +43,8 @@ func (h *Handler) Runtime(w http.ResponseWriter, r *http.Request) {
 }
 
 type runtimeResponse struct {
-	Revision int64           `json:"revision"`
-	Configs  map[string]int  `json:"configs"`
-	Flags    map[string]bool `json:"flags"`
+	SnapshotReady bool            `json:"snapshot_ready"`
+	Revision      int64           `json:"revision"`
+	Configs       map[string]int  `json:"configs"`
+	Flags         map[string]bool `json:"flags"`
 }

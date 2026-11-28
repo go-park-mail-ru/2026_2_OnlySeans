@@ -59,10 +59,10 @@ func TestCacheColdStartAndLastKnownGood(t *testing.T) {
 	require.Zero(t, cold.Revision)
 
 	require.NoError(t, cache.Refresh(t.Context()))
-	require.Equal(t, domain.ReviewPolicy{WriteEnabled: true, MaxLength: 250, Revision: 1}, cache.ReviewPolicy(7))
+	require.Equal(t, domain.ReviewPolicy{SnapshotReady: true, WriteEnabled: true, MaxLength: 250, Revision: 1}, cache.ReviewPolicy(7))
 
 	require.Error(t, cache.Refresh(t.Context()))
-	require.Equal(t, domain.ReviewPolicy{WriteEnabled: true, MaxLength: 250, Revision: 1}, cache.ReviewPolicy(7))
+	require.Equal(t, domain.ReviewPolicy{SnapshotReady: true, WriteEnabled: true, MaxLength: 250, Revision: 1}, cache.ReviewPolicy(7))
 	require.Equal(t, int64(1), cache.Status().Revision)
 }
 
@@ -115,7 +115,7 @@ func TestHTTPClientValidatesAndAuthenticatesSnapshot(t *testing.T) {
 	snapshot, err := client.Fetch(t.Context())
 	require.NoError(t, err)
 	require.Equal(t, int64(9), snapshot.Revision())
-	require.Equal(t, domain.ReviewPolicy{WriteEnabled: true, MaxLength: 500, Revision: 9}, snapshot.reviewPolicy(7))
+	require.Equal(t, domain.ReviewPolicy{SnapshotReady: true, WriteEnabled: true, MaxLength: 500, Revision: 9}, snapshot.reviewPolicy(7))
 	require.False(t, snapshot.reviewPolicy(0).WriteEnabled, "guest writes are always disabled")
 }
 
@@ -150,9 +150,10 @@ func TestNewSnapshotDeletionUsesPerKeyFallback(t *testing.T) {
 	require.NoError(t, cache.Refresh(t.Context()))
 
 	require.Equal(t, domain.ReviewPolicy{
-		WriteEnabled: false,
-		MaxLength:    domain.MaxReviewContentLen,
-		Revision:     2,
+		SnapshotReady: true,
+		WriteEnabled:  false,
+		MaxLength:     domain.MaxReviewContentLen,
+		Revision:      2,
 	}, cache.ReviewPolicy(7))
 }
 
@@ -185,12 +186,12 @@ func TestServiceSnapshotContract(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, cache.Refresh(t.Context()))
-	require.Equal(t, domain.ReviewPolicy{MaxLength: domain.MaxReviewContentLen}, cache.ReviewPolicy(7))
+	require.Equal(t, domain.ReviewPolicy{SnapshotReady: true, MaxLength: domain.MaxReviewContentLen}, cache.ReviewPolicy(7))
 
 	response.Store(active)
 	require.NoError(t, cache.Refresh(t.Context()))
-	require.Equal(t, domain.ReviewPolicy{Revision: 1, MaxLength: 50, WriteEnabled: true}, cache.ReviewPolicy(7)) // Bucket 2306.
-	require.False(t, cache.ReviewPolicy(42).WriteEnabled)                                                        // Bucket 6252.
+	require.Equal(t, domain.ReviewPolicy{SnapshotReady: true, Revision: 1, MaxLength: 50, WriteEnabled: true}, cache.ReviewPolicy(7)) // Bucket 2306.
+	require.False(t, cache.ReviewPolicy(42).WriteEnabled)                                                                             // Bucket 6252.
 	require.True(t, cache.ReviewPolicy(101).WriteEnabled)
 	require.False(t, cache.ReviewPolicy(0).WriteEnabled)
 
@@ -201,7 +202,7 @@ func TestServiceSnapshotContract(t *testing.T) {
 
 	response.Store(strings.Replace(disabled, `"revision":2`, `"revision":3`, 1))
 	require.NoError(t, cache.Refresh(t.Context()))
-	require.Equal(t, domain.ReviewPolicy{Revision: 3, MaxLength: domain.MaxReviewContentLen}, cache.ReviewPolicy(101))
+	require.Equal(t, domain.ReviewPolicy{SnapshotReady: true, Revision: 3, MaxLength: domain.MaxReviewContentLen}, cache.ReviewPolicy(101))
 
 	response.Store(strings.Replace(empty, `"revision":0,`, "", 1))
 	require.Error(t, cache.Refresh(t.Context()))

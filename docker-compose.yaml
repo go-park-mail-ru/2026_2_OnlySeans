@@ -65,8 +65,6 @@ services:
         condition: service_healthy
       rustfs:
         condition: service_healthy
-      onlineconf:
-        condition: service_healthy
     environment:
       S3_ENDPOINT: "http://rustfs:9000"
       S3_PUBLIC_ENDPOINT: "${S3_PUBLIC_ENDPOINT:-http://localhost:8050}"
@@ -87,6 +85,9 @@ services:
 
   onlineconf:
     image: ${ONLINECONF_IMAGE:-onlyseans_onlineconf}
+    build:
+      context: .
+      target: onlineconf
     container_name: onlineconf
     depends_on:
       db:
@@ -104,7 +105,7 @@ services:
     ports:
       - "127.0.0.1:${ONLINECONF_HOST_PORT:-8081}:8081"
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8081/healthz >/dev/null || exit 1"]
+      test: ["CMD-SHELL", "wget -Y off -qO- http://127.0.0.1:8081/healthz >/dev/null || exit 1"]
       interval: 5s
       timeout: 2s
       retries: 12

@@ -18,7 +18,7 @@ type capturingPolicy struct {
 
 func (p *capturingPolicy) ReviewPolicy(userID domain.UserID) domain.ReviewPolicy {
 	p.userID = userID
-	return domain.ReviewPolicy{WriteEnabled: userID == 7, MaxLength: 321, Revision: 8}
+	return domain.ReviewPolicy{SnapshotReady: true, WriteEnabled: userID == 7, MaxLength: 321, Revision: 8}
 }
 
 func TestRuntimeUsesSessionContextAndOnlyPublicProjection(t *testing.T) {
@@ -39,6 +39,7 @@ func TestRuntimeUsesSessionContextAndOnlyPublicProjection(t *testing.T) {
 	var body map[string]any
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
 	require.Equal(t, float64(8), body["revision"])
+	require.Equal(t, true, body["snapshot_ready"])
 	require.Equal(t, map[string]any{domain.ReviewMaxLengthKey: float64(321)}, body["configs"])
 	require.Equal(t, map[string]any{domain.ReviewWriteEnabledKey: true}, body["flags"])
 	require.NotContains(t, rec.Body.String(), "included_user_ids")

@@ -17,10 +17,23 @@ location ^~ /api/onlineconf/admin/ {
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
 }
 
-# Separate admin SPA on the same origin. Build it into this directory.
+# Copy the SPA's dist/ tree into /var/www/onlyseans-onlineconf/.
+location = /onlineconf {
+    return 308 /onlineconf/;
+}
+
+location ^~ /assets/onlineconf/ {
+    root /var/www/onlyseans-onlineconf;
+    try_files $uri =404;
+}
+
+location = /onlineconf/index.html {
+    root /var/www/onlyseans-onlineconf;
+}
+
 location ^~ /onlineconf/ {
-    alias /var/www/onlyseans-onlineconf/;
-    try_files $uri $uri/ /onlineconf/index.html;
+    root /var/www/onlyseans-onlineconf;
+    try_files $uri /onlineconf/index.html;
 }
 
 # The snapshot endpoint is Docker-network-only and is never routed to the public origin.

@@ -122,6 +122,7 @@ func (s *Snapshot) reviewPolicy(userID domain.UserID) domain.ReviewPolicy {
 	if s == nil {
 		return policy
 	}
+	policy.SnapshotReady = true
 	policy.Revision = s.revision
 	if raw, ok := s.configs[resourceKey{scope: reviewsScope, key: maxLengthSnapshotKey}]; ok {
 		_ = json.Unmarshal(raw, &policy.MaxLength)

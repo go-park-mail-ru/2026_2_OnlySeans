@@ -70,6 +70,7 @@ const (
 	defaultLogFormat                 = "text"
 	defaultOnlineConfRefreshInterval = 10 * time.Second
 	defaultOnlineConfHTTPTimeout     = 2 * time.Second
+	maxOnlineConfRefreshInterval     = 15 * time.Second
 	defaultOnlineConfSnapshotPath    = "/internal/onlineconf/snapshot"
 
 	defaultAvatarURLLifetime    = 15 * time.Minute
@@ -232,11 +233,11 @@ func LoadOnlineConfRuntime(lookupEnv func(string) (string, bool)) (*OnlineConfRu
 }
 
 func (c *OnlineConfRuntime) Validate() error {
-	if c.RefreshInterval <= 0 {
-		return errors.New("onlineconf refresh interval must be positive")
+	if c.RefreshInterval <= 0 || c.RefreshInterval > maxOnlineConfRefreshInterval {
+		return fmt.Errorf("onlineconf refresh interval must be positive and at most %s", maxOnlineConfRefreshInterval)
 	}
-	if c.HTTPTimeout <= 0 {
-		return errors.New("onlineconf HTTP timeout must be positive")
+	if c.HTTPTimeout <= 0 || c.HTTPTimeout > defaultOnlineConfHTTPTimeout {
+		return fmt.Errorf("onlineconf HTTP timeout must be positive and at most %s", defaultOnlineConfHTTPTimeout)
 	}
 	if c.SnapshotPath == "" || !strings.HasPrefix(c.SnapshotPath, "/") {
 		return errors.New("onlineconf snapshot path must start with /")
