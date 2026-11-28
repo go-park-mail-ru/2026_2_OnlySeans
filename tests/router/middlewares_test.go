@@ -9,6 +9,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
+
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
 	filesdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/files"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/films"
@@ -29,9 +33,6 @@ import (
 	reviewsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/reviews"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/tests/mocks"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/mock/gomock"
 )
 
 const testOrigin = "http://localhost:3000"
@@ -340,17 +341,21 @@ func TestOptionalAuth(t *testing.T) {
 			if tt.authenticate {
 				authn.EXPECT().Authenticate(gomock.Any(), tt.cookie).Return(domain.UserID(42), tt.authErr)
 			}
+
 			called := false
 			var gotUser domain.UserID
 			handler := router.OptionalAuth(authn)(func(w http.ResponseWriter, r *http.Request) {
 				called = true
 				gotUser, _ = auth.UserIDFromContext(r.Context())
+
 				w.WriteHeader(http.StatusOK)
 			})
+
 			req := httptest.NewRequest(http.MethodGet, "/api/onlineconf/runtime", nil)
 			if tt.cookie != "" {
 				req.Header.Set("Cookie", auth.SessionCookieName+"="+tt.cookie)
 			}
+
 			rec := httptest.NewRecorder()
 			handler(rec, req)
 			require.Equal(t, tt.wantStatus, rec.Code)

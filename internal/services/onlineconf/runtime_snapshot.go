@@ -2,22 +2,23 @@ package onlineconf
 
 import (
 	"bytes"
-	"crypto/sha256"
-	"encoding/binary"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"strconv"
-	"strings"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
+	oc "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain/onlineconf"
+	evaluator "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/onlineconfevaluator"
 )
 
 const (
-	reviewsScope            = "reviews"
-	maxLengthSnapshotKey    = "max_length"
-	writeEnabledSnapshotKey = "write_enabled"
-	maxSafeUserID           = 1<<53 - 1
+	reviewsScope                 = oc.ReviewsScope
+	frontendScope                = "frontend"
+	maxLengthSnapshotKey         = oc.ReviewMaxLengthKey
+	writeEnabledSnapshotKey      = "write_enabled"
+	homeBlocksSnapshotKey        = "home_blocks"
+	homeBlocksEnabledSnapshotKey = "home_blocks_enabled"
+	emptyBlocksJSON              = "[]"
+	publicKeySeparator           = "."
 )
 
 type resourceKey struct {
@@ -25,151 +26,121 @@ type resourceKey struct {
 	key   string
 }
 
-type flagRule struct {
-	salt     string
-	enabled  bool
-	rollout  int
-	included map[domain.UserID]struct{}
-	excluded map[domain.UserID]struct{}
-}
-
-// Snapshot is immutable after construction and safe to publish atomically.
 type Snapshot struct {
 	revision int64
 	configs  map[resourceKey]json.RawMessage
-	flags    map[resourceKey]flagRule
+	flags    map[resourceKey]oc.FeatureFlag
 }
 
 func (s *Snapshot) Revision() int64 {
 	if s == nil {
 		return 0
 	}
+
 	return s.revision
 }
 
-func buildSnapshot(raw snapshotDTO) (*Snapshot, error) {
-	if raw.Revision < 0 {
-		return nil, errors.New("snapshot revision must be non-negative")
+func buildSnapshot(raw oc.SnapshotPayload) (*Snapshot, error) {
+	if err := raw.Validate(); err != nil {
+		return nil, fmt.Errorf("validate onlineconf snapshot: %w", err)
 	}
+
 	snapshot := &Snapshot{
 		revision: raw.Revision,
 		configs:  make(map[resourceKey]json.RawMessage, len(raw.Configs)),
-		flags:    make(map[resourceKey]flagRule, len(raw.Flags)),
+		flags:    make(map[resourceKey]oc.FeatureFlag, len(raw.Flags)),
 	}
+
 	for _, item := range raw.Configs {
-		key, err := validatedKey(item.Scope, item.Key)
-		if err != nil {
-			return nil, err
-		}
-		if _, exists := snapshot.configs[key]; exists {
-			return nil, fmt.Errorf("duplicate config %s/%s", key.scope, key.key)
-		}
-		if len(item.Value) == 0 || !json.Valid(item.Value) {
-			return nil, fmt.Errorf("invalid config value %s/%s", key.scope, key.key)
-		}
-		value := append(json.RawMessage(nil), item.Value...)
-		if key.scope == reviewsScope && key.key == maxLengthSnapshotKey {
-			var limit int
-			if err := json.Unmarshal(value, &limit); err != nil || limit < domain.MinReviewContentLen || limit > domain.MaxReviewContentLen {
-				return nil, fmt.Errorf("%s must be an integer from %d to %d", maxLengthSnapshotKey, domain.MinReviewContentLen, domain.MaxReviewContentLen)
-			}
-		}
-		snapshot.configs[key] = value
+		snapshot.configs[resourceKey{scope: item.Scope, key: item.Key}] = bytes.Clone(item.Value)
 	}
+
 	for _, item := range raw.Flags {
-		key, err := validatedKey(item.Scope, item.Key)
-		if err != nil {
-			return nil, err
-		}
-		if _, exists := snapshot.flags[key]; exists {
-			return nil, fmt.Errorf("duplicate flag %s/%s", key.scope, key.key)
-		}
-		if item.Rollout == nil || strings.TrimSpace(item.Salt) == "" {
-			return nil, fmt.Errorf("missing rollout or salt for %s/%s", key.scope, key.key)
-		}
-		rollout := *item.Rollout
-		if rollout < 0 || rollout > 100 {
-			return nil, fmt.Errorf("rollout for %s/%s must be from 0 to 100", key.scope, key.key)
-		}
-		rule := flagRule{salt: item.Salt, enabled: item.Enabled, rollout: rollout, included: make(map[domain.UserID]struct{}), excluded: make(map[domain.UserID]struct{})}
-		for _, id := range item.IncludedUserIDs {
-			if id <= 0 {
-				return nil, fmt.Errorf("included user id for %s/%s must be positive", key.scope, key.key)
-			}
-			rule.included[id] = struct{}{}
-		}
-		for _, id := range item.ExcludedUserIDs {
-			if id <= 0 {
-				return nil, fmt.Errorf("excluded user id for %s/%s must be positive", key.scope, key.key)
-			}
-			rule.excluded[id] = struct{}{}
-		}
-		snapshot.flags[key] = rule
+		snapshot.flags[resourceKey{scope: item.Scope, key: item.Key}] = item.AsFeatureFlag()
 	}
+
 	return snapshot, nil
 }
 
-func validatedKey(scope, key string) (resourceKey, error) {
-	scope = strings.TrimSpace(scope)
-	key = strings.TrimSpace(key)
-	if scope == "" || key == "" {
-		return resourceKey{}, errors.New("snapshot scope and key must not be empty")
+func (s *Snapshot) GetConfig(scope, key string) (json.RawMessage, bool) {
+	if s == nil {
+		return nil, false
 	}
-	return resourceKey{scope: scope, key: key}, nil
+
+	value, ok := s.configs[resourceKey{scope: scope, key: key}]
+
+	return bytes.Clone(value), ok
 }
 
-func (s *Snapshot) reviewPolicy(userID domain.UserID) domain.ReviewPolicy {
+func (s *Snapshot) EvaluateFlag(scope, key string, userID domain.UserID) oc.Evaluation {
+	if s == nil {
+		return evaluator.Evaluate(nil, userID)
+	}
+
+	flag, ok := s.flags[resourceKey{scope: scope, key: key}]
+	if !ok {
+		return evaluator.Evaluate(nil, userID)
+	}
+
+	return evaluator.Evaluate(&flag, userID)
+}
+
+func (s *Snapshot) ReviewPolicy(userID domain.UserID) domain.ReviewPolicy {
 	policy := domain.ReviewPolicy{MaxLength: domain.MaxReviewContentLen}
 	if s == nil {
 		return policy
 	}
+
 	policy.SnapshotReady = true
 	policy.Revision = s.revision
+
 	if raw, ok := s.configs[resourceKey{scope: reviewsScope, key: maxLengthSnapshotKey}]; ok {
-		_ = json.Unmarshal(raw, &policy.MaxLength)
-	}
-	if userID > 0 {
-		if rule, ok := s.flags[resourceKey{scope: reviewsScope, key: writeEnabledSnapshotKey}]; ok {
-			policy.WriteEnabled = evaluate(rule, userID)
+		if err := json.Unmarshal(raw, &policy.MaxLength); err != nil {
+			policy.MaxLength = domain.MaxReviewContentLen
 		}
 	}
+
+	policy.WriteEnabled = s.EvaluateFlag(reviewsScope, writeEnabledSnapshotKey, userID).Enabled
+
 	return policy
 }
 
-func (s *Snapshot) publicRuntime(userID domain.UserID) domain.PublicRuntime {
-	result := domain.PublicRuntime{ReviewPolicy: s.reviewPolicy(userID), HomeBlocks: json.RawMessage("[]")}
+func (s *Snapshot) PublicRuntime(userID domain.UserID) domain.PublicRuntime {
+	result := domain.PublicRuntime{
+		ReviewPolicy: s.ReviewPolicy(userID),
+		HomeBlocks:   json.RawMessage(emptyBlocksJSON),
+		Configs:      make(map[string]json.RawMessage),
+		Flags:        make(map[string]bool),
+	}
 	if s == nil {
 		return result
 	}
-	rule := s.flags[resourceKey{scope: "frontend", key: "home_blocks_enabled"}]
-	result.HomeBlocksEnabled = evaluate(rule, userID)
+
+	for key, value := range s.configs {
+		if publicScope(key.scope) {
+			result.Configs[key.scope+publicKeySeparator+key.key] = bytes.Clone(value)
+		}
+	}
+
+	for key := range s.flags {
+		if publicScope(key.scope) {
+			result.Flags[key.scope+publicKeySeparator+key.key] = s.EvaluateFlag(key.scope, key.key, userID).Enabled
+		}
+	}
+
+	result.HomeBlocksEnabled = s.EvaluateFlag(frontendScope, homeBlocksEnabledSnapshotKey, userID).Enabled
 	if result.HomeBlocksEnabled {
-		blocks := bytes.TrimSpace(s.configs[resourceKey{scope: "frontend", key: "home_blocks"}])
-		// Snapshot values are valid JSON. Ignore an optional config of the wrong type.
+		blocks := bytes.TrimSpace(s.configs[resourceKey{scope: frontendScope, key: homeBlocksSnapshotKey}])
 		if len(blocks) > 0 && blocks[0] == '[' {
 			result.HomeBlocks = bytes.Clone(blocks)
 		}
 	}
+
+	result.Configs[domain.HomeBlocksKey] = bytes.Clone(result.HomeBlocks)
+
 	return result
 }
 
-func evaluate(rule flagRule, userID domain.UserID) bool {
-	if !rule.enabled || userID <= 0 || int64(userID) > maxSafeUserID {
-		return false
-	}
-	if _, excluded := rule.excluded[userID]; excluded {
-		return false
-	}
-	if _, included := rule.included[userID]; included {
-		return true
-	}
-	if rule.rollout <= 0 {
-		return false
-	}
-	if rule.rollout >= 100 {
-		return true
-	}
-	sum := sha256.Sum256([]byte(rule.salt + ":" + strconv.FormatInt(int64(userID), 10)))
-	bucket := binary.BigEndian.Uint64(sum[:8]) % 10000
-	return bucket < uint64(rule.rollout*100)
+func publicScope(scope string) bool {
+	return scope == frontendScope
 }

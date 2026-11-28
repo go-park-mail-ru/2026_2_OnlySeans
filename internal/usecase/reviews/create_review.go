@@ -29,6 +29,7 @@ func NewCreateReviewUseCase(
 	if films == nil {
 		return nil, domain.ErrNilFilmsRepo
 	}
+
 	if policy == nil {
 		return nil, domain.ErrNilReviewPolicy
 	}
@@ -61,6 +62,7 @@ func (uc *CreateReviewUseCase) Run(ctx context.Context, input CreateReviewInput)
 		logging.Validation(ctx, uc.appLogger, "create review rejected: invalid input", err, map[string]any{"user_id": input.AuthorID, "film_id": input.FilmID})
 		return nil, err
 	}
+
 	if err := validateDynamicContentLength(review.Content, policy); err != nil {
 		logging.Validation(ctx, uc.appLogger, "create review rejected: dynamic content limit", err, map[string]any{"user_id": input.AuthorID, "revision": policy.Revision, "max_length": policy.MaxLength})
 		return nil, err

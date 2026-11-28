@@ -97,19 +97,24 @@ func OptionalAuth(authn Authenticator) Middleware {
 				next(w, r)
 				return
 			}
+
 			if err != nil || cookie.Value == "" {
 				writeError(r.Context(), w, http.StatusUnauthorized, domain.ErrUnauthorized)
 				return
 			}
+
 			userID, err := authn.Authenticate(r.Context(), cookie.Value)
 			if err != nil {
 				if errors.Is(err, domain.ErrUnauthorized) {
 					writeError(r.Context(), w, http.StatusUnauthorized, domain.ErrUnauthorized)
 					return
 				}
+
 				writeError(r.Context(), w, http.StatusInternalServerError, domain.ErrInternal)
+
 				return
 			}
+
 			next(w, r.WithContext(auth.ContextWithUserID(r.Context(), userID)))
 		}
 	}
@@ -125,6 +130,7 @@ func hasSessionCookieHeader(r *http.Request) bool {
 			}
 		}
 	}
+
 	return false
 }
 

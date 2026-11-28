@@ -13,8 +13,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 	"gopkg.in/yaml.v3"
+
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 )
 
 const (
@@ -206,29 +207,37 @@ func LoadOnlineConfRuntime(lookupEnv func(string) (string, bool)) (*OnlineConfRu
 	if value, ok := lookupEnv(EnvOnlineConfURL); ok {
 		cfg.URL = strings.TrimSpace(value)
 	}
+
 	if value, ok := lookupEnv(EnvOnlineConfRuntimeServiceToken); ok {
 		cfg.ServiceToken = value
 	}
+
 	if value, ok := lookupEnv(EnvOnlineConfSnapshotPath); ok {
 		cfg.SnapshotPath = strings.TrimSpace(value)
 	}
+
 	if value, ok := lookupEnv(EnvOnlineConfRefreshInterval); ok {
 		parsed, err := time.ParseDuration(value)
 		if err != nil {
 			return nil, fmt.Errorf("%s must be a duration: %w", EnvOnlineConfRefreshInterval, err)
 		}
+
 		cfg.RefreshInterval = parsed
 	}
+
 	if value, ok := lookupEnv(EnvOnlineConfHTTPTimeout); ok {
 		parsed, err := time.ParseDuration(value)
 		if err != nil {
 			return nil, fmt.Errorf("%s must be a duration: %w", EnvOnlineConfHTTPTimeout, err)
 		}
+
 		cfg.HTTPTimeout = parsed
 	}
+
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
+
 	return cfg, nil
 }
 
@@ -236,25 +245,32 @@ func (c *OnlineConfRuntime) Validate() error {
 	if c.RefreshInterval <= 0 || c.RefreshInterval > maxOnlineConfRefreshInterval {
 		return fmt.Errorf("onlineconf refresh interval must be positive and at most %s", maxOnlineConfRefreshInterval)
 	}
+
 	if c.HTTPTimeout <= 0 || c.HTTPTimeout > defaultOnlineConfHTTPTimeout {
 		return fmt.Errorf("onlineconf HTTP timeout must be positive and at most %s", defaultOnlineConfHTTPTimeout)
 	}
+
 	if c.SnapshotPath == "" || !strings.HasPrefix(c.SnapshotPath, "/") {
 		return errors.New("onlineconf snapshot path must start with /")
 	}
+
 	if c.URL == "" {
 		return nil
 	}
+
 	if strings.TrimSpace(c.ServiceToken) == "" {
 		return fmt.Errorf("%s is required when %s is configured", EnvOnlineConfRuntimeServiceToken, EnvOnlineConfURL)
 	}
+
 	parsed, err := url.Parse(c.URL)
 	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
 		return fmt.Errorf("%s must be an absolute HTTP URL", EnvOnlineConfURL)
 	}
+
 	if parsed.Scheme != "http" && parsed.Scheme != "https" {
 		return fmt.Errorf("%s must use http or https", EnvOnlineConfURL)
 	}
+
 	return nil
 }
 

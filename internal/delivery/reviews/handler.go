@@ -8,9 +8,10 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/gorilla/mux"
+
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/httprequest"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/httpresponse"
-	"github.com/gorilla/mux"
 
 	authdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
@@ -326,8 +327,10 @@ func writeError(ctx context.Context, w http.ResponseWriter, err error, appLogger
 			Code:    "feature_disabled",
 			Details: map[string]any{"revision": disabled.Revision},
 		}, appLogger)
+
 		return
 	}
+
 	var tooLong *domain.ReviewTooLongError
 	if errors.As(err, &tooLong) {
 		httpresponse.WriteJSONContext(ctx, w, http.StatusBadRequest, businessErrorResponse{
@@ -338,6 +341,7 @@ func writeError(ctx context.Context, w http.ResponseWriter, err error, appLogger
 				"revision":   tooLong.Revision,
 			},
 		}, appLogger)
+
 		return
 	}
 	for _, known := range clientErrors {

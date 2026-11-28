@@ -6,7 +6,11 @@ The product backend reads `GET /internal/onlineconf/snapshot` from the OnlineCon
 container with `Authorization: Bearer <ONLINECONF_SERVICE_TOKEN>`. The endpoint is
 available only on the Docker network and is not present in the public proxy config.
 
-The adapter currently accepts this versioned snapshot shape:
+The adapter decodes the shared `domain/onlineconf.SnapshotPayload`, calls its
+`Validate()` method, and uses `onlineconfevaluator.Evaluate()` for every flag.
+There is one wire contract and one evaluation algorithm for admin and product.
+
+The snapshot shape is:
 
 ```json
 {
@@ -66,8 +70,12 @@ the existing owner and optimistic-version checks.
 
 `GET /api/onlineconf/runtime` returns only the public projection for the current
 session: revision, snapshot readiness, `reviews.max_length`, `reviews.write_enabled`,
-`frontend.home_blocks` and `frontend.home_blocks_enabled`. Both flags are evaluated
-for the current session from the same cached revision. Home blocks are an ordered JSON
+and all configuration keys and flags from the explicitly public `frontend` scope.
+All flags are evaluated for the current session from the same cached revision.
+Strings, objects, arrays, booleans, numbers, and null retain their JSON types.
+Settings from other scopes stay private, apart from the two explicit review keys.
+Treat the entire `frontend` scope as browser-visible: keep secrets in private scopes.
+The existing `frontend.home_blocks` and `frontend.home_blocks_enabled` remain supported. Home blocks are an ordered JSON
 array. An excluded user, a missing config or a non-array value receives an empty array.
 A caller-supplied user id is ignored. The response is
 `Cache-Control: private, no-store` and `Vary: Cookie`; service tokens, override
@@ -104,12 +112,28 @@ copy `.env.example` to `.env`, replace every secret, and run
 `docker compose up -d --build`. Compose builds the separate `onlineconf` target
 from `./cmd/onlineconf`. It checks `/healthz`; the product backend can start
 independently and adopts the snapshot when its background poll succeeds. The
-OnlineConf host port is bound to `127.0.0.1`. Use the nginx location template in
-the existing TLS server block and keep the explicit `/internal/` rejection.
+OnlineConf host port is bound to `127.0.0.1`. Install `deploy/nginx/onlineconf.locations.conf` as
+`/etc/nginx/snippets/onlineconf.locations.conf`, then add the following line to
+the existing domain's TLS `server` block (remove overlapping locations first):
 
-Copy the administrative SPA's `dist/` contents into
-`/var/www/onlyseans-onlineconf/`. This places the HTML at
-`onlineconf/index.html` and bundles under `assets/onlineconf/` inside that root.
+```nginx
+include /etc/nginx/snippets/onlineconf.locations.conf;
+```
+
+Run `nginx -t` before reloading nginx. Keep the explicit `/internal/` rejection.
+This include uses host ports 8080 and 8081; if `ONLINECONF_HOST_PORT` differs,
+update the admin proxy upstream accordingly.
+
+Build the separate administrative SPA in its frontend repository. Install its
+artifacts with:
+
+```bash
+bash scripts/install-onlineconf-spa.sh /path/to/admin/dist
+```
+
+The installer requires `onlineconf/index.html` and `assets/onlineconf/`, copies
+assets first and replaces HTML atomically. It preserves previous asset files so
+open tabs keep working. It never copies the product SPA over the admin entry point.
 Keep nginx's `mime.types` include enabled. The template serves nested SPA routes
 such as `/onlineconf/flags` and returns 404 for missing bundles.
 
@@ -126,3 +150,47 @@ The script uses one transaction and a database lock, skips a complete
 000016 schema, and rejects a partially installed schema. Take a database
 backup before production migration and verify the OnlineConf healthcheck before
 putting the admin routes into service.
+
+## Generic backend settings
+
+Inject `onlineconf.SettingsProvider` into use cases that need arbitrary settings:
+
+```go
+value, found := settings.GetConfig("payments", "checkout_options")
+decision := settings.EvaluateFlag("payments", "new_checkout", userID)
+```
+
+Both methods read only local memory. `GetConfig` returns an owned copy of JSON;
+`EvaluateFlag` returns the shared decision, reason and bucket. Missing config keys
+return `found=false`; missing flags and the cold fallback are disabled.
+For several settings that must share a revision, take `cache.SettingsSnapshot()`
+once and call its `GetConfig`, `EvaluateFlag`, and `Revision` methods. That view
+remains unchanged when a newer revision is published.
+
+A new frontend key, for example `frontend/button_color`, is exposed automatically
+as `configs["frontend.button_color"]`. The product frontend must still read it and
+apply the color. Creating an arbitrary key cannot add new product behavior by itself.
+
+## Verification
+
+Run tests from `tests/`, including the real PostgreSQL admin-to-product workflow:
+
+```bash
+ONLINECONF_TEST_DATABASE_URL='postgres://...' go test -race ./tests/onlineconf ./tests/onlineconfruntime ./tests/reviews ./tests/router ./tests/config
+```
+
+After deploying the SPA and nginx include, check the real origin:
+
+```bash
+curl -i https://your-domain/onlineconf/flags
+curl -i https://your-domain/assets/onlineconf/nonexistent.js
+curl -i https://your-domain/api/onlineconf/runtime
+curl -i https://your-domain/api/onlineconf/admin/me
+curl -i https://your-domain/internal/onlineconf/snapshot
+```
+
+Expect admin HTML for the nested SPA route, 404 for a missing asset,
+`private, no-store` for runtime, 401 for an unauthenticated admin request, and
+404 for the internal API. Verify a regular user's cookie gets 403 on admin API.
+Finally change the review limit and flag in admin, then check runtime and a direct
+review write for the same account within one minute.

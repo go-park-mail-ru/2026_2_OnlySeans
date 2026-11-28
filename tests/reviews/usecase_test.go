@@ -6,11 +6,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
+
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	usecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/reviews"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/tests/mocks"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/mock/gomock"
 )
 
 const (
@@ -81,6 +82,7 @@ func TestCreateReviewUseCase(t *testing.T) {
 					repo.EXPECT().Create(gomock.Any(), domain.UserID(7), tc.film, tc.input).Return(&domain.Review{ID: 1}, nil).After(lookup)
 				}
 			}
+
 			uc, err := usecase.NewCreateReviewUseCase(repo, films, enabledPolicy(), newReviewsTestLogger())
 			require.NoError(t, err)
 			out, err := uc.Run(t.Context(), usecase.NewCreateReviewInput(7, tc.film, tc.input))
@@ -116,6 +118,7 @@ func TestCreateReviewUseCase_Twice(t *testing.T) {
 		films.EXPECT().GetFilmByID(gomock.Any(), existingFilm).Return(domain.Film{ID: existingFilm}, nil),
 		repo.EXPECT().Create(gomock.Any(), domain.UserID(7), existingFilm, validInput()).Return(nil, domain.ErrReviewExists),
 	)
+
 	uc, err := usecase.NewCreateReviewUseCase(repo, films, enabledPolicy(), newReviewsTestLogger())
 	require.NoError(t, err)
 	_, err = uc.Run(t.Context(), usecase.NewCreateReviewInput(7, existingFilm, validInput()))
@@ -157,14 +160,17 @@ func TestUpdateReviewUseCase(t *testing.T) {
 			normalized := tc.input
 			normalized.Title = strings.TrimSpace(normalized.Title)
 			normalized.Content = strings.TrimSpace(normalized.Content)
+
 			getErr := error(nil)
 			if tc.id == 99 {
 				getErr = domain.ErrReviewNotFound
 			}
+
 			lookup := repo.EXPECT().GetByID(gomock.Any(), tc.id).Return(&domain.Review{ID: tc.id, AuthorID: 7}, getErr)
 			if tc.wantErr == nil {
 				repo.EXPECT().Update(gomock.Any(), tc.id, domain.ReviewUpdate{Input: normalized, Version: 1}).Return(&domain.Review{ID: tc.id, AuthorID: 7, Title: normalized.Title, Content: normalized.Content, ContainsSpoilers: normalized.ContainsSpoilers}, nil).After(lookup)
 			}
+
 			uc, err := usecase.NewUpdateReviewUseCase(repo, enabledPolicy(), newReviewsTestLogger())
 			require.NoError(t, err)
 			out, err := uc.Run(t.Context(), usecase.NewUpdateReviewInput(tc.user, tc.id, tc.input, 1))

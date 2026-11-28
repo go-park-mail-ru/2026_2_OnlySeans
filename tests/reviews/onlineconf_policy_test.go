@@ -5,11 +5,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
+
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	usecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/reviews"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/tests/mocks"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/mock/gomock"
 )
 
 type recordingPolicy struct {
@@ -53,6 +54,7 @@ func TestCreateReviewUsesDynamicCodePointLimit(t *testing.T) {
 func TestUpdateChecksOwnerBeforeOnlineConfPolicy(t *testing.T) {
 	repo := mocks.NewMockReviewRepository(gomock.NewController(t))
 	repo.EXPECT().GetByID(gomock.Any(), domain.ReviewID(1)).Return(&domain.Review{ID: 1, AuthorID: 7}, nil)
+
 	policy := &recordingPolicy{policy: domain.ReviewPolicy{WriteEnabled: false, MaxLength: 50, Revision: 15}}
 	uc, err := usecase.NewUpdateReviewUseCase(repo, policy, newReviewsTestLogger())
 	require.NoError(t, err)

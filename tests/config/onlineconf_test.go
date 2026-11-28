@@ -14,9 +14,11 @@ func TestLoadOnlineConfDefaultsAndOverrides(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load defaults: %v", err)
 	}
+
 	if defaults.RefreshInterval != 10*time.Second || defaults.HTTPTimeout != 2*time.Second {
 		t.Fatalf("unexpected defaults: %+v", defaults)
 	}
+
 	if defaults.SnapshotPath != "/internal/onlineconf/snapshot" {
 		t.Fatalf("unexpected snapshot path: %q", defaults.SnapshotPath)
 	}
@@ -28,6 +30,7 @@ func TestLoadOnlineConfDefaultsAndOverrides(t *testing.T) {
 		config.EnvOnlineConfHTTPTimeout:         "750ms",
 		config.EnvOnlineConfSnapshotPath:        "/internal/snapshot",
 	}
+
 	overridden, err := config.LoadOnlineConfRuntime(func(key string) (string, bool) {
 		value, ok := env[key]
 		return value, ok
@@ -35,6 +38,7 @@ func TestLoadOnlineConfDefaultsAndOverrides(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load overrides: %v", err)
 	}
+
 	if overridden.URL != env[config.EnvOnlineConfURL] ||
 		overridden.ServiceToken != env[config.EnvOnlineConfRuntimeServiceToken] ||
 		overridden.RefreshInterval != 15*time.Second ||
@@ -58,8 +62,10 @@ func TestLoadOnlineConfRejectsUnsafeConfiguration(t *testing.T) {
 	}
 	for _, env := range tests {
 		env := env
+
 		t.Run("invalid", func(t *testing.T) {
 			t.Parallel()
+
 			if _, err := config.LoadOnlineConfRuntime(func(key string) (string, bool) {
 				value, ok := env[key]
 				return value, ok

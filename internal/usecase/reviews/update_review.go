@@ -23,6 +23,7 @@ func NewUpdateReviewUseCase(
 	if reviews == nil {
 		return nil, domain.ErrNilReviewsRepo
 	}
+
 	if policy == nil {
 		return nil, domain.ErrNilReviewPolicy
 	}
@@ -82,8 +83,10 @@ func (uc *UpdateReviewUseCase) Run(ctx context.Context, input UpdateReviewInput)
 			"user_id":   input.UserID,
 			"review_id": input.ReviewID,
 		})
+
 		return nil, err
 	}
+
 	if err := validateDynamicContentLength(changes.Content, policy); err != nil {
 		logging.Validation(ctx, uc.appLogger, "update review rejected: dynamic content limit", err, map[string]any{"user_id": input.UserID, "review_id": input.ReviewID, "revision": policy.Revision, "max_length": policy.MaxLength})
 		return nil, err

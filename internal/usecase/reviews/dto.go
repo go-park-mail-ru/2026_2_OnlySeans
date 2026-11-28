@@ -18,9 +18,11 @@ func validateDynamicContentLength(content string, policy domain.ReviewPolicy) er
 	if limit < domain.MinReviewContentLen || limit > domain.MaxReviewContentLen {
 		limit = domain.MaxReviewContentLen
 	}
+
 	if utf8.RuneCountInString(content) > limit {
 		return &domain.ReviewTooLongError{MaxLength: limit, Revision: policy.Revision}
 	}
+
 	return nil
 }
 

@@ -1,4 +1,4 @@
-package onlineconfruntime
+package onlineconfruntime_test
 
 import (
 	"encoding/json"
@@ -6,10 +6,12 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	authdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
+	delivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/onlineconfruntime"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/tests/testutil"
-	"github.com/stretchr/testify/require"
 )
 
 type capturingPolicy struct {
@@ -28,8 +30,9 @@ func (p *capturingPolicy) PublicRuntime(userID domain.UserID) domain.PublicRunti
 
 func TestRuntimeUsesSessionContextAndOnlyPublicProjection(t *testing.T) {
 	policy := &capturingPolicy{}
-	handler, err := NewHandler(policy, testutil.DiscardLogger())
+	handler, err := delivery.NewHandler(policy, testutil.DiscardLogger())
 	require.NoError(t, err)
+
 	req := httptest.NewRequest(http.MethodGet, "/api/onlineconf/runtime?user_id=999", nil)
 	req = req.WithContext(authdelivery.ContextWithUserID(req.Context(), 7))
 	rec := httptest.NewRecorder()

@@ -100,6 +100,7 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 	}
 	var runtimePolicy domain.RuntimeProvider = onlineconfservice.FallbackProvider{}
 	var onlineConfCache *onlineconfservice.Cache
+
 	if onlineConfCfg.URL == "" {
 		appLogger.Warn("onlineconf is not configured; fail-closed fallback is active", nil)
 	} else {
@@ -112,15 +113,19 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 		if err != nil {
 			return fmt.Errorf("create onlineconf client: %w", err)
 		}
+
 		onlineConfCache, err = onlineconfservice.NewCache(client, onlineConfCfg.RefreshInterval, appLogger)
 		if err != nil {
 			return fmt.Errorf("create onlineconf cache: %w", err)
 		}
+
 		startupCtx, cancel := context.WithTimeout(context.Background(), onlineConfCfg.HTTPTimeout)
 		if err := onlineConfCache.Refresh(startupCtx); err != nil {
 			appLogger.Warn("initial onlineconf snapshot load failed; fail-closed fallback is active", map[string]any{"error": err})
 		}
+
 		cancel()
+
 		runtimePolicy = onlineConfCache
 	}
 
@@ -455,6 +460,7 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 	personalRatingHandler := ratingsdelivery.NewMyRatingHandler(getMyRatingUC, appLogger)
 	personCatalogHandler := persondelivery.NewCatalogHandler(getFilmPersonsUC, getPersonCatalogUC, appLogger)
 	assetsHandler := assetsdelivery.NewHandler(s3Client, s3Cfg.Bucket, appLogger)
+
 	onlineConfHandler, err := onlineconfdelivery.NewHandler(runtimePolicy, appLogger)
 	if err != nil {
 		return fmt.Errorf("create onlineconf runtime handler: %w", err)
@@ -488,6 +494,7 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 	}
 
 	stopOnlineConf := startOnlineConfWorker(onlineConfCache)
+
 	return serve(server, cfg.Server.ShutdownTimeout, appLogger, stopOnlineConf)
 }
 
@@ -495,14 +502,17 @@ func startOnlineConfWorker(cache *onlineconfservice.Cache) func() {
 	if cache == nil {
 		return func() {}
 	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	var wg sync.WaitGroup
 	var once sync.Once
 	wg.Add(1)
+
 	go func() {
 		defer wg.Done()
 		cache.Run(ctx)
 	}()
+
 	return func() {
 		once.Do(func() {
 			cancel()

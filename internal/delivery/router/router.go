@@ -69,6 +69,7 @@ func NewRouter(handlers Handlers, allowedOrigins []string, appLogger logger.Logg
 	r.HandleFunc("/api/collections/{id}", filmsHandler.GetCollection).Methods(http.MethodGet)
 
 	r.HandleFunc("/api/authorised", WrapMiddlewares(authHandler.Authorised, authenticatedMiddlewares)).Methods(http.MethodGet)
+
 	if h := handlers.OnlineConf; h != nil {
 		r.HandleFunc("/api/onlineconf/runtime", WrapMiddlewares(h.Runtime, []Middleware{OptionalAuth(authHandler)})).Methods(http.MethodGet)
 	}

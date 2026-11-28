@@ -28,6 +28,8 @@ type PublicRuntime struct {
 	ReviewPolicy
 	HomeBlocks        json.RawMessage
 	HomeBlocksEnabled bool
+	Configs           map[string]json.RawMessage
+	Flags             map[string]bool
 }
 
 type RuntimeProvider interface {
