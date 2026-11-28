@@ -8,7 +8,7 @@ import (
 	usecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/onlineconf"
 )
 
-func (h *Handler) listFlags(w http.ResponseWriter, r *http.Request) {
+func (h *AdminHandler) listFlags(w http.ResponseWriter, r *http.Request) {
 	options, err := requestList(r)
 	if err != nil {
 		h.writeError(w, r, err)
@@ -29,7 +29,7 @@ func (h *Handler) listFlags(w http.ResponseWriter, r *http.Request) {
 	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, public, h.appLogger)
 }
 
-func (h *Handler) getFlag(w http.ResponseWriter, r *http.Request) {
+func (h *AdminHandler) getFlag(w http.ResponseWriter, r *http.Request) {
 	id, err := requestID(r)
 	if err != nil {
 		h.writeError(w, r, err)
@@ -45,7 +45,7 @@ func (h *Handler) getFlag(w http.ResponseWriter, r *http.Request) {
 	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, publicFlag(result), h.appLogger)
 }
 
-func (h *Handler) createFlag(w http.ResponseWriter, r *http.Request) {
+func (h *AdminHandler) createFlag(w http.ResponseWriter, r *http.Request) {
 	actor, ok := AdminFromContext(r.Context())
 	if !ok {
 		h.writeError(w, r, domain.ErrUnauthorized)
@@ -73,7 +73,7 @@ func (h *Handler) createFlag(w http.ResponseWriter, r *http.Request) {
 	httpresponse.WriteJSONContext(r.Context(), w, http.StatusCreated, publicFlag(result), h.appLogger)
 }
 
-func (h *Handler) updateFlag(w http.ResponseWriter, r *http.Request) {
+func (h *AdminHandler) updateFlag(w http.ResponseWriter, r *http.Request) {
 	actor, ok := AdminFromContext(r.Context())
 	if !ok {
 		h.writeError(w, r, domain.ErrUnauthorized)
@@ -107,7 +107,7 @@ func (h *Handler) updateFlag(w http.ResponseWriter, r *http.Request) {
 	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, publicFlag(result), h.appLogger)
 }
 
-func (h *Handler) deleteFlag(w http.ResponseWriter, r *http.Request) {
+func (h *AdminHandler) deleteFlag(w http.ResponseWriter, r *http.Request) {
 	input, err := deleteInput(r)
 	if err != nil {
 		h.writeError(w, r, err)
@@ -122,7 +122,7 @@ func (h *Handler) deleteFlag(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (h *Handler) evaluateFlag(w http.ResponseWriter, r *http.Request) {
+func (h *AdminHandler) evaluateFlag(w http.ResponseWriter, r *http.Request) {
 	id, err := requestID(r)
 	if err != nil {
 		h.writeError(w, r, err)

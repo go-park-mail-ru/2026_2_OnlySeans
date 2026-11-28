@@ -1,0 +1,19 @@
+FROM golang:1.26 AS build
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY cmd/ ./cmd/
+COPY internal/ ./internal/
+COPY pkg/ ./pkg/
+RUN CGO_ENABLED=0 go build -trimpath -buildvcs=false -o /out/onlineconf ./cmd/onlineconf
+
+FROM scratch
+WORKDIR /app
+COPY --from=build /out/onlineconf /onlineconf
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+COPY configs/onlineconf.yaml configs/database.yaml configs/redis.yaml configs/onlineconf-logger.yaml ./configs/
+USER 65532:65532
+EXPOSE 8081
+HEALTHCHECK --interval=10s --timeout=3s --start-period=10s --retries=3 CMD ["/onlineconf", "-healthcheck"]
+ENTRYPOINT ["/onlineconf"]
+CMD ["-logger-config", "configs/onlineconf-logger.yaml"]

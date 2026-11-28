@@ -78,7 +78,18 @@ func loadSnapshot(ctx context.Context, tx *sql.Tx) (*oc.Snapshot, error) {
 }
 
 func (r *PostgresRepository) LoadSnapshot(ctx context.Context) (*oc.Snapshot, error) {
-	return readTransaction(ctx, r.db, func(tx *sql.Tx) (*oc.Snapshot, error) { return loadSnapshot(ctx, tx) })
+	return readTransaction(ctx, r.db, func(tx *sql.Tx) (*oc.Snapshot, error) {
+		snapshot, err := loadSnapshot(ctx, tx)
+		if err != nil {
+			return nil, err
+		}
+
+		if err := oc.NewSnapshotPayload(snapshot).ValidateSize(); err != nil {
+			return nil, err
+		}
+
+		return snapshot, nil
+	})
 }
 
 func (m *mutation) saveSnapshot(ctx context.Context) error {
@@ -88,7 +99,11 @@ func (m *mutation) saveSnapshot(ctx context.Context) error {
 	}
 
 	snapshot.Revision = m.revision
-	snapshot.GeneratedAt = time.Now().UTC()
+	snapshot.GeneratedAt = time.Now().UTC().Truncate(time.Microsecond)
+
+	if err := oc.NewSnapshotPayload(snapshot).ValidateSize(); err != nil {
+		return fmt.Errorf("validate snapshot before commit: %w", err)
+	}
 
 	encoded, err := json.Marshal(snapshot)
 	if err != nil {

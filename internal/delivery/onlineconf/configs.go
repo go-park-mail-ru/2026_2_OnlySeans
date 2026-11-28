@@ -8,7 +8,7 @@ import (
 	usecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/onlineconf"
 )
 
-func (h *Handler) listConfigs(w http.ResponseWriter, r *http.Request) {
+func (h *AdminHandler) listConfigs(w http.ResponseWriter, r *http.Request) {
 	options, err := requestList(r)
 	if err != nil {
 		h.writeError(w, r, err)
@@ -24,7 +24,7 @@ func (h *Handler) listConfigs(w http.ResponseWriter, r *http.Request) {
 	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, result, h.appLogger)
 }
 
-func (h *Handler) getConfig(w http.ResponseWriter, r *http.Request) {
+func (h *AdminHandler) getConfig(w http.ResponseWriter, r *http.Request) {
 	id, err := requestID(r)
 	if err != nil {
 		h.writeError(w, r, err)
@@ -40,7 +40,7 @@ func (h *Handler) getConfig(w http.ResponseWriter, r *http.Request) {
 	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, result, h.appLogger)
 }
 
-func (h *Handler) createConfig(w http.ResponseWriter, r *http.Request) {
+func (h *AdminHandler) createConfig(w http.ResponseWriter, r *http.Request) {
 	actor, ok := AdminFromContext(r.Context())
 	if !ok {
 		h.writeError(w, r, domain.ErrUnauthorized)
@@ -68,7 +68,7 @@ func (h *Handler) createConfig(w http.ResponseWriter, r *http.Request) {
 	httpresponse.WriteJSONContext(r.Context(), w, http.StatusCreated, result, h.appLogger)
 }
 
-func (h *Handler) updateConfig(w http.ResponseWriter, r *http.Request) {
+func (h *AdminHandler) updateConfig(w http.ResponseWriter, r *http.Request) {
 	actor, ok := AdminFromContext(r.Context())
 	if !ok {
 		h.writeError(w, r, domain.ErrUnauthorized)
@@ -102,7 +102,7 @@ func (h *Handler) updateConfig(w http.ResponseWriter, r *http.Request) {
 	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, result, h.appLogger)
 }
 
-func (h *Handler) deleteConfig(w http.ResponseWriter, r *http.Request) {
+func (h *AdminHandler) deleteConfig(w http.ResponseWriter, r *http.Request) {
 	input, err := deleteInput(r)
 	if err != nil {
 		h.writeError(w, r, err)

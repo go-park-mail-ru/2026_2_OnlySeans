@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	evaluator "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/onlineconfevaluator"
+
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
 	delivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/onlineconf"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
@@ -67,7 +69,7 @@ func newHTTPRouter(t *testing.T, repo oc.Repository, snapshots usecase.SnapshotP
 		return &domain.User{ID: id, Username: "admin", Role: role}, nil
 	})
 
-	evaluate, err := usecase.NewEvaluateFlagUseCase(users, snapshots, service.Evaluate, appLogger)
+	evaluate, err := usecase.NewEvaluateFlagUseCase(users, snapshots, evaluator.Evaluate, appLogger)
 	if err != nil {
 		t.Fatal(err)
 	}

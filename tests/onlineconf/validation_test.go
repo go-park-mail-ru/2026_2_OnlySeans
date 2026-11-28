@@ -59,6 +59,7 @@ func TestFlagValidation(t *testing.T) {
 	if err := flag.Validate(); !errors.Is(err, oc.ErrConflictingOverrides) {
 		t.Fatal(err)
 	}
+
 	flag.ForceOffUserIDs = nil
 	flag.ForceOnUserIDs = []domain.UserID{0}
 

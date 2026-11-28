@@ -170,6 +170,10 @@ func (s *SnapshotStore) refresh(ctx context.Context) error {
 		return err
 	}
 
+	if err := oc.NewSnapshotPayload(next).ValidateSize(); err != nil {
+		return fmt.Errorf("validate snapshot before publication: %w", err)
+	}
+
 	current := s.current.Load()
 
 	if current != nil && next.Revision <= current.Revision {

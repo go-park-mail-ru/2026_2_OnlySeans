@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	evaluator "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/onlineconfevaluator"
+
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/stdlib"
 
@@ -187,7 +189,7 @@ func TestPostgresFlagsOverridesAndSalt(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if len(flag.Salt) != 32 || !service.Evaluate(flag, testActor).Enabled || service.Evaluate(flag, testOtherUser).Enabled {
+	if len(flag.Salt) != 32 || !evaluator.Evaluate(flag, testActor).Enabled || evaluator.Evaluate(flag, testOtherUser).Enabled {
 		t.Fatal("salt or overrides")
 	}
 

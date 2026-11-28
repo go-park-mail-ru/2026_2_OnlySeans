@@ -3,9 +3,10 @@ package onlineconf_test
 import (
 	"testing"
 
+	evaluator "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/onlineconfevaluator"
+
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	oc "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain/onlineconf"
-	service "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/onlineconf"
 )
 
 func TestEvaluatorRulePriority(t *testing.T) {
@@ -28,7 +29,7 @@ func TestEvaluatorRulePriority(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := service.Evaluate(tc.flag, tc.user)
+			got := evaluator.Evaluate(tc.flag, tc.user)
 			if got.Enabled != tc.enabled || got.Reason != tc.reason || (got.Bucket != nil) != tc.bucket {
 				t.Fatalf("decision=%+v", got)
 			}
@@ -45,8 +46,8 @@ func TestEvaluatorStableAndMonotonic(t *testing.T) {
 
 		for _, percent := range []int{0, 1, 10, 25, 50, 99, 100} {
 			flag.RolloutPercent = percent
-			got := service.Evaluate(&flag, id)
-			again := service.Evaluate(&flag, id)
+			got := evaluator.Evaluate(&flag, id)
+			again := evaluator.Evaluate(&flag, id)
 
 			if got.Bucket == nil || *got.Bucket < 0 || *got.Bucket >= 10000 || *again.Bucket != *got.Bucket || again.Enabled != got.Enabled {
 				t.Fatal("unstable decision")
@@ -55,6 +56,7 @@ func TestEvaluatorStableAndMonotonic(t *testing.T) {
 			if previousBucket >= 0 && *got.Bucket != previousBucket {
 				t.Fatal("rollout changed bucket")
 			}
+
 			if included && !got.Enabled {
 				t.Fatal("user left rollout as percentage increased")
 			}
@@ -62,6 +64,7 @@ func TestEvaluatorStableAndMonotonic(t *testing.T) {
 			if percent == 0 && got.Enabled || percent == 100 && !got.Enabled {
 				t.Fatal("rollout boundary")
 			}
+
 			included = got.Enabled
 			previousBucket = *got.Bucket
 		}
@@ -75,7 +78,7 @@ func TestEvaluatorContractVectorsAndStableSalt(t *testing.T) {
 		bucket  int
 		enabled bool
 	}{{1, 4554, false}, {2, 6640, false}, {101, 1301, true}} {
-		result := service.Evaluate(&flag, vector.user)
+		result := evaluator.Evaluate(&flag, vector.user)
 		if result.Bucket == nil || *result.Bucket != vector.bucket || result.Enabled != vector.enabled {
 			t.Fatalf("user=%d decision=%+v", vector.user, result)
 		}
@@ -83,7 +86,7 @@ func TestEvaluatorContractVectorsAndStableSalt(t *testing.T) {
 		flag.Title = "Updated title"
 		flag.Version++
 
-		after := service.Evaluate(&flag, vector.user)
+		after := evaluator.Evaluate(&flag, vector.user)
 		if *after.Bucket != vector.bucket || after.Enabled != vector.enabled {
 			t.Fatal("metadata changed rollout")
 		}

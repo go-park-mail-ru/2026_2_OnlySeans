@@ -7,7 +7,7 @@ import (
 	oc "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain/onlineconf"
 )
 
-func (h *Handler) listAudit(w http.ResponseWriter, r *http.Request) {
+func (h *AdminHandler) listAudit(w http.ResponseWriter, r *http.Request) {
 	options, err := requestList(r)
 	if err != nil {
 		h.writeError(w, r, err)

@@ -11,39 +11,39 @@ import (
 )
 
 const (
-	EnvOnlineConfHost                = "ONLINECONF_HOST"
-	EnvOnlineConfPort                = "ONLINECONF_PORT"
-	EnvOnlineConfServiceToken        = "ONLINECONF_SERVICE_TOKEN"
-	EnvOnlineConfAllowedOrigins      = "ONLINECONF_ALLOWED_ORIGINS"
-	DefaultOnlineConfPort            = 8081
-	DefaultOnlineConfRefreshInterval = 10 * time.Second
-	DefaultOnlineConfLoadTimeout     = 2 * time.Second
+	EnvOnlineConfHost                      = "ONLINECONF_HOST"
+	EnvOnlineConfPort                      = "ONLINECONF_PORT"
+	EnvOnlineConfServerServiceToken        = "ONLINECONF_SERVICE_TOKEN"
+	EnvOnlineConfAllowedOrigins            = "ONLINECONF_ALLOWED_ORIGINS"
+	DefaultOnlineConfServerPort            = 8081
+	DefaultOnlineConfServerRefreshInterval = 10 * time.Second
+	DefaultOnlineConfServerLoadTimeout     = 2 * time.Second
 )
 
-type OnlineConf struct {
-	Server       Server             `yaml:"server"`
-	Snapshot     OnlineConfSnapshot `yaml:"snapshot"`
-	ServiceToken string             `yaml:"-"`
+type OnlineConfServerConfig struct {
+	Server       Server                   `yaml:"server"`
+	Snapshot     OnlineConfServerSnapshot `yaml:"snapshot"`
+	ServiceToken string                   `yaml:"-"`
 }
 
-type OnlineConfSnapshot struct {
+type OnlineConfServerSnapshot struct {
 	RefreshInterval time.Duration `yaml:"refresh_interval"`
 	LoadTimeout     time.Duration `yaml:"load_timeout"`
 }
 
-func DefaultOnlineConf() *OnlineConf {
+func DefaultOnlineConfServer() *OnlineConfServerConfig {
 	server := Default().Server
-	server.Port = DefaultOnlineConfPort
+	server.Port = DefaultOnlineConfServerPort
 
-	return &OnlineConf{Server: server, Snapshot: OnlineConfSnapshot{RefreshInterval: DefaultOnlineConfRefreshInterval, LoadTimeout: DefaultOnlineConfLoadTimeout}}
+	return &OnlineConfServerConfig{Server: server, Snapshot: OnlineConfServerSnapshot{RefreshInterval: DefaultOnlineConfServerRefreshInterval, LoadTimeout: DefaultOnlineConfServerLoadTimeout}}
 }
 
-func LoadOnlineConf(path string) (*OnlineConf, error) {
-	return loadFile(path, "onlineconf config", ParseOnlineConf)
+func LoadOnlineConfServer(path string) (*OnlineConfServerConfig, error) {
+	return loadFile(path, "onlineconf config", ParseOnlineConfServer)
 }
 
-func ParseOnlineConf(raw []byte, lookupEnv func(string) (string, bool)) (*OnlineConf, error) {
-	cfg := DefaultOnlineConf()
+func ParseOnlineConfServer(raw []byte, lookupEnv func(string) (string, bool)) (*OnlineConfServerConfig, error) {
+	cfg := DefaultOnlineConfServer()
 	if err := decodeStrict(raw, cfg, "onlineconf config"); err != nil {
 		return nil, err
 	}
@@ -69,7 +69,7 @@ func ParseOnlineConf(raw []byte, lookupEnv func(string) (string, bool)) (*Online
 		}
 	}
 
-	cfg.ServiceToken, _ = lookupEnv(EnvOnlineConfServiceToken)
+	cfg.ServiceToken, _ = lookupEnv(EnvOnlineConfServerServiceToken)
 
 	if err := cfg.Validate(); err != nil {
 		return nil, err
@@ -78,7 +78,7 @@ func ParseOnlineConf(raw []byte, lookupEnv func(string) (string, bool)) (*Online
 	return cfg, nil
 }
 
-func (c *OnlineConf) Validate() error {
+func (c *OnlineConfServerConfig) Validate() error {
 	serverConfig := Config{Server: c.Server}
 	if err := serverConfig.Validate(); err != nil {
 		return fmt.Errorf("onlineconf server config: %w", err)
@@ -88,11 +88,11 @@ func (c *OnlineConf) Validate() error {
 		return errors.New("ONLINECONF_SERVICE_TOKEN is required and must contain no whitespace")
 	}
 
-	if c.Snapshot.RefreshInterval <= 0 || c.Snapshot.RefreshInterval > DefaultOnlineConfRefreshInterval {
+	if c.Snapshot.RefreshInterval <= 0 || c.Snapshot.RefreshInterval > DefaultOnlineConfServerRefreshInterval {
 		return errors.New("onlineconf snapshot refresh_interval must be positive and at most 10s")
 	}
 
-	if c.Snapshot.LoadTimeout <= 0 || c.Snapshot.LoadTimeout > DefaultOnlineConfLoadTimeout {
+	if c.Snapshot.LoadTimeout <= 0 || c.Snapshot.LoadTimeout > DefaultOnlineConfServerLoadTimeout {
 		return errors.New("onlineconf snapshot load_timeout must be positive and at most 2s")
 	}
 

@@ -1,0 +1,14 @@
+**
+!go.mod
+!go.sum
+!cmd/
+!cmd/**
+!internal/
+!internal/**
+!pkg/
+!pkg/**
+!configs/
+!configs/onlineconf.yaml
+!configs/database.yaml
+!configs/redis.yaml
+!configs/onlineconf-logger.yaml

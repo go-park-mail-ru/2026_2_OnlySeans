@@ -1,4 +1,4 @@
-package onlineconf
+package onlineconfevaluator
 
 import (
 	"crypto/sha256"

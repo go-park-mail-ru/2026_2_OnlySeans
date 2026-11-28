@@ -6,9 +6,10 @@ import (
 	"errors"
 	"testing"
 
+	evaluator "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/onlineconfevaluator"
+
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	oc "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain/onlineconf"
-	service "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/onlineconf"
 	usecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/onlineconf"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/tests/testutil"
 )
@@ -139,7 +140,7 @@ func TestEvaluateUseCaseUsesSingleSnapshot(t *testing.T) {
 	snapshots := &snapshotStub{value: &oc.Snapshot{Revision: 42, Flags: []oc.FeatureFlag{{ID: 7, Enabled: true, Salt: "a1b2", RolloutPercent: 0, ForceOnUserIDs: []domain.UserID{testActor}}}}}
 	users := userReaderFunc(func(_ context.Context, id domain.UserID) (*domain.User, error) { return &domain.User{ID: id}, nil })
 
-	uc, err := usecase.NewEvaluateFlagUseCase(users, snapshots, service.Evaluate, testutil.DiscardLogger())
+	uc, err := usecase.NewEvaluateFlagUseCase(users, snapshots, evaluator.Evaluate, testutil.DiscardLogger())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -154,7 +155,7 @@ func TestEvaluateUseCaseMissingUserAndFlag(t *testing.T) {
 	snapshots := &snapshotStub{value: &oc.Snapshot{Revision: 42}}
 	users := userReaderFunc(func(context.Context, domain.UserID) (*domain.User, error) { return nil, domain.ErrUserNotFound })
 
-	uc, err := usecase.NewEvaluateFlagUseCase(users, snapshots, service.Evaluate, testutil.DiscardLogger())
+	uc, err := usecase.NewEvaluateFlagUseCase(users, snapshots, evaluator.Evaluate, testutil.DiscardLogger())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -169,7 +170,7 @@ func TestEvaluateUseCaseMissingUserAndFlag(t *testing.T) {
 
 	users = userReaderFunc(func(_ context.Context, id domain.UserID) (*domain.User, error) { return &domain.User{ID: id}, nil })
 
-	uc, err = usecase.NewEvaluateFlagUseCase(users, snapshots, service.Evaluate, testutil.DiscardLogger())
+	uc, err = usecase.NewEvaluateFlagUseCase(users, snapshots, evaluator.Evaluate, testutil.DiscardLogger())
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -3,6 +3,7 @@ package onlineconf
 import "errors"
 
 var (
+	ErrSnapshotTooLarge      = errors.New("onlineconf: serialized snapshot exceeds 4 MiB")
 	ErrInvalidServiceToken   = errors.New("onlineconf: service token must be nonempty and contain no whitespace")
 	ErrNilAccessChecker      = errors.New("onlineconf: access checker is required")
 	ErrNilSnapshotLoader     = errors.New("onlineconf: snapshot loader is required")

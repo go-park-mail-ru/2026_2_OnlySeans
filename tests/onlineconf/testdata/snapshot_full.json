@@ -1,0 +1,15 @@
+{
+  "revision": 42,
+  "generated_at": "2026-11-28T09:00:00Z",
+  "configs": [
+    {"scope":"reviews","key":"max_length","value":500},
+    {"scope":"frontend","key":"button_color","value":"#ff8800"},
+    {"scope":"frontend","key":"layout","value":{"columns":3}},
+    {"scope":"frontend","key":"genres","value":["comedy","drama"]},
+    {"scope":"frontend","key":"visible","value":false},
+    {"scope":"frontend","key":"optional","value":null}
+  ],
+  "flags": [
+    {"id":1,"scope":"reviews","key":"write_enabled","enabled":true,"rollout_percent":25,"salt":"a1b2","force_on_user_ids":[201],"force_off_user_ids":[202]}
+  ]
+}

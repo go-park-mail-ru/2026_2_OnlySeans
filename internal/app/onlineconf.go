@@ -10,6 +10,8 @@ import (
 	"os"
 	"path/filepath"
 
+	evaluator "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/onlineconfevaluator"
+
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/config"
 	delivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/onlineconf"
 	authservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/auth"
@@ -23,7 +25,7 @@ import (
 const onlineConfServerErrorCapacity = 1
 
 func RunOnlineConf(ctx context.Context, configPath, databasePath, redisPath, loggerPath string) (runErr error) {
-	cfg, err := config.LoadOnlineConf(configPath)
+	cfg, err := config.LoadOnlineConfServer(configPath)
 	if err != nil {
 		return fmt.Errorf("load onlineconf config: %w", err)
 	}
@@ -130,7 +132,7 @@ func RunOnlineConf(ctx context.Context, configPath, databasePath, redisPath, log
 		return fmt.Errorf("create onlineconf flags use case: %w", err)
 	}
 
-	evaluate, err := usecase.NewEvaluateFlagUseCase(users, snapshots, service.Evaluate, appLogger)
+	evaluate, err := usecase.NewEvaluateFlagUseCase(users, snapshots, evaluator.Evaluate, appLogger)
 	if err != nil {
 		return fmt.Errorf("create onlineconf evaluator use case: %w", err)
 	}

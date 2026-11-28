@@ -18,6 +18,7 @@ const (
 	resourceInUseCode    = "resource_in_use"
 	methodNotAllowedCode = "method_not_allowed"
 	runtimeNotReadyCode  = "runtime_not_ready"
+	snapshotTooLargeCode = "snapshot_too_large"
 )
 
 var (
@@ -25,10 +26,12 @@ var (
 	errInvalidJSON  = errors.New("invalid JSON request body")
 )
 
-func (h *Handler) writeError(w http.ResponseWriter, r *http.Request, err error) {
+func (h *AdminHandler) writeError(w http.ResponseWriter, r *http.Request, err error) {
 	status, code, message := http.StatusInternalServerError, internalErrorCode, domain.ErrInternal.Error()
 
 	switch {
+	case errors.Is(err, oc.ErrSnapshotTooLarge):
+		status, code, message = http.StatusRequestEntityTooLarge, snapshotTooLargeCode, oc.ErrSnapshotTooLarge.Error()
 	case errors.Is(err, errInvalidJSON), errors.Is(err, oc.ErrInvalidJSON):
 		status, code, message = http.StatusBadRequest, invalidJSONCode, "invalid JSON request body"
 	case errors.Is(err, oc.ErrVersionConflict):
@@ -61,10 +64,10 @@ func (h *Handler) writeError(w http.ResponseWriter, r *http.Request, err error) 
 	httpresponse.WriteJSONContext(r.Context(), w, status, accessErrorResponse{Error: message, Code: code}, h.appLogger)
 }
 
-func (h *Handler) notFound(w http.ResponseWriter, r *http.Request) {
+func (h *AdminHandler) notFound(w http.ResponseWriter, r *http.Request) {
 	h.writeError(w, r, oc.ErrNotFound)
 }
 
-func (h *Handler) methodNotAllowed(w http.ResponseWriter, r *http.Request) {
+func (h *AdminHandler) methodNotAllowed(w http.ResponseWriter, r *http.Request) {
 	httpresponse.WriteJSONContext(r.Context(), w, http.StatusMethodNotAllowed, accessErrorResponse{Error: "method not allowed", Code: methodNotAllowedCode}, h.appLogger)
 }

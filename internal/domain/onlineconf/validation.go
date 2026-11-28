@@ -57,17 +57,25 @@ func (c Config) Validate() error {
 		return err
 	}
 
-	if len(c.Value) > MaxValueBytes {
+	if err := ValidateConfigValue(c.Scope, c.Key, c.Value); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func ValidateConfigValue(scope, key string, value json.RawMessage) error {
+	if len(value) > MaxValueBytes {
 		return ErrValueTooLarge
 	}
 
-	if !json.Valid(c.Value) {
+	if !json.Valid(value) {
 		return ErrInvalidJSON
 	}
 
-	if c.Scope == ReviewsScope && c.Key == ReviewMaxLengthKey {
+	if scope == ReviewsScope && key == ReviewMaxLengthKey {
 		var limit *int
-		if err := json.Unmarshal(c.Value, &limit); err != nil || limit == nil || *limit < MinReviewLength || *limit > MaxReviewLength {
+		if err := json.Unmarshal(value, &limit); err != nil || limit == nil || *limit < MinReviewLength || *limit > MaxReviewLength {
 			return ErrInvalidReviewLimit
 		}
 	}
@@ -110,6 +118,14 @@ func (f FeatureFlag) Validate() error {
 		return err
 	}
 
+	if err := f.ValidateRules(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (f FeatureFlag) ValidateRules() error {
 	if err := ValidateRollout(f.RolloutPercent); err != nil {
 		return err
 	}

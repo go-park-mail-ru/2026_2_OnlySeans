@@ -6,7 +6,7 @@ import (
 
 	"github.com/gorilla/mux"
 
-	productrouter "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/router"
+	commonmiddleware "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/middleware"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	oc "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain/onlineconf"
 	usecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/onlineconf"
@@ -26,7 +26,7 @@ const (
 	flagPath                 = flagsPath + "/{id}"
 	evaluatePath             = flagPath + "/evaluate"
 	auditPath                = AdminBasePath + "/audit"
-	snapshotPath             = InternalBasePath + "/snapshot"
+	snapshotPath             = oc.SnapshotAPIPath
 	contentTypeOptionsHeader = "X-Content-Type-Options"
 	noSniffValue             = "nosniff"
 	healthyStatus            = "ok"
@@ -40,7 +40,7 @@ type HandlerUseCases struct {
 	Audit    *usecase.ListAuditUseCase
 }
 
-type Handler struct {
+type AdminHandler struct {
 	scopes    *usecase.ScopesUseCase
 	configs   *usecase.ConfigsUseCase
 	flags     *usecase.FlagsUseCase
@@ -67,7 +67,7 @@ func NewRouter(cases HandlerUseCases, middleware *Middleware, snapshots usecase.
 		return nil, domain.ErrInvalidAppLogger
 	}
 
-	h := &Handler{scopes: cases.Scopes, configs: cases.Configs, flags: cases.Flags, evaluate: cases.Evaluate, audit: cases.Audit, snapshots: snapshots, appLogger: appLogger}
+	h := &AdminHandler{scopes: cases.Scopes, configs: cases.Configs, flags: cases.Flags, evaluate: cases.Evaluate, audit: cases.Audit, snapshots: snapshots, appLogger: appLogger}
 	admin := mux.NewRouter()
 	admin.NotFoundHandler = http.HandlerFunc(h.notFound)
 	admin.MethodNotAllowedHandler = http.HandlerFunc(h.methodNotAllowed)
@@ -103,7 +103,7 @@ func NewRouter(cases HandlerUseCases, middleware *Middleware, snapshots usecase.
 	root.Handle(InternalBasePath, middleware.RequireService(internal))
 	root.PathPrefix(InternalBasePath + "/").Handler(middleware.RequireService(internal))
 	root.HandleFunc(healthPath, h.health).Methods(http.MethodGet)
-	wrapped := productrouter.WithLogging(productrouter.WithRecover(root, appLogger), appLogger)
+	wrapped := commonmiddleware.WithLogging(commonmiddleware.WithRecover(root, appLogger), appLogger)
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set(contentTypeOptionsHeader, noSniffValue)

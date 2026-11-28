@@ -8,7 +8,7 @@ import (
 	usecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/onlineconf"
 )
 
-func (h *Handler) me(w http.ResponseWriter, r *http.Request) {
+func (h *AdminHandler) me(w http.ResponseWriter, r *http.Request) {
 	actor, ok := AdminFromContext(r.Context())
 	if !ok {
 		h.writeError(w, r, domain.ErrUnauthorized)
@@ -18,7 +18,7 @@ func (h *Handler) me(w http.ResponseWriter, r *http.Request) {
 	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, actor, h.appLogger)
 }
 
-func (h *Handler) listScopes(w http.ResponseWriter, r *http.Request) {
+func (h *AdminHandler) listScopes(w http.ResponseWriter, r *http.Request) {
 	options, err := requestList(r)
 	if err != nil {
 		h.writeError(w, r, err)
@@ -34,7 +34,7 @@ func (h *Handler) listScopes(w http.ResponseWriter, r *http.Request) {
 	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, result, h.appLogger)
 }
 
-func (h *Handler) createScope(w http.ResponseWriter, r *http.Request) {
+func (h *AdminHandler) createScope(w http.ResponseWriter, r *http.Request) {
 	actor, ok := AdminFromContext(r.Context())
 	if !ok {
 		h.writeError(w, r, domain.ErrUnauthorized)
@@ -61,7 +61,7 @@ func (h *Handler) createScope(w http.ResponseWriter, r *http.Request) {
 	httpresponse.WriteJSONContext(r.Context(), w, http.StatusCreated, result, h.appLogger)
 }
 
-func (h *Handler) getScope(w http.ResponseWriter, r *http.Request) {
+func (h *AdminHandler) getScope(w http.ResponseWriter, r *http.Request) {
 	id, err := requestID(r)
 	if err != nil {
 		h.writeError(w, r, err)
@@ -77,7 +77,7 @@ func (h *Handler) getScope(w http.ResponseWriter, r *http.Request) {
 	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, result, h.appLogger)
 }
 
-func (h *Handler) updateScope(w http.ResponseWriter, r *http.Request) {
+func (h *AdminHandler) updateScope(w http.ResponseWriter, r *http.Request) {
 	actor, ok := AdminFromContext(r.Context())
 	if !ok {
 		h.writeError(w, r, domain.ErrUnauthorized)
@@ -110,7 +110,7 @@ func (h *Handler) updateScope(w http.ResponseWriter, r *http.Request) {
 	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, result, h.appLogger)
 }
 
-func (h *Handler) deleteScope(w http.ResponseWriter, r *http.Request) {
+func (h *AdminHandler) deleteScope(w http.ResponseWriter, r *http.Request) {
 	input, err := deleteInput(r)
 	if err != nil {
 		h.writeError(w, r, err)
