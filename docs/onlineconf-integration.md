@@ -76,7 +76,12 @@ Strings, objects, arrays, booleans, numbers, and null retain their JSON types.
 Settings from other scopes stay private, apart from the two explicit review keys.
 Treat the entire `frontend` scope as browser-visible: keep secrets in private scopes.
 The existing `frontend.home_blocks` and `frontend.home_blocks_enabled` remain supported. Home blocks are an ordered JSON
-array. An excluded user, a missing config or a non-array value receives an empty array.
+array. The admin API accepts up to six blocks. A `collection` needs a positive,
+JavaScript-safe integer `id`. A `banner` needs a `title` (up to 100 UTF-16 code
+units after trimming) and can include `text` (up to 300) and an `action` with a
+`label` (up to 40) and an internal product `href`. Invalid writes return HTTP
+400. Older values remain readable so admins can correct them.
+An excluded user, a missing config or a non-array value receives an empty array.
 A caller-supplied user id is ignored. The response is
 `Cache-Control: private, no-store` and `Vary: Cookie`; service tokens, override
 lists, internal scopes, and raw snapshot data are never serialized.
@@ -139,12 +144,20 @@ such as `/onlineconf/flags` and returns 404 for missing bundles.
 
 PostgreSQL executes `docker-entrypoint-initdb.d` only for a new empty data volume.
 Do not remove `db_data` to force a migration. For an existing database, run the OnlineConf migration before bringing
-the service online:
+the service online. Start the database with `docker compose up -d db`. From the
+repository root, pass the values of `DB_USER` and `DB_NAME` from your Compose
+`.env`. The example uses the values in `.env.example`:
 
 ```powershell
 .\scripts\apply-onlineconf-migration.ps1 `
-  -MigrationFile .\db\migrations\000016_onlineconf.up.sql
+  -MigrationFile .\db\migrations\000016_onlineconf.up.sql `
+  -DatabaseUser 'postgres' `
+  -DatabaseName 'onlyseans'
 ```
+
+You can omit the two database arguments if `DB_USER` and `DB_NAME` are already
+exported in your PowerShell session. Docker Compose reads its own `.env` file;
+that file does not set variables in the calling PowerShell process.
 
 The script uses one transaction and a database lock, skips a complete
 000016 schema, and rejects a partially installed schema. Take a database

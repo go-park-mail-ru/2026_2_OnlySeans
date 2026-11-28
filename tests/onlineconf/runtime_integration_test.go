@@ -25,6 +25,43 @@ import (
 
 const runtimeIntegrationInterval = 5 * time.Millisecond
 
+func TestAdminHomeBlocksWritesAndLegacyRecovery(t *testing.T) {
+	repo, db := newRepository(t)
+	router := newHTTPRouter(t, repo, &snapshotStub{value: snapshotFixture(1)})
+	response := httpRequest(router, http.MethodPost, adminAPI+"/scopes", `{"name":"frontend","title":"Frontend"}`, "admin", "")
+	require.Equal(t, http.StatusCreated, response.Code)
+
+	const createBody = `{"scope":"frontend","key":"home_blocks","title":"Home","value":%s}`
+	const updateBody = `{"scope":"frontend","key":"home_blocks","title":"Home","description":"","value":%s,"version":1}`
+	const invalid = `[{"type":"banner"}]`
+	const valid = `[{"type":"collection","id":1}]`
+	configs := adminAPI + "/configs"
+	response = httpRequest(router, http.MethodPost, configs, fmt.Sprintf(createBody, invalid), "admin", "")
+	require.Equal(t, http.StatusBadRequest, response.Code)
+	require.Contains(t, response.Body.String(), "invalid_input")
+	require.Contains(t, response.Body.String(), "title")
+	response = httpRequest(router, http.MethodPost, configs, fmt.Sprintf(createBody, valid), "admin", "")
+	require.Equal(t, http.StatusCreated, response.Code, response.Body.String())
+	var config oc.Config
+	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &config))
+	resource := fmt.Sprintf("%s/%d", configs, config.ID)
+	response = httpRequest(router, http.MethodPut, resource, fmt.Sprintf(updateBody, invalid), "admin", "")
+	require.Equal(t, http.StatusBadRequest, response.Code)
+	require.Contains(t, response.Body.String(), "block 1: title")
+	saved, err := repo.GetConfig(t.Context(), config.ID)
+	require.NoError(t, err)
+	require.Equal(t, config.Version, saved.Version)
+	require.JSONEq(t, string(config.Value), string(saved.Value))
+
+	// Rows written before schema validation must not block other commits or repair.
+	_, err = db.ExecContext(t.Context(), `UPDATE oc_configs SET value='[{"type":"banner"}]' WHERE id=$1`, config.ID)
+	require.NoError(t, err)
+	response = httpRequest(router, http.MethodPost, configs, `{"scope":"frontend","key":"color","title":"Color","value":"red"}`, "admin", "")
+	require.Equal(t, http.StatusCreated, response.Code, response.Body.String())
+	response = httpRequest(router, http.MethodPut, resource, fmt.Sprintf(updateBody, valid), "admin", "")
+	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+}
+
 func TestAdminCommitReachesProductRuntimeAndReviewUseCase(t *testing.T) {
 	repo, _ := newRepository(t)
 	appLogger := testutil.DiscardLogger()

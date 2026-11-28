@@ -64,6 +64,18 @@ func (c Config) Validate() error {
 	return nil
 }
 
+// ValidateForWrite also checks the product schema. Snapshot reads still accept
+// legacy home blocks so a bad existing value cannot stall unrelated updates.
+func (c Config) ValidateForWrite() error {
+	if err := c.Validate(); err != nil {
+		return err
+	}
+	if c.Scope+"."+c.Key == domain.HomeBlocksKey {
+		return validateHomeBlocks(c.Value)
+	}
+	return nil
+}
+
 func ValidateConfigValue(scope, key string, value json.RawMessage) error {
 	size, err := normalizedJSONSize(value)
 	if err != nil {
