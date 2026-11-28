@@ -8,9 +8,10 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/gorilla/mux"
+
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/httprequest"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/httpresponse"
-	"github.com/gorilla/mux"
 
 	authdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
@@ -319,6 +320,30 @@ func queryInt(r *http.Request, key string, fallback int) (int, bool) {
 }
 
 func writeError(ctx context.Context, w http.ResponseWriter, err error, appLogger logger.Logger) {
+	var disabled *domain.ReviewFeatureDisabledError
+	if errors.As(err, &disabled) {
+		httpresponse.WriteJSONContext(ctx, w, http.StatusForbidden, businessErrorResponse{
+			Error:   domain.ErrFeatureDisabled.Error(),
+			Code:    "feature_disabled",
+			Details: map[string]any{"revision": disabled.Revision},
+		}, appLogger)
+
+		return
+	}
+
+	var tooLong *domain.ReviewTooLongError
+	if errors.As(err, &tooLong) {
+		httpresponse.WriteJSONContext(ctx, w, http.StatusBadRequest, businessErrorResponse{
+			Error: domain.ErrReviewTooLong.Error(),
+			Code:  "review_too_long",
+			Details: map[string]any{
+				"max_length": tooLong.MaxLength,
+				"revision":   tooLong.Revision,
+			},
+		}, appLogger)
+
+		return
+	}
 	for _, known := range clientErrors {
 		if errors.Is(err, known.err) {
 			httpresponse.WriteErrorContext(ctx, w, known.status, known.message, appLogger)
@@ -327,4 +352,10 @@ func writeError(ctx context.Context, w http.ResponseWriter, err error, appLogger
 	}
 
 	httpresponse.WriteErrorContext(ctx, w, http.StatusInternalServerError, httpresponse.InternalErrorMessage, appLogger)
+}
+
+type businessErrorResponse struct {
+	Error   string         `json:"error"`
+	Code    string         `json:"code"`
+	Details map[string]any `json:"details,omitempty"`
 }

@@ -9,6 +9,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
+
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
 	filesdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/files"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/films"
@@ -29,9 +33,6 @@ import (
 	reviewsusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/reviews"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/tests/mocks"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/mock/gomock"
 )
 
 const testOrigin = "http://localhost:3000"
@@ -236,10 +237,10 @@ func newTestReviewsHandler(t *testing.T, films *filmsservice.InMemoryService, ap
 	list, err := reviewsusecase.NewListReviewsUseCase(repo, films, appLogger)
 	require.NoError(t, err)
 
-	create, err := reviewsusecase.NewCreateReviewUseCase(repo, films, appLogger)
+	create, err := reviewsusecase.NewCreateReviewUseCase(repo, films, routerReviewPolicy{}, appLogger)
 	require.NoError(t, err)
 
-	update, err := reviewsusecase.NewUpdateReviewUseCase(repo, appLogger)
+	update, err := reviewsusecase.NewUpdateReviewUseCase(repo, routerReviewPolicy{}, appLogger)
 	require.NoError(t, err)
 
 	del, err := reviewsusecase.NewDeleteReviewUseCase(repo, appLogger)
@@ -313,6 +314,53 @@ func TestRequireAuth(t *testing.T) {
 			var body map[string]string
 			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
 			assert.Equal(t, tt.wantError, body["error"])
+		})
+	}
+}
+
+func TestOptionalAuth(t *testing.T) {
+	tests := []struct {
+		name         string
+		cookie       string
+		authenticate bool
+		authErr      error
+		wantStatus   int
+		wantUser     domain.UserID
+		wantNext     bool
+	}{
+		{"guest", "", false, nil, http.StatusOK, 0, true},
+		{"invalid cookie", "bad", true, domain.ErrUnauthorized, http.StatusUnauthorized, 0, false},
+		{"empty cookie", " ", false, nil, http.StatusUnauthorized, 0, false},
+		{"malformed cookie", `"unterminated`, false, nil, http.StatusUnauthorized, 0, false},
+		{"store failure", "broken", true, domain.ErrInternal, http.StatusInternalServerError, 0, false},
+		{"valid cookie", "good", true, nil, http.StatusOK, 42, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			authn := mocks.NewMockAuthenticator(gomock.NewController(t))
+			if tt.authenticate {
+				authn.EXPECT().Authenticate(gomock.Any(), tt.cookie).Return(domain.UserID(42), tt.authErr)
+			}
+
+			called := false
+			var gotUser domain.UserID
+			handler := router.OptionalAuth(authn)(func(w http.ResponseWriter, r *http.Request) {
+				called = true
+				gotUser, _ = auth.UserIDFromContext(r.Context())
+
+				w.WriteHeader(http.StatusOK)
+			})
+
+			req := httptest.NewRequest(http.MethodGet, "/api/onlineconf/runtime", nil)
+			if tt.cookie != "" {
+				req.Header.Set("Cookie", auth.SessionCookieName+"="+tt.cookie)
+			}
+
+			rec := httptest.NewRecorder()
+			handler(rec, req)
+			require.Equal(t, tt.wantStatus, rec.Code)
+			require.Equal(t, tt.wantNext, called)
+			require.Equal(t, tt.wantUser, gotUser)
 		})
 	}
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/files"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/films"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/library"
+	onlineconfdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/onlineconfruntime"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/persons"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/ratings"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/reviews"
@@ -29,6 +30,7 @@ type Handlers struct {
 	PersonalRating *ratings.MyRatingHandler
 	PersonCatalog  *persons.CatalogHandler
 	Assets         *assets.Handler
+	OnlineConf     *onlineconfdelivery.Handler
 }
 
 func NewRouter(handlers Handlers, allowedOrigins []string, appLogger logger.Logger) (http.Handler, error) {
@@ -67,6 +69,10 @@ func NewRouter(handlers Handlers, allowedOrigins []string, appLogger logger.Logg
 	r.HandleFunc("/api/collections/{id}", filmsHandler.GetCollection).Methods(http.MethodGet)
 
 	r.HandleFunc("/api/authorised", WrapMiddlewares(authHandler.Authorised, authenticatedMiddlewares)).Methods(http.MethodGet)
+
+	if h := handlers.OnlineConf; h != nil {
+		r.HandleFunc("/api/onlineconf/runtime", WrapMiddlewares(h.Runtime, []Middleware{OptionalAuth(authHandler)})).Methods(http.MethodGet)
+	}
 
 	r.HandleFunc("/api/films/{id}/reviews", reviewsHandler.ListFilmReviews).Methods(http.MethodGet)
 	r.HandleFunc("/api/films/{id}/reviews", WrapMiddlewares(reviewsHandler.CreateReview, authenticatedMiddlewares)).Methods(http.MethodPost)

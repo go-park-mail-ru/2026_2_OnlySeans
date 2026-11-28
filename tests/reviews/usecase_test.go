@@ -6,11 +6,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
+
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	usecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/reviews"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/tests/mocks"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/mock/gomock"
 )
 
 const (
@@ -44,12 +45,16 @@ func TestNewReviewUseCases_NilDependencies(t *testing.T) {
 	require.ErrorIs(t, err, domain.ErrNilReviewsRepo)
 	_, err = usecase.NewListReviewsUseCase(repo, nil, appLogger)
 	require.ErrorIs(t, err, domain.ErrNilFilmsRepo)
-	_, err = usecase.NewCreateReviewUseCase(nil, films, appLogger)
+	_, err = usecase.NewCreateReviewUseCase(nil, films, enabledPolicy(), appLogger)
 	require.ErrorIs(t, err, domain.ErrNilReviewsRepo)
-	_, err = usecase.NewCreateReviewUseCase(repo, nil, appLogger)
+	_, err = usecase.NewCreateReviewUseCase(repo, nil, enabledPolicy(), appLogger)
 	require.ErrorIs(t, err, domain.ErrNilFilmsRepo)
-	_, err = usecase.NewUpdateReviewUseCase(nil, appLogger)
+	_, err = usecase.NewCreateReviewUseCase(repo, films, nil, appLogger)
+	require.ErrorIs(t, err, domain.ErrNilReviewPolicy)
+	_, err = usecase.NewUpdateReviewUseCase(nil, enabledPolicy(), appLogger)
 	require.ErrorIs(t, err, domain.ErrNilReviewsRepo)
+	_, err = usecase.NewUpdateReviewUseCase(repo, nil, appLogger)
+	require.ErrorIs(t, err, domain.ErrNilReviewPolicy)
 	_, err = usecase.NewDeleteReviewUseCase(nil, appLogger)
 	require.ErrorIs(t, err, domain.ErrNilReviewsRepo)
 }
@@ -77,7 +82,8 @@ func TestCreateReviewUseCase(t *testing.T) {
 					repo.EXPECT().Create(gomock.Any(), domain.UserID(7), tc.film, tc.input).Return(&domain.Review{ID: 1}, nil).After(lookup)
 				}
 			}
-			uc, err := usecase.NewCreateReviewUseCase(repo, films, newReviewsTestLogger())
+
+			uc, err := usecase.NewCreateReviewUseCase(repo, films, enabledPolicy(), newReviewsTestLogger())
 			require.NoError(t, err)
 			out, err := uc.Run(t.Context(), usecase.NewCreateReviewInput(7, tc.film, tc.input))
 			require.ErrorIs(t, err, tc.wantErr)
@@ -96,7 +102,7 @@ func TestCreateReviewUseCase_TrimsSpaces(t *testing.T) {
 	films := mocks.NewMockFilmRepository(ctrl)
 	lookup := films.EXPECT().GetFilmByID(gomock.Any(), existingFilm).Return(domain.Film{ID: existingFilm}, nil)
 	repo.EXPECT().Create(gomock.Any(), domain.UserID(7), existingFilm, validInput()).Return(&domain.Review{ID: 1}, nil).After(lookup)
-	uc, err := usecase.NewCreateReviewUseCase(repo, films, newReviewsTestLogger())
+	uc, err := usecase.NewCreateReviewUseCase(repo, films, enabledPolicy(), newReviewsTestLogger())
 	require.NoError(t, err)
 	_, err = uc.Run(t.Context(), usecase.NewCreateReviewInput(7, existingFilm, domain.ReviewInput{Title: "  " + validTitle + "\n", Content: "\t" + validContent + "  "}))
 	require.NoError(t, err)
@@ -112,7 +118,8 @@ func TestCreateReviewUseCase_Twice(t *testing.T) {
 		films.EXPECT().GetFilmByID(gomock.Any(), existingFilm).Return(domain.Film{ID: existingFilm}, nil),
 		repo.EXPECT().Create(gomock.Any(), domain.UserID(7), existingFilm, validInput()).Return(nil, domain.ErrReviewExists),
 	)
-	uc, err := usecase.NewCreateReviewUseCase(repo, films, newReviewsTestLogger())
+
+	uc, err := usecase.NewCreateReviewUseCase(repo, films, enabledPolicy(), newReviewsTestLogger())
 	require.NoError(t, err)
 	_, err = uc.Run(t.Context(), usecase.NewCreateReviewInput(7, existingFilm, validInput()))
 	require.NoError(t, err)
@@ -125,7 +132,7 @@ func TestReviewUseCases_FilmsFailure(t *testing.T) {
 	repo := mocks.NewMockReviewRepository(ctrl)
 	films := mocks.NewMockFilmRepository(ctrl)
 	films.EXPECT().GetFilmByID(gomock.Any(), existingFilm).Return(domain.Film{}, errStorage).Times(2)
-	create, err := usecase.NewCreateReviewUseCase(repo, films, newReviewsTestLogger())
+	create, err := usecase.NewCreateReviewUseCase(repo, films, enabledPolicy(), newReviewsTestLogger())
 	require.NoError(t, err)
 	_, err = create.Run(t.Context(), usecase.NewCreateReviewInput(7, existingFilm, validInput()))
 	require.ErrorIs(t, err, errStorage)
@@ -153,17 +160,18 @@ func TestUpdateReviewUseCase(t *testing.T) {
 			normalized := tc.input
 			normalized.Title = strings.TrimSpace(normalized.Title)
 			normalized.Content = strings.TrimSpace(normalized.Content)
-			if !errors.Is(tc.wantErr, domain.ErrInvalidTitle) {
-				getErr := error(nil)
-				if tc.id == 99 {
-					getErr = domain.ErrReviewNotFound
-				}
-				lookup := repo.EXPECT().GetByID(gomock.Any(), tc.id).Return(&domain.Review{ID: tc.id, AuthorID: 7}, getErr)
-				if tc.wantErr == nil {
-					repo.EXPECT().Update(gomock.Any(), tc.id, domain.ReviewUpdate{Input: normalized, Version: 1}).Return(&domain.Review{ID: tc.id, AuthorID: 7, Title: normalized.Title, Content: normalized.Content, ContainsSpoilers: normalized.ContainsSpoilers}, nil).After(lookup)
-				}
+
+			getErr := error(nil)
+			if tc.id == 99 {
+				getErr = domain.ErrReviewNotFound
 			}
-			uc, err := usecase.NewUpdateReviewUseCase(repo, newReviewsTestLogger())
+
+			lookup := repo.EXPECT().GetByID(gomock.Any(), tc.id).Return(&domain.Review{ID: tc.id, AuthorID: 7}, getErr)
+			if tc.wantErr == nil {
+				repo.EXPECT().Update(gomock.Any(), tc.id, domain.ReviewUpdate{Input: normalized, Version: 1}).Return(&domain.Review{ID: tc.id, AuthorID: 7, Title: normalized.Title, Content: normalized.Content, ContainsSpoilers: normalized.ContainsSpoilers}, nil).After(lookup)
+			}
+
+			uc, err := usecase.NewUpdateReviewUseCase(repo, enabledPolicy(), newReviewsTestLogger())
 			require.NoError(t, err)
 			out, err := uc.Run(t.Context(), usecase.NewUpdateReviewInput(tc.user, tc.id, tc.input, 1))
 			require.ErrorIs(t, err, tc.wantErr)

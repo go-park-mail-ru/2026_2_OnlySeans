@@ -63,9 +63,13 @@ type errorResponse struct {
 }
 
 func newTestRouter(t *testing.T, films domain.FilmRepository) *mux.Router {
+	return newTestRouterWithPolicy(t, films, enabledPolicy())
+}
+
+func newTestRouterWithPolicy(t *testing.T, films domain.FilmRepository, policy domain.ReviewPolicyProvider) *mux.Router {
 	t.Helper()
 
-	cases := newReviewCases(t, films)
+	cases := newReviewCasesWithPolicy(t, films, policy)
 	h, err := reviewsdelivery.NewHandler(reviewsdelivery.HandlerUseCases{
 		List:   cases.list,
 		Create: cases.create,
@@ -396,7 +400,7 @@ func TestHandler_UpdateErrors(t *testing.T) {
 		{"id отзыва не число", "/api/reviews/abc", validBody, anna, http.StatusBadRequest, reviewsdelivery.ErrInvalidID},
 		{"без пользователя", reviewPath(1), validBody, guest, http.StatusUnauthorized, domain.ErrUnauthorized},
 		{"сломанный JSON", reviewPath(1), `{`, anna, http.StatusBadRequest, httprequest.ErrInvalidBody},
-		{"короткий текст", reviewPath(1), reviewBody(validTitle, "мало", false), anna, http.StatusBadRequest, errContentMessage},
+		{"короткий текст", reviewPath(1), reviewBodyWithVersion(validTitle, "мало", false, 1), anna, http.StatusBadRequest, errContentMessage},
 		{"чужой отзыв", reviewPath(1), validBody, boris, http.StatusForbidden, domain.ErrForbidden},
 		{"несуществующий отзыв", reviewPath(99), validBody, anna, http.StatusNotFound, domain.ErrReviewNotFound},
 	}

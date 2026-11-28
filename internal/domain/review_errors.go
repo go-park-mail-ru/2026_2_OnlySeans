@@ -9,6 +9,30 @@ var (
 	ErrInvalidTitle    = errors.New("title is invalid")
 	ErrInvalidContent  = errors.New("content is invalid")
 	ErrNilReviewsRepo  = errors.New("reviews repository is nil")
+	ErrNilReviewPolicy = errors.New("review policy provider is nil")
 	ErrVersionConflict = errors.New("review was changed by someone else")
 	ErrInvalidVersion  = errors.New("version is invalid")
+	ErrFeatureDisabled = errors.New("feature disabled")
+	ErrReviewTooLong   = errors.New("review content is too long")
 )
+
+type ReviewFeatureDisabledError struct {
+	Revision int64
+}
+
+func (e *ReviewFeatureDisabledError) Error() string { return ErrFeatureDisabled.Error() }
+
+func (e *ReviewFeatureDisabledError) Unwrap() error { return ErrFeatureDisabled }
+
+type ReviewTooLongError struct {
+	MaxLength int
+	Revision  int64
+}
+
+func (e *ReviewTooLongError) Error() string {
+	return ErrReviewTooLong.Error()
+}
+
+func (e *ReviewTooLongError) Unwrap() error {
+	return ErrReviewTooLong
+}

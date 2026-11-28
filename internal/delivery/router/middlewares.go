@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/httpresponse"
@@ -84,6 +85,53 @@ func RequireAuth(authn Authenticator) Middleware {
 			next(w, r.WithContext(auth.ContextWithUserID(r.Context(), userID)))
 		}
 	}
+}
+
+// OptionalAuth keeps guest runtime public, but rejects an explicitly supplied
+// invalid session instead of silently evaluating it as another user.
+func OptionalAuth(authn Authenticator) Middleware {
+	return func(next http.HandlerFunc) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			cookie, err := r.Cookie(auth.SessionCookieName)
+			if errors.Is(err, http.ErrNoCookie) && !hasSessionCookieHeader(r) {
+				next(w, r)
+				return
+			}
+
+			if err != nil || cookie.Value == "" {
+				writeError(r.Context(), w, http.StatusUnauthorized, domain.ErrUnauthorized)
+				return
+			}
+
+			userID, err := authn.Authenticate(r.Context(), cookie.Value)
+			if err != nil {
+				if errors.Is(err, domain.ErrUnauthorized) {
+					writeError(r.Context(), w, http.StatusUnauthorized, domain.ErrUnauthorized)
+					return
+				}
+
+				writeError(r.Context(), w, http.StatusInternalServerError, domain.ErrInternal)
+
+				return
+			}
+
+			next(w, r.WithContext(auth.ContextWithUserID(r.Context(), userID)))
+		}
+	}
+}
+
+// net/http silently drops cookie values it cannot parse.
+func hasSessionCookieHeader(r *http.Request) bool {
+	for _, header := range r.Header.Values("Cookie") {
+		for part := range strings.SplitSeq(header, ";") {
+			name, _, _ := strings.Cut(part, "=")
+			if strings.TrimSpace(name) == auth.SessionCookieName {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 type csrfMiddleware struct {
