@@ -14,3 +14,4 @@
 \ir migrations/000013_catalog_content.up.sql
 \ir migrations/000014_real_posters.up.sql
 \ir migrations/000015_review_version.up.sql
+\ir migrations/000016_onlineconf.up.sql
