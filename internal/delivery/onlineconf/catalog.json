@@ -1,0 +1,2237 @@
+[
+  {
+    "scope": "auth",
+    "key": "RoleAdmin",
+    "value": "admin",
+    "source": "internal/domain/auth.go:15",
+    "group": "Go"
+  },
+  {
+    "scope": "auth",
+    "key": "RoleEditor",
+    "value": "editor",
+    "source": "internal/domain/auth.go:14",
+    "group": "Go"
+  },
+  {
+    "scope": "auth",
+    "key": "RoleReader",
+    "value": "reader",
+    "source": "internal/domain/auth.go:13",
+    "group": "Go"
+  },
+  {
+    "scope": "auth",
+    "key": "sessionIDBytes",
+    "value": 32,
+    "source": "internal/services/auth/session.go:13",
+    "group": "Go"
+  },
+  {
+    "scope": "backend",
+    "key": "server.allowed_origins",
+    "value": [
+      "http://localhost:8000"
+    ],
+    "source": "configs/config.yaml",
+    "group": "YAML"
+  },
+  {
+    "scope": "backend",
+    "key": "server.host",
+    "value": "0.0.0.0",
+    "source": "configs/config.yaml",
+    "group": "YAML"
+  },
+  {
+    "scope": "backend",
+    "key": "server.idle_timeout",
+    "value": "60s",
+    "source": "configs/config.yaml",
+    "group": "YAML"
+  },
+  {
+    "scope": "backend",
+    "key": "server.port",
+    "value": 8080,
+    "source": "configs/config.yaml",
+    "group": "YAML"
+  },
+  {
+    "scope": "backend",
+    "key": "server.read_timeout",
+    "value": "5s",
+    "source": "configs/config.yaml",
+    "group": "YAML"
+  },
+  {
+    "scope": "backend",
+    "key": "server.session_ttl",
+    "value": "24h",
+    "source": "configs/config.yaml",
+    "group": "YAML"
+  },
+  {
+    "scope": "backend",
+    "key": "server.shutdown_timeout",
+    "value": "10s",
+    "source": "configs/config.yaml",
+    "group": "YAML"
+  },
+  {
+    "scope": "backend",
+    "key": "server.write_timeout",
+    "value": "10s",
+    "source": "configs/config.yaml",
+    "group": "YAML"
+  },
+  {
+    "scope": "catalog",
+    "key": "collection_films",
+    "value": [
+      {
+        "collection_id": 1,
+        "film_id": 1,
+        "position": 1
+      },
+      {
+        "collection_id": 1,
+        "film_id": 3,
+        "position": 2
+      },
+      {
+        "collection_id": 2,
+        "film_id": 1,
+        "position": 1
+      },
+      {
+        "collection_id": 2,
+        "film_id": 4,
+        "position": 2
+      },
+      {
+        "collection_id": 2,
+        "film_id": 5,
+        "position": 3
+      },
+      {
+        "collection_id": 2,
+        "film_id": 6,
+        "position": 4
+      },
+      {
+        "collection_id": 2,
+        "film_id": 7,
+        "position": 5
+      },
+      {
+        "collection_id": 2,
+        "film_id": 9,
+        "position": 6
+      },
+      {
+        "collection_id": 3,
+        "film_id": 9,
+        "position": 1
+      },
+      {
+        "collection_id": 3,
+        "film_id": 10,
+        "position": 2
+      },
+      {
+        "collection_id": 3,
+        "film_id": 5,
+        "position": 3
+      },
+      {
+        "collection_id": 3,
+        "film_id": 11,
+        "position": 4
+      },
+      {
+        "collection_id": 4,
+        "film_id": 7,
+        "position": 1
+      },
+      {
+        "collection_id": 4,
+        "film_id": 8,
+        "position": 2
+      },
+      {
+        "collection_id": 4,
+        "film_id": 6,
+        "position": 3
+      },
+      {
+        "collection_id": 4,
+        "film_id": 12,
+        "position": 4
+      },
+      {
+        "collection_id": 5,
+        "film_id": 13,
+        "position": 1
+      },
+      {
+        "collection_id": 5,
+        "film_id": 3,
+        "position": 2
+      }
+    ],
+    "source": "db/migrations · collection_films",
+    "group": "SQL"
+  },
+  {
+    "scope": "catalog",
+    "key": "collections",
+    "value": [
+      {
+        "cover_file_id": 22,
+        "description": "Подборка о тех, кто не сдаётся.",
+        "id": 1,
+        "slug": "films-about-freedom",
+        "title": "Фильмы о свободе"
+      },
+      {
+        "cover_file_id": null,
+        "description": "Фильмы, которые стоит посмотреть хотя бы раз.",
+        "id": 2,
+        "slug": "best-of-all-time",
+        "title": "Лучшие фильмы всех времён"
+      },
+      {
+        "cover_file_id": null,
+        "description": "Добрые фильмы для вечера с близкими.",
+        "id": 3,
+        "slug": "family",
+        "title": "Смотрим всей семьёй"
+      },
+      {
+        "cover_file_id": null,
+        "description": "До последней минуты не угадаешь, чем всё кончится.",
+        "id": 4,
+        "slug": "mind-benders",
+        "title": "Закрученный сюжет"
+      },
+      {
+        "cover_file_id": null,
+        "description": "Сериалы, от которых трудно оторваться.",
+        "id": 5,
+        "slug": "weekend-series",
+        "title": "Сериалы на выходные"
+      }
+    ],
+    "source": "db/migrations · collections",
+    "group": "SQL"
+  },
+  {
+    "scope": "catalog",
+    "key": "countries",
+    "value": [
+      {
+        "id": 1,
+        "iso_code": "US",
+        "name": "США"
+      },
+      {
+        "id": 2,
+        "iso_code": "RU",
+        "name": "Россия"
+      },
+      {
+        "id": 3,
+        "iso_code": "GB",
+        "name": "Великобритания"
+      },
+      {
+        "id": 4,
+        "iso_code": "FR",
+        "name": "Франция"
+      },
+      {
+        "id": 5,
+        "iso_code": "JP",
+        "name": "Япония"
+      }
+    ],
+    "source": "db/migrations · countries",
+    "group": "SQL"
+  },
+  {
+    "scope": "catalog",
+    "key": "episodes",
+    "value": [
+      {
+        "duration_min": 58,
+        "episode_number": 1,
+        "film_id": 3,
+        "release_date": "2008-01-20",
+        "season_number": 1,
+        "title": "Пилот"
+      },
+      {
+        "duration_min": 48,
+        "episode_number": 2,
+        "film_id": 3,
+        "release_date": "2008-01-27",
+        "season_number": 1,
+        "title": "Кошкин угол"
+      }
+    ],
+    "source": "db/migrations · episodes",
+    "group": "SQL"
+  },
+  {
+    "scope": "catalog",
+    "key": "film_countries",
+    "value": [
+      {
+        "country_id": 1,
+        "film_id": 1
+      },
+      {
+        "country_id": 1,
+        "film_id": 2
+      },
+      {
+        "country_id": 1,
+        "film_id": 3
+      }
+    ],
+    "source": "db/migrations · film_countries",
+    "group": "SQL"
+  },
+  {
+    "scope": "catalog",
+    "key": "film_genres",
+    "value": [
+      {
+        "film_id": 1,
+        "genre_id": 1
+      },
+      {
+        "film_id": 1,
+        "genre_id": 3
+      },
+      {
+        "film_id": 2,
+        "genre_id": 4
+      },
+      {
+        "film_id": 3,
+        "genre_id": 1
+      },
+      {
+        "film_id": 3,
+        "genre_id": 3
+      },
+      {
+        "film_id": 3,
+        "genre_id": 5
+      },
+      {
+        "film_id": 4,
+        "genre_id": 1
+      },
+      {
+        "film_id": 4,
+        "genre_id": 3
+      },
+      {
+        "film_id": 5,
+        "genre_id": 1
+      },
+      {
+        "film_id": 5,
+        "genre_id": 2
+      },
+      {
+        "film_id": 6,
+        "genre_id": 1
+      },
+      {
+        "film_id": 6,
+        "genre_id": 4
+      },
+      {
+        "film_id": 6,
+        "genre_id": 10
+      },
+      {
+        "film_id": 7,
+        "genre_id": 4
+      },
+      {
+        "film_id": 7,
+        "genre_id": 5
+      },
+      {
+        "film_id": 8,
+        "genre_id": 1
+      },
+      {
+        "film_id": 8,
+        "genre_id": 5
+      },
+      {
+        "film_id": 9,
+        "genre_id": 1
+      },
+      {
+        "film_id": 9,
+        "genre_id": 9
+      },
+      {
+        "film_id": 9,
+        "genre_id": 11
+      },
+      {
+        "film_id": 10,
+        "genre_id": 2
+      },
+      {
+        "film_id": 10,
+        "genre_id": 11
+      },
+      {
+        "film_id": 11,
+        "genre_id": 2
+      },
+      {
+        "film_id": 11,
+        "genre_id": 4
+      },
+      {
+        "film_id": 12,
+        "genre_id": 2
+      },
+      {
+        "film_id": 12,
+        "genre_id": 3
+      },
+      {
+        "film_id": 13,
+        "genre_id": 1
+      },
+      {
+        "film_id": 13,
+        "genre_id": 3
+      },
+      {
+        "film_id": 13,
+        "genre_id": 5
+      }
+    ],
+    "source": "db/migrations · film_genres",
+    "group": "SQL"
+  },
+  {
+    "scope": "catalog",
+    "key": "film_people",
+    "value": [
+      {
+        "character_name": "Энди Дюфрейн",
+        "film_id": 1,
+        "id": 1,
+        "person_id": 1,
+        "role_type_id": 1,
+        "updated_at": "2026-11-28T14:56:44.041745+03:00"
+      },
+      {
+        "character_name": "Эллис Бойд Реддинг",
+        "film_id": 1,
+        "id": 2,
+        "person_id": 2,
+        "role_type_id": 1,
+        "updated_at": "2026-11-28T14:56:44.047638+03:00"
+      },
+      {
+        "character_name": null,
+        "film_id": 1,
+        "id": 3,
+        "person_id": 3,
+        "role_type_id": 2,
+        "updated_at": "2026-11-28T14:56:44.049004+03:00"
+      },
+      {
+        "character_name": "Уолтер Уайт",
+        "film_id": 3,
+        "id": 4,
+        "person_id": 4,
+        "role_type_id": 1,
+        "updated_at": "2026-11-28T14:56:44.050342+03:00"
+      }
+    ],
+    "source": "db/migrations · film_people",
+    "group": "SQL"
+  },
+  {
+    "scope": "catalog",
+    "key": "film_releases",
+    "value": [
+      {
+        "country_id": 1,
+        "film_id": 1,
+        "release_date": "1994-09-10",
+        "release_type": "world_premiere",
+        "updated_at": "2026-11-28T14:56:44.026063+03:00"
+      },
+      {
+        "country_id": 2,
+        "film_id": 1,
+        "release_date": "1995-02-16",
+        "release_type": "cinema",
+        "updated_at": "2026-11-28T14:56:44.030226+03:00"
+      },
+      {
+        "country_id": 2,
+        "film_id": 1,
+        "release_date": "2024-09-19",
+        "release_type": "cinema",
+        "updated_at": "2026-11-28T14:56:44.030226+03:00"
+      },
+      {
+        "country_id": 2,
+        "film_id": 2,
+        "release_date": "2026-12-17",
+        "release_type": "cinema",
+        "updated_at": "2026-11-28T14:56:44.031352+03:00"
+      }
+    ],
+    "source": "db/migrations · film_releases",
+    "group": "SQL"
+  },
+  {
+    "scope": "catalog",
+    "key": "films",
+    "value": [
+      {
+        "age_limit": 16,
+        "description": "Несправедливо осуждённый банкир проводит в тюрьме Шоушенк два десятилетия, сохраняя надежду и обретая друзей.",
+        "duration_min": 142,
+        "film_type": "movie",
+        "id": 1,
+        "original_title": "The Shawshank Redemption",
+        "production_year": 1994,
+        "title": "Побег из Шоушенка"
+      },
+      {
+        "age_limit": 12,
+        "description": "Третья часть экранизации романа Фрэнка Герберта.",
+        "duration_min": 165,
+        "film_type": "movie",
+        "id": 2,
+        "original_title": "Dune: Part Three",
+        "production_year": 2026,
+        "title": "Дюна: Часть третья"
+      },
+      {
+        "age_limit": 18,
+        "description": "Школьный учитель химии узнаёт о смертельном диагнозе и начинает производить метамфетамин, чтобы обеспечить семью.",
+        "duration_min": null,
+        "film_type": "series",
+        "id": 3,
+        "original_title": "Breaking Bad",
+        "production_year": 2008,
+        "title": "Во все тяжкие"
+      },
+      {
+        "age_limit": 16,
+        "description": "Надзиратель блока смертников знакомится с заключённым, обладающим необычным даром.",
+        "duration_min": 189,
+        "film_type": "movie",
+        "id": 4,
+        "original_title": "The Green Mile",
+        "production_year": 1999,
+        "title": "Зелёная миля"
+      },
+      {
+        "age_limit": 12,
+        "description": "История простодушного человека, который оказывается в центре главных событий эпохи.",
+        "duration_min": 142,
+        "film_type": "movie",
+        "id": 5,
+        "original_title": "Forrest Gump",
+        "production_year": 1994,
+        "title": "Форрест Гамп"
+      },
+      {
+        "age_limit": 16,
+        "description": "Группа исследователей отправляется через червоточину в поисках нового дома для человечества.",
+        "duration_min": 169,
+        "film_type": "movie",
+        "id": 6,
+        "original_title": "Interstellar",
+        "production_year": 2014,
+        "title": "Интерстеллар"
+      },
+      {
+        "age_limit": 12,
+        "description": "Вор, крадущий идеи из снов, получает задание не украсть идею, а внедрить её.",
+        "duration_min": 148,
+        "film_type": "movie",
+        "id": 7,
+        "original_title": "Inception",
+        "production_year": 2010,
+        "title": "Начало"
+      },
+      {
+        "age_limit": 18,
+        "description": "Два пристава расследуют исчезновение пациентки из психиатрической клиники на острове.",
+        "duration_min": 138,
+        "film_type": "movie",
+        "id": 8,
+        "original_title": "Shutter Island",
+        "production_year": 2010,
+        "title": "Остров проклятых"
+      },
+      {
+        "age_limit": 0,
+        "description": "Львёнок Симба должен вернуть себе трон, который отнял его коварный дядя.",
+        "duration_min": 88,
+        "film_type": "movie",
+        "id": 9,
+        "original_title": "The Lion King",
+        "production_year": 1994,
+        "title": "Король Лев"
+      },
+      {
+        "age_limit": 0,
+        "description": "Восьмилетнего Кевина случайно забывают дома, и ему приходится защищать дом от грабителей.",
+        "duration_min": 103,
+        "film_type": "movie",
+        "id": 10,
+        "original_title": "Home Alone",
+        "production_year": 1990,
+        "title": "Один дома"
+      },
+      {
+        "age_limit": 6,
+        "description": "Машина времени изобретателя Шурика меняет местами управдома и царя Ивана Грозного.",
+        "duration_min": 88,
+        "film_type": "movie",
+        "id": 11,
+        "original_title": null,
+        "production_year": 1973,
+        "title": "Иван Васильевич меняет профессию"
+      },
+      {
+        "age_limit": 18,
+        "description": "Наркобарон решает продать свой бизнес, и вокруг сделки начинается большая игра.",
+        "duration_min": 113,
+        "film_type": "movie",
+        "id": 12,
+        "original_title": "The Gentlemen",
+        "production_year": 2019,
+        "title": "Джентльмены"
+      },
+      {
+        "age_limit": 12,
+        "description": "Современная версия историй о Шерлоке Холмсе и докторе Ватсоне.",
+        "duration_min": null,
+        "film_type": "series",
+        "id": 13,
+        "original_title": "Sherlock",
+        "production_year": 2010,
+        "title": "Шерлок"
+      }
+    ],
+    "source": "db/migrations · films",
+    "group": "SQL"
+  },
+  {
+    "scope": "catalog",
+    "key": "genres",
+    "value": [
+      {
+        "id": 1,
+        "name": "драма",
+        "slug": "drama"
+      },
+      {
+        "id": 2,
+        "name": "комедия",
+        "slug": "comedy"
+      },
+      {
+        "id": 3,
+        "name": "криминал",
+        "slug": "crime"
+      },
+      {
+        "id": 4,
+        "name": "фантастика",
+        "slug": "sci-fi"
+      },
+      {
+        "id": 5,
+        "name": "триллер",
+        "slug": "thriller"
+      },
+      {
+        "id": 6,
+        "name": "боевик",
+        "slug": "action"
+      },
+      {
+        "id": 7,
+        "name": "мелодрама",
+        "slug": "romance"
+      },
+      {
+        "id": 8,
+        "name": "документальный",
+        "slug": "documentary"
+      },
+      {
+        "id": 9,
+        "name": "мультфильм",
+        "slug": "animation"
+      },
+      {
+        "id": 10,
+        "name": "приключения",
+        "slug": "adventure"
+      },
+      {
+        "id": 11,
+        "name": "семейный",
+        "slug": "family"
+      }
+    ],
+    "source": "db/migrations · genres",
+    "group": "SQL"
+  },
+  {
+    "scope": "catalog",
+    "key": "people",
+    "value": [
+      {
+        "birth_date": "1958-10-16",
+        "first_name": "Тим",
+        "id": 1,
+        "last_name": "Роббинс",
+        "photo_file_id": null
+      },
+      {
+        "birth_date": "1937-06-01",
+        "first_name": "Морган",
+        "id": 2,
+        "last_name": "Фриман",
+        "photo_file_id": 5
+      },
+      {
+        "birth_date": "1959-01-28",
+        "first_name": "Фрэнк",
+        "id": 3,
+        "last_name": "Дарабонт",
+        "photo_file_id": null
+      },
+      {
+        "birth_date": "1956-03-07",
+        "first_name": "Брайан",
+        "id": 4,
+        "last_name": "Крэнстон",
+        "photo_file_id": null
+      }
+    ],
+    "source": "db/migrations · people",
+    "group": "SQL"
+  },
+  {
+    "scope": "catalog",
+    "key": "permissions",
+    "value": [
+      {
+        "code": "review.write",
+        "id": 1,
+        "title": "писать рецензии"
+      },
+      {
+        "code": "review.moderate",
+        "id": 2,
+        "title": "модерировать рецензии"
+      },
+      {
+        "code": "message.moderate",
+        "id": 3,
+        "title": "модерировать сообщения чата"
+      },
+      {
+        "code": "catalog.edit",
+        "id": 4,
+        "title": "править каталог фильмов"
+      },
+      {
+        "code": "file.upload",
+        "id": 5,
+        "title": "загружать файлы"
+      },
+      {
+        "code": "account.manage",
+        "id": 6,
+        "title": "управлять учётными записями"
+      }
+    ],
+    "source": "db/migrations · permissions",
+    "group": "SQL"
+  },
+  {
+    "scope": "catalog",
+    "key": "role_permissions",
+    "value": [
+      {
+        "permission_id": 1,
+        "role_id": 1
+      },
+      {
+        "permission_id": 1,
+        "role_id": 2
+      },
+      {
+        "permission_id": 2,
+        "role_id": 2
+      },
+      {
+        "permission_id": 3,
+        "role_id": 2
+      },
+      {
+        "permission_id": 1,
+        "role_id": 3
+      },
+      {
+        "permission_id": 4,
+        "role_id": 3
+      },
+      {
+        "permission_id": 5,
+        "role_id": 3
+      },
+      {
+        "permission_id": 1,
+        "role_id": 4
+      },
+      {
+        "permission_id": 2,
+        "role_id": 4
+      },
+      {
+        "permission_id": 3,
+        "role_id": 4
+      },
+      {
+        "permission_id": 4,
+        "role_id": 4
+      },
+      {
+        "permission_id": 5,
+        "role_id": 4
+      },
+      {
+        "permission_id": 6,
+        "role_id": 4
+      }
+    ],
+    "source": "db/migrations · role_permissions",
+    "group": "SQL"
+  },
+  {
+    "scope": "catalog",
+    "key": "role_types",
+    "value": [
+      {
+        "code": "actor",
+        "id": 1,
+        "title": "актёр"
+      },
+      {
+        "code": "director",
+        "id": 2,
+        "title": "режиссёр"
+      },
+      {
+        "code": "writer",
+        "id": 3,
+        "title": "сценарист"
+      },
+      {
+        "code": "producer",
+        "id": 4,
+        "title": "продюсер"
+      },
+      {
+        "code": "composer",
+        "id": 5,
+        "title": "композитор"
+      },
+      {
+        "code": "operator",
+        "id": 6,
+        "title": "оператор"
+      }
+    ],
+    "source": "db/migrations · role_types",
+    "group": "SQL"
+  },
+  {
+    "scope": "catalog",
+    "key": "roles",
+    "value": [
+      {
+        "code": "reader",
+        "id": 1,
+        "title": "читатель"
+      },
+      {
+        "code": "moderator",
+        "id": 2,
+        "title": "модератор"
+      },
+      {
+        "code": "editor",
+        "id": 3,
+        "title": "редактор каталога"
+      },
+      {
+        "code": "admin",
+        "id": 4,
+        "title": "администратор"
+      }
+    ],
+    "source": "db/migrations · roles",
+    "group": "SQL"
+  },
+  {
+    "scope": "catalog",
+    "key": "seasons",
+    "value": [
+      {
+        "film_id": 3,
+        "film_type": "series",
+        "season_number": 1,
+        "title": "Сезон 1"
+      }
+    ],
+    "source": "db/migrations · seasons",
+    "group": "SQL"
+  },
+  {
+    "scope": "catalog",
+    "key": "similar_films",
+    "value": [
+      {
+        "film_id": 1,
+        "similar_film_id": 3
+      }
+    ],
+    "source": "db/migrations · similar_films",
+    "group": "SQL"
+  },
+  {
+    "scope": "config",
+    "key": "MaxAvatarURLLifetime",
+    "value": "7 * 24 * time.Hour",
+    "source": "internal/config/config.go:44",
+    "group": "Go"
+  },
+  {
+    "scope": "config",
+    "key": "MaxPort",
+    "value": 65535,
+    "source": "internal/config/config.go:49",
+    "group": "Go"
+  },
+  {
+    "scope": "config",
+    "key": "MinAvatarURLLifetime",
+    "value": "time.Second",
+    "source": "internal/config/config.go:43",
+    "group": "Go"
+  },
+  {
+    "scope": "config",
+    "key": "MinPort",
+    "value": 1,
+    "source": "internal/config/config.go:48",
+    "group": "Go"
+  },
+  {
+    "scope": "config",
+    "key": "defaultAllowedOrigin",
+    "value": "http://localhost:3000",
+    "source": "internal/config/config.go:60",
+    "group": "Go"
+  },
+  {
+    "scope": "config",
+    "key": "defaultAvatarCleanupTimeout",
+    "value": "5 * time.Second",
+    "source": "internal/config/config.go:84",
+    "group": "Go"
+  },
+  {
+    "scope": "config",
+    "key": "defaultAvatarURLLifetime",
+    "value": "15 * time.Minute",
+    "source": "internal/config/config.go:77",
+    "group": "Go"
+  },
+  {
+    "scope": "config",
+    "key": "defaultBucketCheckTimeout",
+    "value": "5 * time.Second",
+    "source": "internal/config/config.go:83",
+    "group": "Go"
+  },
+  {
+    "scope": "config",
+    "key": "defaultConnMaxLifetime",
+    "value": "30 * time.Minute",
+    "source": "internal/config/config.go:64",
+    "group": "Go"
+  },
+  {
+    "scope": "config",
+    "key": "defaultConnectTimeout",
+    "value": "5 * time.Second",
+    "source": "internal/config/config.go:65",
+    "group": "Go"
+  },
+  {
+    "scope": "config",
+    "key": "defaultHost",
+    "value": "0.0.0.0",
+    "source": "internal/config/config.go:53",
+    "group": "Go"
+  },
+  {
+    "scope": "config",
+    "key": "defaultIdleTimeout",
+    "value": "60 * time.Second",
+    "source": "internal/config/config.go:57",
+    "group": "Go"
+  },
+  {
+    "scope": "config",
+    "key": "defaultLogFormat",
+    "value": "text",
+    "source": "internal/config/config.go:71",
+    "group": "Go"
+  },
+  {
+    "scope": "config",
+    "key": "defaultLogLvl",
+    "value": "logger.LogLevelInfo",
+    "source": "internal/config/config.go:70",
+    "group": "Go"
+  },
+  {
+    "scope": "config",
+    "key": "defaultMaxAvatarDimension",
+    "value": 4096,
+    "source": "internal/config/config.go:82",
+    "group": "Go"
+  },
+  {
+    "scope": "config",
+    "key": "defaultMaxAvatarSize",
+    "value": "5 \u003c\u003c 20",
+    "source": "internal/config/config.go:81",
+    "group": "Go"
+  },
+  {
+    "scope": "config",
+    "key": "defaultMaxIdleConns",
+    "value": 5,
+    "source": "internal/config/config.go:63",
+    "group": "Go"
+  },
+  {
+    "scope": "config",
+    "key": "defaultMaxOpenConns",
+    "value": 10,
+    "source": "internal/config/config.go:62",
+    "group": "Go"
+  },
+  {
+    "scope": "config",
+    "key": "defaultMaxPosterDimension",
+    "value": 4096,
+    "source": "internal/config/config.go:79",
+    "group": "Go"
+  },
+  {
+    "scope": "config",
+    "key": "defaultMaxPosterSize",
+    "value": "5 \u003c\u003c 20",
+    "source": "internal/config/config.go:78",
+    "group": "Go"
+  },
+  {
+    "scope": "config",
+    "key": "defaultOnlineConfHTTPTimeout",
+    "value": "2 * time.Second",
+    "source": "internal/config/config.go:73",
+    "group": "Go"
+  },
+  {
+    "scope": "config",
+    "key": "defaultOnlineConfRefreshInterval",
+    "value": "10 * time.Second",
+    "source": "internal/config/config.go:72",
+    "group": "Go"
+  },
+  {
+    "scope": "config",
+    "key": "defaultOnlineConfSnapshotPath",
+    "value": "/internal/onlineconf/snapshot",
+    "source": "internal/config/config.go:75",
+    "group": "Go"
+  },
+  {
+    "scope": "config",
+    "key": "defaultPort",
+    "value": 8080,
+    "source": "internal/config/config.go:54",
+    "group": "Go"
+  },
+  {
+    "scope": "config",
+    "key": "defaultPosterCleanupTimeout",
+    "value": "5 * time.Second",
+    "source": "internal/config/config.go:80",
+    "group": "Go"
+  },
+  {
+    "scope": "config",
+    "key": "defaultReadTimeout",
+    "value": "5 * time.Second",
+    "source": "internal/config/config.go:55",
+    "group": "Go"
+  },
+  {
+    "scope": "config",
+    "key": "defaultRedisHost",
+    "value": "localhost",
+    "source": "internal/config/config.go:67",
+    "group": "Go"
+  },
+  {
+    "scope": "config",
+    "key": "defaultRedisPort",
+    "value": 8020,
+    "source": "internal/config/config.go:68",
+    "group": "Go"
+  },
+  {
+    "scope": "config",
+    "key": "defaultSessionTTL",
+    "value": "24 * time.Hour",
+    "source": "internal/config/config.go:59",
+    "group": "Go"
+  },
+  {
+    "scope": "config",
+    "key": "defaultShutdownTimeout",
+    "value": "10 * time.Second",
+    "source": "internal/config/config.go:58",
+    "group": "Go"
+  },
+  {
+    "scope": "config",
+    "key": "defaultWriteTimeout",
+    "value": "10 * time.Second",
+    "source": "internal/config/config.go:56",
+    "group": "Go"
+  },
+  {
+    "scope": "config",
+    "key": "maxOnlineConfRefreshInterval",
+    "value": "15 * time.Second",
+    "source": "internal/config/config.go:74",
+    "group": "Go"
+  },
+  {
+    "scope": "database",
+    "key": "conn_max_lifetime",
+    "value": "30m",
+    "source": "configs/database.yaml",
+    "group": "YAML"
+  },
+  {
+    "scope": "database",
+    "key": "connect_timeout",
+    "value": "5s",
+    "source": "configs/database.yaml",
+    "group": "YAML"
+  },
+  {
+    "scope": "database",
+    "key": "max_idle_conns",
+    "value": 5,
+    "source": "configs/database.yaml",
+    "group": "YAML"
+  },
+  {
+    "scope": "database",
+    "key": "max_open_conns",
+    "value": 10,
+    "source": "configs/database.yaml",
+    "group": "YAML"
+  },
+  {
+    "scope": "files",
+    "key": "imageNameRandomBytes",
+    "value": 16,
+    "source": "internal/usecase/files/image_upload.go:17",
+    "group": "Go"
+  },
+  {
+    "scope": "files",
+    "key": "multipartOverheadBytes",
+    "value": "1 \u003c\u003c 20",
+    "source": "internal/usecase/files/image_upload.go:18",
+    "group": "Go"
+  },
+  {
+    "scope": "files",
+    "key": "multipartOverhead",
+    "value": "1 \u003c\u003c 20",
+    "source": "internal/delivery/files/handler.go:18",
+    "group": "Go"
+  },
+  {
+    "scope": "film",
+    "key": "FilmTypeMovie",
+    "value": "movie",
+    "source": "internal/domain/film.go:18",
+    "group": "Go"
+  },
+  {
+    "scope": "film",
+    "key": "FilmTypeSeries",
+    "value": "series",
+    "source": "internal/domain/film.go:19",
+    "group": "Go"
+  },
+  {
+    "scope": "film",
+    "key": "MaxFilmRating",
+    "value": 10,
+    "source": "internal/domain/film.go:113",
+    "group": "Go"
+  },
+  {
+    "scope": "film",
+    "key": "MinFilmRating",
+    "value": 1,
+    "source": "internal/domain/film.go:112",
+    "group": "Go"
+  },
+  {
+    "scope": "film",
+    "key": "maxFilmDescriptionLen",
+    "value": 10000,
+    "source": "internal/domain/film.go:29",
+    "group": "Go"
+  },
+  {
+    "scope": "film",
+    "key": "maxFilmDurationMin",
+    "value": 6000,
+    "source": "internal/domain/film.go:28",
+    "group": "Go"
+  },
+  {
+    "scope": "film",
+    "key": "maxFilmProductionYear",
+    "value": 2200,
+    "source": "internal/domain/film.go:26",
+    "group": "Go"
+  },
+  {
+    "scope": "film",
+    "key": "maxFilmTitleLen",
+    "value": 255,
+    "source": "internal/domain/film.go:24",
+    "group": "Go"
+  },
+  {
+    "scope": "film",
+    "key": "minFilmDurationMin",
+    "value": 1,
+    "source": "internal/domain/film.go:27",
+    "group": "Go"
+  },
+  {
+    "scope": "film",
+    "key": "minFilmProductionYear",
+    "value": 1888,
+    "source": "internal/domain/film.go:25",
+    "group": "Go"
+  },
+  {
+    "scope": "film",
+    "key": "minFilmTitleLen",
+    "value": 1,
+    "source": "internal/domain/film.go:23",
+    "group": "Go"
+  },
+  {
+    "scope": "films",
+    "key": "defaultLimit",
+    "value": 20,
+    "source": "internal/delivery/films/handler.go:21",
+    "group": "Go"
+  },
+  {
+    "scope": "films",
+    "key": "defaultOffset",
+    "value": 0,
+    "source": "internal/delivery/films/handler.go:25",
+    "group": "Go"
+  },
+  {
+    "scope": "films",
+    "key": "genreAdventure",
+    "value": "entities.Genre{\n\tID:   7,\n\tName: \"приключения\",\n\tSlug: \"adventure\",\n}",
+    "source": "internal/services/films/seed.go:44",
+    "group": "Go"
+  },
+  {
+    "scope": "films",
+    "key": "genreAnimation",
+    "value": "entities.Genre{\n\tID:   6,\n\tName: \"мультфильм\",\n\tSlug: \"animation\",\n}",
+    "source": "internal/services/films/seed.go:39",
+    "group": "Go"
+  },
+  {
+    "scope": "films",
+    "key": "genreComedy",
+    "value": "entities.Genre{\n\tID:   2,\n\tName: \"комедия\",\n\tSlug: \"comedy\",\n}",
+    "source": "internal/services/films/seed.go:19",
+    "group": "Go"
+  },
+  {
+    "scope": "films",
+    "key": "genreCrime",
+    "value": "entities.Genre{\n\tID:   4,\n\tName: \"криминал\",\n\tSlug: \"crime\",\n}",
+    "source": "internal/services/films/seed.go:29",
+    "group": "Go"
+  },
+  {
+    "scope": "films",
+    "key": "genreDrama",
+    "value": "entities.Genre{\n\tID:   1,\n\tName: \"драма\",\n\tSlug: \"drama\",\n}",
+    "source": "internal/services/films/seed.go:14",
+    "group": "Go"
+  },
+  {
+    "scope": "films",
+    "key": "genreFamily",
+    "value": "entities.Genre{\n\tID:   8,\n\tName: \"семейный\",\n\tSlug: \"family\",\n}",
+    "source": "internal/services/films/seed.go:49",
+    "group": "Go"
+  },
+  {
+    "scope": "films",
+    "key": "genreSciFi",
+    "value": "entities.Genre{\n\tID:   3,\n\tName: \"фантастика\",\n\tSlug: \"sci-fi\",\n}",
+    "source": "internal/services/films/seed.go:24",
+    "group": "Go"
+  },
+  {
+    "scope": "films",
+    "key": "genreThriller",
+    "value": "entities.Genre{\n\tID:   5,\n\tName: \"триллер\",\n\tSlug: \"thriller\",\n}",
+    "source": "internal/services/films/seed.go:34",
+    "group": "Go"
+  },
+  {
+    "scope": "films",
+    "key": "maxFilmRequestBodyBytes",
+    "value": "1 \u003c\u003c 20",
+    "source": "internal/delivery/films/handler.go:22",
+    "group": "Go"
+  },
+  {
+    "scope": "films",
+    "key": "maxLimit",
+    "value": 100,
+    "source": "internal/delivery/films/handler.go:24",
+    "group": "Go"
+  },
+  {
+    "scope": "films",
+    "key": "minLimit",
+    "value": 1,
+    "source": "internal/delivery/films/handler.go:23",
+    "group": "Go"
+  },
+  {
+    "scope": "films",
+    "key": "seedCollections",
+    "value": "[]seedCollection{\n\t{\n\t\tcollection: entities.Collection{\n\t\t\tID:          1,\n\t\t\tTitle:       \"Лучшие фильмы всех времён\",\n\t\t\tSlug:        \"best-of-all-time\",\n\t\t\tDescription: ptr(\"Фильмы, которые стоит посмотреть хотя бы раз.\"),\n\t\t},\n\t\tfilmIDs: []entities.FilmID{1, 2, 3, 4, 5, 7},\n\t},\n\t{\n\t\tcollection: entities.Collection{\n\t\t\tID:          2,\n\t\t\tTitle:       \"Смотрим всей семьёй\",\n\t\t\tSlug:        \"family\",\n\t\t\tDescription: ptr(\"Добрые фильмы для вечера с близкими.\"),\n\t\t},\n\t\tfilmIDs: []entities.FilmID{7, 8, 3, 9},\n\t},\n\t{\n\t\tcollection: entities.Collection{\n\t\t\tID:          3,\n\t\t\tTitle:       \"Закрученный сюжет\",\n\t\t\tSlug:        \"mind-benders\",\n\t\t\tDescription: ptr(\"До последней минуты не угадаешь, чем всё кончится.\"),\n\t\t},\n\t\tfilmIDs: []entities.FilmID{5, 6, 4, 10},\n\t},\n\t{\n\t\tcollection: entities.Collection{\n\t\t\tID:          4,\n\t\t\tTitle:       \"Сериалы на выходные\",\n\t\t\tSlug:        \"weekend-series\",\n\t\t\tDescription: ptr(\"Сериалы, от которых трудно оторваться.\"),\n\t\t},\n\t\tfilmIDs: []entities.FilmID{11, 12},\n\t},\n}",
+    "source": "internal/services/films/seed.go:207",
+    "group": "Go"
+  },
+  {
+    "scope": "films",
+    "key": "seedFilms",
+    "value": "[]entities.Film{\n\t{\n\t\tID:            1,\n\t\tTitle:         \"Побег из Шоушенка\",\n\t\tOriginalTitle: ptr(\"The Shawshank Redemption\"),\n\t\tFilmType:      entities.FilmTypeMovie,\n\t\tReleaseYear:   1994,\n\t\tDurationMin:   ptr[int16](142),\n\t\tAgeLimit:      16,\n\t\tDescription:   ptr(\"Банкир Энди Дюфрейн получает пожизненный срок за убийство, которого не совершал.\"),\n\t\tPosterURL:     ptr(\"/static/posters/shawshank-redemption.svg\"),\n\t\tGenres:        []entities.Genre{genreDrama},\n\t},\n\t{\n\t\tID:            2,\n\t\tTitle:         \"Зелёная миля\",\n\t\tOriginalTitle: ptr(\"The Green Mile\"),\n\t\tFilmType:      entities.FilmTypeMovie,\n\t\tReleaseYear:   1999,\n\t\tDurationMin:   ptr[int16](189),\n\t\tAgeLimit:      16,\n\t\tDescription:   ptr(\"Надзиратель блока смертников знакомится с заключённым, обладающим необычным даром.\"),\n\t\tPosterURL:     ptr(\"/static/posters/green-mile.svg\"),\n\t\tGenres:        []entities.Genre{genreDrama, genreCrime},\n\t},\n\t{\n\t\tID:            3,\n\t\tTitle:         \"Форрест Гамп\",\n\t\tOriginalTitle: ptr(\"Forrest Gump\"),\n\t\tFilmType:      entities.FilmTypeMovie,\n\t\tReleaseYear:   1994,\n\t\tDurationMin:   ptr[int16](142),\n\t\tAgeLimit:      12,\n\t\tDescription:   ptr(\"История простодушного человека, который оказывается в центре главных событий эпохи.\"),\n\t\tPosterURL:     ptr(\"/static/posters/forrest-gump.svg\"),\n\t\tGenres:        []entities.Genre{genreDrama, genreComedy},\n\t},\n\t{\n\t\tID:            4,\n\t\tTitle:         \"Интерстеллар\",\n\t\tOriginalTitle: ptr(\"Interstellar\"),\n\t\tFilmType:      entities.FilmTypeMovie,\n\t\tReleaseYear:   2014,\n\t\tDurationMin:   ptr[int16](169),\n\t\tAgeLimit:      16,\n\t\tDescription:   ptr(\"Группа исследователей отправляется через червоточину в поисках нового дома для человечества.\"),\n\t\tPosterURL:     ptr(\"/static/posters/interstellar.svg\"),\n\t\tGenres:        []entities.Genre{genreSciFi, genreDrama, genreAdventure},\n\t},\n\t{\n\t\tID:            5,\n\t\tTitle:         \"Начало\",\n\t\tOriginalTitle: ptr(\"Inception\"),\n\t\tFilmType:      entities.FilmTypeMovie,\n\t\tReleaseYear:   2010,\n\t\tDurationMin:   ptr[int16](148),\n\t\tAgeLimit:      12,\n\t\tDescription:   ptr(\"Вор, крадущий идеи из снов, получает задание не украсть идею, а внедрить её.\"),\n\t\tPosterURL:     ptr(\"/static/posters/inception.svg\"),\n\t\tGenres:        []entities.Genre{genreSciFi, genreThriller},\n\t},\n\t{\n\t\tID:            6,\n\t\tTitle:         \"Остров проклятых\",\n\t\tOriginalTitle: ptr(\"Shutter Island\"),\n\t\tFilmType:      entities.FilmTypeMovie,\n\t\tReleaseYear:   2010,\n\t\tDurationMin:   ptr[int16](138),\n\t\tAgeLimit:      18,\n\t\tDescription:   ptr(\"Два пристава расследуют исчезновение пациентки из психиатрической клиники на острове.\"),\n\t\tPosterURL:     ptr(\"/static/posters/shutter-island.svg\"),\n\t\tGenres:        []entities.Genre{genreThriller, genreDrama},\n\t},\n\t{\n\t\tID:            7,\n\t\tTitle:         \"Король Лев\",\n\t\tOriginalTitle: ptr(\"The Lion King\"),\n\t\tFilmType:      entities.FilmTypeMovie,\n\t\tReleaseYear:   1994,\n\t\tDurationMin:   ptr[int16](88),\n\t\tAgeLimit:      0,\n\t\tDescription:   ptr(\"Львёнок Симба должен вернуть себе трон, который отнял его коварный дядя.\"),\n\t\tPosterURL:     ptr(\"/static/posters/lion-king.svg\"),\n\t\tGenres:        []entities.Genre{genreAnimation, genreFamily, genreDrama},\n\t},\n\t{\n\t\tID:            8,\n\t\tTitle:         \"Один дома\",\n\t\tOriginalTitle: ptr(\"Home Alone\"),\n\t\tFilmType:      entities.FilmTypeMovie,\n\t\tReleaseYear:   1990,\n\t\tDurationMin:   ptr[int16](103),\n\t\tAgeLimit:      0,\n\t\tDescription:   ptr(\"Восьмилетнего Кевина случайно забывают дома, и ему приходится защищать дом от грабителей.\"),\n\t\tPosterURL:     ptr(\"/static/posters/home-alone.svg\"),\n\t\tGenres:        []entities.Genre{genreComedy, genreFamily},\n\t},\n\t{\n\t\tID:          9,\n\t\tTitle:       \"Иван Васильевич меняет профессию\",\n\t\tFilmType:    entities.FilmTypeMovie,\n\t\tReleaseYear: 1973,\n\t\tDurationMin: ptr[int16](88),\n\t\tAgeLimit:    6,\n\t\tDescription: ptr(\"Машина времени изобретателя Шурика меняет местами управдома и царя Ивана Грозного.\"),\n\t\tPosterURL:   ptr(\"/static/posters/ivan-vasilievich.svg\"),\n\t\tGenres:      []entities.Genre{genreComedy, genreSciFi},\n\t},\n\t{\n\t\tID:            10,\n\t\tTitle:         \"Джентльмены\",\n\t\tOriginalTitle: ptr(\"The Gentlemen\"),\n\t\tFilmType:      entities.FilmTypeMovie,\n\t\tReleaseYear:   2019,\n\t\tDurationMin:   ptr[int16](113),\n\t\tAgeLimit:      18,\n\t\tDescription:   ptr(\"Наркобарон решает продать свой бизнес, и вокруг сделки начинается большая игра.\"),\n\t\tPosterURL:     ptr(\"/static/posters/the-gentlemen.svg\"),\n\t\tGenres:        []entities.Genre{genreCrime, genreComedy},\n\t},\n\t{\n\t\tID:            11,\n\t\tTitle:         \"Шерлок\",\n\t\tOriginalTitle: ptr(\"Sherlock\"),\n\t\tFilmType:      entities.FilmTypeSeries,\n\t\tReleaseYear:   2010,\n\t\tDurationMin:   ptr[int16](88),\n\t\tAgeLimit:      12,\n\t\tDescription:   ptr(\"Современная версия историй о Шерлоке Холмсе и докторе Ватсоне.\"),\n\t\tPosterURL:     ptr(\"/static/posters/sherlock.svg\"),\n\t\tGenres:        []entities.Genre{genreCrime, genreDrama, genreThriller},\n\t},\n\t{\n\t\tID:            12,\n\t\tTitle:         \"Во все тяжкие\",\n\t\tOriginalTitle: ptr(\"Breaking Bad\"),\n\t\tFilmType:      entities.FilmTypeSeries,\n\t\tReleaseYear:   2008,\n\t\tDurationMin:   ptr[int16](47),\n\t\tAgeLimit:      18,\n\t\tDescription:   ptr(\"Школьный учитель химии узнаёт о смертельной болезни и начинает варить метамфетамин.\"),\n\t\tPosterURL:     ptr(\"/static/posters/breaking-bad.svg\"),\n\t\tGenres:        []entities.Genre{genreCrime, genreDrama, genreThriller},\n\t},\n}",
+    "source": "internal/services/films/seed.go:56",
+    "group": "Go"
+  },
+  {
+    "scope": "httprequest",
+    "key": "MaxBodyBytes",
+    "value": "1 \u003c\u003c 20",
+    "source": "internal/delivery/httprequest/json.go:14",
+    "group": "Go"
+  },
+  {
+    "scope": "json_value",
+    "key": "decimalNumberBase",
+    "value": 10,
+    "source": "internal/domain/onlineconf/json_value.go:13",
+    "group": "Go"
+  },
+  {
+    "scope": "json_value",
+    "key": "jsonControlBoundary",
+    "value": 32,
+    "source": "internal/domain/onlineconf/json_value.go:18",
+    "group": "Go"
+  },
+  {
+    "scope": "json_value",
+    "key": "jsonDelimiterBytes",
+    "value": 2,
+    "source": "internal/domain/onlineconf/json_value.go:14",
+    "group": "Go"
+  },
+  {
+    "scope": "json_value",
+    "key": "jsonSeparatorBytes",
+    "value": 1,
+    "source": "internal/domain/onlineconf/json_value.go:15",
+    "group": "Go"
+  },
+  {
+    "scope": "json_value",
+    "key": "jsonShortEscapeBytes",
+    "value": 2,
+    "source": "internal/domain/onlineconf/json_value.go:16",
+    "group": "Go"
+  },
+  {
+    "scope": "json_value",
+    "key": "jsonUnicodeEscapeBytes",
+    "value": 6,
+    "source": "internal/domain/onlineconf/json_value.go:17",
+    "group": "Go"
+  },
+  {
+    "scope": "library",
+    "key": "Favorite",
+    "value": "favorite",
+    "source": "internal/domain/library.go:10",
+    "group": "Go"
+  },
+  {
+    "scope": "library",
+    "key": "PreferenceCatalogView",
+    "value": "frame:catalog-view",
+    "source": "internal/domain/library.go:25",
+    "group": "Go"
+  },
+  {
+    "scope": "library",
+    "key": "PreferenceDisabled",
+    "value": "false",
+    "source": "internal/domain/library.go:32",
+    "group": "Go"
+  },
+  {
+    "scope": "library",
+    "key": "PreferenceEnabled",
+    "value": "true",
+    "source": "internal/domain/library.go:31",
+    "group": "Go"
+  },
+  {
+    "scope": "library",
+    "key": "PreferenceGrid",
+    "value": "\"grid\"",
+    "source": "internal/domain/library.go:33",
+    "group": "Go"
+  },
+  {
+    "scope": "library",
+    "key": "PreferenceList",
+    "value": "\"list\"",
+    "source": "internal/domain/library.go:34",
+    "group": "Go"
+  },
+  {
+    "scope": "library",
+    "key": "PreferenceSidebarCollapsed",
+    "value": "frame:sidebar-collapsed",
+    "source": "internal/domain/library.go:24",
+    "group": "Go"
+  },
+  {
+    "scope": "library",
+    "key": "WatchLater",
+    "value": "watchlater",
+    "source": "internal/domain/library.go:11",
+    "group": "Go"
+  },
+  {
+    "scope": "library",
+    "key": "Watched",
+    "value": "watched",
+    "source": "internal/domain/library.go:12",
+    "group": "Go"
+  },
+  {
+    "scope": "logger",
+    "key": "file",
+    "value": "logs/app.log",
+    "source": "configs/logger.yaml",
+    "group": "YAML"
+  },
+  {
+    "scope": "logger",
+    "key": "format",
+    "value": "text",
+    "source": "configs/logger.yaml",
+    "group": "YAML"
+  },
+  {
+    "scope": "logger",
+    "key": "level",
+    "value": "info",
+    "source": "configs/logger.yaml",
+    "group": "YAML"
+  },
+  {
+    "scope": "models",
+    "key": "ActionCreate",
+    "value": "create",
+    "source": "internal/domain/onlineconf/models.go:62",
+    "group": "Go"
+  },
+  {
+    "scope": "models",
+    "key": "ActionDelete",
+    "value": "delete",
+    "source": "internal/domain/onlineconf/models.go:64",
+    "group": "Go"
+  },
+  {
+    "scope": "models",
+    "key": "ActionUpdate",
+    "value": "update",
+    "source": "internal/domain/onlineconf/models.go:63",
+    "group": "Go"
+  },
+  {
+    "scope": "models",
+    "key": "MaxReviewLength",
+    "value": 20000,
+    "source": "internal/domain/onlineconf/models.go:128",
+    "group": "Go"
+  },
+  {
+    "scope": "models",
+    "key": "MaxRolloutPercent",
+    "value": 100,
+    "source": "internal/domain/onlineconf/models.go:124",
+    "group": "Go"
+  },
+  {
+    "scope": "models",
+    "key": "MaxSafeID",
+    "value": "1\u003c\u003c53 - 1",
+    "source": "internal/domain/onlineconf/models.go:122",
+    "group": "Go"
+  },
+  {
+    "scope": "models",
+    "key": "MinReviewLength",
+    "value": 50,
+    "source": "internal/domain/onlineconf/models.go:127",
+    "group": "Go"
+  },
+  {
+    "scope": "models",
+    "key": "MinRolloutPercent",
+    "value": 0,
+    "source": "internal/domain/onlineconf/models.go:123",
+    "group": "Go"
+  },
+  {
+    "scope": "models",
+    "key": "MinUserID",
+    "value": 1,
+    "source": "internal/domain/onlineconf/models.go:121",
+    "group": "Go"
+  },
+  {
+    "scope": "models",
+    "key": "ReasonForceOff",
+    "value": "forced_off",
+    "source": "internal/domain/onlineconf/models.go:102",
+    "group": "Go"
+  },
+  {
+    "scope": "models",
+    "key": "ReasonForceOn",
+    "value": "forced_on",
+    "source": "internal/domain/onlineconf/models.go:103",
+    "group": "Go"
+  },
+  {
+    "scope": "models",
+    "key": "ReasonGlobalDisabled",
+    "value": "globally_disabled",
+    "source": "internal/domain/onlineconf/models.go:101",
+    "group": "Go"
+  },
+  {
+    "scope": "models",
+    "key": "ReasonRolloutExcluded",
+    "value": "rollout_miss",
+    "source": "internal/domain/onlineconf/models.go:105",
+    "group": "Go"
+  },
+  {
+    "scope": "models",
+    "key": "ReasonRolloutIncluded",
+    "value": "rollout_match",
+    "source": "internal/domain/onlineconf/models.go:104",
+    "group": "Go"
+  },
+  {
+    "scope": "models",
+    "key": "ResourceConfig",
+    "value": "config",
+    "source": "internal/domain/onlineconf/models.go:71",
+    "group": "Go"
+  },
+  {
+    "scope": "models",
+    "key": "ResourceFlag",
+    "value": "flag",
+    "source": "internal/domain/onlineconf/models.go:72",
+    "group": "Go"
+  },
+  {
+    "scope": "models",
+    "key": "ResourceScope",
+    "value": "scope",
+    "source": "internal/domain/onlineconf/models.go:70",
+    "group": "Go"
+  },
+  {
+    "scope": "models",
+    "key": "ReviewMaxLengthKey",
+    "value": "max_length",
+    "source": "internal/domain/onlineconf/models.go:126",
+    "group": "Go"
+  },
+  {
+    "scope": "models",
+    "key": "ReviewsScope",
+    "value": "reviews",
+    "source": "internal/domain/onlineconf/models.go:125",
+    "group": "Go"
+  },
+  {
+    "scope": "onlineconf-logger",
+    "key": "file",
+    "value": "",
+    "source": "configs/onlineconf-logger.yaml",
+    "group": "YAML"
+  },
+  {
+    "scope": "onlineconf-logger",
+    "key": "format",
+    "value": "json",
+    "source": "configs/onlineconf-logger.yaml",
+    "group": "YAML"
+  },
+  {
+    "scope": "onlineconf-logger",
+    "key": "level",
+    "value": "info",
+    "source": "configs/onlineconf-logger.yaml",
+    "group": "YAML"
+  },
+  {
+    "scope": "onlineconf",
+    "key": "DefaultOnlineConfServerLoadTimeout",
+    "value": "2 * time.Second",
+    "source": "internal/config/onlineconf.go:20",
+    "group": "Go"
+  },
+  {
+    "scope": "onlineconf",
+    "key": "DefaultOnlineConfServerPort",
+    "value": 8081,
+    "source": "internal/config/onlineconf.go:18",
+    "group": "Go"
+  },
+  {
+    "scope": "onlineconf",
+    "key": "DefaultOnlineConfServerRefreshInterval",
+    "value": "10 * time.Second",
+    "source": "internal/config/onlineconf.go:19",
+    "group": "Go"
+  },
+  {
+    "scope": "onlineconf",
+    "key": "DefaultSnapshotLoadTimeout",
+    "value": "2 * time.Second",
+    "source": "internal/services/onlineconf/snapshot_store.go:18",
+    "group": "Go"
+  },
+  {
+    "scope": "onlineconf",
+    "key": "DefaultSnapshotRefreshInterval",
+    "value": "10 * time.Second",
+    "source": "internal/services/onlineconf/snapshot_store.go:17",
+    "group": "Go"
+  },
+  {
+    "scope": "onlineconf",
+    "key": "MaxRequestBodyBytes",
+    "value": "256 * 1024",
+    "source": "internal/delivery/onlineconf/dto.go:19",
+    "group": "Go"
+  },
+  {
+    "scope": "onlineconf",
+    "key": "authorizationPartCount",
+    "value": 2,
+    "source": "internal/delivery/onlineconf/middleware.go:29",
+    "group": "Go"
+  },
+  {
+    "scope": "onlineconf",
+    "key": "decimalBase",
+    "value": 10,
+    "source": "internal/delivery/onlineconf/dto.go:28",
+    "group": "Go"
+  },
+  {
+    "scope": "onlineconf",
+    "key": "initialVersion",
+    "value": 1,
+    "source": "internal/usecase/onlineconf/dto.go:13",
+    "group": "Go"
+  },
+  {
+    "scope": "onlineconf",
+    "key": "integerBits",
+    "value": 64,
+    "source": "internal/delivery/onlineconf/dto.go:29",
+    "group": "Go"
+  },
+  {
+    "scope": "onlineconf",
+    "key": "refreshSignalCapacity",
+    "value": 1,
+    "source": "internal/services/onlineconf/snapshot_store.go:19",
+    "group": "Go"
+  },
+  {
+    "scope": "onlineconf",
+    "key": "saltBytes",
+    "value": 16,
+    "source": "internal/services/onlineconf/postgres_flags.go:16",
+    "group": "Go"
+  },
+  {
+    "scope": "onlineconf",
+    "key": "server.allowed_origins",
+    "value": [
+      "http://localhost:8000"
+    ],
+    "source": "configs/onlineconf.yaml",
+    "group": "YAML"
+  },
+  {
+    "scope": "onlineconf",
+    "key": "server.host",
+    "value": "0.0.0.0",
+    "source": "configs/onlineconf.yaml",
+    "group": "YAML"
+  },
+  {
+    "scope": "onlineconf",
+    "key": "server.idle_timeout",
+    "value": "60s",
+    "source": "configs/onlineconf.yaml",
+    "group": "YAML"
+  },
+  {
+    "scope": "onlineconf",
+    "key": "server.port",
+    "value": 8081,
+    "source": "configs/onlineconf.yaml",
+    "group": "YAML"
+  },
+  {
+    "scope": "onlineconf",
+    "key": "server.read_timeout",
+    "value": "5s",
+    "source": "configs/onlineconf.yaml",
+    "group": "YAML"
+  },
+  {
+    "scope": "onlineconf",
+    "key": "server.session_ttl",
+    "value": "24h",
+    "source": "configs/onlineconf.yaml",
+    "group": "YAML"
+  },
+  {
+    "scope": "onlineconf",
+    "key": "server.shutdown_timeout",
+    "value": "10s",
+    "source": "configs/onlineconf.yaml",
+    "group": "YAML"
+  },
+  {
+    "scope": "onlineconf",
+    "key": "server.write_timeout",
+    "value": "10s",
+    "source": "configs/onlineconf.yaml",
+    "group": "YAML"
+  },
+  {
+    "scope": "onlineconf",
+    "key": "singleHeaderCount",
+    "value": 1,
+    "source": "internal/delivery/onlineconf/middleware.go:30",
+    "group": "Go"
+  },
+  {
+    "scope": "onlineconf",
+    "key": "snapshot.load_timeout",
+    "value": "2s",
+    "source": "configs/onlineconf.yaml",
+    "group": "YAML"
+  },
+  {
+    "scope": "onlineconf",
+    "key": "snapshot.refresh_interval",
+    "value": "10s",
+    "source": "configs/onlineconf.yaml",
+    "group": "YAML"
+  },
+  {
+    "scope": "onlineconfevaluator",
+    "key": "bucketCount",
+    "value": 10000,
+    "source": "internal/services/onlineconfevaluator/evaluator.go:16",
+    "group": "Go"
+  },
+  {
+    "scope": "onlineconfevaluator",
+    "key": "bucketDigestBytes",
+    "value": 8,
+    "source": "internal/services/onlineconfevaluator/evaluator.go:15",
+    "group": "Go"
+  },
+  {
+    "scope": "onlineconfevaluator",
+    "key": "userIDBase",
+    "value": 10,
+    "source": "internal/services/onlineconfevaluator/evaluator.go:14",
+    "group": "Go"
+  },
+  {
+    "scope": "person",
+    "key": "MaxFirstNameLen",
+    "value": 128,
+    "source": "internal/domain/person.go:11",
+    "group": "Go"
+  },
+  {
+    "scope": "person",
+    "key": "MaxLastNameLen",
+    "value": 128,
+    "source": "internal/domain/person.go:13",
+    "group": "Go"
+  },
+  {
+    "scope": "person",
+    "key": "MinFirstNameLen",
+    "value": 1,
+    "source": "internal/domain/person.go:10",
+    "group": "Go"
+  },
+  {
+    "scope": "person",
+    "key": "MinLastNameLen",
+    "value": 1,
+    "source": "internal/domain/person.go:12",
+    "group": "Go"
+  },
+  {
+    "scope": "persons",
+    "key": "defaultLimit",
+    "value": 20,
+    "source": "internal/delivery/persons/handler.go:22",
+    "group": "Go"
+  },
+  {
+    "scope": "persons",
+    "key": "defaultOffset",
+    "value": 0,
+    "source": "internal/delivery/persons/handler.go:26",
+    "group": "Go"
+  },
+  {
+    "scope": "persons",
+    "key": "maxLimit",
+    "value": 100,
+    "source": "internal/delivery/persons/handler.go:24",
+    "group": "Go"
+  },
+  {
+    "scope": "persons",
+    "key": "minLimit",
+    "value": 1,
+    "source": "internal/delivery/persons/handler.go:23",
+    "group": "Go"
+  },
+  {
+    "scope": "ratings",
+    "key": "defaultLimit",
+    "value": 20,
+    "source": "internal/delivery/ratings/handler.go:27",
+    "group": "Go"
+  },
+  {
+    "scope": "ratings",
+    "key": "defaultOffset",
+    "value": 0,
+    "source": "internal/delivery/ratings/handler.go:30",
+    "group": "Go"
+  },
+  {
+    "scope": "ratings",
+    "key": "maxBodyBytes",
+    "value": "1 \u003c\u003c 20",
+    "source": "internal/delivery/ratings/handler.go:25",
+    "group": "Go"
+  },
+  {
+    "scope": "ratings",
+    "key": "maxLimit",
+    "value": 100,
+    "source": "internal/delivery/ratings/handler.go:29",
+    "group": "Go"
+  },
+  {
+    "scope": "ratings",
+    "key": "minLimit",
+    "value": 1,
+    "source": "internal/delivery/ratings/handler.go:28",
+    "group": "Go"
+  },
+  {
+    "scope": "redis",
+    "key": "host",
+    "value": "localhost",
+    "source": "configs/redis.yaml",
+    "group": "YAML"
+  },
+  {
+    "scope": "redis",
+    "key": "port",
+    "value": 8020,
+    "source": "configs/redis.yaml",
+    "group": "YAML"
+  },
+  {
+    "scope": "repository",
+    "key": "DefaultListLimit",
+    "value": 50,
+    "source": "internal/domain/onlineconf/repository.go:10",
+    "group": "Go"
+  },
+  {
+    "scope": "repository",
+    "key": "MaxListLimit",
+    "value": 100,
+    "source": "internal/domain/onlineconf/repository.go:11",
+    "group": "Go"
+  },
+  {
+    "scope": "review",
+    "key": "MaxReviewContentLen",
+    "value": 20000,
+    "source": "internal/domain/review.go:13",
+    "group": "Go"
+  },
+  {
+    "scope": "review",
+    "key": "MaxReviewTitleLen",
+    "value": 255,
+    "source": "internal/domain/review.go:11",
+    "group": "Go"
+  },
+  {
+    "scope": "review",
+    "key": "MinReviewContentLen",
+    "value": 50,
+    "source": "internal/domain/review.go:12",
+    "group": "Go"
+  },
+  {
+    "scope": "review",
+    "key": "MinReviewTitleLen",
+    "value": 3,
+    "source": "internal/domain/review.go:10",
+    "group": "Go"
+  },
+  {
+    "scope": "review_policy",
+    "key": "HomeBlocksEnabledKey",
+    "value": "frontend.home_blocks_enabled",
+    "source": "internal/domain/review_policy.go:9",
+    "group": "Go"
+  },
+  {
+    "scope": "review_policy",
+    "key": "HomeBlocksKey",
+    "value": "frontend.home_blocks",
+    "source": "internal/domain/review_policy.go:8",
+    "group": "Go"
+  },
+  {
+    "scope": "review_policy",
+    "key": "ReviewMaxLengthKey",
+    "value": "reviews.max_length",
+    "source": "internal/domain/review_policy.go:7",
+    "group": "Go"
+  },
+  {
+    "scope": "review_policy",
+    "key": "ReviewWriteEnabledKey",
+    "value": "reviews.write_enabled",
+    "source": "internal/domain/review_policy.go:6",
+    "group": "Go"
+  },
+  {
+    "scope": "reviews",
+    "key": "decimalBase",
+    "value": 10,
+    "source": "internal/delivery/reviews/handler.go:27",
+    "group": "Go"
+  },
+  {
+    "scope": "reviews",
+    "key": "defaultLimit",
+    "value": 20,
+    "source": "internal/delivery/reviews/handler.go:23",
+    "group": "Go"
+  },
+  {
+    "scope": "reviews",
+    "key": "defaultOffset",
+    "value": 0,
+    "source": "internal/delivery/reviews/handler.go:26",
+    "group": "Go"
+  },
+  {
+    "scope": "reviews",
+    "key": "int64Bits",
+    "value": 64,
+    "source": "internal/delivery/reviews/handler.go:28",
+    "group": "Go"
+  },
+  {
+    "scope": "reviews",
+    "key": "maxLimit",
+    "value": 100,
+    "source": "internal/delivery/reviews/handler.go:25",
+    "group": "Go"
+  },
+  {
+    "scope": "reviews",
+    "key": "minLimit",
+    "value": 1,
+    "source": "internal/delivery/reviews/handler.go:24",
+    "group": "Go"
+  },
+  {
+    "scope": "s3",
+    "key": "avatar_cleanup_timeout",
+    "value": "5s",
+    "source": "configs/s3.yaml",
+    "group": "YAML"
+  },
+  {
+    "scope": "s3",
+    "key": "avatar_url_lifetime",
+    "value": "15m",
+    "source": "configs/s3.yaml",
+    "group": "YAML"
+  },
+  {
+    "scope": "s3",
+    "key": "bucket_check_timeout",
+    "value": "5s",
+    "source": "configs/s3.yaml",
+    "group": "YAML"
+  },
+  {
+    "scope": "s3",
+    "key": "bucket",
+    "value": "avatars",
+    "source": "configs/s3.yaml",
+    "group": "YAML"
+  },
+  {
+    "scope": "s3",
+    "key": "endpoint",
+    "value": "http://localhost:8050",
+    "source": "configs/s3.yaml",
+    "group": "YAML"
+  },
+  {
+    "scope": "s3",
+    "key": "max_avatar_dimension",
+    "value": 4096,
+    "source": "configs/s3.yaml",
+    "group": "YAML"
+  },
+  {
+    "scope": "s3",
+    "key": "max_avatar_size",
+    "value": 5242880,
+    "source": "configs/s3.yaml",
+    "group": "YAML"
+  },
+  {
+    "scope": "s3",
+    "key": "max_poster_dimension",
+    "value": 4096,
+    "source": "configs/s3.yaml",
+    "group": "YAML"
+  },
+  {
+    "scope": "s3",
+    "key": "max_poster_size",
+    "value": 5242880,
+    "source": "configs/s3.yaml",
+    "group": "YAML"
+  },
+  {
+    "scope": "s3",
+    "key": "poster_cleanup_timeout",
+    "value": "5s",
+    "source": "configs/s3.yaml",
+    "group": "YAML"
+  },
+  {
+    "scope": "s3",
+    "key": "posters_bucket",
+    "value": "avatars",
+    "source": "configs/s3.yaml",
+    "group": "YAML"
+  },
+  {
+    "scope": "s3",
+    "key": "region",
+    "value": "us-east-1",
+    "source": "configs/s3.yaml",
+    "group": "YAML"
+  },
+  {
+    "scope": "snapshot",
+    "key": "MaxSnapshotBytes",
+    "value": "4 * 1024 * 1024",
+    "source": "internal/domain/onlineconf/snapshot.go:14",
+    "group": "Go"
+  },
+  {
+    "scope": "snapshot",
+    "key": "SnapshotAPIPath",
+    "value": "/internal/onlineconf/snapshot",
+    "source": "internal/domain/onlineconf/snapshot.go:13",
+    "group": "Go"
+  },
+  {
+    "scope": "snapshot",
+    "key": "snapshotJSONTerminator",
+    "value": "\n",
+    "source": "internal/domain/onlineconf/snapshot.go:15",
+    "group": "Go"
+  },
+  {
+    "scope": "validation",
+    "key": "MaxValueBytes",
+    "value": "64 * 1024",
+    "source": "internal/domain/onlineconf/validation.go:14",
+    "group": "Go"
+  },
+  {
+    "scope": "validation",
+    "key": "keyPatternExpression",
+    "value": "^[a-z][a-z0-9_]{0,63}$",
+    "source": "internal/domain/onlineconf/validation.go:13",
+    "group": "Go"
+  },
+  {
+    "scope": "validation",
+    "key": "maxEmailLen",
+    "value": 254,
+    "source": "pkg/utils/validation.go:13",
+    "group": "Go"
+  },
+  {
+    "scope": "validation",
+    "key": "maxPasswordLen",
+    "value": 32,
+    "source": "pkg/utils/validation.go:17",
+    "group": "Go"
+  },
+  {
+    "scope": "validation",
+    "key": "maxUsernameLen",
+    "value": 32,
+    "source": "pkg/utils/validation.go:15",
+    "group": "Go"
+  },
+  {
+    "scope": "validation",
+    "key": "minPasswordLen",
+    "value": 8,
+    "source": "pkg/utils/validation.go:16",
+    "group": "Go"
+  },
+  {
+    "scope": "validation",
+    "key": "minUsernameLen",
+    "value": 2,
+    "source": "pkg/utils/validation.go:14",
+    "group": "Go"
+  },
+  {
+    "scope": "validation",
+    "key": "passwordSymbols",
+    "value": "!@#$%^\u0026*()-_=+[]{};:,.?/",
+    "source": "pkg/utils/validation.go:18",
+    "group": "Go"
+  }
+]

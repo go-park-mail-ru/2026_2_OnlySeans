@@ -70,7 +70,7 @@ func (h *AdminHandler) createFlag(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	httpresponse.WriteJSONContext(r.Context(), w, http.StatusCreated, publicFlag(result), h.appLogger)
+	h.writeMutation(w, r, http.StatusCreated, "flag", result.ID, result.Version, publicFlag(result))
 }
 
 func (h *AdminHandler) updateFlag(w http.ResponseWriter, r *http.Request) {
@@ -104,7 +104,7 @@ func (h *AdminHandler) updateFlag(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, publicFlag(result), h.appLogger)
+	h.writeMutation(w, r, http.StatusOK, "flag", result.ID, result.Version, publicFlag(result))
 }
 
 func (h *AdminHandler) deleteFlag(w http.ResponseWriter, r *http.Request) {

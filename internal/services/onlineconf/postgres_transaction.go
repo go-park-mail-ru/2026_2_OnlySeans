@@ -39,7 +39,7 @@ type rowScanner interface{ Scan(...any) error }
 
 var _ oc.Repository = (*PostgresRepository)(nil)
 
-func NewPostgresRepository(db *sql.DB, appLogger logger.Logger) oc.Repository {
+func NewPostgresRepository(db *sql.DB, appLogger logger.Logger) *PostgresRepository {
 	return &PostgresRepository{db: db, appLogger: appLogger}
 }
 
@@ -122,6 +122,10 @@ func repositoryError(err error) error {
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) {
 		switch pgErr.Code {
+		case "P4101":
+			return oc.ShowcaseError(pgErr.Message)
+		case "23514":
+			return oc.ShowcaseError("Проверьте диапазон, формат имени, права и порядок этапов.")
 		case storage.UniqueViolation:
 			return fmt.Errorf("%w: %w", oc.ErrDuplicateKey, err)
 		case storage.ForeignKeyViolation, restrictViolation:

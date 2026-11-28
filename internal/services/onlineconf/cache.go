@@ -61,6 +61,10 @@ func (c *Cache) PublicRuntime(userID domain.UserID) domain.PublicRuntime {
 	return c.current.Load().PublicRuntime(userID)
 }
 
+func (c *Cache) LibraryAddEnabled(id domain.UserID) bool {
+	return c.SettingsSnapshot().LibraryAddEnabled(id)
+}
+
 func (c *Cache) SettingsSnapshot() *Snapshot {
 	return c.current.Load()
 }

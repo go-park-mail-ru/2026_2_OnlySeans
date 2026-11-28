@@ -9,11 +9,12 @@ type genreResponseDTO = filmdto.Genre
 type filmResponseDTO = filmdto.Film
 
 type filmCardResponseDTO struct {
-	ID          entities.FilmID    `json:"id"`
-	Title       string             `json:"title"`
-	ReleaseYear int16              `json:"release_year"`
-	PosterURL   *string            `json:"poster_url,omitempty"`
-	Genres      []genreResponseDTO `json:"genres"`
+	ID           entities.FilmID    `json:"id"`
+	Title        string             `json:"title"`
+	ReleaseYear  int16              `json:"release_year"`
+	PosterURL    *string            `json:"poster_url,omitempty"`
+	CountryCodes []string           `json:"country_codes,omitempty"`
+	Genres       []genreResponseDTO `json:"genres"`
 }
 
 type collectionResponseDTO struct {
@@ -43,11 +44,12 @@ func toFilmResponseDTO(film entities.Film) filmResponseDTO {
 
 func toFilmCardResponseDTO(film entities.Film) filmCardResponseDTO {
 	return filmCardResponseDTO{
-		ID:          film.ID,
-		Title:       film.Title,
-		ReleaseYear: film.ReleaseYear,
-		PosterURL:   film.PosterURL,
-		Genres:      toGenreResponseDTOs(film.Genres),
+		ID:           film.ID,
+		Title:        film.Title,
+		ReleaseYear:  film.ReleaseYear,
+		PosterURL:    film.PosterURL,
+		CountryCodes: film.CountryCodes,
+		Genres:       toGenreResponseDTOs(film.Genres),
 	}
 }
 

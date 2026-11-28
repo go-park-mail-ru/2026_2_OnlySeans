@@ -4,6 +4,10 @@ import "errors"
 
 var ErrInvalidLibraryData = errors.New("invalid library data")
 
+const LibraryAddKey = "frontend.library_add_enabled"
+
+var ErrLibraryAddDisabled = errors.New("Добавление фильмов в личные списки выключено.")
+
 type List string
 
 const (

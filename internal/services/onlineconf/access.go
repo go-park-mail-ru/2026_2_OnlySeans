@@ -80,7 +80,7 @@ func (a *Access) AuthenticateAdmin(ctx context.Context, sessionID string) (oc.Ad
 		return oc.AdminIdentity{}, fmt.Errorf("onlineconf session/user mismatch: %w", domain.ErrInternal)
 	}
 
-	if user.Role != domain.RoleAdmin {
+	if !oc.HasAdminAccess(user.Role) {
 		a.appLogger.WarnContext(ctx, "onlineconf admin access forbidden", map[string]any{"user_id": session.UserID})
 		return oc.AdminIdentity{}, domain.ErrForbidden
 	}

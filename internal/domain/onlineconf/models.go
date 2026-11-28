@@ -1,6 +1,7 @@
 package onlineconf
 
 import (
+	"context"
 	"encoding/json"
 	"time"
 
@@ -11,6 +12,22 @@ type AdminIdentity struct {
 	ID       domain.UserID `json:"id"`
 	Username string        `json:"username"`
 	Role     domain.Role   `json:"role"`
+}
+
+const SuperAdmin domain.Role = "superadmin"
+
+func HasAdminAccess(role domain.Role) bool {
+	return role == domain.RoleAdmin || role == SuperAdmin || role == "scoped"
+}
+
+type scopedUserKey struct{}
+
+func WithScopedUser(ctx context.Context, id domain.UserID) context.Context {
+	return context.WithValue(ctx, scopedUserKey{}, id)
+}
+func ScopedUser(ctx context.Context) domain.UserID {
+	id, _ := ctx.Value(scopedUserKey{}).(domain.UserID)
+	return id
 }
 
 type Scope struct {

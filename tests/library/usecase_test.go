@@ -28,6 +28,19 @@ func TestUnauthorizedDoesNotCallRepository(t *testing.T) {
 	}
 }
 
+func TestFlagBlocksOnlyAdditions(t *testing.T) {
+	repo := mocks.NewMockLibraryRepository(gomock.NewController(t))
+	service, err := uc.NewSetSavedWithPolicy(repo, func(id domain.UserID) bool { return id == 9 })
+	require.NoError(t, err)
+	for _, list := range []domain.List{domain.Favorite, domain.Watched, domain.WatchLater} {
+		require.ErrorIs(t, service.Run(t.Context(), 7, list, 1, true), domain.ErrLibraryAddDisabled)
+		repo.EXPECT().SetSaved(gomock.Any(), domain.UserID(7), list, int64(1), false)
+		require.NoError(t, service.Run(t.Context(), 7, list, 1, false))
+		repo.EXPECT().SetSaved(gomock.Any(), domain.UserID(9), list, int64(1), true)
+		require.NoError(t, service.Run(t.Context(), 9, list, 1, true))
+	}
+}
+
 func TestSetSavedValidation(t *testing.T) {
 	for _, tc := range []struct {
 		list domain.List

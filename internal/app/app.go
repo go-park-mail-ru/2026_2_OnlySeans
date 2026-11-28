@@ -358,7 +358,11 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 	if err != nil {
 		return fmt.Errorf("create get library use case: %w", err)
 	}
-	setSavedUC, err := libraryusecase.NewSetSavedUseCase(libraryRepo)
+	var canAddToLibrary func(domain.UserID) bool
+	if onlineConfCache != nil {
+		canAddToLibrary = onlineConfCache.LibraryAddEnabled
+	}
+	setSavedUC, err := libraryusecase.NewSetSavedWithPolicy(libraryRepo, canAddToLibrary)
 	if err != nil {
 		return fmt.Errorf("create set saved use case: %w", err)
 	}

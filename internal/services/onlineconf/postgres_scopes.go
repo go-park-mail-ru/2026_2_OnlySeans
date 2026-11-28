@@ -17,7 +17,8 @@ const (
 	deleteScopeQuery = `DELETE FROM oc_scopes WHERE id=$1 AND version=$2`
 	scopeFilter      = ` WHERE ($1 = '' OR name = $1) AND ($2 = '' OR strpos(lower(name COLLATE pg_catalog."pg_c_utf8"),lower($2 COLLATE pg_catalog."pg_c_utf8")) > 0 OR strpos(lower(title COLLATE pg_catalog."pg_c_utf8"),lower($2 COLLATE pg_catalog."pg_c_utf8")) > 0)`
 	countScopesQuery = `SELECT count(*) FROM oc_scopes` + scopeFilter
-	listScopesQuery  = `SELECT ` + scopeColumns + ` FROM oc_scopes` + scopeFilter + ` ORDER BY id LIMIT $3 OFFSET $4`
+	listScopesBase   = `SELECT ` + scopeColumns + ` FROM oc_scopes` + scopeFilter
+	listScopesQuery  = listScopesBase + ` ORDER BY id LIMIT $3 OFFSET $4`
 )
 
 func scanScope(row rowScanner) (oc.Scope, error) {
@@ -30,7 +31,13 @@ func scanScope(row rowScanner) (oc.Scope, error) {
 }
 
 func (r *PostgresRepository) GetScope(ctx context.Context, id int64) (*oc.Scope, error) {
-	value, err := scanScope(r.db.QueryRowContext(ctx, getScopeQuery, id))
+	query := getScopeQuery
+	args := []any{id}
+	if uid := oc.ScopedUser(ctx); uid != 0 {
+		query += ` AND oc_permitted($2,name,'scope','','read')`
+		args = append(args, uid)
+	}
+	value, err := scanScope(r.db.QueryRowContext(ctx, query, args...))
 	if err != nil {
 		return nil, repositoryError(err)
 	}
@@ -44,6 +51,10 @@ func (r *PostgresRepository) ListScopes(ctx context.Context, options oc.ListOpti
 		return nil, 0, err
 	}
 
+	if uid := oc.ScopedUser(ctx); uid != 0 {
+		filter := ` AND oc_permitted($3,oc_scopes.name,'scope','','read')`
+		return listPage(ctx, r.db, countScopesQuery+filter, listScopesBase+filter+" ORDER BY id LIMIT $4 OFFSET $5", []any{options.Scope, options.Query, uid}, options.Limit, options.Offset, scanScope)
+	}
 	return listPage(ctx, r.db, countScopesQuery, listScopesQuery, []any{options.Scope, options.Query}, options.Limit, options.Offset, scanScope)
 }
 
@@ -54,6 +65,10 @@ func (r *PostgresRepository) CreateScope(ctx context.Context, actorID domain.Use
 	var result oc.Scope
 
 	err := r.mutate(ctx, actorID, func(m *mutation) error {
+		if err := m.authorize(ctx, oc.ResourceScope, input.Name, "", oc.ActionCreate); err != nil {
+			return err
+		}
+
 		var err error
 
 		result, err = scanScope(m.tx.QueryRowContext(ctx, createScopeQuery, input.Name, input.Title, input.Description))
@@ -83,6 +98,10 @@ func (r *PostgresRepository) UpdateScope(ctx context.Context, actorID domain.Use
 	err := r.mutate(ctx, actorID, func(m *mutation) error {
 		before, err := scanScope(m.tx.QueryRowContext(ctx, getScopeQuery, input.ID))
 		if err != nil {
+			return err
+		}
+
+		if err := m.authorize(ctx, oc.ResourceScope, before.Name, "", oc.ActionUpdate); err != nil {
 			return err
 		}
 
@@ -116,6 +135,10 @@ func (r *PostgresRepository) DeleteScope(ctx context.Context, actorID domain.Use
 	return r.mutate(ctx, actorID, func(m *mutation) error {
 		before, err := scanScope(m.tx.QueryRowContext(ctx, getScopeQuery, id))
 		if err != nil {
+			return err
+		}
+
+		if err := m.authorize(ctx, oc.ResourceScope, before.Name, "", oc.ActionDelete); err != nil {
 			return err
 		}
 

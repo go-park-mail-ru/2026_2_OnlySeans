@@ -164,6 +164,42 @@ The script uses one transaction and a database lock, skips a complete
 backup before production migration and verify the OnlineConf healthcheck before
 putting the admin routes into service.
 
+### Delegating OnlineConf access
+
+For an existing database at migration 000016, apply the next migration once
+before starting the updated OnlineConf service:
+
+```sh
+psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -1 -f db/migrations/000017_onlineconf_admins.up.sql
+```
+
+Register a separate Frame account and verify its ID and username. To bootstrap
+the first OnlineConf superadmin, run the following in psql with `account_id` and
+`username` set to that verified account. Check that it returns one row.
+
+```sql
+INSERT INTO oc_admin_access (account_id, access_role)
+SELECT id, 'superadmin' FROM account
+WHERE id = :'account_id' AND username = :'username' AND deleted_at IS NULL
+RETURNING account_id, access_role;
+```
+
+The superadmin signs in through Frame and opens `/onlineconf/administrators` to
+find an existing account by its exact username and grant admin access. The grant
+records the actor and timestamp. It takes effect on the recipient's next admin
+request, including in an existing session. Frame roles stay intact. Existing
+Frame admins retain OnlineConf access. Only OnlineConf superadmins can delegate. Apply migration 000018 after 000017 to
+enable explicit access revocation and the audit index. The administrators page
+lists effective access (including legacy Frame admins), allows role changes and
+keeps at least one active superadmin. The audit API accepts `actor_id` together
+with the resource filters and lists historical authors at `/admin/audit/authors`
+under the OnlineConf API prefix.
+
+The public feature flag `frontend.library_add_enabled` controls additions to all
+three personal lists. A ready snapshot with no flag preserves the original
+enabled behavior. The product backend checks the same user's cached flag before
+saving. Reads and removals continue while adding is disabled.
+
 ## Generic backend settings
 
 Inject `onlineconf.SettingsProvider` into use cases that need arbitrary settings:
@@ -207,3 +243,27 @@ Expect admin HTML for the nested SPA route, 404 for a missing asset,
 404 for the internal API. Verify a regular user's cookie gets 403 on admin API.
 Finally change the review limit and flag in admin, then check runtime and a direct
 review write for the same account within one minute.
+
+## Scheduled rollouts and delegated access
+
+Apply migration 000019 after 000018 before starting the updated OnlineConf service.
+Existing flags keep their current audience. New flags start at zero.
+Use `/onlineconf/rollouts` to choose a policy, schedule the next stage and approve it.
+The service consumes each approval once and checks the approver's current rights at execution.
+Stopping a schedule preserves current coverage. Editing a flag cancels its pending stage.
+Every applied stage publishes a new snapshot and records the approving account in the flag history.
+
+Use `/OnlyAdmin/access` as a superadmin to grant an operation on a scope or key to a user or group.
+An ordinary Frame account with an effective grant gets scoped access automatically.
+Explicit no-access takes precedence. Change a full administrator to the scoped role to restrict them.
+
+For example, grant a group `read` on `config` with scope `reviews` and key `max_length`.
+A member can list and open that parameter. Other keys, flags with the same key, and the
+scope's own title and description require separate grants. Use kind `scope` with action
+`read` to open that scope under **Доступные области**. Use kind `*` to grant the
+chosen action across resource types within that scope. An empty key covers all keys of the selected type.
+
+Grant `create`, `update`, `delete` and flag rollout `approve` independently. A successful
+create or update without a read grant returns an ID and version. A scoped account can inspect its
+own effective grants at `GET /api/onlineconf/admin/governance/my-grants`. Changes to
+membership and grants take effect on subsequent requests in the current session.

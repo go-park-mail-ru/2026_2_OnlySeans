@@ -14,7 +14,8 @@ const (
 	configFilter      = ` WHERE ($1 = '' OR s.name=$1) AND ($2 = '' OR strpos(lower(c.key COLLATE pg_catalog."pg_c_utf8"),lower($2 COLLATE pg_catalog."pg_c_utf8")) > 0 OR strpos(lower(c.title COLLATE pg_catalog."pg_c_utf8"),lower($2 COLLATE pg_catalog."pg_c_utf8")) > 0)`
 	getConfigQuery    = `SELECT ` + configColumns + configFrom + ` WHERE c.id=$1`
 	countConfigsQuery = `SELECT count(*)` + configFrom + configFilter
-	listConfigsQuery  = `SELECT ` + configColumns + configFrom + configFilter + ` ORDER BY c.id LIMIT $3 OFFSET $4`
+	listConfigsBase   = `SELECT ` + configColumns + configFrom + configFilter
+	listConfigsQuery  = listConfigsBase + ` ORDER BY c.id LIMIT $3 OFFSET $4`
 	createConfigQuery = `INSERT INTO oc_configs(scope_id,key,title,description,value) VALUES($1,$2,$3,$4,$5) RETURNING id`
 	updateConfigQuery = `UPDATE oc_configs SET title=$2,description=$3,value=$4,version=version+1 WHERE id=$1 AND version=$5 RETURNING id`
 	deleteConfigQuery = `DELETE FROM oc_configs WHERE id=$1 AND version=$2`
@@ -30,7 +31,13 @@ func scanConfig(row rowScanner) (oc.Config, error) {
 }
 
 func (r *PostgresRepository) GetConfig(ctx context.Context, id int64) (*oc.Config, error) {
-	value, err := scanConfig(r.db.QueryRowContext(ctx, getConfigQuery, id))
+	query := getConfigQuery
+	args := []any{id}
+	if uid := oc.ScopedUser(ctx); uid != 0 {
+		query += ` AND oc_permitted($2,s.name,'config',c.key,'read')`
+		args = append(args, uid)
+	}
+	value, err := scanConfig(r.db.QueryRowContext(ctx, query, args...))
 	if err != nil {
 		return nil, repositoryError(err)
 	}
@@ -44,6 +51,10 @@ func (r *PostgresRepository) ListConfigs(ctx context.Context, options oc.ListOpt
 		return nil, 0, err
 	}
 
+	if uid := oc.ScopedUser(ctx); uid != 0 {
+		filter := ` AND oc_permitted($3,s.name,'config',c.key,'read')`
+		return listPage(ctx, r.db, countConfigsQuery+filter, listConfigsBase+filter+" ORDER BY c.id LIMIT $4 OFFSET $5", []any{options.Scope, options.Query, uid}, options.Limit, options.Offset, scanConfig)
+	}
 	return listPage(ctx, r.db, countConfigsQuery, listConfigsQuery, []any{options.Scope, options.Query}, options.Limit, options.Offset, scanConfig)
 }
 
@@ -54,6 +65,10 @@ func (r *PostgresRepository) CreateConfig(ctx context.Context, actorID domain.Us
 	var result oc.Config
 
 	err := r.mutate(ctx, actorID, func(m *mutation) error {
+		if err := m.authorize(ctx, oc.ResourceConfig, input.Scope, input.Key, oc.ActionCreate); err != nil {
+			return err
+		}
+
 		scope, err := scopeID(ctx, m.tx, input.Scope)
 		if err != nil {
 			return err
@@ -94,6 +109,10 @@ func (r *PostgresRepository) UpdateConfig(ctx context.Context, actorID domain.Us
 			return err
 		}
 
+		if err := m.authorize(ctx, oc.ResourceConfig, before.Scope, before.Key, oc.ActionUpdate); err != nil {
+			return err
+		}
+
 		if err := checkVersion(input.Version, before.Version); err != nil {
 			return err
 		}
@@ -129,6 +148,10 @@ func (r *PostgresRepository) DeleteConfig(ctx context.Context, actorID domain.Us
 	return r.mutate(ctx, actorID, func(m *mutation) error {
 		before, err := scanConfig(m.tx.QueryRowContext(ctx, getConfigQuery, id))
 		if err != nil {
+			return err
+		}
+
+		if err := m.authorize(ctx, oc.ResourceConfig, before.Scope, before.Key, oc.ActionDelete); err != nil {
 			return err
 		}
 

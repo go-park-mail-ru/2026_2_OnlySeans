@@ -29,8 +29,13 @@ var (
 func (h *AdminHandler) writeError(w http.ResponseWriter, r *http.Request, err error) {
 	status, code, message := http.StatusInternalServerError, internalErrorCode, domain.ErrInternal.Error()
 	var blockError oc.HomeBlocksError
+	var showcaseError oc.ShowcaseError
 
 	switch {
+	case errors.Is(err, oc.ErrLastSuperAdmin):
+		status, code, message = http.StatusConflict, "last_superadmin", err.Error()
+	case errors.As(err, &showcaseError):
+		status, code, message = http.StatusBadRequest, invalidInputCode, showcaseError.Error()
 	case errors.As(err, &blockError):
 		status, code, message = http.StatusBadRequest, invalidInputCode, blockError.Error()
 	case errors.Is(err, oc.ErrSnapshotTooLarge):

@@ -76,7 +76,7 @@ func NewMiddleware(access AccessChecker, serviceToken string, allowedOrigins []s
 
 func AdminFromContext(ctx context.Context) (oc.AdminIdentity, bool) {
 	admin, ok := ctx.Value(adminContextKey{}).(oc.AdminIdentity)
-	return admin, ok && admin.ID >= oc.MinUserID && int64(admin.ID) <= oc.MaxSafeID && admin.Role == domain.RoleAdmin
+	return admin, ok && admin.ID >= oc.MinUserID && int64(admin.ID) <= oc.MaxSafeID && oc.HasAdminAccess(admin.Role)
 }
 
 func (m *Middleware) RequireAdmin(next http.Handler) http.Handler {
@@ -106,7 +106,7 @@ func (m *Middleware) RequireAdmin(next http.Handler) http.Handler {
 			return
 		}
 
-		if admin.ID < oc.MinUserID || int64(admin.ID) > oc.MaxSafeID || admin.Role != domain.RoleAdmin {
+		if admin.ID < oc.MinUserID || int64(admin.ID) > oc.MaxSafeID || !oc.HasAdminAccess(admin.Role) {
 			m.writeAccessError(w, r, http.StatusForbidden)
 			return
 		}

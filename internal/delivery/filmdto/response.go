@@ -19,6 +19,7 @@ type Film struct {
 	Description   *string           `json:"description,omitempty"`
 	PosterURL     *string           `json:"poster_url,omitempty"`
 	TrailerURL    *string           `json:"trailer_url,omitempty"`
+	CountryCodes  []string          `json:"country_codes,omitempty"`
 	Genres        []Genre           `json:"genres"`
 }
 
@@ -34,6 +35,7 @@ func FromFilm(film entities.Film) Film {
 		Description:   film.Description,
 		PosterURL:     film.PosterURL,
 		TrailerURL:    film.TrailerURL,
+		CountryCodes:  film.CountryCodes,
 		Genres:        genres(film.Genres),
 	}
 }

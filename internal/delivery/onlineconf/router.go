@@ -33,21 +33,25 @@ const (
 )
 
 type HandlerUseCases struct {
-	Scopes   *usecase.ScopesUseCase
-	Configs  *usecase.ConfigsUseCase
-	Flags    *usecase.FlagsUseCase
-	Evaluate *usecase.EvaluateFlagUseCase
-	Audit    *usecase.ListAuditUseCase
+	Governance     Governance
+	Administrators AdministratorDirectory
+	Scopes         *usecase.ScopesUseCase
+	Configs        *usecase.ConfigsUseCase
+	Flags          *usecase.FlagsUseCase
+	Evaluate       *usecase.EvaluateFlagUseCase
+	Audit          *usecase.ListAuditUseCase
 }
 
 type AdminHandler struct {
-	scopes    *usecase.ScopesUseCase
-	configs   *usecase.ConfigsUseCase
-	flags     *usecase.FlagsUseCase
-	evaluate  *usecase.EvaluateFlagUseCase
-	audit     *usecase.ListAuditUseCase
-	snapshots usecase.SnapshotProvider
-	appLogger logger.Logger
+	gov            Governance
+	administrators AdministratorDirectory
+	scopes         *usecase.ScopesUseCase
+	configs        *usecase.ConfigsUseCase
+	flags          *usecase.FlagsUseCase
+	evaluate       *usecase.EvaluateFlagUseCase
+	audit          *usecase.ListAuditUseCase
+	snapshots      usecase.SnapshotProvider
+	appLogger      logger.Logger
 }
 
 func NewRouter(cases HandlerUseCases, middleware *Middleware, snapshots usecase.SnapshotProvider, appLogger logger.Logger) (http.Handler, error) {
@@ -69,9 +73,22 @@ func NewRouter(cases HandlerUseCases, middleware *Middleware, snapshots usecase.
 
 	h := &AdminHandler{scopes: cases.Scopes, configs: cases.Configs, flags: cases.Flags, evaluate: cases.Evaluate, audit: cases.Audit, snapshots: snapshots, appLogger: appLogger}
 	admin := mux.NewRouter()
+	if cases.Governance != nil {
+		h.gov = cases.Governance
+		admin.HandleFunc(AdminBasePath+"/governance/{section}", h.governancePage).Methods("GET", "POST")
+	}
+	admin.Use(h.resourceAccess)
+	if cases.Administrators != nil {
+		h.administrators = cases.Administrators
+		admin.HandleFunc(AdminBasePath+"/administrators", h.listAdministrators).Methods(http.MethodGet)
+		admin.HandleFunc(auditPath+"/authors", h.auditAuthors).Methods(http.MethodGet)
+		admin.HandleFunc(AdminBasePath+"/administrators/lookup", h.manageAdministrators).Methods(http.MethodGet)
+		admin.HandleFunc(AdminBasePath+"/administrators/{id:[0-9]+}", h.manageAdministrators).Methods(http.MethodPut)
+	}
 	admin.NotFoundHandler = http.HandlerFunc(h.notFound)
 	admin.MethodNotAllowedHandler = http.HandlerFunc(h.methodNotAllowed)
 	admin.HandleFunc(mePath, h.me).Methods(http.MethodGet)
+	admin.HandleFunc(AdminBasePath+"/catalog", serveCatalog).Methods(http.MethodGet)
 	admin.HandleFunc(scopesPath, h.listScopes).Methods(http.MethodGet)
 	admin.HandleFunc(scopesPath, h.createScope).Methods(http.MethodPost)
 	admin.HandleFunc(scopePath, h.getScope).Methods(http.MethodGet)

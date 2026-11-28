@@ -204,6 +204,7 @@ func pageBounds(total, limit, offset int) (start, end int) {
 }
 
 func cloneFilm(film domain.Film) domain.Film {
+	film.CountryCodes = append([]string(nil), film.CountryCodes...)
 	film.Genres = append(make([]domain.Genre, 0, len(film.Genres)), film.Genres...)
 	return film
 }

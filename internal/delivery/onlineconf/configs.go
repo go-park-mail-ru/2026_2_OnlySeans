@@ -65,7 +65,7 @@ func (h *AdminHandler) createConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	httpresponse.WriteJSONContext(r.Context(), w, http.StatusCreated, result, h.appLogger)
+	h.writeMutation(w, r, http.StatusCreated, "config", result.ID, result.Version, result)
 }
 
 func (h *AdminHandler) updateConfig(w http.ResponseWriter, r *http.Request) {
@@ -99,7 +99,7 @@ func (h *AdminHandler) updateConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, result, h.appLogger)
+	h.writeMutation(w, r, http.StatusOK, "config", result.ID, result.Version, result)
 }
 
 func (h *AdminHandler) deleteConfig(w http.ResponseWriter, r *http.Request) {

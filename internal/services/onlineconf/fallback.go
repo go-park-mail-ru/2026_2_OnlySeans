@@ -17,7 +17,9 @@ func (FallbackProvider) ReviewPolicy(domain.UserID) domain.ReviewPolicy {
 }
 
 func (FallbackProvider) PublicRuntime(userID domain.UserID) domain.PublicRuntime {
-	return (*Snapshot)(nil).PublicRuntime(userID)
+	result := (*Snapshot)(nil).PublicRuntime(userID)
+	result.Flags[domain.LibraryAddKey] = true // Standalone Frame has no configured OnlineConf service.
+	return result
 }
 
 func (FallbackProvider) GetConfig(_, _ string) (json.RawMessage, bool) {

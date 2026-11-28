@@ -47,6 +47,7 @@ type Film struct {
 	PosterURL        *string  `db:"poster_url"`
 	PosterStorageKey *string
 	TrailerURL       *string `db:"trailer_url"`
+	CountryCodes     []string
 	Genres           []Genre
 }
 

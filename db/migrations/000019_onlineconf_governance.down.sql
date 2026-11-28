@@ -1,0 +1,10 @@
+DROP TRIGGER oc_sync ON oc_flags;
+DROP TRIGGER oc_guard ON oc_flags;
+DROP FUNCTION oc_sync_rollout(), oc_guard_rollout();
+DROP TABLE oc_rollouts, oc_policies;
+DROP FUNCTION oc_valid_steps(int[]);
+DROP FUNCTION oc_permitted(bigint,text,text,text,text);
+DROP VIEW oc_effective_grants;
+DROP TABLE oc_grants, oc_members, oc_groups;
+UPDATE oc_admin_access SET access_role='no_access' WHERE access_role='scoped';
+ALTER TABLE oc_admin_access DROP CONSTRAINT oc_admin_access_access_role_check, ADD CHECK(access_role IN ('admin','superadmin','no_access'));

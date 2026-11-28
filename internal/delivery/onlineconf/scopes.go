@@ -58,7 +58,7 @@ func (h *AdminHandler) createScope(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	httpresponse.WriteJSONContext(r.Context(), w, http.StatusCreated, result, h.appLogger)
+	h.writeMutation(w, r, http.StatusCreated, "scope", result.ID, result.Version, result)
 }
 
 func (h *AdminHandler) getScope(w http.ResponseWriter, r *http.Request) {
@@ -107,7 +107,7 @@ func (h *AdminHandler) updateScope(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, result, h.appLogger)
+	h.writeMutation(w, r, http.StatusOK, "scope", result.ID, result.Version, result)
 }
 
 func (h *AdminHandler) deleteScope(w http.ResponseWriter, r *http.Request) {

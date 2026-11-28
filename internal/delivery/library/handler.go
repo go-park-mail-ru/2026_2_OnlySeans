@@ -49,6 +49,8 @@ func (h *Handler) fail(ctx context.Context, w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, domain.ErrInvalidLibraryData), errors.Is(err, httprequest.ErrInvalidBody):
 		status, message = http.StatusBadRequest, invalidDataMsg
+	case errors.Is(err, domain.ErrLibraryAddDisabled):
+		status, message = http.StatusForbidden, err.Error()
 	case errors.Is(err, domain.ErrUnauthorized):
 		status, message = http.StatusUnauthorized, domain.ErrUnauthorized.Error()
 	case errors.Is(err, domain.ErrFilmNotFound):

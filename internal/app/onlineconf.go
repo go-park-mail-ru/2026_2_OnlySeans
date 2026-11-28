@@ -107,7 +107,7 @@ func RunOnlineConf(ctx context.Context, configPath, databasePath, redisPath, log
 	users := authservice.NewPostgresUserRepo(db, appLogger)
 	sessions := authservice.NewRedisSessionStore(client, cfg.Server.SessionTTL, appLogger)
 
-	access, err := service.NewAccess(sessions, users, appLogger)
+	access, err := service.NewAccess(sessions, repository, appLogger)
 	if err != nil {
 		return fmt.Errorf("create onlineconf access checker: %w", err)
 	}
@@ -142,7 +142,8 @@ func RunOnlineConf(ctx context.Context, configPath, databasePath, redisPath, log
 		return fmt.Errorf("create onlineconf audit use case: %w", err)
 	}
 
-	handler, err := delivery.NewRouter(delivery.HandlerUseCases{Scopes: scopes, Configs: configs, Flags: flags, Evaluate: evaluate, Audit: audit}, middleware, snapshots, appLogger)
+	go repository.RunRollouts(workerCtx)
+	handler, err := delivery.NewRouter(delivery.HandlerUseCases{Governance: repository, Scopes: scopes, Configs: configs, Flags: flags, Evaluate: evaluate, Audit: audit, Administrators: repository}, middleware, snapshots, appLogger)
 	if err != nil {
 		return fmt.Errorf("create onlineconf router: %w", err)
 	}

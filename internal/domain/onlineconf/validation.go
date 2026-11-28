@@ -73,7 +73,7 @@ func (c Config) ValidateForWrite() error {
 	if c.Scope+"."+c.Key == domain.HomeBlocksKey {
 		return validateHomeBlocks(c.Value)
 	}
-	return nil
+	return validateShowcase(c)
 }
 
 func ValidateConfigValue(scope, key string, value json.RawMessage) error {

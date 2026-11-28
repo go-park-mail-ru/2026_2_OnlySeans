@@ -20,6 +20,7 @@ var (
 	ErrInvalidVersion        = errors.New("onlineconf: version must be positive")
 	ErrImmutableIdentity     = errors.New("onlineconf: scope, key and salt cannot be changed")
 	ErrResourceInUse         = errors.New("onlineconf: resource is in use")
+	ErrLastSuperAdmin        = errors.New("Сначала назначьте другого суперадминистратора.")
 	ErrInvalidAuditFilter    = errors.New("onlineconf: invalid audit filter")
 	ErrInvalidSnapshot       = errors.New("onlineconf: invalid snapshot")
 	ErrNotFound              = errors.New("onlineconf: resource not found")

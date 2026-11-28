@@ -105,12 +105,21 @@ func (s *Snapshot) ReviewPolicy(userID domain.UserID) domain.ReviewPolicy {
 	return policy
 }
 
+func (s *Snapshot) LibraryAddEnabled(userID domain.UserID) bool {
+	if s == nil {
+		return false
+	}
+	key := resourceKey{scope: frontendScope, key: "library_add_enabled"}
+	flag, exists := s.flags[key]
+	return !exists || evaluator.Evaluate(&flag, userID).Enabled
+}
+
 func (s *Snapshot) PublicRuntime(userID domain.UserID) domain.PublicRuntime {
 	result := domain.PublicRuntime{
 		ReviewPolicy: s.ReviewPolicy(userID),
 		HomeBlocks:   json.RawMessage(emptyBlocksJSON),
 		Configs:      make(map[string]json.RawMessage),
-		Flags:        make(map[string]bool),
+		Flags:        map[string]bool{domain.LibraryAddKey: s.LibraryAddEnabled(userID)},
 	}
 	if s == nil {
 		return result
@@ -123,7 +132,7 @@ func (s *Snapshot) PublicRuntime(userID domain.UserID) domain.PublicRuntime {
 	}
 
 	for key := range s.flags {
-		if publicScope(key.scope) {
+		if publicScope(key.scope) && key.scope+publicKeySeparator+key.key != domain.LibraryAddKey {
 			result.Flags[key.scope+publicKeySeparator+key.key] = s.EvaluateFlag(key.scope, key.key, userID).Enabled
 		}
 	}

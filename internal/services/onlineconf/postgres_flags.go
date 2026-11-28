@@ -21,7 +21,8 @@ const (
 	flagFilter           = ` WHERE ($1 = '' OR s.name=$1) AND ($2 = '' OR strpos(lower(f.key COLLATE pg_catalog."pg_c_utf8"),lower($2 COLLATE pg_catalog."pg_c_utf8")) > 0 OR strpos(lower(f.title COLLATE pg_catalog."pg_c_utf8"),lower($2 COLLATE pg_catalog."pg_c_utf8")) > 0)`
 	getFlagQuery         = `SELECT ` + flagColumns + flagFrom + ` WHERE f.id=$1`
 	countFlagsQuery      = `SELECT count(*)` + flagFrom + flagFilter
-	listFlagsQuery       = `SELECT ` + flagColumns + flagFrom + flagFilter + ` ORDER BY f.id LIMIT $3 OFFSET $4`
+	listFlagsBase        = `SELECT ` + flagColumns + flagFrom + flagFilter
+	listFlagsQuery       = listFlagsBase + ` ORDER BY f.id LIMIT $3 OFFSET $4`
 	createFlagQuery      = `INSERT INTO oc_flags(scope_id,key,title,description,enabled,rollout_percent,salt) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id`
 	updateFlagQuery      = `UPDATE oc_flags SET title=$2,description=$3,enabled=$4,rollout_percent=$5,version=version+1 WHERE id=$1 AND version=$6 RETURNING id`
 	deleteFlagQuery      = `DELETE FROM oc_flags WHERE id=$1 AND version=$2`
@@ -50,7 +51,13 @@ func scanFlag(row rowScanner) (oc.FeatureFlag, error) {
 }
 
 func (r *PostgresRepository) GetFlag(ctx context.Context, id int64) (*oc.FeatureFlag, error) {
-	flag, err := scanFlag(r.db.QueryRowContext(ctx, getFlagQuery, id))
+	query := getFlagQuery
+	args := []any{id}
+	if uid := oc.ScopedUser(ctx); uid != 0 {
+		query += ` AND oc_permitted($2,s.name,'flag',f.key,'read')`
+		args = append(args, uid)
+	}
+	flag, err := scanFlag(r.db.QueryRowContext(ctx, query, args...))
 	if err != nil {
 		return nil, repositoryError(err)
 	}
@@ -64,6 +71,10 @@ func (r *PostgresRepository) ListFlags(ctx context.Context, options oc.ListOptio
 		return nil, 0, err
 	}
 
+	if uid := oc.ScopedUser(ctx); uid != 0 {
+		filter := ` AND oc_permitted($3,s.name,'flag',f.key,'read')`
+		return listPage(ctx, r.db, countFlagsQuery+filter, listFlagsBase+filter+" ORDER BY f.id LIMIT $4 OFFSET $5", []any{options.Scope, options.Query, uid}, options.Limit, options.Offset, scanFlag)
+	}
 	return listPage(ctx, r.db, countFlagsQuery, listFlagsQuery, []any{options.Scope, options.Query}, options.Limit, options.Offset, scanFlag)
 }
 
@@ -80,6 +91,10 @@ func (r *PostgresRepository) CreateFlag(ctx context.Context, actorID domain.User
 	var result oc.FeatureFlag
 
 	err := r.mutate(ctx, actorID, func(m *mutation) error {
+		if err := m.authorize(ctx, oc.ResourceFlag, input.Scope, input.Key, oc.ActionCreate); err != nil {
+			return err
+		}
+
 		scope, err := scopeID(ctx, m.tx, input.Scope)
 		if err != nil {
 			return err
@@ -117,6 +132,10 @@ func (r *PostgresRepository) UpdateFlag(ctx context.Context, actorID domain.User
 	err := r.mutate(ctx, actorID, func(m *mutation) error {
 		before, err := scanFlag(m.tx.QueryRowContext(ctx, getFlagQuery, input.ID))
 		if err != nil {
+			return err
+		}
+
+		if err := m.authorize(ctx, oc.ResourceFlag, before.Scope, before.Key, oc.ActionUpdate); err != nil {
 			return err
 		}
 
@@ -164,6 +183,10 @@ func (r *PostgresRepository) DeleteFlag(ctx context.Context, actorID domain.User
 	return r.mutate(ctx, actorID, func(m *mutation) error {
 		before, err := scanFlag(m.tx.QueryRowContext(ctx, getFlagQuery, id))
 		if err != nil {
+			return err
+		}
+
+		if err := m.authorize(ctx, oc.ResourceFlag, before.Scope, before.Key, oc.ActionDelete); err != nil {
 			return err
 		}
 

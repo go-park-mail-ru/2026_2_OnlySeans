@@ -27,6 +27,13 @@ func (h *AdminHandler) listAudit(w http.ResponseWriter, r *http.Request) {
 		filter.ResourceID = id
 	}
 
+	if values.Has("actor_id") {
+		filter.ActorID, err = parseID(values.Get("actor_id"))
+		if err != nil {
+			h.writeError(w, r, err)
+			return
+		}
+	}
 	result, err := h.audit.Run(r.Context(), filter)
 	if err != nil {
 		h.writeError(w, r, err)

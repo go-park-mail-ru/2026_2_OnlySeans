@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/storage"
@@ -28,7 +29,9 @@ const (
 			FROM film_file AS ff JOIN file AS fl ON fl.id=ff.file_id
 			WHERE ff.film_id = f.id AND ff.file_role = 'poster'
 			ORDER BY ff.sort_order LIMIT 1
-		)`
+		),
+		(SELECT string_agg(c.iso_code, ',' ORDER BY c.iso_code)
+		 FROM film_country fc JOIN country c ON c.id = fc.country_id WHERE fc.film_id = f.id)`
 
 	getFilmQuery = `
 		SELECT ` + filmColumns +
@@ -116,6 +119,7 @@ type rowScanner interface {
 
 func scanFilm(row rowScanner) (domain.Film, error) {
 	var film domain.Film
+	var codes sql.NullString
 	err := row.Scan(
 		&film.ID, &film.Title,
 		&film.OriginalTitle,
@@ -126,8 +130,11 @@ func scanFilm(row rowScanner) (domain.Film, error) {
 		&film.Description,
 		&film.PosterURL,
 		&film.TrailerURL,
-		&film.PosterStorageKey,
+		&film.PosterStorageKey, &codes,
 	)
+	if codes.Valid && codes.String != "" {
+		film.CountryCodes = strings.Split(codes.String, ",")
+	}
 	return film, err
 }
 

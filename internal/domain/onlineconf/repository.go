@@ -18,7 +18,13 @@ type ListOptions struct {
 	Offset int
 }
 
+type AuditAuthor struct {
+	ID       int64  `json:"id"`
+	Username string `json:"username"`
+}
+
 type AuditFilter struct {
+	ActorID      int64
 	ResourceKind ResourceKind
 	ResourceID   int64
 	Limit        int

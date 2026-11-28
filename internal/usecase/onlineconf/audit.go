@@ -33,7 +33,7 @@ func (uc *ListAuditUseCase) Run(ctx context.Context, input oc.AuditFilter) (*Lis
 		return nil, oc.ErrInvalidAuditFilter
 	}
 
-	if input.ResourceID < 0 || input.ResourceID > oc.MaxSafeID {
+	if input.ResourceID < 0 || input.ResourceID > oc.MaxSafeID || input.ActorID < 0 || input.ActorID > oc.MaxSafeID {
 		return nil, oc.ErrInvalidAuditFilter
 	}
 

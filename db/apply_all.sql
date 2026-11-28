@@ -15,3 +15,6 @@
 \ir migrations/000014_real_posters.up.sql
 \ir migrations/000015_review_version.up.sql
 \ir migrations/000016_onlineconf.up.sql
+\ir migrations/000017_onlineconf_admins.up.sql
+\ir migrations/000018_onlineconf_role_changes.up.sql
+\ir migrations/000019_onlineconf_governance.up.sql
