@@ -47,6 +47,10 @@ func (c *Cache) ReviewPolicy(userID domain.UserID) domain.ReviewPolicy {
 	return c.current.Load().reviewPolicy(userID)
 }
 
+func (c *Cache) PublicRuntime(userID domain.UserID) domain.PublicRuntime {
+	return c.current.Load().publicRuntime(userID)
+}
+
 func (c *Cache) Refresh(ctx context.Context) error {
 	c.refreshMu.Lock()
 	defer c.refreshMu.Unlock()

@@ -19,6 +19,32 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestPublicRuntimeHomeBlocks(t *testing.T) {
+	const blocks = `[{"type":"banner","title":"Premiere"},{"type":"collection","id":2}]`
+	key := resourceKey{scope: "frontend", key: "home_blocks"}
+	flag := resourceKey{scope: "frontend", key: "home_blocks_enabled"}
+	s := &Snapshot{revision: 9, configs: map[resourceKey]json.RawMessage{key: json.RawMessage(blocks)},
+		flags: map[resourceKey]flagRule{flag: {enabled: true, rollout: 0, included: map[domain.UserID]struct{}{7: {}}}}}
+	got := s.publicRuntime(7)
+	require.True(t, got.HomeBlocksEnabled)
+	require.Equal(t, int64(9), got.Revision)
+	require.JSONEq(t, blocks, string(got.HomeBlocks))
+	for _, id := range []domain.UserID{0, 8} {
+		got = s.publicRuntime(id)
+		require.False(t, got.HomeBlocksEnabled)
+		require.JSONEq(t, "[]", string(got.HomeBlocks))
+	}
+	s.flags[flag] = flagRule{enabled: true, rollout: 100, excluded: map[domain.UserID]struct{}{7: {}}}
+	require.False(t, s.publicRuntime(7).HomeBlocksEnabled)
+	require.True(t, s.publicRuntime(8).HomeBlocksEnabled)
+	delete(s.configs, key)
+	require.JSONEq(t, "[]", string(s.publicRuntime(8).HomeBlocks))
+	s.configs[key] = json.RawMessage(`"wrong type"`)
+	require.JSONEq(t, "[]", string(s.publicRuntime(8).HomeBlocks))
+	require.False(t, (FallbackProvider{}).PublicRuntime(7).SnapshotReady)
+	require.JSONEq(t, "[]", string((FallbackProvider{}).PublicRuntime(7).HomeBlocks))
+}
+
 type sourceResult struct {
 	snapshot *Snapshot
 	err      error

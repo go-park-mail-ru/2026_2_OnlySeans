@@ -319,10 +319,12 @@ func queryInt(r *http.Request, key string, fallback int) (int, bool) {
 }
 
 func writeError(ctx context.Context, w http.ResponseWriter, err error, appLogger logger.Logger) {
-	if errors.Is(err, domain.ErrFeatureDisabled) {
+	var disabled *domain.ReviewFeatureDisabledError
+	if errors.As(err, &disabled) {
 		httpresponse.WriteJSONContext(ctx, w, http.StatusForbidden, businessErrorResponse{
-			Error: domain.ErrFeatureDisabled.Error(),
-			Code:  "feature_disabled",
+			Error:   domain.ErrFeatureDisabled.Error(),
+			Code:    "feature_disabled",
+			Details: map[string]any{"revision": disabled.Revision},
 		}, appLogger)
 		return
 	}

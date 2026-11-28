@@ -11,11 +11,11 @@ import (
 )
 
 type Handler struct {
-	policy domain.ReviewPolicyProvider
+	policy domain.RuntimeProvider
 	logger logger.Logger
 }
 
-func NewHandler(policy domain.ReviewPolicyProvider, appLogger logger.Logger) (*Handler, error) {
+func NewHandler(policy domain.RuntimeProvider, appLogger logger.Logger) (*Handler, error) {
 	if policy == nil {
 		return nil, domain.ErrNilReviewPolicy
 	}
@@ -27,17 +27,19 @@ func NewHandler(policy domain.ReviewPolicyProvider, appLogger logger.Logger) (*H
 
 func (h *Handler) Runtime(w http.ResponseWriter, r *http.Request) {
 	userID, _ := authdelivery.UserIDFromContext(r.Context())
-	policy := h.policy.ReviewPolicy(userID)
+	policy := h.policy.PublicRuntime(userID)
 	w.Header().Set("Cache-Control", "private, no-store")
 	w.Header().Add("Vary", "Cookie")
 	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, runtimeResponse{
 		Revision:      policy.Revision,
 		SnapshotReady: policy.SnapshotReady,
-		Configs: map[string]int{
+		Configs: map[string]any{
 			domain.ReviewMaxLengthKey: policy.MaxLength,
+			domain.HomeBlocksKey:      policy.HomeBlocks,
 		},
 		Flags: map[string]bool{
 			domain.ReviewWriteEnabledKey: policy.WriteEnabled,
+			domain.HomeBlocksEnabledKey:  policy.HomeBlocksEnabled,
 		},
 	}, h.logger)
 }
@@ -45,6 +47,6 @@ func (h *Handler) Runtime(w http.ResponseWriter, r *http.Request) {
 type runtimeResponse struct {
 	SnapshotReady bool            `json:"snapshot_ready"`
 	Revision      int64           `json:"revision"`
-	Configs       map[string]int  `json:"configs"`
+	Configs       map[string]any  `json:"configs"`
 	Flags         map[string]bool `json:"flags"`
 }

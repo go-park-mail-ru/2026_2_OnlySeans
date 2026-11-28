@@ -1,6 +1,7 @@
 package onlineconf
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/json"
@@ -133,6 +134,23 @@ func (s *Snapshot) reviewPolicy(userID domain.UserID) domain.ReviewPolicy {
 		}
 	}
 	return policy
+}
+
+func (s *Snapshot) publicRuntime(userID domain.UserID) domain.PublicRuntime {
+	result := domain.PublicRuntime{ReviewPolicy: s.reviewPolicy(userID), HomeBlocks: json.RawMessage("[]")}
+	if s == nil {
+		return result
+	}
+	rule := s.flags[resourceKey{scope: "frontend", key: "home_blocks_enabled"}]
+	result.HomeBlocksEnabled = evaluate(rule, userID)
+	if result.HomeBlocksEnabled {
+		blocks := bytes.TrimSpace(s.configs[resourceKey{scope: "frontend", key: "home_blocks"}])
+		// Snapshot values are valid JSON. Ignore an optional config of the wrong type.
+		if len(blocks) > 0 && blocks[0] == '[' {
+			result.HomeBlocks = bytes.Clone(blocks)
+		}
+	}
+	return result
 }
 
 func evaluate(rule flagRule, userID domain.UserID) bool {

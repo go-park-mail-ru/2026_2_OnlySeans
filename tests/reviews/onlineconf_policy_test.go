@@ -67,7 +67,7 @@ func TestReviewHandlerReturnsStableBusinessCodes(t *testing.T) {
 	disabled := fixedReviewPolicy{policy: domain.ReviewPolicy{MaxLength: 500, Revision: 21}}
 	rec := serve(newTestRouterWithPolicy(t, testFilms(t, nil), disabled), "POST", filmReviewsPath(existingFilm), validBody, anna)
 	require.Equal(t, 403, rec.Code)
-	require.JSONEq(t, `{"error":"feature disabled","code":"feature_disabled"}`, rec.Body.String())
+	require.JSONEq(t, `{"error":"feature disabled","code":"feature_disabled","details":{"revision":21}}`, rec.Body.String())
 
 	limited := fixedReviewPolicy{policy: domain.ReviewPolicy{WriteEnabled: true, MaxLength: 50, Revision: 22}}
 	body := reviewBody(validTitle, strings.Repeat("a", 51), false)
@@ -88,6 +88,6 @@ func TestReviewHandlerBlocksUpdateAfterFlagIsDisabled(t *testing.T) {
 	rec := serve(router, "PUT", reviewPath(created.ID),
 		reviewBodyWithVersion(validTitle, validContent, false, created.Version), anna)
 	require.Equal(t, 403, rec.Code)
-	require.JSONEq(t, `{"error":"feature disabled","code":"feature_disabled"}`, rec.Body.String())
+	require.JSONEq(t, `{"error":"feature disabled","code":"feature_disabled","details":{"revision":2}}`, rec.Body.String())
 	require.Equal(t, 2, policy.calls, "create and update each read one policy")
 }

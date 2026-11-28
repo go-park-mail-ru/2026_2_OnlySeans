@@ -53,7 +53,7 @@ func (uc *CreateReviewUseCase) Run(ctx context.Context, input CreateReviewInput)
 	policy := uc.policy.ReviewPolicy(input.AuthorID)
 	if !policy.WriteEnabled {
 		logging.Validation(ctx, uc.appLogger, "create review rejected: feature disabled", domain.ErrFeatureDisabled, map[string]any{"user_id": input.AuthorID, "revision": policy.Revision})
-		return nil, domain.ErrFeatureDisabled
+		return nil, &domain.ReviewFeatureDisabledError{Revision: policy.Revision}
 	}
 
 	review, err := prepareReview(input.Review)

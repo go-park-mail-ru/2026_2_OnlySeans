@@ -16,6 +16,14 @@ var (
 	ErrReviewTooLong   = errors.New("review content is too long")
 )
 
+type ReviewFeatureDisabledError struct {
+	Revision int64
+}
+
+func (e *ReviewFeatureDisabledError) Error() string { return ErrFeatureDisabled.Error() }
+
+func (e *ReviewFeatureDisabledError) Unwrap() error { return ErrFeatureDisabled }
+
 type ReviewTooLongError struct {
 	MaxLength int
 	Revision  int64

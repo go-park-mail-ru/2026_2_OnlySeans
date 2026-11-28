@@ -9,3 +9,7 @@ type FallbackProvider struct{}
 func (FallbackProvider) ReviewPolicy(domain.UserID) domain.ReviewPolicy {
 	return domain.ReviewPolicy{WriteEnabled: false, MaxLength: domain.MaxReviewContentLen}
 }
+
+func (FallbackProvider) PublicRuntime(userID domain.UserID) domain.PublicRuntime {
+	return (*Snapshot)(nil).publicRuntime(userID)
+}

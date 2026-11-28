@@ -65,8 +65,11 @@ the existing owner and optimistic-version checks.
 ## Public runtime endpoint
 
 `GET /api/onlineconf/runtime` returns only the public projection for the current
-session: revision, snapshot readiness, `reviews.max_length`, and the computed
-`reviews.write_enabled`. A caller-supplied user id is ignored. The response is
+session: revision, snapshot readiness, `reviews.max_length`, `reviews.write_enabled`,
+`frontend.home_blocks` and `frontend.home_blocks_enabled`. Both flags are evaluated
+for the current session from the same cached revision. Home blocks are an ordered JSON
+array. An excluded user, a missing config or a non-array value receives an empty array.
+A caller-supplied user id is ignored. The response is
 `Cache-Control: private, no-store` and `Vary: Cookie`; service tokens, override
 lists, internal scopes, and raw snapshot data are never serialized.
 
@@ -79,13 +82,13 @@ inside the existing CSRF, security-header, and cookie configuration.
 Runtime response (HTTP 200):
 
 ```json
-{"revision":42,"snapshot_ready":true,"configs":{"reviews.max_length":500},"flags":{"reviews.write_enabled":true}}
+{"revision":42,"snapshot_ready":true,"configs":{"reviews.max_length":500,"frontend.home_blocks":[{"type":"collection","id":1}]},"flags":{"reviews.write_enabled":true,"frontend.home_blocks_enabled":true}}
 ```
 
 Writing with the flag disabled (HTTP 403):
 
 ```json
-{"error":"feature disabled","code":"feature_disabled"}
+{"error":"feature disabled","code":"feature_disabled","details":{"revision":42}}
 ```
 
 Writing a review above the dynamic limit (HTTP 400):

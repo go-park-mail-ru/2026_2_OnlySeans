@@ -98,7 +98,7 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 	if err != nil {
 		return fmt.Errorf("load onlineconf config: %w", err)
 	}
-	var reviewPolicy domain.ReviewPolicyProvider = onlineconfservice.FallbackProvider{}
+	var runtimePolicy domain.RuntimeProvider = onlineconfservice.FallbackProvider{}
 	var onlineConfCache *onlineconfservice.Cache
 	if onlineConfCfg.URL == "" {
 		appLogger.Warn("onlineconf is not configured; fail-closed fallback is active", nil)
@@ -121,7 +121,7 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 			appLogger.Warn("initial onlineconf snapshot load failed; fail-closed fallback is active", map[string]any{"error": err})
 		}
 		cancel()
-		reviewPolicy = onlineConfCache
+		runtimePolicy = onlineConfCache
 	}
 
 	s3Client, err := storage.NewS3Client(*s3Cfg)
@@ -284,12 +284,12 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 		return fmt.Errorf("create list reviews use case: %w", err)
 	}
 
-	createReviewUC, err := reviewsusecase.NewCreateReviewUseCase(reviewsRepo, filmsRepo, reviewPolicy, appLogger)
+	createReviewUC, err := reviewsusecase.NewCreateReviewUseCase(reviewsRepo, filmsRepo, runtimePolicy, appLogger)
 	if err != nil {
 		return fmt.Errorf("create review use case: %w", err)
 	}
 
-	updateReviewUC, err := reviewsusecase.NewUpdateReviewUseCase(reviewsRepo, reviewPolicy, appLogger)
+	updateReviewUC, err := reviewsusecase.NewUpdateReviewUseCase(reviewsRepo, runtimePolicy, appLogger)
 	if err != nil {
 		return fmt.Errorf("create update review use case: %w", err)
 	}
@@ -455,7 +455,7 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 	personalRatingHandler := ratingsdelivery.NewMyRatingHandler(getMyRatingUC, appLogger)
 	personCatalogHandler := persondelivery.NewCatalogHandler(getFilmPersonsUC, getPersonCatalogUC, appLogger)
 	assetsHandler := assetsdelivery.NewHandler(s3Client, s3Cfg.Bucket, appLogger)
-	onlineConfHandler, err := onlineconfdelivery.NewHandler(reviewPolicy, appLogger)
+	onlineConfHandler, err := onlineconfdelivery.NewHandler(runtimePolicy, appLogger)
 	if err != nil {
 		return fmt.Errorf("create onlineconf runtime handler: %w", err)
 	}
