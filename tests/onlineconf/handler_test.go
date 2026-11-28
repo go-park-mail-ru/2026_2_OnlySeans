@@ -41,9 +41,13 @@ func (r *handlerRepository) ListConfigs(ctx context.Context, options oc.ListOpti
 
 func newHTTPRouter(t *testing.T, repo oc.Repository, snapshots usecase.SnapshotProvider) http.Handler {
 	t.Helper()
+	return newHTTPRouterWithRefresher(t, repo, snapshots, &refreshSpy{})
+}
+
+func newHTTPRouterWithRefresher(t *testing.T, repo oc.Repository, snapshots usecase.SnapshotProvider, refresher usecase.SnapshotRefresher) http.Handler {
+	t.Helper()
 
 	appLogger := testutil.DiscardLogger()
-	refresher := &refreshSpy{}
 
 	scopes, err := usecase.NewScopesUseCase(repo, refresher, appLogger)
 	if err != nil {

@@ -65,12 +65,13 @@ func (c Config) Validate() error {
 }
 
 func ValidateConfigValue(scope, key string, value json.RawMessage) error {
-	if len(value) > MaxValueBytes {
-		return ErrValueTooLarge
+	size, err := normalizedJSONSize(value)
+	if err != nil {
+		return err
 	}
 
-	if !json.Valid(value) {
-		return ErrInvalidJSON
+	if size > MaxValueBytes {
+		return ErrValueTooLarge
 	}
 
 	if scope == ReviewsScope && key == ReviewMaxLengthKey {
