@@ -3,12 +3,13 @@ package onlineconf
 import (
 	"context"
 	"encoding/json"
+	"net/http"
+
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/httpresponse"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	oc "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain/onlineconf"
 	service "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/onlineconf"
 	"github.com/gorilla/mux"
-	"net/http"
 )
 
 type Governance interface {
@@ -43,6 +44,7 @@ func (h *AdminHandler) governancePage(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(204)
 }
+
 func (h *AdminHandler) resourceAccess(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		actor, ok := AdminFromContext(r.Context())
@@ -50,7 +52,7 @@ func (h *AdminHandler) resourceAccess(next http.Handler) http.Handler {
 			h.writeError(w, r, domain.ErrForbidden)
 			return
 		}
-		if actor.Role != "scoped" {
+		if actor.Role != oc.ScopedAdmin {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -65,37 +67,32 @@ func (h *AdminHandler) resourceAccess(next http.Handler) http.Handler {
 		switch pattern {
 		case mePath, configsPath, flagsPath, scopesPath, AdminBasePath + "/governance/{section}":
 		case configPath, flagPath, evaluatePath, scopePath:
-			{
-				kind := "flag"
-				if pattern == configPath {
-					kind = "config"
-				} else if pattern == scopePath {
-					kind = "scope"
-				}
-				id, err := requestID(r)
-				if err != nil {
-					h.writeError(w, r, err)
-					return
-				}
-				action := "read"
-				if r.Method == http.MethodPut {
-					action = "update"
-				} else if r.Method == http.MethodDelete {
-					action = "delete"
-				}
-				ok, err := h.gov.MayAccess(ctx, actor.ID, kind, id, action)
-				if err != nil {
-					h.writeError(w, r, err)
-					return
-				}
-				if !ok {
-					h.writeError(w, r, domain.ErrForbidden)
-					return
-				}
+			kind := "flag"
+			if pattern == configPath {
+				kind = "config"
+			} else if pattern == scopePath {
+				kind = "scope"
 			}
-		case AdminBasePath + "/catalog":
-			h.writeError(w, r, domain.ErrForbidden)
-			return
+			id, err := requestID(r)
+			if err != nil {
+				h.writeError(w, r, err)
+				return
+			}
+			action := "read"
+			if r.Method == http.MethodPut {
+				action = "update"
+			} else if r.Method == http.MethodDelete {
+				action = "delete"
+			}
+			ok, err := h.gov.MayAccess(ctx, actor.ID, kind, id, action)
+			if err != nil {
+				h.writeError(w, r, err)
+				return
+			}
+			if !ok {
+				h.writeError(w, r, domain.ErrForbidden)
+				return
+			}
 		default:
 			h.writeError(w, r, domain.ErrForbidden)
 			return

@@ -14,10 +14,19 @@ type AdminIdentity struct {
 	Role     domain.Role   `json:"role"`
 }
 
-const SuperAdmin domain.Role = "superadmin"
+const (
+	SuperAdmin  domain.Role = "superadmin"
+	ScopedAdmin domain.Role = "scoped"
+	NoAccess    domain.Role = "no_access"
+)
 
 func HasAdminAccess(role domain.Role) bool {
-	return role == domain.RoleAdmin || role == SuperAdmin || role == "scoped"
+	return role == domain.RoleAdmin || role == SuperAdmin || role == ScopedAdmin
+}
+
+// CanAssignRole lists the roles a superadmin can explicitly grant or revoke.
+func CanAssignRole(role domain.Role) bool {
+	return HasAdminAccess(role) || role == NoAccess
 }
 
 type scopedUserKey struct{}

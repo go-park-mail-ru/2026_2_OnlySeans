@@ -72,7 +72,7 @@ func (h *AdminHandler) manageAdministrators(w http.ResponseWriter, r *http.Reque
 				h.writeError(w, r, e)
 				return
 			}
-			if body.Previous == "" || (body.Role != domain.RoleAdmin && body.Role != oc.SuperAdmin && body.Role != "no_access" && body.Role != "scoped") {
+			if body.Previous == "" || !oc.CanAssignRole(body.Role) {
 				h.writeError(w, r, errInvalidInput)
 				return
 			}

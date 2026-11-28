@@ -1221,14 +1221,14 @@
     "scope": "film",
     "key": "MaxFilmRating",
     "value": 10,
-    "source": "internal/domain/film.go:113",
+    "source": "internal/domain/film.go:114",
     "group": "Go"
   },
   {
     "scope": "film",
     "key": "MinFilmRating",
     "value": 1,
-    "source": "internal/domain/film.go:112",
+    "source": "internal/domain/film.go:113",
     "group": "Go"
   },
   {
@@ -1438,63 +1438,70 @@
     "scope": "library",
     "key": "Favorite",
     "value": "favorite",
-    "source": "internal/domain/library.go:10",
+    "source": "internal/domain/library.go:14",
+    "group": "Go"
+  },
+  {
+    "scope": "library",
+    "key": "LibraryAddKey",
+    "value": "frontend.library_add_enabled",
+    "source": "internal/domain/library.go:7",
     "group": "Go"
   },
   {
     "scope": "library",
     "key": "PreferenceCatalogView",
     "value": "frame:catalog-view",
-    "source": "internal/domain/library.go:25",
+    "source": "internal/domain/library.go:29",
     "group": "Go"
   },
   {
     "scope": "library",
     "key": "PreferenceDisabled",
     "value": "false",
-    "source": "internal/domain/library.go:32",
+    "source": "internal/domain/library.go:36",
     "group": "Go"
   },
   {
     "scope": "library",
     "key": "PreferenceEnabled",
     "value": "true",
-    "source": "internal/domain/library.go:31",
+    "source": "internal/domain/library.go:35",
     "group": "Go"
   },
   {
     "scope": "library",
     "key": "PreferenceGrid",
     "value": "\"grid\"",
-    "source": "internal/domain/library.go:33",
+    "source": "internal/domain/library.go:37",
     "group": "Go"
   },
   {
     "scope": "library",
     "key": "PreferenceList",
     "value": "\"list\"",
-    "source": "internal/domain/library.go:34",
+    "source": "internal/domain/library.go:38",
     "group": "Go"
   },
   {
     "scope": "library",
     "key": "PreferenceSidebarCollapsed",
     "value": "frame:sidebar-collapsed",
-    "source": "internal/domain/library.go:24",
+    "source": "internal/domain/library.go:28",
     "group": "Go"
   },
   {
     "scope": "library",
     "key": "WatchLater",
     "value": "watchlater",
-    "source": "internal/domain/library.go:11",
+    "source": "internal/domain/library.go:15",
     "group": "Go"
   },
   {
     "scope": "library",
     "key": "Watched",
     "value": "watched",
-    "source": "internal/domain/library.go:12",
+    "source": "internal/domain/library.go:16",
     "group": "Go"
   },
   {
@@ -1522,133 +1529,154 @@
     "scope": "models",
     "key": "ActionCreate",
     "value": "create",
-    "source": "internal/domain/onlineconf/models.go:62",
+    "source": "internal/domain/onlineconf/models.go:88",
     "group": "Go"
   },
   {
     "scope": "models",
     "key": "ActionDelete",
     "value": "delete",
-    "source": "internal/domain/onlineconf/models.go:64",
+    "source": "internal/domain/onlineconf/models.go:90",
     "group": "Go"
   },
   {
     "scope": "models",
     "key": "ActionUpdate",
     "value": "update",
-    "source": "internal/domain/onlineconf/models.go:63",
+    "source": "internal/domain/onlineconf/models.go:89",
     "group": "Go"
   },
   {
     "scope": "models",
     "key": "MaxReviewLength",
     "value": 20000,
-    "source": "internal/domain/onlineconf/models.go:128",
+    "source": "internal/domain/onlineconf/models.go:154",
     "group": "Go"
   },
   {
     "scope": "models",
     "key": "MaxRolloutPercent",
     "value": 100,
-    "source": "internal/domain/onlineconf/models.go:124",
+    "source": "internal/domain/onlineconf/models.go:150",
     "group": "Go"
   },
   {
     "scope": "models",
     "key": "MaxSafeID",
     "value": "1\u003c\u003c53 - 1",
-    "source": "internal/domain/onlineconf/models.go:122",
+    "source": "internal/domain/onlineconf/models.go:148",
     "group": "Go"
   },
   {
     "scope": "models",
     "key": "MinReviewLength",
     "value": 50,
-    "source": "internal/domain/onlineconf/models.go:127",
+    "source": "internal/domain/onlineconf/models.go:153",
     "group": "Go"
   },
   {
     "scope": "models",
     "key": "MinRolloutPercent",
     "value": 0,
-    "source": "internal/domain/onlineconf/models.go:123",
+    "source": "internal/domain/onlineconf/models.go:149",
     "group": "Go"
   },
   {
     "scope": "models",
     "key": "MinUserID",
     "value": 1,
-    "source": "internal/domain/onlineconf/models.go:121",
+    "source": "internal/domain/onlineconf/models.go:147",
+    "group": "Go"
+  },
+  {
+    "scope": "models",
+    "key": "NoAccess",
+    "value": "no_access",
+    "source": "internal/domain/onlineconf/models.go:20",
     "group": "Go"
   },
   {
     "scope": "models",
     "key": "ReasonForceOff",
     "value": "forced_off",
-    "source": "internal/domain/onlineconf/models.go:102",
+    "source": "internal/domain/onlineconf/models.go:128",
     "group": "Go"
   },
   {
     "scope": "models",
     "key": "ReasonForceOn",
     "value": "forced_on",
-    "source": "internal/domain/onlineconf/models.go:103",
+    "source": "internal/domain/onlineconf/models.go:129",
     "group": "Go"
   },
   {
     "scope": "models",
     "key": "ReasonGlobalDisabled",
     "value": "globally_disabled",
-    "source": "internal/domain/onlineconf/models.go:101",
+    "source": "internal/domain/onlineconf/models.go:127",
     "group": "Go"
   },
   {
     "scope": "models",
     "key": "ReasonRolloutExcluded",
     "value": "rollout_miss",
-    "source": "internal/domain/onlineconf/models.go:105",
+    "source": "internal/domain/onlineconf/models.go:131",
     "group": "Go"
   },
   {
     "scope": "models",
     "key": "ReasonRolloutIncluded",
     "value": "rollout_match",
-    "source": "internal/domain/onlineconf/models.go:104",
+    "source": "internal/domain/onlineconf/models.go:130",
     "group": "Go"
   },
   {
     "scope": "models",
     "key": "ResourceConfig",
     "value": "config",
-    "source": "internal/domain/onlineconf/models.go:71",
+    "source": "internal/domain/onlineconf/models.go:97",
     "group": "Go"
   },
   {
     "scope": "models",
     "key": "ResourceFlag",
     "value": "flag",
-    "source": "internal/domain/onlineconf/models.go:72",
+    "source": "internal/domain/onlineconf/models.go:98",
     "group": "Go"
   },
   {
     "scope": "models",
     "key": "ResourceScope",
     "value": "scope",
-    "source": "internal/domain/onlineconf/models.go:70",
+    "source": "internal/domain/onlineconf/models.go:96",
     "group": "Go"
   },
   {
     "scope": "models",
     "key": "ReviewMaxLengthKey",
     "value": "max_length",
-    "source": "internal/domain/onlineconf/models.go:126",
+    "source": "internal/domain/onlineconf/models.go:152",
     "group": "Go"
   },
   {
     "scope": "models",
     "key": "ReviewsScope",
     "value": "reviews",
-    "source": "internal/domain/onlineconf/models.go:125",
+    "source": "internal/domain/onlineconf/models.go:151",
+    "group": "Go"
+  },
+  {
+    "scope": "models",
+    "key": "ScopedAdmin",
+    "value": "scoped",
+    "source": "internal/domain/onlineconf/models.go:19",
+    "group": "Go"
+  },
+  {
+    "scope": "models",
+    "key": "SuperAdmin",
+    "value": "superadmin",
+    "source": "internal/domain/onlineconf/models.go:18",
     "group": "Go"
   },
   {

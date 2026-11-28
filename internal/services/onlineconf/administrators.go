@@ -8,6 +8,16 @@ import (
 	oc "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain/onlineconf"
 )
 
+// An explicit OnlyAdmin assignment takes precedence over product roles and grants.
+const effectiveRole = `COALESCE(
+    m.access_role,
+    CASE
+        WHEN r.code = 'admin' THEN 'admin'
+        WHEN EXISTS (SELECT FROM oc_effective_grants g WHERE g.account_id = a.id) THEN 'scoped'
+        ELSE r.code
+    END
+)`
+
 const accountAccess = `SELECT a.id, a.username, ` + effectiveRole + `
     FROM account a JOIN role r ON r.id=a.role_id
     LEFT JOIN oc_admin_access m ON m.account_id=a.id
@@ -77,7 +87,7 @@ func (r *PostgresRepository) GrantAdmin(ctx context.Context, actor, target domai
 }
 
 func (r *PostgresRepository) ChangeRole(ctx context.Context, actor, target domain.UserID, role, previous domain.Role) (oc.AdminIdentity, error) {
-	if role != domain.RoleAdmin && role != oc.SuperAdmin && role != "no_access" && role != "scoped" {
+	if !oc.CanAssignRole(role) {
 		return oc.AdminIdentity{}, domain.ErrForbidden
 	}
 	tx, err := r.db.BeginTx(ctx, nil)
