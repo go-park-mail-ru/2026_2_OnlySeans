@@ -10,8 +10,12 @@ import (
 )
 
 const (
-	jsonValueTerminator = "\n"
-	decimalNumberBase   = 10
+	decimalNumberBase      = 10
+	jsonDelimiterBytes     = 2
+	jsonSeparatorBytes     = 1
+	jsonShortEscapeBytes   = 2
+	jsonUnicodeEscapeBytes = 6
+	jsonControlBoundary    = 0x20
 )
 
 func normalizedJSONSize(raw json.RawMessage) (int, error) {
@@ -27,47 +31,83 @@ func normalizedJSONSize(raw json.RawMessage) (int, error) {
 		return 0, ErrInvalidJSON
 	}
 
-	value, err := normalizeJSONNumbers(value)
-	if err != nil {
-		return 0, err
-	}
-
-	var normalized bytes.Buffer
-	encoder := json.NewEncoder(&normalized)
-	encoder.SetEscapeHTML(false)
-
-	if err := encoder.Encode(value); err != nil {
-		return 0, fmt.Errorf("normalize JSON value: %w", err)
-	}
-
-	return normalized.Len() - len(jsonValueTerminator), nil
+	return normalizedValueSize(value)
 }
 
-func normalizeJSONNumbers(value any) (any, error) {
+func normalizedValueSize(value any) (int, error) {
 	switch typed := value.(type) {
 	case json.Number:
-		return normalizeJSONNumber(typed)
-	case []any:
-		for index, item := range typed {
-			normalized, err := normalizeJSONNumbers(item)
-			if err != nil {
-				return nil, err
-			}
-
-			typed[index] = normalized
+		number, err := normalizeJSONNumber(typed)
+		if err != nil {
+			return 0, err
 		}
-	case map[string]any:
-		for key, item := range typed {
-			normalized, err := normalizeJSONNumbers(item)
+
+		return len(number), nil
+	case string:
+		return normalizedStringSize(typed), nil
+	case nil:
+		return len("null"), nil
+	case bool:
+		if typed {
+			return len("true"), nil
+		}
+
+		return len("false"), nil
+	case []any:
+		size := jsonDelimiterBytes
+
+		for index, item := range typed {
+			normalized, err := normalizedValueSize(item)
 			if err != nil {
-				return nil, err
+				return 0, err
 			}
 
-			typed[key] = normalized
+			size += normalized
+			if index > 0 {
+				size += jsonSeparatorBytes
+			}
+		}
+
+		return size, nil
+	case map[string]any:
+		size := jsonDelimiterBytes
+
+		for key, item := range typed {
+			normalized, err := normalizedValueSize(item)
+			if err != nil {
+				return 0, err
+			}
+
+			size += normalizedStringSize(key) + jsonSeparatorBytes + normalized + jsonSeparatorBytes
+		}
+
+		if len(typed) > 0 {
+			size -= jsonSeparatorBytes
+		}
+
+		return size, nil
+	}
+
+	return 0, ErrInvalidJSON
+}
+
+func normalizedStringSize(value string) int {
+	size := jsonDelimiterBytes
+
+	for index := range len(value) {
+		switch value[index] {
+		case '"', '\\', '\b', '\f', '\n', '\r', '\t':
+			size += jsonShortEscapeBytes
+		default:
+			if value[index] < jsonControlBoundary {
+				size += jsonUnicodeEscapeBytes
+			} else {
+				size++
+			}
 		}
 	}
 
-	return value, nil
+	return size
 }
 
 func normalizeJSONNumber(number json.Number) (json.Number, error) {
@@ -103,5 +143,36 @@ func normalizeJSONNumber(number json.Number) (json.Number, error) {
 	adjustment := int64(len(digits) - len(trimmed) - len(fraction))
 	exponent.Add(&exponent, big.NewInt(adjustment))
 
-	return json.Number(sign + trimmed + "e" + exponent.String()), nil
+	return shortestJSONNumber(sign, trimmed, &exponent), nil
+}
+
+func shortestJSONNumber(sign, digits string, exponent *big.Int) json.Number {
+	scientific := sign + digits + "e" + exponent.String()
+
+	var decimalSize big.Int
+	if exponent.Sign() >= 0 {
+		decimalSize.Add(exponent, big.NewInt(int64(len(sign)+len(digits))))
+	} else {
+		point := new(big.Int).Add(exponent, big.NewInt(int64(len(digits))))
+		if point.Sign() > 0 {
+			decimalSize.SetInt64(int64(len(sign) + len(digits) + len(".")))
+		} else {
+			decimalSize.Sub(big.NewInt(int64(len(sign)+len("0."))), exponent)
+		}
+	}
+
+	if decimalSize.Cmp(big.NewInt(int64(len(scientific)))) > 0 {
+		return json.Number(scientific)
+	}
+
+	if exponent.Sign() >= 0 {
+		return json.Number(sign + digits + strings.Repeat("0", int(exponent.Int64())))
+	}
+
+	point := len(digits) + int(exponent.Int64())
+	if point > 0 {
+		return json.Number(sign + digits[:point] + "." + digits[point:])
+	}
+
+	return json.Number(sign + "0." + strings.Repeat("0", -point) + digits)
 }

@@ -2,6 +2,7 @@ package onlineconf_test
 
 import (
 	"context"
+	"crypto/rand"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -11,7 +12,6 @@ import (
 	"reflect"
 	"sync"
 	"testing"
-	"time"
 
 	evaluator "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/onlineconfevaluator"
 
@@ -24,10 +24,11 @@ import (
 )
 
 const (
-	testDatabaseEnv               = "ONLINECONF_TEST_DATABASE_URL"
-	testActor       domain.UserID = 1
-	testOtherUser   domain.UserID = 2
-	fixtureQuery                  = `CREATE TABLE account(id bigint PRIMARY KEY,username text NOT NULL,deleted_at timestamptz);
+	schemaNonceBytes               = 16
+	testDatabaseEnv                = "ONLINECONF_TEST_DATABASE_URL"
+	testActor        domain.UserID = 1
+	testOtherUser    domain.UserID = 2
+	fixtureQuery                   = `CREATE TABLE account(id bigint PRIMARY KEY,username text NOT NULL,deleted_at timestamptz);
  INSERT INTO account(id,username) VALUES(1,'admin'),(2,'reader');
  CREATE FUNCTION set_updated_at() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN NEW.updated_at=now(); RETURN NEW; END; $$;`
 )
@@ -46,7 +47,19 @@ func newRepository(t *testing.T) (oc.Repository, *sql.DB) {
 	}
 
 	control := stdlib.OpenDB(*cfg)
-	schema := fmt.Sprintf("oc_test_%d", time.Now().UnixNano())
+
+	t.Cleanup(func() {
+		if err := control.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+
+	nonce := make([]byte, schemaNonceBytes)
+	if _, err := rand.Read(nonce); err != nil {
+		t.Fatal(err)
+	}
+
+	schema := fmt.Sprintf("oc_test_%x", nonce)
 	ctx := context.Background()
 
 	if _, err := control.ExecContext(ctx, `CREATE SCHEMA `+schema); err != nil {
@@ -62,10 +75,6 @@ func newRepository(t *testing.T) (oc.Repository, *sql.DB) {
 		}
 
 		if _, err := control.ExecContext(ctx, `DROP SCHEMA `+schema+` CASCADE`); err != nil {
-			t.Error(err)
-		}
-
-		if err := control.Close(); err != nil {
 			t.Error(err)
 		}
 	})
