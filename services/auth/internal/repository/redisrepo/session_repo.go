@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -19,64 +18,31 @@ import (
 
 const (
 	sessionKeyPrefix     = "session:"
-	refreshNumberBase    = 10
-	refreshSessionScript = `
-local session_key_index = 1
-local expected_session_arg_index = 1
-local updated_session_arg_index = 2
-local previous_expiry_arg_index = 3
-local next_expiry_arg_index = 4
-local seconds_part_index = 1
-local microseconds_part_index = 2
-local current = redis.call('GET', KEYS[session_key_index])
-if not current or redis.call('PTTL', KEYS[session_key_index]) <= 0 then
-    return false
-end
-if current ~= ARGV[expected_session_arg_index] then
-    return current
-end
-local milliseconds_per_second = 1000
-local current_time = redis.call('TIME')
-local now = current_time[seconds_part_index] * milliseconds_per_second + math.floor(current_time[microseconds_part_index] / milliseconds_per_second)
-if tonumber(ARGV[previous_expiry_arg_index]) <= now then
-    return false
-end
-local remaining = tonumber(ARGV[next_expiry_arg_index]) - now
-if remaining <= 0 then
-    return false
-end
-redis.call('SET', KEYS[session_key_index], ARGV[updated_session_arg_index], 'PX', remaining, 'XX')
-return ARGV[updated_session_arg_index]
-`
+	refreshMaxAttempts   = 8
+	transactionExecIndex = 2
 )
 
 const (
-	sessionCreateOperation             = "session.create"
-	sessionGetOperation                = "session.get"
-	sessionDeleteOperation             = "session.delete"
-	sessionRefreshOperation            = "session.refresh"
-	encodeSessionErrorFormat           = "encode session: %w"
-	createSessionErrorFormat           = "create session: %w"
-	getSessionErrorFormat              = "get session: %w"
-	decodeSessionErrorFormat           = "decode session: %w"
-	deleteSessionErrorFormat           = "delete session: %w"
-	getSessionForRefreshErrorFormat    = "get session for refresh: %w"
-	decodeSessionForRefreshErrorFormat = "decode session for refresh: %w"
-	encodeRefreshedSessionErrorFormat  = "encode refreshed session: %w"
-	refreshSessionErrorFormat          = "refresh session: %w"
-	decodeRefreshedSessionErrorFormat  = "decode refreshed session: %w"
-	sessionBackendField                = "backend"
-	sessionBackendName                 = "redis"
-	sessionOperationField              = "operation"
-	sessionDurationField               = "duration_ms"
-	sessionOutcomeField                = "outcome"
-	sessionErrorField                  = "error"
-	sessionOutcomeNotFound             = "not_found"
-	sessionOutcomeError                = "error"
-	sessionOutcomeOK                   = "ok"
+	sessionCreateOperation    = "session.create"
+	sessionGetOperation       = "session.get"
+	sessionDeleteOperation    = "session.delete"
+	sessionRefreshOperation   = "session.refresh"
+	encodeSessionErrorFormat  = "encode session: %w"
+	createSessionErrorFormat  = "create session: %w"
+	getSessionErrorFormat     = "get session: %w"
+	decodeSessionErrorFormat  = "decode session: %w"
+	deleteSessionErrorFormat  = "delete session: %w"
+	refreshSessionErrorFormat = "refresh session: %w"
+	sessionBackendField       = "backend"
+	sessionBackendName        = "redis"
+	sessionOperationField     = "operation"
+	sessionDurationField      = "duration_ms"
+	sessionOutcomeField       = "outcome"
+	sessionErrorField         = "error"
+	sessionOutcomeNotFound    = "not_found"
+	sessionOutcomeError       = "error"
+	sessionOutcomeOK          = "ok"
 )
-
-var refreshSessionLua = rueidis.NewLuaScript(refreshSessionScript)
 
 type sessionDTO struct {
 	ID              uuid.UUID     `json:"id"`
@@ -234,71 +200,84 @@ func (s *RedisSessionStore) Refresh(ctx context.Context, sessionID uuid.UUID, ex
 	defer func() { s.logOperation(ctx, sessionRefreshOperation, started, operationErr) }()
 
 	key := sessionKey(sessionID)
+	var result *domain.Session
 
-	raw, err := s.client.Do(ctx, s.client.B().Get().Key(key).Build()).ToString()
-	if err != nil {
-		if rueidis.IsRedisNil(err) {
-			return nil, domain.ErrSessionNotFound
+	err := s.client.Dedicated(func(client rueidis.DedicatedClient) error {
+		defer func() { _ = client.Do(ctx, client.B().Unwatch().Build()).Error() }()
+
+		for range refreshMaxAttempts {
+			if err := client.Do(ctx, client.B().Watch().Key(key).Build()).Error(); err != nil {
+				return err
+			}
+
+			raw, err := client.Do(ctx, client.B().Get().Key(key).Build()).ToString()
+			if rueidis.IsRedisNil(err) {
+				return domain.ErrSessionNotFound
+			}
+
+			if err != nil {
+				return err
+			}
+
+			var current sessionDTO
+			if err = json.Unmarshal([]byte(raw), &current); err != nil {
+				return err
+			}
+
+			now := time.Now()
+			if !current.ExpiresAt.After(now) {
+				return domain.ErrSessionNotFound
+			}
+
+			if sessionpolicy.NeedsRefresh(current.LastRefreshedAt, now) {
+				if !expiresAt.After(now) {
+					return domain.ErrSessionNotFound
+				}
+
+				current.ExpiresAt = expiresAt.UTC().Truncate(time.Millisecond)
+				current.LastRefreshedAt = now.UTC().Truncate(time.Millisecond)
+
+				data, encodeErr := json.Marshal(current)
+				if encodeErr != nil {
+					return encodeErr
+				}
+
+				replies := client.DoMulti(ctx,
+					client.B().Multi().Build(),
+					client.B().Set().Key(key).Value(string(data)).Xx().PxatMillisecondsTimestamp(current.ExpiresAt.UnixMilli()).Build(),
+					client.B().Exec().Build(),
+				)
+				for i, reply := range replies {
+					if err = reply.Error(); err != nil {
+						if i == transactionExecIndex && rueidis.IsRedisNil(err) {
+							break
+						}
+
+						return err
+					}
+				}
+
+				if rueidis.IsRedisNil(err) {
+					continue
+				}
+			}
+
+			result = &domain.Session{
+				ID:              current.ID,
+				UserID:          current.UserID,
+				Role:            current.Role,
+				ExpiresAt:       current.ExpiresAt,
+				LastRefreshedAt: current.LastRefreshedAt,
+			}
+
+			return nil
 		}
 
-		return nil, fmt.Errorf(getSessionForRefreshErrorFormat, err)
-	}
-
-	var current sessionDTO
-	if err = json.Unmarshal([]byte(raw), &current); err != nil {
-		return nil, fmt.Errorf(decodeSessionForRefreshErrorFormat, err)
-	}
-
-	if !current.ExpiresAt.After(time.Now()) {
-		return nil, domain.ErrSessionNotFound
-	}
-
-	if !sessionpolicy.NeedsRefresh(current.LastRefreshedAt, started) {
-		return &domain.Session{
-			ID:              current.ID,
-			UserID:          current.UserID,
-			Role:            current.Role,
-			ExpiresAt:       current.ExpiresAt,
-			LastRefreshedAt: current.LastRefreshedAt,
-		}, nil
-	}
-
-	oldExpiresAt := current.ExpiresAt
-	current.ExpiresAt = expiresAt.UTC().Truncate(time.Millisecond)
-	current.LastRefreshedAt = started.UTC().Truncate(time.Millisecond)
-
-	data, err := json.Marshal(current)
+		return errors.New("session refresh transaction retry limit exceeded")
+	})
 	if err != nil {
-		return nil, fmt.Errorf(encodeRefreshedSessionErrorFormat, err)
-	}
-
-	result, err := refreshSessionLua.Exec(ctx, s.client, []string{key}, []string{
-		raw,
-		string(data),
-		strconv.FormatInt(oldExpiresAt.UnixMilli(), refreshNumberBase),
-		strconv.FormatInt(current.ExpiresAt.UnixMilli(), refreshNumberBase),
-	}).ToString()
-	if err != nil {
-		if rueidis.IsRedisNil(err) {
-			return nil, domain.ErrSessionNotFound
-		}
-
 		return nil, fmt.Errorf(refreshSessionErrorFormat, err)
 	}
 
-	if err = json.Unmarshal([]byte(result), &current); err != nil {
-		return nil, fmt.Errorf(decodeRefreshedSessionErrorFormat, err)
-	}
-
-	if !current.ExpiresAt.After(time.Now()) {
-		return nil, domain.ErrSessionNotFound
-	}
-
-	return &domain.Session{
-		ID:              current.ID,
-		UserID:          current.UserID,
-		Role:            current.Role,
-		ExpiresAt:       current.ExpiresAt,
-		LastRefreshedAt: current.LastRefreshedAt,
-	}, nil
+	return result, nil
 }

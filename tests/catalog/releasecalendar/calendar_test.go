@@ -2,7 +2,6 @@ package releasecalendar_test
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"os"
 	"sync"
@@ -47,9 +46,8 @@ func TestCalendarPostgresLifecycle(t *testing.T) {
 		t.Skip("set RELEASE_CALENDAR_TEST_DSN for PostgreSQL integration")
 	}
 
-	db, err := sql.Open("pgx", dsn)
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, db.Close()) })
+	db := isolatedCalendarDatabase(t, dsn)
+	var err error
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -156,6 +154,8 @@ func TestCalendarPostgresLifecycle(t *testing.T) {
 	require.NoError(t, err)
 	require.EqualValues(t, 1, total)
 	require.Nil(t, items[0].RussiaPremiereDate)
+	require.NoError(t, uc.SetSubscription(ctx, user, film, true))
+	require.ErrorIs(t, uc.SetSubscription(ctx, other, film, true), domain.ErrReleaseUnavailable)
 
 	after := time.Date(today.Year(), today.Month(), today.Day(), 9, 0, 0, 0, domain.ReleaseLocation).AddDate(0, 0, 2)
 	count, err := repo.DeliverReminders(ctx, after)

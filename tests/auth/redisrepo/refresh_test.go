@@ -104,17 +104,31 @@ type logoutAfterReadClient struct {
 	deleteError error
 }
 
-func (c *logoutAfterReadClient) Do(ctx context.Context, command rueidis.Completed) rueidis.RedisResult {
+type logoutAfterReadDedicated struct {
+	rueidis.DedicatedClient
+	owner *logoutAfterReadClient
+}
+
+func (c *logoutAfterReadClient) Dedicated(fn func(rueidis.DedicatedClient) error) error {
+	return c.Client.Dedicated(func(client rueidis.DedicatedClient) error {
+		return fn(&logoutAfterReadDedicated{DedicatedClient: client, owner: c})
+	})
+}
+
+func (c *logoutAfterReadDedicated) Do(ctx context.Context, command rueidis.Completed) rueidis.RedisResult {
 	parts := command.Commands()
-	matches := len(parts) == 2 && parts[0] == "GET" && parts[1] == c.key
-	result := c.Client.Do(ctx, command)
+	matches := len(parts) == 2 && parts[0] == "GET" && parts[1] == c.owner.key
+	result := c.DedicatedClient.Do(ctx, command)
 
 	if matches {
-		c.once.Do(func() { c.deleteError = c.Client.Do(ctx, c.Client.B().Del().Key(c.key).Build()).Error() })
+		c.owner.once.Do(func() {
+			c.owner.deleteError = c.owner.Client.Do(ctx, c.owner.Client.B().Del().Key(c.owner.key).Build()).Error()
+		})
 	}
 
 	return result
 }
+
 func TestRedisRefreshDoesNotRestoreConcurrentLogout(t *testing.T) {
 	client := testRedis(t)
 	original, key := createSession(t, client)

@@ -37,6 +37,8 @@ import (
 	pbuser "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/user"
 )
 
+const catalogResponseMaxBytes = 16 * 1024 * 1024
+
 func run(ctx context.Context) error {
 	cfg := config.Load()
 	if cfg.HTTP.Addr == "" || cfg.AuthServiceAddr == "" || cfg.UserServiceAddr == "" || cfg.PersonsServiceAddr == "" || cfg.CatalogServiceAddr == "" {
@@ -93,7 +95,10 @@ func run(ctx context.Context) error {
 	}
 
 	catalogConn, err := grpc.NewClient(cfg.CatalogServiceAddr, transport, requestIDs,
-		grpc.WithDefaultCallOptions(grpc.MaxCallSendMsgSize(int(cfg.HTTP.MaxPosterSize)+(1<<20))),
+		grpc.WithDefaultCallOptions(
+			grpc.MaxCallSendMsgSize(int(cfg.HTTP.MaxPosterSize)+(1<<20)),
+			grpc.MaxCallRecvMsgSize(catalogResponseMaxBytes),
+		),
 	)
 	if err != nil {
 		return fmt.Errorf("create Catalog gRPC client: %w", err)

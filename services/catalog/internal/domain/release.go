@@ -56,6 +56,17 @@ func ParseReleaseDate(value string) (time.Time, error) {
 	return date, nil
 }
 
+func ParseReleaseRangeEnd(value string) (time.Time, error) {
+	date, err := time.Parse(time.DateOnly, value)
+	upper := time.Date(maxReleaseYear, time.January, 2, 0, 0, 0, 0, time.UTC)
+
+	if err != nil || date.Year() < minReleaseYear || date.After(upper) {
+		return time.Time{}, ErrInvalidRelease
+	}
+
+	return date, nil
+}
+
 func (in ReleaseInput) Validate() error {
 	if !in.WorldPremiereDateSet && !in.RussiaPremiereDateSet {
 		return ErrInvalidRelease

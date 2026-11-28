@@ -2,7 +2,6 @@ package auth_test
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -66,107 +65,40 @@ func TestRefreshClientErrors(t *testing.T) {
 	}
 }
 
-type refreshHTTPClient struct {
-	authclient.AuthClient
-	session *pb.Session
-	failure error
-	calls   int
-}
-
-func (c *refreshHTTPClient) RefreshSession(_ context.Context, id string) (*pb.Session, error) {
-	c.calls++
-
-	if id != "session" {
-		return nil, authclient.ErrSessionNotFound
-	}
-
-	return c.session, c.failure
-}
-func TestRefreshHTTP(t *testing.T) {
-	expiry := time.Now().Add(72 * time.Hour).UTC().Truncate(time.Second)
-
-	for _, tc := range []struct {
-		name    string
-		cookie  *http.Cookie
-		failure error
-		want    int
-	}{
-		{name: "success", cookie: &http.Cookie{Name: "session_id", Value: "session"}, want: 204},
-		{name: "no cookie", want: 401},
-		{name: "empty cookie", cookie: &http.Cookie{Name: "session_id"}, want: 401},
-		{name: "expired", cookie: &http.Cookie{Name: "session_id", Value: "session"}, failure: authclient.ErrSessionNotFound, want: 401},
-		{name: "invalid", cookie: &http.Cookie{Name: "session_id", Value: "invalid"}, want: 401},
-		{name: "storage failure", cookie: &http.Cookie{Name: "session_id", Value: "session"}, failure: errors.New("private detail"), want: 500},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			client := &refreshHTTPClient{session: &pb.Session{Id: "session", ExpiresAt: timestamppb.New(expiry)}, failure: tc.failure}
-			handler := authhttp.NewAuthHandler(client, nil, testAuthLogger(t))
-			handler.CookieSecure = true
-
-			req := httptest.NewRequest(http.MethodPost, "/api/refresh", nil)
-			if tc.cookie != nil {
-				req.AddCookie(tc.cookie)
-			}
-
-			result := httptest.NewRecorder()
-			handler.Refresh(result, req)
-			require.Equal(t, tc.want, result.Code)
-			require.Equal(t, "no-store", result.Header().Get("Cache-Control"))
-
-			if tc.want == 204 {
-				require.Empty(t, result.Body.String())
-				require.Len(t, result.Result().Cookies(), 1)
-				cookie := result.Result().Cookies()[0]
-				require.Equal(t, "session", cookie.Value)
-				require.Equal(t, expiry, cookie.Expires)
-				require.True(t, cookie.HttpOnly)
-				require.True(t, cookie.Secure)
-				require.Equal(t, http.SameSiteLaxMode, cookie.SameSite)
-				require.Equal(t, "/", cookie.Path)
-			}
-
-			if tc.cookie == nil || tc.cookie.Value == "" {
-				require.Zero(t, client.calls)
-			}
-
-			if tc.want == 500 {
-				require.NotContains(t, result.Body.String(), "private detail")
-				require.Empty(t, result.Result().Cookies())
-			}
-
-			if tc.want == 401 && tc.cookie != nil && tc.cookie.Value != "" {
-				require.Len(t, result.Result().Cookies(), 1)
-				require.Negative(t, result.Result().Cookies()[0].MaxAge)
-			}
-		})
-	}
-}
-func TestRefreshRouteAndCSRF(t *testing.T) {
-	client := &refreshHTTPClient{session: &pb.Session{Id: "session", ExpiresAt: timestamppb.New(time.Now().Add(time.Hour))}}
+func TestRefreshHTTPRouteRemoved(t *testing.T) {
 	log := testAuthLogger(t)
-	auth := authhttp.NewAuthHandler(client, nil, log)
-	routes, err := router.NewRouter(router.Handlers{Auth: auth}, middleware.NewAuthMiddleware(client, nil, log), []string{"http://localhost:8000"}, log)
+	auth := authhttp.NewAuthHandler(nil, nil, log)
+	routes, err := router.NewRouter(router.Handlers{Auth: auth}, middleware.NewAuthMiddleware(nil, nil, log), []string{"http://localhost:8000"}, log)
 	require.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/refresh", nil)
-	req.AddCookie(&http.Cookie{Name: "session_id", Value: "session"})
+	for _, method := range []string{http.MethodGet, http.MethodPost} {
+		result := httptest.NewRecorder()
+		routes.ServeHTTP(result, httptest.NewRequest(method, "/api/refresh", nil))
+		require.Equal(t, http.StatusNotFound, result.Code)
+		require.Empty(t, result.Header().Get("Set-Cookie"))
+	}
+}
 
-	result := httptest.NewRecorder()
-	routes.ServeHTTP(result, req)
-	require.Equal(t, 204, result.Code)
-	require.Equal(t, 1, client.calls)
+type checkSessionRPC struct {
+	pb.AuthServiceClient
+	response *pb.CheckSessionResponse
+}
 
-	result = httptest.NewRecorder()
-	routes.ServeHTTP(result, httptest.NewRequest(http.MethodGet, "/api/refresh", nil))
-	require.Equal(t, 405, result.Code)
+func (c checkSessionRPC) CheckSession(context.Context, *pb.CheckSessionRequest, ...grpc.CallOption) (*pb.CheckSessionResponse, error) {
+	return c.response, nil
+}
 
-	req = httptest.NewRequest(http.MethodPost, "/api/refresh", nil)
-	req.Header.Set("Origin", "https://untrusted.example")
-	req.Header.Set("Sec-Fetch-Site", "cross-site")
-	req.AddCookie(&http.Cookie{Name: "session_id", Value: "session"})
+func TestCheckSessionDetectsOldAuthContract(t *testing.T) {
+	for _, supported := range []bool{false, true} {
+		response := &pb.CheckSessionResponse{UserId: 7, Role: "reader"}
+		if supported {
+			response.ExpiresAt = timestamppb.New(time.Now().Add(time.Hour))
+			response.LastRefreshedAt = timestamppb.New(time.Time{})
+		}
 
-	result = httptest.NewRecorder()
-	routes.ServeHTTP(result, req)
-	require.Equal(t, 403, result.Code)
-	require.Equal(t, 1, client.calls)
+		session, err := authclient.NewAuthClient(checkSessionRPC{response: response}).CheckSession(t.Context(), "session")
+		require.NoError(t, err)
+		require.Equal(t, supported, session.RefreshSupported)
+		require.EqualValues(t, 7, session.UserID)
+	}
 }

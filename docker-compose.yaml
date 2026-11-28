@@ -24,6 +24,22 @@ services:
       retries: 5
     restart: always
 
+  calendar-migrate:
+    image: postgres:18.1
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGHOST: db
+      PGUSER: ${DB_USER}
+      PGPASSWORD: ${DB_PASSWORD}
+      PGDATABASE: ${DB_NAME}
+    volumes:
+      - ./db:/schema/db:ro
+      - ./services/catalog/db/migrations:/schema/services/catalog/db/migrations:ro
+    command: ["psql", "-f", "/schema/db/upgrade_calendar.sql"]
+    restart: "no"
+
   redis:
     image: redis:7-alpine
     container_name: redis_db
@@ -135,6 +151,8 @@ services:
       context: .
       dockerfile: services/catalog/Dockerfile
     depends_on:
+      calendar-migrate:
+        condition: service_completed_successfully
       db:
         condition: service_healthy
       rustfs-init:

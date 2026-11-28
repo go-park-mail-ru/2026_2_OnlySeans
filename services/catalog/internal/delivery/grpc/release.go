@@ -53,7 +53,7 @@ func (h *ReleaseHandler) ListReleases(ctx context.Context, req *pb.ListReleasesR
 	}
 
 	if req.To != "" {
-		f.To, err = domain.ParseReleaseDate(req.To)
+		f.To, err = domain.ParseReleaseRangeEnd(req.To)
 		if err != nil {
 			return nil, releaseError(err)
 		}
@@ -140,8 +140,10 @@ func (h *ReleaseHandler) ReadNotification(ctx context.Context, req *pb.ReadNotif
 
 func releaseInput(in *pb.ReleaseInput) domain.ReleaseInput {
 	return domain.ReleaseInput{
-		WorldPremiereDate: in.WorldPremiereDate, RussiaPremiereDate: in.RussiaPremiereDate,
-		WorldPremiereDateSet: in.WorldPremiereDateSet, RussiaPremiereDateSet: in.RussiaPremiereDateSet,
+		WorldPremiereDate:     in.WorldPremiereDate,
+		RussiaPremiereDate:    in.RussiaPremiereDate,
+		WorldPremiereDateSet:  in.WorldPremiereDateSet,
+		RussiaPremiereDateSet: in.RussiaPremiereDateSet,
 	}
 }
 
@@ -157,9 +159,15 @@ func premiereDate(date *time.Time) *string {
 
 func protoReleases(items []domain.Release, total int64) *pb.ReleaseList {
 	result := &pb.ReleaseList{Total: total, Items: make([]*pb.Release, len(items))}
+
 	for i, event := range items {
-		result.Items[i] = &pb.Release{Film: toProtoFilm(event.Film),
-			WorldPremiereDate: premiereDate(event.WorldPremiereDate), RussiaPremiereDate: premiereDate(event.RussiaPremiereDate)}
+		film := toProtoFilm(event.Film)
+		film.Description = nil
+		result.Items[i] = &pb.Release{
+			Film:               film,
+			WorldPremiereDate:  premiereDate(event.WorldPremiereDate),
+			RussiaPremiereDate: premiereDate(event.RussiaPremiereDate),
+		}
 	}
 
 	return result

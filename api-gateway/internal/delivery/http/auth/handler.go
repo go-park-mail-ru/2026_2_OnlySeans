@@ -21,12 +21,10 @@ const (
 	roleUser                   = "reader"
 	expiredSessionCookieMaxAge = -1
 	methodNotSupportedMessage  = "method not supported"
-	sessionCookiePath          = "/"
 	requestBodyField           = "body"
 	registerOperation          = "register"
 	loginOperation             = "login"
 	logoutOperation            = "logout"
-	refreshOperation           = "refresh"
 	authorisedGetUserOperation = "authorised.get_user"
 	authOperationField         = "operation"
 )
@@ -176,10 +174,11 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AuthHandler) setSessionCookie(w http.ResponseWriter, sessionID string, expiresAt time.Time) {
+	w.Header().Set("Cache-Control", "private, no-store")
 	http.SetCookie(w, &http.Cookie{
 		Name:     SessionCookieName,
 		Value:    sessionID,
-		Path:     sessionCookiePath,
+		Path:     "/",
 		Expires:  expiresAt,
 		HttpOnly: true,
 		Secure:   h.CookieSecure,
@@ -188,10 +187,11 @@ func (h *AuthHandler) setSessionCookie(w http.ResponseWriter, sessionID string, 
 }
 
 func (h *AuthHandler) clearSessionCookie(w http.ResponseWriter) {
+	w.Header().Set("Cache-Control", "private, no-store")
 	http.SetCookie(w, &http.Cookie{
 		Name:     SessionCookieName,
 		Value:    "",
-		Path:     sessionCookiePath,
+		Path:     "/",
 		MaxAge:   expiredSessionCookieMaxAge,
 		HttpOnly: true,
 		Secure:   h.CookieSecure,
@@ -239,44 +239,4 @@ func logAuthFailure(ctx context.Context, appLogger logger.Logger, operation stri
 	fields := grpcutil.ErrorFields(err)
 	fields[authOperationField] = operation
 	appLogger.ErrorContext(ctx, "authentication request failed", fields)
-}
-
-func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
-	w.Header().Set("Cache-Control", "no-store")
-
-	if r.Method != http.MethodPost {
-		httpresponse.WriteErrorContext(ctx, w, http.StatusMethodNotAllowed, methodNotSupportedMessage, h.appLogger)
-		return
-	}
-
-	cookie, err := r.Cookie(SessionCookieName)
-	if err != nil || cookie.Value == "" {
-		httpresponse.WriteErrorContext(ctx, w, http.StatusUnauthorized, middleware.ErrUnauthorized.Error(), h.appLogger)
-		return
-	}
-
-	session, err := h.authClient.RefreshSession(ctx, cookie.Value)
-	if errors.Is(err, authclient.ErrSessionNotFound) {
-		h.clearSessionCookie(w)
-		httpresponse.WriteErrorContext(ctx, w, http.StatusUnauthorized, middleware.ErrUnauthorized.Error(), h.appLogger)
-
-		return
-	}
-
-	if err != nil {
-		logAuthFailure(ctx, h.appLogger, refreshOperation, err)
-		httpresponse.WriteErrorContext(ctx, w, http.StatusInternalServerError, httpresponse.InternalErrorMessage, h.appLogger)
-
-		return
-	}
-
-	if session == nil || session.GetExpiresAt() == nil {
-		httpresponse.WriteErrorContext(ctx, w, http.StatusInternalServerError, httpresponse.InternalErrorMessage, h.appLogger)
-		return
-	}
-
-	h.setSessionCookie(w, session.GetId(), session.GetExpiresAt().AsTime())
-	w.WriteHeader(http.StatusNoContent)
 }

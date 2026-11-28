@@ -32,10 +32,11 @@ type AuthClient interface {
 }
 
 type SessionInfo struct {
-	ExpiresAt       time.Time
-	LastRefreshedAt time.Time
-	UserID          int64
-	Role            string
+	RefreshSupported bool
+	ExpiresAt        time.Time
+	LastRefreshedAt  time.Time
+	UserID           int64
+	Role             string
 }
 
 type authClient struct {
@@ -116,10 +117,11 @@ func (c *authClient) CheckSession(ctx context.Context, sessionId string) (Sessio
 	}
 
 	return SessionInfo{
-		UserID:          resp.GetUserId(),
-		ExpiresAt:       resp.GetExpiresAt().AsTime(),
-		LastRefreshedAt: resp.GetLastRefreshedAt().AsTime(),
-		Role:            resp.GetRole(),
+		RefreshSupported: resp.GetExpiresAt() != nil && resp.GetLastRefreshedAt() != nil,
+		UserID:           resp.GetUserId(),
+		ExpiresAt:        resp.GetExpiresAt().AsTime(),
+		LastRefreshedAt:  resp.GetLastRefreshedAt().AsTime(),
+		Role:             resp.GetRole(),
 	}, nil
 }
 

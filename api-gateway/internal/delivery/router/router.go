@@ -36,7 +36,6 @@ func NewRouter(handlers Handlers, authMiddleware *middleware.AuthMiddleware, all
 
 	r.HandleFunc("/api/register", authHandler.Register).Methods(http.MethodPost)
 	r.HandleFunc("/api/login", authHandler.Login).Methods(http.MethodPost)
-	r.HandleFunc("/api/refresh", authHandler.Refresh).Methods(http.MethodPost)
 	r.HandleFunc("/api/logout", middleware.WrapMiddlewares(authHandler.Logout, authenticatedMiddlewares)).Methods(http.MethodPost)
 
 	if filesHandler := handlers.Files; filesHandler != nil {

@@ -1,62 +1,45 @@
 //go:build integration
 
-package files_test
+package integration_test
 
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"encoding/json"
+	"github.com/google/uuid"
 	"image"
 	"image/png"
 	"io"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
-	"os"
+	"strings"
 	"testing"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/config"
-	authdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
-	filesdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/files"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/router"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
-	authservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/auth"
-	filesservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/files"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/storage"
-	authusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/auth"
-	filesusecase "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/usecase/files"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
-	"github.com/gorilla/mux"
+	authdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/auth"
+	userdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/user"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/router"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/grpc_client/userclient"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/middleware"
+	userfixture "github.com/go-park-mail-ru/2026_2_OnlySeans/services/user/tests/integrationfixture"
+	pb "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/user"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/tests/testutil"
 	"github.com/stretchr/testify/require"
 )
 
-type integrationAuthenticator struct{}
-
-func (integrationAuthenticator) Authenticate(_ context.Context, session string) (domain.UserID, error) {
-	if session != "integration-session" {
-		return 0, domain.ErrUnauthorized
-	}
-	return 1, nil
-}
-
 func TestRustFSAvatarHTTP(t *testing.T) {
-	cfg, err := config.LoadS3("../../configs/s3.yaml")
-	require.NoError(t, err)
-	client, err := storage.NewS3Client(*cfg)
-	require.NoError(t, err)
-	objectStorage, err := filesservice.NewS3Storage(client, cfg.Bucket, cfg.PublicEndpoint, cfg.AvatarURLLifetime, nil)
-	require.NoError(t, err)
-	db, err := sql.Open("pgx", os.Getenv("AVATAR_TEST_DATABASE_URL"))
-	require.NoError(t, err)
-	defer db.Close()
-	db.SetMaxOpenConns(1)
-	db.SetMaxIdleConns(1)
+	db := testutil.IntegrationDB(t, "AVATAR_TEST_DATABASE_URL")
+	objectStorage, _ := testutil.IntegrationS3(t)
 	setupCtx, setupCancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer setupCancel()
+	previousFilename := strings.ReplaceAll(uuid.NewString(), "-", "") + ".png"
+	t.Cleanup(func() {
+		cleanupCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		require.NoError(t, objectStorage.DeleteFile(cleanupCtx, previousFilename))
+	})
+	require.NoError(t, objectStorage.UploadFile(setupCtx, previousFilename, "image/png", []byte("previous test avatar")))
 	for _, query := range []string{
 		`CREATE TEMP TABLE role (id bigint PRIMARY KEY, code text NOT NULL)`,
 		`INSERT INTO role VALUES (1, 'reader')`,
@@ -75,46 +58,23 @@ func TestRustFSAvatarHTTP(t *testing.T) {
    CHECK (storage_key IS NULL OR size_bytes IS NOT NULL)
   )`,
 		`ALTER TABLE account ADD FOREIGN KEY (avatar_file_id) REFERENCES file(id)`,
-		`INSERT INTO file (storage_key, mime_type, size_bytes, created_by) VALUES ('previous.png', 'image/png', 1, 1)`,
-		`UPDATE account SET avatar_file_id = (SELECT id FROM file WHERE storage_key = 'previous.png') WHERE id = 1`,
 	} {
-		_, err = db.ExecContext(setupCtx, query)
+		_, err := db.ExecContext(setupCtx, query)
 		require.NoError(t, err)
 	}
-	avatarRepo, err := filesservice.NewPostgresAvatarRepo(db, testFilesLogger(t))
+	_, err := db.ExecContext(setupCtx, `INSERT INTO file (storage_key, mime_type, size_bytes, created_by) VALUES ($1, 'image/png', 20, 1)`, previousFilename)
 	require.NoError(t, err)
-	upload, err := filesusecase.NewUploadAvatarUseCase(objectStorage, avatarRepo, filesusecase.UploadAvatarOptions{MaxSize: cfg.MaxAvatarSize, MaxDimension: cfg.MaxAvatarDimension, CleanupTimeout: cfg.AvatarCleanupTimeout}, testFilesLogger(t))
+	_, err = db.ExecContext(setupCtx, `UPDATE account SET avatar_file_id = (SELECT id FROM file WHERE storage_key = $1) WHERE id = 1`, previousFilename)
 	require.NoError(t, err)
-	getURL, err := filesusecase.NewGetAvatarURLUseCase(objectStorage, testFilesLogger(t))
+	appLogger := testutil.DiscardLogger()
+	rpc := pb.NewUserServiceClient(userfixture.New(t, db, objectStorage))
+	users := userclient.NewUserClient(rpc)
+	sessions := integrationSessions{}
+	handler, err := router.NewRouter(router.Handlers{
+		Auth: authdelivery.NewAuthHandler(sessions, users, appLogger), Files: userdelivery.NewAvatarHandler(users, appLogger),
+	}, middleware.NewAuthMiddleware(sessions, users, appLogger), nil, appLogger)
 	require.NoError(t, err)
-	appLogger, err := logger.NewLogger(io.Discard, logger.LogLevelInfo, "text")
-	require.NoError(t, err)
-	accountAvatar, err := filesusecase.NewAccountAvatarUseCase(avatarRepo, objectStorage, testFilesLogger(t))
-	require.NoError(t, err)
-	handler, err := filesdelivery.NewHandler(upload, getURL, accountAvatar, appLogger)
-	require.NoError(t, err)
-	routes := mux.NewRouter()
-	routes.HandleFunc("/api/avatars", router.RequireAuth(integrationAuthenticator{})(handler.UploadAvatar)).Methods(http.MethodPost)
-	routes.HandleFunc("/api/avatars/{filename}", handler.GetAvatarURL).Methods(http.MethodGet)
-	userRepo := authservice.NewPostgresUserRepo(db, nil)
-	sessions := authservice.NewInMemorySessionStore(time.Hour)
-	passwords := &authservice.BcryptPasswordService{}
-	registerUC, err := authusecase.NewRegisterUserUseCase(userRepo, sessions, passwords, appLogger)
-	require.NoError(t, err)
-	loginUC, err := authusecase.NewLoginUserUseCase(userRepo, sessions, passwords, appLogger)
-	require.NoError(t, err)
-	logoutUC, err := authusecase.NewLogoutUserUseCase(sessions, appLogger)
-	require.NoError(t, err)
-	authenticateUC, err := authusecase.NewAuthenticateUserUseCase(sessions, appLogger)
-	require.NoError(t, err)
-	getUserUC, err := authusecase.NewGetUserUseCase(userRepo, appLogger)
-	require.NoError(t, err)
-	authHandler, err := authdelivery.NewHandler(authdelivery.HandlerUseCases{
-		Register: registerUC, Login: loginUC, Logout: logoutUC, Authenticate: authenticateUC, GetUser: getUserUC,
-	}, appLogger)
-	require.NoError(t, err)
-	routes.HandleFunc("/api/authorised", router.RequireAuth(integrationAuthenticator{})(authHandler.Authorised)).Methods(http.MethodGet)
-	server := httptest.NewServer(routes)
+	server := httptest.NewServer(handler)
 	defer server.Close()
 	httpClient := &http.Client{Timeout: 10 * time.Second}
 
@@ -145,7 +105,7 @@ func TestRustFSAvatarHTTP(t *testing.T) {
 	t.Cleanup(func() {
 		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cleanupCancel()
-		_, err := client.DeleteObject(cleanupCtx, &s3.DeleteObjectInput{Bucket: aws.String(cfg.Bucket), Key: aws.String(created.Filename)})
+		err := objectStorage.DeleteFile(cleanupCtx, created.Filename)
 		require.NoError(t, err, "remove test object")
 	})
 
@@ -182,13 +142,13 @@ func TestRustFSAvatarHTTP(t *testing.T) {
 	}
 	require.NoError(t, json.NewDecoder(profileResponse.Body).Decode(&profile))
 	require.Equal(t, created.Filename, profile.User.AvatarFilename)
-	other, err := userRepo.GetUser(ctx, 2)
+	other, err := users.GetByID(ctx, 2)
 	require.NoError(t, err)
 	require.Nil(t, other.AvatarFilename)
-	var owner domain.UserID
+	var owner int64
 	var size int64
 	require.NoError(t, db.QueryRowContext(ctx, `SELECT created_by, size_bytes FROM file WHERE storage_key = $1`, created.Filename).Scan(&owner, &size))
-	require.Equal(t, domain.UserID(1), owner)
+	require.Equal(t, int64(1), owner)
 	require.Equal(t, int64(imageData.Len()), size)
 	t.Log("POST 201 -> PostgreSQL avatar assigned -> profile 200 -> signed download 200; other account unchanged")
 }

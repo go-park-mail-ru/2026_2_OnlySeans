@@ -214,7 +214,3 @@ func (a *openAPIAdapter) FeaturedReleases(w http.ResponseWriter, r *http.Request
 func (a *openAPIAdapter) UpdateRelease(w http.ResponseWriter, r *http.Request, id int64) {
 	a.next.ServeHTTP(w, r)
 }
-
-func (a *openAPIAdapter) RefreshSession(w http.ResponseWriter, r *http.Request) {
-	a.next.ServeHTTP(w, r)
-}

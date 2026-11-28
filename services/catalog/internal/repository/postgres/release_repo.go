@@ -42,6 +42,8 @@ const (
 
 	checkReleaseSubscriptionQuery = `SELECT COALESCE(russia_premiere_date >= (now() AT TIME ZONE 'Europe/Moscow')::date,false) FROM film WHERE id=$1 FOR SHARE`
 
+	releaseSubscriptionExistsQuery = `SELECT EXISTS (SELECT 1 FROM release_subscription WHERE account_id=$1 AND film_id=$2)`
+
 	insertReleaseSubscriptionQuery = `INSERT INTO release_subscription (account_id,film_id) VALUES ($1,$2) ON CONFLICT DO NOTHING`
 
 	countReleaseNotificationsQuery = `SELECT count(*) FROM notification WHERE account_id=$1`
@@ -217,6 +219,15 @@ func (r *ReleaseRepo) SetSubscription(ctx context.Context, user, id int64, on bo
 
 	if err != nil {
 		return err
+	}
+
+	var subscribed bool
+	if err = tx.QueryRowContext(ctx, releaseSubscriptionExistsQuery, user, id).Scan(&subscribed); err != nil {
+		return err
+	}
+
+	if subscribed {
+		return tx.Commit()
 	}
 
 	if !available {

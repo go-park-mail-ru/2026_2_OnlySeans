@@ -18,7 +18,6 @@ const (
 	RoleAdmin         = "admin"
 	RoleEditor        = "editor"
 	sessionCookieName = "session_id"
-	sessionCookiePath = "/"
 )
 
 type Authenticator interface {
@@ -62,7 +61,7 @@ func (m *AuthMiddleware) checkSession(w http.ResponseWriter, r *http.Request) (a
 		return authclient.SessionInfo{}, err
 	}
 
-	if sessionpolicy.NeedsRefresh(session.LastRefreshedAt, time.Now()) {
+	if r.URL.Path != "/api/logout" && session.RefreshSupported && sessionpolicy.NeedsRefresh(session.LastRefreshedAt, time.Now()) {
 		refreshed, refreshErr := m.authClient.RefreshSession(r.Context(), cookie.Value)
 		if refreshErr != nil {
 			return authclient.SessionInfo{}, refreshErr
@@ -73,20 +72,24 @@ func (m *AuthMiddleware) checkSession(w http.ResponseWriter, r *http.Request) (a
 			return authclient.SessionInfo{}, authclient.ErrInternal
 		}
 
-		http.SetCookie(w, &http.Cookie{
-			Name:     sessionCookieName,
-			Value:    cookie.Value,
-			Path:     sessionCookiePath,
-			Expires:  refreshed.GetExpiresAt().AsTime(),
-			HttpOnly: true,
-			Secure:   m.CookieSecure,
-			SameSite: http.SameSiteLaxMode,
-		})
-
 		session.UserID = refreshed.GetUserId()
 		session.Role = refreshed.GetRole()
 		session.ExpiresAt = refreshed.GetExpiresAt().AsTime()
 		session.LastRefreshedAt = refreshed.GetLastRefreshedAt().AsTime()
+	}
+
+	if r.URL.Path != "/api/logout" && session.ExpiresAt.After(time.Now()) {
+		w.Header().Set("Cache-Control", "private, no-store")
+
+		http.SetCookie(w, &http.Cookie{
+			Name:     sessionCookieName,
+			Value:    cookie.Value,
+			Path:     "/",
+			Expires:  session.ExpiresAt,
+			HttpOnly: true,
+			Secure:   m.CookieSecure,
+			SameSite: http.SameSiteLaxMode,
+		})
 	}
 
 	return session, nil
@@ -100,7 +103,7 @@ func (m *AuthMiddleware) OptionalAuthenticate(next http.Handler) http.Handler {
 		}
 
 		switch r.URL.Path {
-		case "/api/login", "/api/register", "/api/refresh", "/api/logout":
+		case "/api/login", "/api/register", "/api/logout":
 			next.ServeHTTP(w, r)
 			return
 		}

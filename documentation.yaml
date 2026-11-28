@@ -383,36 +383,6 @@ paths:
           $ref: '#/components/responses/RouteMethodNotAllowed'
         '500':
           $ref: '#/components/responses/InternalError'
-  /api/refresh:
-    post:
-      tags: [Авторизация]
-      operationId: refreshSession
-      summary: Продлить действующую сессию на три дня
-      description: |-
-        Cookie session_id обязательна. Продлевает существующую сессию на 72 часа от момента запроса,
-        если в текущий календарный день по Москве её ещё не продлевали. Повторный запрос срок не меняет.
-        Атомарно обновляет last_refreshed_at, expires_at и TTL записи Redis; ID сессии сохраняется.
-        Возвращает обновлённую HttpOnly cookie с новым Expires. Тело запроса не требуется.
-        Отсутствующая, истёкшая, удалённая или некорректная сессия: 401.
-        Удалённая при logout сессия не восстанавливается. Ошибки Redis: 500, не 401.
-        Ответ имеет Cache-Control: no-store. Запрос фронтенда — credentials: include.
-        Middleware автоматически продлевает действующую сессию при первом авторизованном запросе нового дня.
-        Фронтенду не требуется отдельно вызывать POST /api/refresh.
-      x-implementation-status: implemented
-      security:
-        - sessionCookie: []
-      responses:
-        '204':
-          description: Сессия продлена. Без тела.
-          headers:
-            Set-Cookie:
-              $ref: '#/components/headers/SetSessionCookie'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '405':
-          $ref: '#/components/responses/RouteMethodNotAllowed'
-        '500':
-          $ref: '#/components/responses/InternalError'
   /api/logout:
     post:
       tags:
@@ -1570,7 +1540,7 @@ paths:
           type: integer
           minimum: 1
           maximum: 500
-          default: 500
+          default: 100
       - name: offset
         in: query
         required: false
@@ -1697,7 +1667,7 @@ paths:
           type: integer
           minimum: 1
           maximum: 500
-          default: 500
+          default: 100
       - name: offset
         in: query
         required: false
@@ -1821,7 +1791,7 @@ paths:
           type: integer
           minimum: 1
           maximum: 500
-          default: 500
+          default: 100
       - name: offset
         in: query
         required: false
@@ -1988,7 +1958,7 @@ paths:
           type: integer
           minimum: 1
           maximum: 500
-          default: 500
+          default: 100
       - name: offset
         in: query
         required: false
@@ -2093,7 +2063,7 @@ components:
       description: |-
         ID серверной сессии — UUID. Новые сессии действуют 72 часа.
         Middleware продлевает действующую сессию на 72 часа при первом авторизованном запросе нового дня
-        по Москве. POST /api/refresh соблюдает такое же ограничение: не чаще одного раза в день.
+        по Москве. Отдельного HTTP-запроса для продления не требуется.
         Браузер отправляет cookie с credentials: include. HttpOnly закрывает доступ из JavaScript.
   headers:
     SetSessionCookie:
@@ -2135,6 +2105,7 @@ components:
         default: 0
   schemas:
     ReleaseCalendarItem:
+      description: Карточка календаря без полного описания фильма. Полное описание доступно через GET /api/films/{id}.
       type: object
       required:
       - film_id
@@ -2180,10 +2151,14 @@ components:
       minProperties: 1
       properties:
         world_premiere_date:
+          x-go-type: json.RawMessage
+          x-go-type-skip-optional-pointer: true
           type: string
           format: date
           nullable: true
         russia_premiere_date:
+          x-go-type: json.RawMessage
+          x-go-type-skip-optional-pointer: true
           type: string
           format: date
           nullable: true

@@ -560,7 +560,7 @@ type Registration struct {
 	Username string `json:"username"`
 }
 
-// ReleaseCalendarItem defines model for ReleaseCalendarItem.
+// ReleaseCalendarItem Карточка календаря без полного описания фильма. Полное описание доступно через GET /api/films/{id}.
 type ReleaseCalendarItem struct {
 	// Film Фильм. Необязательные поля (original_title, duration_min, description, poster_url,
 	// trailer_url) без значения в JSON отсутствуют, null не возвращается.
@@ -582,8 +582,8 @@ type ReleaseCalendarPage struct {
 
 // ReleaseCalendarPatch defines model for ReleaseCalendarPatch.
 type ReleaseCalendarPatch struct {
-	RussiaPremiereDate *openapi_types.Date `json:"russia_premiere_date,omitempty"`
-	WorldPremiereDate  *openapi_types.Date `json:"world_premiere_date,omitempty"`
+	RussiaPremiereDate json.RawMessage `json:"russia_premiere_date,omitempty"`
+	WorldPremiereDate  json.RawMessage `json:"world_premiere_date,omitempty"`
 }
 
 // ReleaseNotification defines model for ReleaseNotification.
@@ -1041,9 +1041,6 @@ type ServerInterface interface {
 	// UpdatePerson Изменить персону
 	// (PUT /api/persons/{id})
 	UpdatePerson(w http.ResponseWriter, r *http.Request, id PersonID)
-	// RefreshSession Продлить действующую сессию на три дня
-	// (POST /api/refresh)
-	RefreshSession(w http.ResponseWriter, r *http.Request)
 	// RegisterUser Регистрация
 	// (POST /api/register)
 	RegisterUser(w http.ResponseWriter, r *http.Request)
@@ -2237,20 +2234,6 @@ func (siw *ServerInterfaceWrapper) UpdatePerson(w http.ResponseWriter, r *http.R
 	handler.ServeHTTP(w, r)
 }
 
-// RefreshSession operation middleware
-func (siw *ServerInterfaceWrapper) RefreshSession(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.RefreshSession(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
 // RegisterUser operation middleware
 func (siw *ServerInterfaceWrapper) RegisterUser(w http.ResponseWriter, r *http.Request) {
 
@@ -2554,8 +2537,6 @@ func HandlerWithOptions(si ServerInterface, options GorillaServerOptions) http.H
 	r.HandleFunc(options.BaseURL+"/api/register", wrapper.RegisterUser).Methods(http.MethodPost)
 
 	r.HandleFunc(options.BaseURL+"/api/login", wrapper.LoginUser).Methods(http.MethodPost)
-
-	r.HandleFunc(options.BaseURL+"/api/refresh", wrapper.RefreshSession).Methods(http.MethodPost)
 
 	r.HandleFunc(options.BaseURL+"/api/logout", wrapper.LogoutUser).Methods(http.MethodPost)
 

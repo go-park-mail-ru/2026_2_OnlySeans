@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
-	personsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/persons"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/services/persons/internal/domain"
+	personsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/services/persons/internal/repository/postgres"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/stretchr/testify/require"
 )

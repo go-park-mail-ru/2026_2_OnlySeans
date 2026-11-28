@@ -82,14 +82,10 @@ func (h *Handler) fail(w http.ResponseWriter, r *http.Request, err error) {
 	httpresponse.WriteErrorContext(r.Context(), w, code, message, h.appLogger)
 }
 
-func invalid() error {
-	return status.Error(codes.InvalidArgument, invalidRequestMessage)
-}
-
 func pathID(r *http.Request) (int64, error) {
 	id, err := strconv.ParseInt(mux.Vars(r)[idPathParam], decimalBase, idBitSize)
 	if err != nil || id <= 0 {
-		return 0, invalid()
+		return 0, status.Error(codes.InvalidArgument, invalidRequestMessage)
 	}
 
 	return id, nil
@@ -102,12 +98,12 @@ func queryNumber(r *http.Request, key string, fallback int32) (int32, error) {
 	}
 
 	if len(raw) != singleQueryValueCount {
-		return 0, invalid()
+		return 0, status.Error(codes.InvalidArgument, invalidRequestMessage)
 	}
 
 	n, err := strconv.ParseInt(raw[0], decimalBase, queryNumberBitSize)
 	if err != nil || n < 0 {
-		return 0, invalid()
+		return 0, status.Error(codes.InvalidArgument, invalidRequestMessage)
 	}
 
 	return int32(n), nil
@@ -116,7 +112,7 @@ func queryNumber(r *http.Request, key string, fallback int32) (int32, error) {
 func page(r *http.Request) (int32, int32, error) {
 	limit, err := queryNumber(r, limitQueryParam, releaselimits.DefaultLimit)
 	if err != nil || limit < releaselimits.MinLimit || limit > releaselimits.MaxLimit {
-		return 0, 0, invalid()
+		return 0, 0, status.Error(codes.InvalidArgument, invalidRequestMessage)
 	}
 
 	offset, err := queryNumber(r, offsetQueryParam, releaselimits.MinOffset)
@@ -154,14 +150,14 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request, featured, film bo
 		}
 
 		if limit > maxFeaturedLimit || offset != releaselimits.MinOffset {
-			h.fail(w, r, invalid())
+			h.fail(w, r, status.Error(codes.InvalidArgument, invalidRequestMessage))
 			return
 		}
 	}
 
 	q := r.URL.Query()
 	if q.Has(countryQueryParam) || q.Has(typeQueryParam) {
-		h.fail(w, r, invalid())
+		h.fail(w, r, status.Error(codes.InvalidArgument, invalidRequestMessage))
 		return
 	}
 
@@ -177,7 +173,7 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request, featured, film bo
 	if raw := q.Get(genreIDQueryParam); q.Has(genreIDQueryParam) {
 		req.GenreId, err = strconv.ParseInt(raw, decimalBase, idBitSize)
 		if err != nil || req.GenreId <= 0 {
-			h.fail(w, r, invalid())
+			h.fail(w, r, status.Error(codes.InvalidArgument, invalidRequestMessage))
 			return
 		}
 	}
@@ -223,31 +219,31 @@ type releaseDTO struct {
 	Film               filmdto.FilmResponseDTO `json:"film"`
 }
 
-type input struct {
+type updateReleaseRequest struct {
 	WorldPremiereDate  json.RawMessage `json:"world_premiere_date"`
 	RussiaPremiereDate json.RawMessage `json:"russia_premiere_date"`
 }
 
-func decodeInput(w http.ResponseWriter, r *http.Request) (*pb.ReleaseInput, error) {
-	var in input
+func decodeUpdateReleaseRequest(w http.ResponseWriter, r *http.Request) (*pb.ReleaseInput, error) {
+	var in updateReleaseRequest
 	if err := httprequest.DecodeJSON(w, r, &in); err != nil {
-		return nil, invalid()
+		return nil, status.Error(codes.InvalidArgument, invalidRequestMessage)
 	}
 
 	result := &pb.ReleaseInput{WorldPremiereDateSet: in.WorldPremiereDate != nil, RussiaPremiereDateSet: in.RussiaPremiereDate != nil}
 	if !result.WorldPremiereDateSet && !result.RussiaPremiereDateSet {
-		return nil, invalid()
+		return nil, status.Error(codes.InvalidArgument, invalidRequestMessage)
 	}
 
 	if result.WorldPremiereDateSet {
 		if err := json.Unmarshal(in.WorldPremiereDate, &result.WorldPremiereDate); err != nil {
-			return nil, invalid()
+			return nil, status.Error(codes.InvalidArgument, invalidRequestMessage)
 		}
 	}
 
 	if result.RussiaPremiereDateSet {
 		if err := json.Unmarshal(in.RussiaPremiereDate, &result.RussiaPremiereDate); err != nil {
-			return nil, invalid()
+			return nil, status.Error(codes.InvalidArgument, invalidRequestMessage)
 		}
 	}
 
@@ -261,7 +257,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	in, err := decodeInput(w, r)
+	in, err := decodeUpdateReleaseRequest(w, r)
 	if err != nil {
 		h.fail(w, r, err)
 		return

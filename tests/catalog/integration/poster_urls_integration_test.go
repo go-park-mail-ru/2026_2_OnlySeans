@@ -1,6 +1,6 @@
 //go:build integration
 
-package films_test
+package integration_test
 
 import (
 	"context"
@@ -10,9 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
-	filmsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/films"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/pkg/logger"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/services/catalog/internal/domain"
+	filmsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/services/catalog/internal/repository/postgres"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/services/catalog/internal/usecase"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/logger"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/stretchr/testify/require"
 )
@@ -50,8 +51,8 @@ func TestPostgresPosterURLSelection(t *testing.T) {
 	}
 	appLogger, err := logger.NewLogger(io.Discard, logger.LogLevelDebug, "json")
 	require.NoError(t, err)
-	filmsRepo := filmsservice.NewPostgresService(db, appLogger)
-	repo, err := filmsservice.NewRepositoryWithPosterURLs(filmsRepo, filmsRepo, integrationPosterSigner{}, appLogger)
+	filmsRepo := filmsservice.NewFilmRepo(db, appLogger)
+	repo, err := usecase.NewPosterURLReader(filmsRepo, filmsRepo, filmsRepo, integrationPosterSigner{})
 	require.NoError(t, err)
 	tests := []struct {
 		name  string
@@ -97,3 +98,5 @@ func TestPostgresPosterURLSelection(t *testing.T) {
 		})
 	}
 }
+
+func ptr(value string) *string { return &value }
