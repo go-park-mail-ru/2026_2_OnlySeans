@@ -28,8 +28,11 @@ var (
 
 func (h *AdminHandler) writeError(w http.ResponseWriter, r *http.Request, err error) {
 	status, code, message := http.StatusInternalServerError, internalErrorCode, domain.ErrInternal.Error()
+	var blockError oc.HomeBlocksError
 
 	switch {
+	case errors.As(err, &blockError):
+		status, code, message = http.StatusBadRequest, invalidInputCode, blockError.Error()
 	case errors.Is(err, oc.ErrSnapshotTooLarge):
 		status, code, message = http.StatusRequestEntityTooLarge, snapshotTooLargeCode, oc.ErrSnapshotTooLarge.Error()
 	case errors.Is(err, errInvalidJSON), errors.Is(err, oc.ErrInvalidJSON):

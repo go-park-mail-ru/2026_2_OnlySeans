@@ -124,7 +124,7 @@ func (uc *ConfigsUseCase) Delete(ctx context.Context, input DeleteResourceInput)
 
 func prepareConfig(input ConfigFields) (oc.Config, error) {
 	value := oc.Config{Scope: input.Scope, Key: input.Key, Title: strings.TrimSpace(input.Title), Description: strings.TrimSpace(input.Description), Value: append(json.RawMessage(nil), input.Value...)}
-	if err := value.Validate(); err != nil {
+	if err := value.ValidateForWrite(); err != nil {
 		return value, err
 	}
 

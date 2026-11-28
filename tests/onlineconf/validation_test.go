@@ -43,6 +43,50 @@ func TestConfigValidationJSONAndKnownLimits(t *testing.T) {
 	}
 }
 
+func TestHomeBlocksWriteSchema(t *testing.T) {
+	banner := func(title string) string {
+		return `[{"type":"banner","title":"` + title + `"}]`
+	}
+	button := func(href string) string {
+		return `[{"type":"banner","title":"A","action":{"label":"Open","href":"` + href + `"}}]`
+	}
+	valid := []string{
+		`[]`, `[{"type":"collection","id":1e2}]`, `[{"type":"collection","id":9007199254740991}]`,
+		banner("  " + strings.Repeat("🎬", 50) + "  "), button("/"), button("/collections?sort=date#today"),
+		button("/onlineconf-news"), button("/a/%2E%2e/collections"),
+		"[" + strings.Repeat(`{"type":"collection","id":1},`, 5) + `{"type":"banner","title":"A","text":"B"}]`,
+	}
+	invalid := []string{
+		`null`, `{}`, `[null]`, `[{}]`, `[{"type":"other"}]`, `[{"type":"banner"}]`, banner("   "), banner(strings.Repeat("🎬", 51)),
+		`[{"type":"collection","id":0}]`, `[{"type":"collection","id":1.5}]`, `[{"type":"collection","id":"2"}]`,
+		`[{"type":"collection","id":9007199254740992}]`, `[{"type":"banner","title":"A","text":null}]`,
+		`[{"type":"banner","title":"A","text":"` + strings.Repeat("x", 301) + `"}]`,
+		`[{"type":"banner","title":"A","action":null}]`, `[{"type":"banner","title":"A","action":{"href":"/"}}]`,
+		`[{"type":"banner","title":"A","action":{"href":"/","label":"` + strings.Repeat("x", 41) + `"}}]`,
+		button("collections"), button("//example.test"), button("/space here"), button("/onlineconf?from=home"),
+		button("/old/%2e%2E/onlineconf/flags"), button("/a/..//other"), button(`/a\\b`),
+		"[" + strings.Repeat(`{"type":"collection","id":1},`, 6) + `{"type":"banner","title":"A"}]`,
+	}
+	config := oc.Config{Scope: "frontend", Key: "home_blocks", Title: "Home"}
+	for _, raw := range valid {
+		config.Value = json.RawMessage(raw)
+		if err := config.ValidateForWrite(); err != nil {
+			t.Errorf("valid %s: %v", raw, err)
+		}
+	}
+	for _, raw := range invalid {
+		config.Value = json.RawMessage(raw)
+		var blockError oc.HomeBlocksError
+		if err := config.ValidateForWrite(); !errors.As(err, &blockError) {
+			t.Errorf("invalid %s: got %v", raw, err)
+		}
+	}
+	config.Scope, config.Value = "other", json.RawMessage(`null`)
+	if err := config.ValidateForWrite(); err != nil {
+		t.Fatal("unexpected schema outside frontend scope:", err)
+	}
+}
+
 func TestFlagValidation(t *testing.T) {
 	flag := oc.FeatureFlag{Scope: "frontend", Key: "test", Title: "Test", Salt: "stable"}
 	for _, percent := range []int{-1, 101} {

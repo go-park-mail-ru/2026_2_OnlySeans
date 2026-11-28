@@ -48,7 +48,7 @@ func (r *PostgresRepository) ListConfigs(ctx context.Context, options oc.ListOpt
 }
 
 func (r *PostgresRepository) CreateConfig(ctx context.Context, actorID domain.UserID, input oc.Config) (*oc.Config, error) {
-	if err := input.Validate(); err != nil {
+	if err := input.ValidateForWrite(); err != nil {
 		return nil, err
 	}
 	var result oc.Config
@@ -83,7 +83,7 @@ func (r *PostgresRepository) UpdateConfig(ctx context.Context, actorID domain.Us
 		return nil, err
 	}
 
-	if err := input.Validate(); err != nil {
+	if err := input.ValidateForWrite(); err != nil {
 		return nil, err
 	}
 	var result oc.Config
