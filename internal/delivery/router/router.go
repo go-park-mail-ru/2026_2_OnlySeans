@@ -10,7 +10,7 @@ import (
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/files"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/films"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/library"
-	onlineconfdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/onlineconf"
+	onlineconfdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/onlineconfruntime"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/persons"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/ratings"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/reviews"

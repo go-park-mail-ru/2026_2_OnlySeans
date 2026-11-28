@@ -18,17 +18,17 @@ import (
 )
 
 const (
-	EnvServerHost                = "SERVER_HOST"
-	EnvServerPort                = "SERVER_PORT"
-	EnvDatabaseURL               = "DATABASE_URL"
-	EnvRedisURL                  = "REDIS_URL"
-	EnvLogLevel                  = "LOG_LEVEL"
-	EnvLogFormat                 = "LOG_FORMAT"
-	EnvOnlineConfURL             = "ONLINECONF_URL"
-	EnvOnlineConfServiceToken    = "ONLINECONF_SERVICE_TOKEN"
-	EnvOnlineConfRefreshInterval = "ONLINECONF_REFRESH_INTERVAL"
-	EnvOnlineConfHTTPTimeout     = "ONLINECONF_HTTP_TIMEOUT"
-	EnvOnlineConfSnapshotPath    = "ONLINECONF_SNAPSHOT_PATH"
+	EnvServerHost                    = "SERVER_HOST"
+	EnvServerPort                    = "SERVER_PORT"
+	EnvDatabaseURL                   = "DATABASE_URL"
+	EnvRedisURL                      = "REDIS_URL"
+	EnvLogLevel                      = "LOG_LEVEL"
+	EnvLogFormat                     = "LOG_FORMAT"
+	EnvOnlineConfURL                 = "ONLINECONF_URL"
+	EnvOnlineConfRuntimeServiceToken = "ONLINECONF_SERVICE_TOKEN"
+	EnvOnlineConfRefreshInterval     = "ONLINECONF_REFRESH_INTERVAL"
+	EnvOnlineConfHTTPTimeout         = "ONLINECONF_HTTP_TIMEOUT"
+	EnvOnlineConfSnapshotPath        = "ONLINECONF_SNAPSHOT_PATH"
 
 	EnvS3Endpoint       = "S3_ENDPOINT"
 	EnvS3PublicEndpoint = "S3_PUBLIC_ENDPOINT"
@@ -135,7 +135,7 @@ type LoggerConfig struct {
 	File   string              `yaml:"file"`
 }
 
-type OnlineConf struct {
+type OnlineConfRuntime struct {
 	URL             string
 	ServiceToken    string
 	RefreshInterval time.Duration
@@ -196,8 +196,8 @@ func DefaultLogger() *LoggerConfig {
 	}
 }
 
-func LoadOnlineConf(lookupEnv func(string) (string, bool)) (*OnlineConf, error) {
-	cfg := &OnlineConf{
+func LoadOnlineConfRuntime(lookupEnv func(string) (string, bool)) (*OnlineConfRuntime, error) {
+	cfg := &OnlineConfRuntime{
 		RefreshInterval: defaultOnlineConfRefreshInterval,
 		HTTPTimeout:     defaultOnlineConfHTTPTimeout,
 		SnapshotPath:    defaultOnlineConfSnapshotPath,
@@ -205,7 +205,7 @@ func LoadOnlineConf(lookupEnv func(string) (string, bool)) (*OnlineConf, error) 
 	if value, ok := lookupEnv(EnvOnlineConfURL); ok {
 		cfg.URL = strings.TrimSpace(value)
 	}
-	if value, ok := lookupEnv(EnvOnlineConfServiceToken); ok {
+	if value, ok := lookupEnv(EnvOnlineConfRuntimeServiceToken); ok {
 		cfg.ServiceToken = value
 	}
 	if value, ok := lookupEnv(EnvOnlineConfSnapshotPath); ok {
@@ -231,7 +231,7 @@ func LoadOnlineConf(lookupEnv func(string) (string, bool)) (*OnlineConf, error) 
 	return cfg, nil
 }
 
-func (c *OnlineConf) Validate() error {
+func (c *OnlineConfRuntime) Validate() error {
 	if c.RefreshInterval <= 0 {
 		return errors.New("onlineconf refresh interval must be positive")
 	}
@@ -245,7 +245,7 @@ func (c *OnlineConf) Validate() error {
 		return nil
 	}
 	if strings.TrimSpace(c.ServiceToken) == "" {
-		return fmt.Errorf("%s is required when %s is configured", EnvOnlineConfServiceToken, EnvOnlineConfURL)
+		return fmt.Errorf("%s is required when %s is configured", EnvOnlineConfRuntimeServiceToken, EnvOnlineConfURL)
 	}
 	parsed, err := url.Parse(c.URL)
 	if err != nil || parsed.Scheme == "" || parsed.Host == "" {

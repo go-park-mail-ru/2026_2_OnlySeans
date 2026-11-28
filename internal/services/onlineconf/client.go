@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 )
@@ -74,7 +75,10 @@ func (c *HTTPClient) Fetch(ctx context.Context) (*Snapshot, error) {
 		return nil, fmt.Errorf("snapshot exceeds %d bytes", MaxSnapshotBytes)
 	}
 
-	var raw snapshotDTO
+	var raw *struct {
+		snapshotDTO
+		Revision *int64 `json:"revision"`
+	}
 	decoder := json.NewDecoder(bytes.NewReader(body))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&raw); err != nil {
@@ -83,13 +87,18 @@ func (c *HTTPClient) Fetch(ctx context.Context) (*Snapshot, error) {
 	if decoder.Decode(&struct{}{}) != io.EOF {
 		return nil, errors.New("decode snapshot: trailing JSON data")
 	}
-	return buildSnapshot(raw)
+	if raw == nil || raw.Revision == nil || raw.GeneratedAt.IsZero() || raw.Configs == nil || raw.Flags == nil {
+		return nil, errors.New("snapshot must contain generated_at, configs and flags")
+	}
+	raw.snapshotDTO.Revision = *raw.Revision
+	return buildSnapshot(raw.snapshotDTO)
 }
 
 type snapshotDTO struct {
-	Revision int64       `json:"revision"`
-	Configs  []configDTO `json:"configs"`
-	Flags    []flagDTO   `json:"flags"`
+	GeneratedAt time.Time   `json:"generated_at"`
+	Revision    int64       `json:"revision"`
+	Configs     []configDTO `json:"configs"`
+	Flags       []flagDTO   `json:"flags"`
 }
 
 type configDTO struct {
@@ -99,10 +108,12 @@ type configDTO struct {
 }
 
 type flagDTO struct {
+	ID              int64           `json:"id"`
+	Salt            string          `json:"salt"`
 	Scope           string          `json:"scope"`
 	Key             string          `json:"key"`
 	Enabled         bool            `json:"enabled"`
-	Rollout         *int            `json:"rollout"`
-	IncludedUserIDs []domain.UserID `json:"included_user_ids"`
-	ExcludedUserIDs []domain.UserID `json:"excluded_user_ids"`
+	Rollout         *int            `json:"rollout_percent"`
+	IncludedUserIDs []domain.UserID `json:"force_on_user_ids"`
+	ExcludedUserIDs []domain.UserID `json:"force_off_user_ids"`
 }

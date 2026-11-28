@@ -18,7 +18,7 @@ import (
 	filesdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/files"
 	filmsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/films"
 	librarydelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/library"
-	onlineconfdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/onlineconf"
+	onlineconfdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/onlineconfruntime"
 	persondelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/persons"
 	ratingsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/ratings"
 	reviewsdelivery "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/reviews"
@@ -94,7 +94,7 @@ func Run(configPath, databaseConfigPath, redisConfigPath, s3ConfigPath, loggerCo
 		return fmt.Errorf("create logger: %w", err)
 	}
 
-	onlineConfCfg, err := config.LoadOnlineConf(os.LookupEnv)
+	onlineConfCfg, err := config.LoadOnlineConfRuntime(os.LookupEnv)
 	if err != nil {
 		return fmt.Errorf("load onlineconf config: %w", err)
 	}

@@ -32,9 +32,11 @@ if ($LASTEXITCODE -ne 0 -or $schemaResult.Trim() -ne 't') {
 }
 
 Get-Content -LiteralPath $resolvedMigration -Raw | docker compose exec -T db psql `
+    --single-transaction `
     -v ON_ERROR_STOP=1 `
     -U $DatabaseUser `
-    -d $DatabaseName
+    -d $DatabaseName `
+    -f -
 if ($LASTEXITCODE -ne 0) {
     throw 'OnlineConf migration failed. Existing data was not deleted.'
 }

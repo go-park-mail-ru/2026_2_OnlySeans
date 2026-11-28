@@ -319,22 +319,26 @@ func TestRequireAuth(t *testing.T) {
 
 func TestOptionalAuth(t *testing.T) {
 	tests := []struct {
-		name       string
-		cookie     *http.Cookie
-		authErr    error
-		wantStatus int
-		wantUser   domain.UserID
-		wantNext   bool
+		name         string
+		cookie       string
+		authenticate bool
+		authErr      error
+		wantStatus   int
+		wantUser     domain.UserID
+		wantNext     bool
 	}{
-		{"guest", nil, nil, http.StatusOK, 0, true},
-		{"invalid cookie", &http.Cookie{Name: auth.SessionCookieName, Value: "bad"}, domain.ErrUnauthorized, http.StatusUnauthorized, 0, false},
-		{"valid cookie", &http.Cookie{Name: auth.SessionCookieName, Value: "good"}, nil, http.StatusOK, 42, true},
+		{"guest", "", false, nil, http.StatusOK, 0, true},
+		{"invalid cookie", "bad", true, domain.ErrUnauthorized, http.StatusUnauthorized, 0, false},
+		{"empty cookie", " ", false, nil, http.StatusUnauthorized, 0, false},
+		{"malformed cookie", `"unterminated`, false, nil, http.StatusUnauthorized, 0, false},
+		{"store failure", "broken", true, domain.ErrInternal, http.StatusInternalServerError, 0, false},
+		{"valid cookie", "good", true, nil, http.StatusOK, 42, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			authn := mocks.NewMockAuthenticator(gomock.NewController(t))
-			if tt.cookie != nil {
-				authn.EXPECT().Authenticate(gomock.Any(), tt.cookie.Value).Return(domain.UserID(42), tt.authErr)
+			if tt.authenticate {
+				authn.EXPECT().Authenticate(gomock.Any(), tt.cookie).Return(domain.UserID(42), tt.authErr)
 			}
 			called := false
 			var gotUser domain.UserID
@@ -344,8 +348,8 @@ func TestOptionalAuth(t *testing.T) {
 				w.WriteHeader(http.StatusOK)
 			})
 			req := httptest.NewRequest(http.MethodGet, "/api/onlineconf/runtime", nil)
-			if tt.cookie != nil {
-				req.AddCookie(tt.cookie)
+			if tt.cookie != "" {
+				req.Header.Set("Cookie", auth.SessionCookieName+"="+tt.cookie)
 			}
 			rec := httptest.NewRecorder()
 			handler(rec, req)

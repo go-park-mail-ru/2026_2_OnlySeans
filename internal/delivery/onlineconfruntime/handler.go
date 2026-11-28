@@ -1,4 +1,4 @@
-package onlineconf
+package onlineconfruntime
 
 import (
 	"errors"
@@ -29,7 +29,7 @@ func (h *Handler) Runtime(w http.ResponseWriter, r *http.Request) {
 	userID, _ := authdelivery.UserIDFromContext(r.Context())
 	policy := h.policy.ReviewPolicy(userID)
 	w.Header().Set("Cache-Control", "private, no-store")
-	w.Header().Set("Vary", "Cookie")
+	w.Header().Add("Vary", "Cookie")
 	httpresponse.WriteJSONContext(r.Context(), w, http.StatusOK, runtimeResponse{
 		Revision: policy.Revision,
 		Configs: map[string]int{

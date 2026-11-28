@@ -75,3 +75,19 @@ func TestReviewHandlerReturnsStableBusinessCodes(t *testing.T) {
 	require.Equal(t, 400, rec.Code)
 	require.JSONEq(t, `{"error":"review content is too long","code":"review_too_long","details":{"max_length":50,"revision":22}}`, rec.Body.String())
 }
+
+func TestReviewHandlerBlocksUpdateAfterFlagIsDisabled(t *testing.T) {
+	policy := &recordingPolicy{policy: domain.ReviewPolicy{
+		WriteEnabled: true, MaxLength: domain.MaxReviewContentLen, Revision: 1,
+	}}
+	router := newTestRouterWithPolicy(t, testFilms(t, nil), policy)
+	created := createReview(t, router, anna)
+	policy.policy.WriteEnabled = false
+	policy.policy.Revision++
+
+	rec := serve(router, "PUT", reviewPath(created.ID),
+		reviewBodyWithVersion(validTitle, validContent, false, created.Version), anna)
+	require.Equal(t, 403, rec.Code)
+	require.JSONEq(t, `{"error":"feature disabled","code":"feature_disabled"}`, rec.Body.String())
+	require.Equal(t, 2, policy.calls, "create and update each read one policy")
+}

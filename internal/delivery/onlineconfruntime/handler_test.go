@@ -1,4 +1,4 @@
-package onlineconf
+package onlineconfruntime
 
 import (
 	"encoding/json"
@@ -28,12 +28,13 @@ func TestRuntimeUsesSessionContextAndOnlyPublicProjection(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/onlineconf/runtime?user_id=999", nil)
 	req = req.WithContext(authdelivery.ContextWithUserID(req.Context(), 7))
 	rec := httptest.NewRecorder()
+	rec.Header().Add("Vary", "Origin")
 
 	handler.Runtime(rec, req)
 
 	require.Equal(t, http.StatusOK, rec.Code)
 	require.Equal(t, "private, no-store", rec.Header().Get("Cache-Control"))
-	require.Equal(t, "Cookie", rec.Header().Get("Vary"))
+	require.Equal(t, []string{"Origin", "Cookie"}, rec.Header().Values("Vary"))
 	require.Equal(t, domain.UserID(7), policy.userID, "query user_id must not affect evaluation")
 	var body map[string]any
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))

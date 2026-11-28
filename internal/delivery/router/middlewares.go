@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/delivery/auth"
@@ -121,7 +122,7 @@ func OptionalAuth(authn Authenticator) Middleware {
 	return func(next http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
 			cookie, err := r.Cookie(auth.SessionCookieName)
-			if errors.Is(err, http.ErrNoCookie) {
+			if errors.Is(err, http.ErrNoCookie) && !hasSessionCookieHeader(r) {
 				next(w, r)
 				return
 			}
@@ -141,6 +142,19 @@ func OptionalAuth(authn Authenticator) Middleware {
 			next(w, r.WithContext(auth.ContextWithUserID(r.Context(), userID)))
 		}
 	}
+}
+
+// net/http silently drops cookie values it cannot parse.
+func hasSessionCookieHeader(r *http.Request) bool {
+	for _, header := range r.Header.Values("Cookie") {
+		for part := range strings.SplitSeq(header, ";") {
+			name, _, _ := strings.Cut(part, "=")
+			if strings.TrimSpace(name) == auth.SessionCookieName {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 type csrfMiddleware struct {

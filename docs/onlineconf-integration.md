@@ -11,24 +11,29 @@ The adapter currently accepts this versioned snapshot shape:
 ```json
 {
   "revision": 42,
+  "generated_at": "2026-11-28T09:00:00Z",
   "configs": [
-    {"scope": "backend", "key": "reviews.max_length", "value": 5000}
+    {"scope": "reviews", "key": "max_length", "value": 5000}
   ],
   "flags": [
     {
-      "scope": "backend",
-      "key": "reviews.write_enabled",
+      "id": 1,
+      "scope": "reviews",
+      "key": "write_enabled",
       "enabled": true,
-      "rollout": 25,
-      "included_user_ids": [101],
-      "excluded_user_ids": [102]
+      "rollout_percent": 25,
+      "salt": "stable-example",
+      "force_on_user_ids": [101],
+      "force_off_user_ids": [102]
     }
   ]
 }
 ```
 
-The rollout result is deterministic for `(scope, key, user_id)`. Exclusion takes
-priority over inclusion; inclusion takes priority over percentage rollout. Guest
+The global switch takes precedence over all overrides. Exclusion takes priority
+over inclusion, followed by rollout. The rollout bucket uses the first eight
+SHA-256 bytes of `salt:user_id` as a big-endian integer modulo 10000, and matches
+when the bucket is below `rollout_percent * 100`. Guest
 user `0` cannot write reviews.
 
 ## Cache and fallback
@@ -73,8 +78,8 @@ by `ONLINECONF_IMAGE`, and start the stack. The OnlineConf port is bound only to
 TLS server block. Do not add a public proxy for `/internal/`.
 
 PostgreSQL executes `docker-entrypoint-initdb.d` only for a new empty data volume.
-Do not remove `db_data` to force a migration. Once the OnlineConf owner supplies an
-idempotent up migration, apply it explicitly to the existing database:
+Do not remove `db_data` to force a migration. For an existing database, apply the OnlineConf up migration once, after
+checking it has not already been applied:
 
 ```powershell
 .\scripts\apply-onlineconf-migration.ps1 `

@@ -7,12 +7,15 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/tests/testutil"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -103,7 +106,7 @@ func TestHTTPClientValidatesAndAuthenticatesSnapshot(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "Bearer secret", r.Header.Get("Authorization"))
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"revision":9,"configs":[{"scope":"backend","key":"reviews.max_length","value":500}],"flags":[{"scope":"backend","key":"reviews.write_enabled","enabled":true,"rollout":100,"included_user_ids":[],"excluded_user_ids":[]}]}`))
+		_, _ = w.Write([]byte(`{"revision":9,"generated_at":"2026-11-28T09:00:00Z","configs":[{"scope":"reviews","key":"max_length","value":500}],"flags":[{"scope":"reviews","key":"write_enabled","enabled":true,"id":1,"rollout_percent":100,"salt":"stable","force_on_user_ids":[],"force_off_user_ids":[]}]}`))
 	}))
 	defer server.Close()
 
@@ -119,7 +122,7 @@ func TestHTTPClientValidatesAndAuthenticatesSnapshot(t *testing.T) {
 func TestSnapshotRejectsInvalidKnownValueAndLowerRevision(t *testing.T) {
 	_, err := buildSnapshot(snapshotDTO{
 		Revision: 1,
-		Configs:  []configDTO{{Scope: ProductBackendScope, Key: domain.ReviewMaxLengthKey, Value: json.RawMessage(`49`)}},
+		Configs:  []configDTO{{Scope: reviewsScope, Key: maxLengthSnapshotKey, Value: json.RawMessage(`49`)}},
 	})
 	require.Error(t, err)
 
@@ -156,10 +159,51 @@ func TestNewSnapshotDeletionUsesPerKeyFallback(t *testing.T) {
 func testSnapshotFromJSON(t *testing.T, revision int64, enabled bool, maxLength int) *Snapshot {
 	t.Helper()
 	raw := snapshotDTO{Revision: revision}
-	raw.Configs = []configDTO{{Scope: ProductBackendScope, Key: domain.ReviewMaxLengthKey, Value: json.RawMessage(strconv.Itoa(maxLength))}}
+	raw.Configs = []configDTO{{Scope: reviewsScope, Key: maxLengthSnapshotKey, Value: json.RawMessage(strconv.Itoa(maxLength))}}
 	rollout := 100
-	raw.Flags = []flagDTO{{Scope: ProductBackendScope, Key: domain.ReviewWriteEnabledKey, Enabled: enabled, Rollout: &rollout}}
+	raw.Flags = []flagDTO{{Scope: reviewsScope, Key: writeEnabledSnapshotKey, Enabled: enabled, Rollout: &rollout, Salt: "stable"}}
 	snapshot, err := buildSnapshot(raw)
 	require.NoError(t, err)
 	return snapshot
+}
+
+func TestServiceSnapshotContract(t *testing.T) {
+	const empty = `{"revision":0,"generated_at":"2026-11-28T09:00:00Z","configs":[],"flags":[]}`
+	const active = `{"revision":1,"generated_at":"2026-11-28T09:00:01Z","configs":[{"scope":"reviews","key":"max_length","value":50}],"flags":[{"id":1,"scope":"reviews","key":"write_enabled","enabled":true,"rollout_percent":25,"salt":"stable","force_on_user_ids":[101],"force_off_user_ids":[102]}]}`
+	const disabled = `{"revision":2,"generated_at":"2026-11-28T09:00:02Z","configs":[],"flags":[{"id":1,"scope":"reviews","key":"write_enabled","enabled":false,"rollout_percent":100,"salt":"stable","force_on_user_ids":[101],"force_off_user_ids":[]}]}`
+	var response atomic.Value
+	response.Store(empty)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/internal/onlineconf/snapshot", r.URL.Path)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(response.Load().(string)))
+	}))
+	defer server.Close()
+	client, err := NewHTTPClient(server.Client(), server.URL, "/internal/onlineconf/snapshot", "test-token")
+	require.NoError(t, err)
+	cache, err := NewCache(client, time.Second, testutil.DiscardLogger())
+	require.NoError(t, err)
+
+	require.NoError(t, cache.Refresh(t.Context()))
+	require.Equal(t, domain.ReviewPolicy{MaxLength: domain.MaxReviewContentLen}, cache.ReviewPolicy(7))
+
+	response.Store(active)
+	require.NoError(t, cache.Refresh(t.Context()))
+	require.Equal(t, domain.ReviewPolicy{Revision: 1, MaxLength: 50, WriteEnabled: true}, cache.ReviewPolicy(7)) // Bucket 2306.
+	require.False(t, cache.ReviewPolicy(42).WriteEnabled)                                                        // Bucket 6252.
+	require.True(t, cache.ReviewPolicy(101).WriteEnabled)
+	require.False(t, cache.ReviewPolicy(0).WriteEnabled)
+
+	response.Store(strings.Replace(active, `"rollout_percent":25`, `"rollout_percent":100`, 1))
+	response.Store(strings.Replace(response.Load().(string), `"revision":1`, `"revision":2`, 1))
+	require.NoError(t, cache.Refresh(t.Context()))
+	require.False(t, cache.ReviewPolicy(102).WriteEnabled)
+
+	response.Store(strings.Replace(disabled, `"revision":2`, `"revision":3`, 1))
+	require.NoError(t, cache.Refresh(t.Context()))
+	require.Equal(t, domain.ReviewPolicy{Revision: 3, MaxLength: domain.MaxReviewContentLen}, cache.ReviewPolicy(101))
+
+	response.Store(strings.Replace(empty, `"revision":0,`, "", 1))
+	require.Error(t, cache.Refresh(t.Context()))
+	require.Equal(t, int64(3), cache.ReviewPolicy(101).Revision)
 }

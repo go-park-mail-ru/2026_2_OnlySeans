@@ -12,7 +12,12 @@ import (
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
 )
 
-const ProductBackendScope = "backend"
+const (
+	reviewsScope            = "reviews"
+	maxLengthSnapshotKey    = "max_length"
+	writeEnabledSnapshotKey = "write_enabled"
+	maxSafeUserID           = 1<<53 - 1
+)
 
 type resourceKey struct {
 	scope string
@@ -20,6 +25,7 @@ type resourceKey struct {
 }
 
 type flagRule struct {
+	salt     string
 	enabled  bool
 	rollout  int
 	included map[domain.UserID]struct{}
@@ -41,8 +47,8 @@ func (s *Snapshot) Revision() int64 {
 }
 
 func buildSnapshot(raw snapshotDTO) (*Snapshot, error) {
-	if raw.Revision <= 0 {
-		return nil, errors.New("snapshot revision must be positive")
+	if raw.Revision < 0 {
+		return nil, errors.New("snapshot revision must be non-negative")
 	}
 	snapshot := &Snapshot{
 		revision: raw.Revision,
@@ -61,10 +67,10 @@ func buildSnapshot(raw snapshotDTO) (*Snapshot, error) {
 			return nil, fmt.Errorf("invalid config value %s/%s", key.scope, key.key)
 		}
 		value := append(json.RawMessage(nil), item.Value...)
-		if key.scope == ProductBackendScope && key.key == domain.ReviewMaxLengthKey {
+		if key.scope == reviewsScope && key.key == maxLengthSnapshotKey {
 			var limit int
 			if err := json.Unmarshal(value, &limit); err != nil || limit < domain.MinReviewContentLen || limit > domain.MaxReviewContentLen {
-				return nil, fmt.Errorf("%s must be an integer from %d to %d", domain.ReviewMaxLengthKey, domain.MinReviewContentLen, domain.MaxReviewContentLen)
+				return nil, fmt.Errorf("%s must be an integer from %d to %d", maxLengthSnapshotKey, domain.MinReviewContentLen, domain.MaxReviewContentLen)
 			}
 		}
 		snapshot.configs[key] = value
@@ -77,14 +83,14 @@ func buildSnapshot(raw snapshotDTO) (*Snapshot, error) {
 		if _, exists := snapshot.flags[key]; exists {
 			return nil, fmt.Errorf("duplicate flag %s/%s", key.scope, key.key)
 		}
-		rollout := 100
-		if item.Rollout != nil {
-			rollout = *item.Rollout
+		if item.Rollout == nil || strings.TrimSpace(item.Salt) == "" {
+			return nil, fmt.Errorf("missing rollout or salt for %s/%s", key.scope, key.key)
 		}
+		rollout := *item.Rollout
 		if rollout < 0 || rollout > 100 {
 			return nil, fmt.Errorf("rollout for %s/%s must be from 0 to 100", key.scope, key.key)
 		}
-		rule := flagRule{enabled: item.Enabled, rollout: rollout, included: make(map[domain.UserID]struct{}), excluded: make(map[domain.UserID]struct{})}
+		rule := flagRule{salt: item.Salt, enabled: item.Enabled, rollout: rollout, included: make(map[domain.UserID]struct{}), excluded: make(map[domain.UserID]struct{})}
 		for _, id := range item.IncludedUserIDs {
 			if id <= 0 {
 				return nil, fmt.Errorf("included user id for %s/%s must be positive", key.scope, key.key)
@@ -117,31 +123,34 @@ func (s *Snapshot) reviewPolicy(userID domain.UserID) domain.ReviewPolicy {
 		return policy
 	}
 	policy.Revision = s.revision
-	if raw, ok := s.configs[resourceKey{scope: ProductBackendScope, key: domain.ReviewMaxLengthKey}]; ok {
+	if raw, ok := s.configs[resourceKey{scope: reviewsScope, key: maxLengthSnapshotKey}]; ok {
 		_ = json.Unmarshal(raw, &policy.MaxLength)
 	}
 	if userID > 0 {
-		if rule, ok := s.flags[resourceKey{scope: ProductBackendScope, key: domain.ReviewWriteEnabledKey}]; ok {
-			policy.WriteEnabled = evaluate(rule, ProductBackendScope, domain.ReviewWriteEnabledKey, userID)
+		if rule, ok := s.flags[resourceKey{scope: reviewsScope, key: writeEnabledSnapshotKey}]; ok {
+			policy.WriteEnabled = evaluate(rule, userID)
 		}
 	}
 	return policy
 }
 
-func evaluate(rule flagRule, scope, key string, userID domain.UserID) bool {
+func evaluate(rule flagRule, userID domain.UserID) bool {
+	if !rule.enabled || userID <= 0 || int64(userID) > maxSafeUserID {
+		return false
+	}
 	if _, excluded := rule.excluded[userID]; excluded {
 		return false
 	}
 	if _, included := rule.included[userID]; included {
 		return true
 	}
-	if !rule.enabled || rule.rollout <= 0 {
+	if rule.rollout <= 0 {
 		return false
 	}
 	if rule.rollout >= 100 {
 		return true
 	}
-	sum := sha256.Sum256([]byte(scope + "\x00" + key + "\x00" + strconv.Itoa(int(userID))))
-	bucket := binary.BigEndian.Uint64(sum[:8]) % 100
-	return bucket < uint64(rule.rollout)
+	sum := sha256.Sum256([]byte(rule.salt + ":" + strconv.FormatInt(int64(userID), 10)))
+	bucket := binary.BigEndian.Uint64(sum[:8]) % 10000
+	return bucket < uint64(rule.rollout*100)
 }
