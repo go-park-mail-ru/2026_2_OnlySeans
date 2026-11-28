@@ -23,7 +23,7 @@ type GRPCServerConfig struct {
 }
 
 type RedisConfig struct {
-	URL         string        `yaml:"url"`
+	URL         string        `yaml:"url" env:"REDIS_URL"`
 	MaxIdle     int           `yaml:"max_idle"`
 	IdleTimeout time.Duration `yaml:"idle_timeout"`
 }

@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
-	personsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/persons"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/services/persons/internal/domain"
+	personsservice "github.com/go-park-mail-ru/2026_2_OnlySeans/services/persons/internal/repository/postgres"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/stretchr/testify/require"
 )
@@ -47,19 +47,29 @@ func TestPostgresPersonRepoUpdate(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name:  "update with birth date and photo",
-			id:    1,
-			input: domain.PersonInput{FirstName: "Anna", LastName: "Smith", BirthDate: &birthDate},
+			name: "update with birth date and photo",
+			id:   1,
+			input: domain.PersonInput{
+				FirstName: "Anna",
+				LastName:  "Smith",
+				BirthDate: &birthDate,
+			},
 		},
 		{
-			name:  "clear birth date",
-			id:    1,
-			input: domain.PersonInput{FirstName: "Jane", LastName: "Smith"},
+			name: "clear birth date",
+			id:   1,
+			input: domain.PersonInput{
+				FirstName: "Jane",
+				LastName:  "Smith",
+			},
 		},
 		{
-			name:    "missing person",
-			id:      999,
-			input:   domain.PersonInput{FirstName: "Jane", LastName: "Smith"},
+			name: "missing person",
+			id:   999,
+			input: domain.PersonInput{
+				FirstName: "Jane",
+				LastName:  "Smith",
+			},
 			wantErr: domain.ErrPersonNotFound,
 		},
 	}

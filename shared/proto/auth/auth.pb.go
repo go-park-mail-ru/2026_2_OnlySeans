@@ -23,13 +23,14 @@ const (
 )
 
 type Session struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	UserId        int64                  `protobuf:"varint,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	Role          string                 `protobuf:"bytes,3,opt,name=role,proto3" json:"role,omitempty"`
-	ExpiresAt     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Id              string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	UserId          int64                  `protobuf:"varint,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Role            string                 `protobuf:"bytes,3,opt,name=role,proto3" json:"role,omitempty"`
+	ExpiresAt       *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
+	LastRefreshedAt *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=last_refreshed_at,json=lastRefreshedAt,proto3" json:"last_refreshed_at,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *Session) Reset() {
@@ -86,6 +87,13 @@ func (x *Session) GetRole() string {
 func (x *Session) GetExpiresAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.ExpiresAt
+	}
+	return nil
+}
+
+func (x *Session) GetLastRefreshedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.LastRefreshedAt
 	}
 	return nil
 }
@@ -327,11 +335,13 @@ func (x *CheckSessionRequest) GetSessionId() string {
 }
 
 type CheckSessionResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	UserId        int64                  `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	Role          string                 `protobuf:"bytes,2,opt,name=role,proto3" json:"role,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	UserId          int64                  `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Role            string                 `protobuf:"bytes,2,opt,name=role,proto3" json:"role,omitempty"`
+	ExpiresAt       *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
+	LastRefreshedAt *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=last_refreshed_at,json=lastRefreshedAt,proto3" json:"last_refreshed_at,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *CheckSessionResponse) Reset() {
@@ -376,6 +386,20 @@ func (x *CheckSessionResponse) GetRole() string {
 		return x.Role
 	}
 	return ""
+}
+
+func (x *CheckSessionResponse) GetExpiresAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ExpiresAt
+	}
+	return nil
+}
+
+func (x *CheckSessionResponse) GetLastRefreshedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.LastRefreshedAt
+	}
+	return nil
 }
 
 type LogoutRequest struct {
@@ -458,17 +482,106 @@ func (*LogoutResponse) Descriptor() ([]byte, []int) {
 	return file_shared_proto_auth_auth_proto_rawDescGZIP(), []int{8}
 }
 
+type RefreshSessionRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SessionId     string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RefreshSessionRequest) Reset() {
+	*x = RefreshSessionRequest{}
+	mi := &file_shared_proto_auth_auth_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RefreshSessionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RefreshSessionRequest) ProtoMessage() {}
+
+func (x *RefreshSessionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_shared_proto_auth_auth_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RefreshSessionRequest.ProtoReflect.Descriptor instead.
+func (*RefreshSessionRequest) Descriptor() ([]byte, []int) {
+	return file_shared_proto_auth_auth_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *RefreshSessionRequest) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+type RefreshSessionResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Session       *Session               `protobuf:"bytes,1,opt,name=session,proto3" json:"session,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RefreshSessionResponse) Reset() {
+	*x = RefreshSessionResponse{}
+	mi := &file_shared_proto_auth_auth_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RefreshSessionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RefreshSessionResponse) ProtoMessage() {}
+
+func (x *RefreshSessionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_shared_proto_auth_auth_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RefreshSessionResponse.ProtoReflect.Descriptor instead.
+func (*RefreshSessionResponse) Descriptor() ([]byte, []int) {
+	return file_shared_proto_auth_auth_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *RefreshSessionResponse) GetSession() *Session {
+	if x != nil {
+		return x.Session
+	}
+	return nil
+}
+
 var File_shared_proto_auth_auth_proto protoreflect.FileDescriptor
 
 const file_shared_proto_auth_auth_proto_rawDesc = "" +
 	"\n" +
-	"\x1cshared/proto/auth/auth.proto\x12\aauth.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x81\x01\n" +
+	"\x1cshared/proto/auth/auth.proto\x12\aauth.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xc9\x01\n" +
 	"\aSession\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
 	"\auser_id\x18\x02 \x01(\x03R\x06userId\x12\x12\n" +
 	"\x04role\x18\x03 \x01(\tR\x04role\x129\n" +
 	"\n" +
-	"expires_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\"@\n" +
+	"expires_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x12F\n" +
+	"\x11last_refreshed_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\x0flastRefreshedAt\"@\n" +
 	"\fLoginRequest\x12\x14\n" +
 	"\x05email\x18\x01 \x01(\tR\x05email\x12\x1a\n" +
 	"\bpassword\x18\x02 \x01(\tR\bpassword\";\n" +
@@ -481,19 +594,28 @@ const file_shared_proto_auth_auth_proto_rawDesc = "" +
 	"\asession\x18\x01 \x01(\v2\x10.auth.v1.SessionR\asession\"4\n" +
 	"\x13CheckSessionRequest\x12\x1d\n" +
 	"\n" +
-	"session_id\x18\x01 \x01(\tR\tsessionId\"C\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\"\xc6\x01\n" +
 	"\x14CheckSessionResponse\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\x03R\x06userId\x12\x12\n" +
-	"\x04role\x18\x02 \x01(\tR\x04role\".\n" +
+	"\x04role\x18\x02 \x01(\tR\x04role\x129\n" +
+	"\n" +
+	"expires_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x12F\n" +
+	"\x11last_refreshed_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\x0flastRefreshedAt\".\n" +
 	"\rLogoutRequest\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\"\x10\n" +
-	"\x0eLogoutResponse2\x9a\x02\n" +
+	"\x0eLogoutResponse\"6\n" +
+	"\x15RefreshSessionRequest\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\"D\n" +
+	"\x16RefreshSessionResponse\x12*\n" +
+	"\asession\x18\x01 \x01(\v2\x10.auth.v1.SessionR\asession2\xed\x02\n" +
 	"\vAuthService\x126\n" +
 	"\x05Login\x12\x15.auth.v1.LoginRequest\x1a\x16.auth.v1.LoginResponse\x12K\n" +
 	"\fIssueSession\x12\x1c.auth.v1.IssueSessionRequest\x1a\x1d.auth.v1.IssueSessionResponse\x12K\n" +
 	"\fCheckSession\x12\x1c.auth.v1.CheckSessionRequest\x1a\x1d.auth.v1.CheckSessionResponse\x129\n" +
-	"\x06Logout\x12\x16.auth.v1.LogoutRequest\x1a\x17.auth.v1.LogoutResponseBFZDgithub.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/auth;authv1b\x06proto3"
+	"\x06Logout\x12\x16.auth.v1.LogoutRequest\x1a\x17.auth.v1.LogoutResponse\x12Q\n" +
+	"\x0eRefreshSession\x12\x1e.auth.v1.RefreshSessionRequest\x1a\x1f.auth.v1.RefreshSessionResponseBFZDgithub.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/auth;authv1b\x06proto3"
 
 var (
 	file_shared_proto_auth_auth_proto_rawDescOnce sync.Once
@@ -507,36 +629,44 @@ func file_shared_proto_auth_auth_proto_rawDescGZIP() []byte {
 	return file_shared_proto_auth_auth_proto_rawDescData
 }
 
-var file_shared_proto_auth_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_shared_proto_auth_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_shared_proto_auth_auth_proto_goTypes = []any{
-	(*Session)(nil),               // 0: auth.v1.Session
-	(*LoginRequest)(nil),          // 1: auth.v1.LoginRequest
-	(*LoginResponse)(nil),         // 2: auth.v1.LoginResponse
-	(*IssueSessionRequest)(nil),   // 3: auth.v1.IssueSessionRequest
-	(*IssueSessionResponse)(nil),  // 4: auth.v1.IssueSessionResponse
-	(*CheckSessionRequest)(nil),   // 5: auth.v1.CheckSessionRequest
-	(*CheckSessionResponse)(nil),  // 6: auth.v1.CheckSessionResponse
-	(*LogoutRequest)(nil),         // 7: auth.v1.LogoutRequest
-	(*LogoutResponse)(nil),        // 8: auth.v1.LogoutResponse
-	(*timestamppb.Timestamp)(nil), // 9: google.protobuf.Timestamp
+	(*Session)(nil),                // 0: auth.v1.Session
+	(*LoginRequest)(nil),           // 1: auth.v1.LoginRequest
+	(*LoginResponse)(nil),          // 2: auth.v1.LoginResponse
+	(*IssueSessionRequest)(nil),    // 3: auth.v1.IssueSessionRequest
+	(*IssueSessionResponse)(nil),   // 4: auth.v1.IssueSessionResponse
+	(*CheckSessionRequest)(nil),    // 5: auth.v1.CheckSessionRequest
+	(*CheckSessionResponse)(nil),   // 6: auth.v1.CheckSessionResponse
+	(*LogoutRequest)(nil),          // 7: auth.v1.LogoutRequest
+	(*LogoutResponse)(nil),         // 8: auth.v1.LogoutResponse
+	(*RefreshSessionRequest)(nil),  // 9: auth.v1.RefreshSessionRequest
+	(*RefreshSessionResponse)(nil), // 10: auth.v1.RefreshSessionResponse
+	(*timestamppb.Timestamp)(nil),  // 11: google.protobuf.Timestamp
 }
 var file_shared_proto_auth_auth_proto_depIdxs = []int32{
-	9, // 0: auth.v1.Session.expires_at:type_name -> google.protobuf.Timestamp
-	0, // 1: auth.v1.LoginResponse.session:type_name -> auth.v1.Session
-	0, // 2: auth.v1.IssueSessionResponse.session:type_name -> auth.v1.Session
-	1, // 3: auth.v1.AuthService.Login:input_type -> auth.v1.LoginRequest
-	3, // 4: auth.v1.AuthService.IssueSession:input_type -> auth.v1.IssueSessionRequest
-	5, // 5: auth.v1.AuthService.CheckSession:input_type -> auth.v1.CheckSessionRequest
-	7, // 6: auth.v1.AuthService.Logout:input_type -> auth.v1.LogoutRequest
-	2, // 7: auth.v1.AuthService.Login:output_type -> auth.v1.LoginResponse
-	4, // 8: auth.v1.AuthService.IssueSession:output_type -> auth.v1.IssueSessionResponse
-	6, // 9: auth.v1.AuthService.CheckSession:output_type -> auth.v1.CheckSessionResponse
-	8, // 10: auth.v1.AuthService.Logout:output_type -> auth.v1.LogoutResponse
-	7, // [7:11] is the sub-list for method output_type
-	3, // [3:7] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	11, // 0: auth.v1.Session.expires_at:type_name -> google.protobuf.Timestamp
+	11, // 1: auth.v1.Session.last_refreshed_at:type_name -> google.protobuf.Timestamp
+	0,  // 2: auth.v1.LoginResponse.session:type_name -> auth.v1.Session
+	0,  // 3: auth.v1.IssueSessionResponse.session:type_name -> auth.v1.Session
+	11, // 4: auth.v1.CheckSessionResponse.expires_at:type_name -> google.protobuf.Timestamp
+	11, // 5: auth.v1.CheckSessionResponse.last_refreshed_at:type_name -> google.protobuf.Timestamp
+	0,  // 6: auth.v1.RefreshSessionResponse.session:type_name -> auth.v1.Session
+	1,  // 7: auth.v1.AuthService.Login:input_type -> auth.v1.LoginRequest
+	3,  // 8: auth.v1.AuthService.IssueSession:input_type -> auth.v1.IssueSessionRequest
+	5,  // 9: auth.v1.AuthService.CheckSession:input_type -> auth.v1.CheckSessionRequest
+	7,  // 10: auth.v1.AuthService.Logout:input_type -> auth.v1.LogoutRequest
+	9,  // 11: auth.v1.AuthService.RefreshSession:input_type -> auth.v1.RefreshSessionRequest
+	2,  // 12: auth.v1.AuthService.Login:output_type -> auth.v1.LoginResponse
+	4,  // 13: auth.v1.AuthService.IssueSession:output_type -> auth.v1.IssueSessionResponse
+	6,  // 14: auth.v1.AuthService.CheckSession:output_type -> auth.v1.CheckSessionResponse
+	8,  // 15: auth.v1.AuthService.Logout:output_type -> auth.v1.LogoutResponse
+	10, // 16: auth.v1.AuthService.RefreshSession:output_type -> auth.v1.RefreshSessionResponse
+	12, // [12:17] is the sub-list for method output_type
+	7,  // [7:12] is the sub-list for method input_type
+	7,  // [7:7] is the sub-list for extension type_name
+	7,  // [7:7] is the sub-list for extension extendee
+	0,  // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_shared_proto_auth_auth_proto_init() }
@@ -550,7 +680,7 @@ func file_shared_proto_auth_auth_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_shared_proto_auth_auth_proto_rawDesc), len(file_shared_proto_auth_auth_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   9,
+			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

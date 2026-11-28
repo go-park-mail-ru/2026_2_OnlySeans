@@ -132,7 +132,9 @@ ER-диаграммы — в [er.md](er.md), DDL целиком — в `db/migra
 | original_title | text | CHECK 1–255 | |
 | film_type | text | NN, CHECK IN ('movie','series') | |
 | — | — | **UQ (id, film_type)** | нужен, чтобы `season` ссылался на пару «фильм + тип» составным внешним ключом |
-| production_year | smallint | NN, CHECK 1888–2200 | год производства, а не премьеры: снять могли в 2025, выпустить в 2027, а могли и не выпустить. Даты премьер живут в `film_release`, дублирования нет |
+| production_year | smallint | NN, CHECK 1888–2200 | год производства, а не премьеры: снять могли в 2025, выпустить в 2027, а могли и не выпустить. календарь использует две отдельные даты премьер |
+| world_premiere_date | date | nullable, CHECK 1888–2200 | первая мировая премьера |
+| russia_premiere_date | date | nullable, CHECK 1888–2200 | первая премьера в кинотеатрах России, основа календаря |
 | duration_min | smallint | CHECK 1–6000 | только для фильма |
 | — | — | CHECK film_type <> 'series' OR duration_min IS NULL | у сериала единой длительности нет: она в `episode`, среднее считается запросом |
 | age_limit | smallint | NN, CHECK IN (0,6,12,16,18) | российская возрастная маркировка |
@@ -374,6 +376,12 @@ ER-диаграммы — в [er.md](er.md), DDL целиком — в `db/migra
 | account_id | bigint | PK, FK → account, CASCADE | |
 | film_id | bigint | PK, FK → film, CASCADE | |
 | created_at | timestamptz | NN, DEFAULT now() | |
+
+Новый календарь использует эту подписку на фильм и дату `film.russia_premiere_date`.
+В `notification` миграцией `000019_release_calendar` добавлены nullable `film_id`
+(FK → film, SET NULL) и `notification_type`. Частичный уникальный индекс
+`(account_id, film_id, notification_type)` при `film_id IS NOT NULL` предотвращает
+повторную доставку напоминаний.
 
 ## 25. collection — подборка
 

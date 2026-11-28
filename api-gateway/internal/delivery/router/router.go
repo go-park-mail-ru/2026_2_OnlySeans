@@ -3,14 +3,16 @@ package router
 import (
 	"net/http"
 
+	"github.com/gorilla/mux"
+
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/auth"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/user"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/middleware"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/logger"
-	"github.com/gorilla/mux"
 )
 
 type Handlers struct {
+	Releases       releasesHandler
 	Auth           *auth.AuthHandler
 	Films          filmsHandler
 	Reviews        reviewsHandler
@@ -61,6 +63,18 @@ func NewRouter(handlers Handlers, authMiddleware *middleware.AuthMiddleware, all
 		r.HandleFunc("/api/collections/{id}", filmsHandler.GetCollection).Methods(http.MethodGet)
 	}
 
+	if h := handlers.Releases; h != nil {
+		r.HandleFunc("/api/releases", h.List).Methods(http.MethodGet)
+		r.HandleFunc("/api/releases/featured", h.Featured).Methods(http.MethodGet)
+		r.HandleFunc("/api/films/{id}/releases", h.FilmReleases).Methods(http.MethodGet)
+		r.HandleFunc("/api/films/{id}/releases", middleware.WrapMiddlewares(h.Update, catalogEditorMiddlewares)).Methods(http.MethodPatch)
+		r.HandleFunc("/api/me/release-subscriptions", middleware.WrapMiddlewares(h.Subscriptions, authenticatedMiddlewares)).Methods(http.MethodGet)
+		r.HandleFunc("/api/me/release-subscriptions/{id}", middleware.WrapMiddlewares(h.Subscribe, authenticatedMiddlewares)).Methods(http.MethodPut)
+		r.HandleFunc("/api/me/release-subscriptions/{id}", middleware.WrapMiddlewares(h.Unsubscribe, authenticatedMiddlewares)).Methods(http.MethodDelete)
+		r.HandleFunc("/api/me/notifications", middleware.WrapMiddlewares(h.Notifications, authenticatedMiddlewares)).Methods(http.MethodGet)
+		r.HandleFunc("/api/me/notifications/{id}/read", middleware.WrapMiddlewares(h.ReadNotification, authenticatedMiddlewares)).Methods(http.MethodPut)
+	}
+
 	r.HandleFunc("/api/authorised", middleware.WrapMiddlewares(authHandler.Authorised, authenticatedMiddlewares)).Methods(http.MethodGet)
 
 	if reviewsHandler := handlers.Reviews; reviewsHandler != nil {
@@ -91,23 +105,27 @@ func NewRouter(handlers Handlers, authMiddleware *middleware.AuthMiddleware, all
 		r.HandleFunc("/api/me/preferences", middleware.WrapMiddlewares(h.Preferences, authenticatedMiddlewares)).Methods(http.MethodGet)
 		r.HandleFunc("/api/me/preferences", middleware.WrapMiddlewares(h.SavePreference, authenticatedMiddlewares)).Methods(http.MethodPut)
 	}
+
 	if h := handlers.Profile; h != nil {
 		r.HandleFunc("/api/me/profile", middleware.WrapMiddlewares(h.Get, authenticatedMiddlewares)).Methods(http.MethodGet)
 		r.HandleFunc("/api/me/profile", middleware.WrapMiddlewares(h.Update, authenticatedMiddlewares)).Methods(http.MethodPut)
 		r.HandleFunc("/api/me", middleware.WrapMiddlewares(h.Update, authenticatedMiddlewares)).Methods(http.MethodPut)
 	}
+
 	if h := handlers.PersonalRating; h != nil {
 		r.HandleFunc("/api/films/{id}/rating/me", middleware.WrapMiddlewares(h.GetPersonalRating, authenticatedMiddlewares)).Methods(http.MethodGet)
 	}
+
 	if h := handlers.PersonCatalog; h != nil {
 		r.HandleFunc("/api/films/{id}/people", h.GetFilmPersons).Methods(http.MethodGet)
 		r.HandleFunc("/api/people/{id}", h.GetPersonCatalog).Methods(http.MethodGet)
 	}
+
 	if h := handlers.Assets; h != nil {
 		r.HandleFunc("/static/{key:.*}", h.GetAsset).Methods(http.MethodGet)
 	}
 
-	handler, err := middleware.WithCORSAndCSRF(newOpenAPIHandler(r), allowedOrigins)
+	handler, err := middleware.WithCORSAndCSRF(authMiddleware.OptionalAuthenticate(newOpenAPIHandler(r)), allowedOrigins)
 	if err != nil {
 		return nil, err
 	}
@@ -115,5 +133,6 @@ func NewRouter(handlers Handlers, authMiddleware *middleware.AuthMiddleware, all
 	handler = middleware.WithSecurityHeaders(handler)
 	handler = middleware.WithRecover(handler, appLogger)
 	handler = middleware.WithLogging(handler, appLogger)
+
 	return middleware.WithRequestID(handler), nil
 }

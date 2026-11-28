@@ -38,7 +38,10 @@ func TestAuthFailuresLogCodeAndRequestIDWithoutCredentials(t *testing.T) {
 			handlers := map[string]http.HandlerFunc{"register": h.Register, "login": h.Login, "logout": h.Logout, "authorised.get_user": h.Authorised}
 			ctx := middleware.ContextWithUserID(logger.ContextWithRequestID(context.Background(), "http-42"), 7)
 			req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"email":"user@example.com","username":"reader","password":"secret-password"}`)).WithContext(ctx)
-			req.AddCookie(&http.Cookie{Name: authhttp.SessionCookieName, Value: "secret-cookie"})
+			req.AddCookie(&http.Cookie{
+				Name:  authhttp.SessionCookieName,
+				Value: "secret-cookie",
+			})
 			w := httptest.NewRecorder()
 			handlers[operation](w, req)
 			require.Equal(t, http.StatusInternalServerError, w.Code)

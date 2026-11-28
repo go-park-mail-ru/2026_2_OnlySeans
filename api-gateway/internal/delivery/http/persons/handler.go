@@ -249,7 +249,7 @@ func (h *Handler) writeError(ctx context.Context, w http.ResponseWriter, err err
 
 func writePersonError(ctx context.Context, w http.ResponseWriter, err error, appLogger logger.Logger) {
 	status := http.StatusInternalServerError
-	message := httpresponse.InternalErrorMessage
+	message := "internal server error"
 
 	switch {
 	case errors.Is(err, ErrInvalidID),

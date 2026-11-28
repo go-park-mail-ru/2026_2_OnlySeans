@@ -7,8 +7,12 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/known/timestamppb"
+
+	authpb "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/auth"
 
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/grpc_client/authclient"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/grpc_client/userclient"
@@ -19,7 +23,8 @@ import (
 
 type sessionClient struct {
 	authclient.AuthClient
-	check func(context.Context, string) (authclient.SessionInfo, error)
+	check   func(context.Context, string) (authclient.SessionInfo, error)
+	refresh func(context.Context, string) (*authpb.Session, error)
 }
 
 func (s sessionClient) CheckSession(ctx context.Context, id string) (authclient.SessionInfo, error) {
@@ -101,7 +106,7 @@ func TestAuthenticate(t *testing.T) {
 				check: func(_ context.Context, id string) (authclient.SessionInfo, error) {
 					calls++
 					require.Equal(t, "session", id)
-					return authclient.SessionInfo{
+					return authclient.SessionInfo{RefreshSupported: true, LastRefreshedAt: time.Now(),
 						UserID: 7,
 						Role:   "reader",
 					}, tt.err
@@ -337,7 +342,7 @@ func TestCORSAndCSRF(t *testing.T) {
 			response := httptest.NewRecorder()
 			handler.ServeHTTP(response, request)
 			require.Equal(t, tt.status, response.Code)
-			require.Equal(t, "GET, POST, PUT, DELETE, OPTIONS", response.Header().Get("Access-Control-Allow-Methods"))
+			require.Equal(t, "GET, POST, PUT, PATCH, DELETE, OPTIONS", response.Header().Get("Access-Control-Allow-Methods"))
 
 			if tt.allowed {
 				require.Equal(t, origin, response.Header().Get("Access-Control-Allow-Origin"))
@@ -346,4 +351,184 @@ func TestCORSAndCSRF(t *testing.T) {
 			}
 		})
 	}
+}
+
+func (s sessionClient) RefreshSession(ctx context.Context, id string) (*authpb.Session, error) {
+	return s.refresh(ctx, id)
+}
+
+func TestAuthenticateRefreshesOnlyOnNewDay(t *testing.T) {
+	for _, last := range []time.Time{{}, time.Now().AddDate(0, 0, -1), time.Now()} {
+		calls := 0
+		expires := time.Now().Add(72 * time.Hour).Truncate(time.Second)
+		client := sessionClient{
+			check: func(context.Context, string) (authclient.SessionInfo, error) {
+				return authclient.SessionInfo{
+					RefreshSupported: true,
+					UserID:           7,
+					Role:             "reader",
+					LastRefreshedAt:  last,
+				}, nil
+			},
+			refresh: func(context.Context, string) (*authpb.Session, error) {
+				calls++
+				return &authpb.Session{
+					Id:        "session",
+					UserId:    7,
+					Role:      "reader",
+					ExpiresAt: timestamppb.New(expires),
+				}, nil
+			},
+		}
+		guard := middleware.NewAuthMiddleware(client, nil, nil)
+		guard.CookieSecure = true
+		req := httptest.NewRequest(http.MethodGet, "/api/authorised", nil)
+		req.AddCookie(&http.Cookie{
+			Name:  "session_id",
+			Value: "session",
+		})
+
+		w := httptest.NewRecorder()
+		guard.Authenticate(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })(w, req)
+		require.Equal(t, http.StatusNoContent, w.Code)
+
+		if last.IsZero() || last.Before(time.Now().Add(-time.Hour)) {
+			require.Equal(t, 1, calls)
+
+			cookies := w.Result().Cookies()
+			require.Len(t, cookies, 1)
+			require.True(t, expires.Equal(cookies[0].Expires))
+			require.True(t, cookies[0].HttpOnly)
+			require.True(t, cookies[0].Secure)
+			require.Equal(t, http.SameSiteLaxMode, cookies[0].SameSite)
+		} else {
+			require.Zero(t, calls)
+			require.Empty(t, w.Header().Get("Set-Cookie"))
+		}
+	}
+}
+
+func TestOptionalAuthenticationSharesSessionCheck(t *testing.T) {
+	checks := 0
+	client := sessionClient{
+		check: func(context.Context, string) (authclient.SessionInfo, error) {
+			checks++
+			return authclient.SessionInfo{
+				RefreshSupported: true,
+				UserID:           7,
+				Role:             "reader",
+				LastRefreshedAt:  time.Now(),
+			}, nil
+		},
+	}
+	guard := middleware.NewAuthMiddleware(client, nil, nil)
+	next := http.HandlerFunc(guard.Authenticate(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	req := httptest.NewRequest(http.MethodGet, "/api/authorised", nil)
+	req.AddCookie(&http.Cookie{
+		Name:  "session_id",
+		Value: "session",
+	})
+
+	w := httptest.NewRecorder()
+	guard.OptionalAuthenticate(next).ServeHTTP(w, req)
+	require.Equal(t, http.StatusNoContent, w.Code)
+	require.Equal(t, 1, checks)
+}
+
+func TestOptionalAuthenticationAllowsGuestAndRefreshesPublicRequest(t *testing.T) {
+	checks := 0
+	refreshes := 0
+	client := sessionClient{
+		check: func(context.Context, string) (authclient.SessionInfo, error) {
+			checks++
+			return authclient.SessionInfo{
+				RefreshSupported: true,
+				UserID:           7,
+				Role:             "reader",
+			}, nil
+		},
+		refresh: func(context.Context, string) (*authpb.Session, error) {
+			refreshes++
+			return &authpb.Session{
+				Id:        "session",
+				UserId:    7,
+				ExpiresAt: timestamppb.New(time.Now().Add(72 * time.Hour)),
+			}, nil
+		},
+	}
+	guard := middleware.NewAuthMiddleware(client, nil, nil)
+	handler := guard.OptionalAuthenticate(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	guest := httptest.NewRecorder()
+	handler.ServeHTTP(guest, httptest.NewRequest(http.MethodGet, "/api/films", nil))
+	require.Equal(t, http.StatusNoContent, guest.Code)
+	require.Zero(t, checks)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/films", nil)
+	req.AddCookie(&http.Cookie{
+		Name:  "session_id",
+		Value: "session",
+	})
+
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+	require.Equal(t, http.StatusNoContent, w.Code)
+	require.Equal(t, 1, checks)
+	require.Equal(t, 1, refreshes)
+	require.Len(t, w.Result().Cookies(), 1)
+}
+
+func TestSessionCookieRecoveryAndLogout(t *testing.T) {
+	for _, path := range []string{"/api/authorised", "/api/logout"} {
+		t.Run(path, func(t *testing.T) {
+			expiry := time.Now().Add(72 * time.Hour).UTC().Truncate(time.Second)
+			client := sessionClient{check: func(context.Context, string) (authclient.SessionInfo, error) {
+				return authclient.SessionInfo{
+					UserID:           7,
+					ExpiresAt:        expiry,
+					LastRefreshedAt:  time.Now(),
+					RefreshSupported: true,
+				}, nil
+			}}
+			req := httptest.NewRequest(http.MethodGet, path, nil)
+			req.AddCookie(&http.Cookie{
+				Name:  "session_id",
+				Value: "session",
+			})
+
+			w := httptest.NewRecorder()
+			middleware.NewAuthMiddleware(client, nil, nil).Authenticate(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })(w, req)
+			require.Equal(t, http.StatusNoContent, w.Code)
+
+			if path == "/api/logout" {
+				require.Empty(t, w.Result().Cookies())
+			} else {
+				require.Len(t, w.Result().Cookies(), 1)
+				require.True(t, expiry.Equal(w.Result().Cookies()[0].Expires))
+				require.Equal(t, "private, no-store", w.Header().Get("Cache-Control"))
+			}
+		})
+	}
+}
+
+func TestOldAuthResponseDoesNotRefresh(t *testing.T) {
+	client := sessionClient{check: func(context.Context, string) (authclient.SessionInfo, error) {
+		return authclient.SessionInfo{
+			UserID: 7,
+			Role:   "reader",
+		}, nil
+	}}
+	req := httptest.NewRequest(http.MethodGet, "/api/authorised", nil)
+	req.AddCookie(&http.Cookie{
+		Name:  "session_id",
+		Value: "session",
+	})
+
+	w := httptest.NewRecorder()
+	middleware.NewAuthMiddleware(client, nil, nil).Authenticate(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })(w, req)
+	require.Equal(t, http.StatusNoContent, w.Code)
+	require.Empty(t, w.Result().Cookies())
 }

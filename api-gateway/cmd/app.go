@@ -19,6 +19,7 @@ import (
 	libraryhttp "github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/library"
 	personshttp "github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/persons"
 	ratingshttp "github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/ratings"
+	releaseshttp "github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/releases"
 	userhttp "github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/http/user"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/delivery/router"
 	"github.com/go-park-mail-ru/2026_2_OnlySeans/api-gateway/internal/grpc_client/authclient"
@@ -35,6 +36,8 @@ import (
 	pbpersons "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/persons"
 	pbuser "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/user"
 )
+
+const catalogResponseMaxBytes = 16 * 1024 * 1024
 
 func run(ctx context.Context) error {
 	cfg := config.Load()
@@ -92,7 +95,10 @@ func run(ctx context.Context) error {
 	}
 
 	catalogConn, err := grpc.NewClient(cfg.CatalogServiceAddr, transport, requestIDs,
-		grpc.WithDefaultCallOptions(grpc.MaxCallSendMsgSize(int(cfg.HTTP.MaxPosterSize)+(1<<20))),
+		grpc.WithDefaultCallOptions(
+			grpc.MaxCallSendMsgSize(int(cfg.HTTP.MaxPosterSize)+(1<<20)),
+			grpc.MaxCallRecvMsgSize(catalogResponseMaxBytes),
+		),
 	)
 	if err != nil {
 		return fmt.Errorf("create Catalog gRPC client: %w", err)
@@ -112,6 +118,7 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("create ratings handler: %w", err)
 	}
 
+	releasesHandler := releaseshttp.NewHandler(pbcatalog.NewReleaseServiceClient(catalogConn), appLogger)
 	libraryHandler := libraryhttp.NewHandler(catalogClient, appLogger)
 	personalRatingHandler := ratingshttp.NewMyRatingHandler(catalogClient, appLogger)
 
@@ -139,9 +146,11 @@ func run(ctx context.Context) error {
 	profileHandler := userhttp.NewProfileHandler(userClient, appLogger)
 	avatarHandler := userhttp.NewAvatarHandler(userClient, appLogger)
 	authMiddleware := middleware.NewAuthMiddleware(authClient, userClient, appLogger)
+	authMiddleware.CookieSecure = cfg.HTTP.CookieSecure
 
 	handler, err := router.NewRouter(router.Handlers{
 		Auth:           authHandler,
+		Releases:       releasesHandler,
 		Assets:         assetsHandler,
 		Files:          avatarHandler,
 		Profile:        profileHandler,
@@ -168,7 +177,9 @@ func run(ctx context.Context) error {
 
 	serverErr := make(chan error, 1)
 	go func() {
-		appLogger.Info("Gateway HTTP server starting", map[string]any{"address": server.Addr})
+		appLogger.Info("Gateway HTTP server starting", map[string]any{
+			"address": server.Addr,
+		})
 		serverErr <- server.ListenAndServe()
 	}()
 

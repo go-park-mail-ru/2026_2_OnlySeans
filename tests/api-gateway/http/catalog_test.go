@@ -49,7 +49,7 @@ type authStub struct {
 }
 
 func (s authStub) CheckSession(context.Context, string) (authclient.SessionInfo, error) {
-	return authclient.SessionInfo{
+	return authclient.SessionInfo{LastRefreshedAt: time.Now(),
 		UserID: 7,
 		Role:   s.role,
 	}, nil
@@ -724,7 +724,7 @@ func TestCatalogHTTPContract(t *testing.T) {
 			path:   "/api/me/preferences",
 			body:   `{"key":"frame:catalog-view","value":"invalid"}`,
 			status: 400,
-			json:   `{"error":"Проверьте данные запроса."}`,
+			json:   `{"error":"invalid request data"}`,
 		},
 		{
 			name:   "missing film error",
@@ -756,7 +756,7 @@ func TestCatalogHTTPContract(t *testing.T) {
 				err: status.Error(codes.NotFound, "film not found"),
 			}},
 			status: 404,
-			json:   `{"error":"Фильм не найден."}`,
+			json:   `{"error":"film not found"}`,
 		},
 		{
 			name:        "oversized poster error",

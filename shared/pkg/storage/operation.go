@@ -28,7 +28,13 @@ func StartOperation(ctx context.Context, appLogger logger.Logger, backend, opera
 	maps.Copy(attrs, fields)
 	attrs["backend"] = backend
 	attrs["operation"] = operation
-	op := &Operation{Stage: "start", appLogger: appLogger, ctx: ctx, fields: attrs, started: time.Now()}
+	op := &Operation{
+		Stage:     "start",
+		appLogger: appLogger,
+		ctx:       ctx,
+		fields:    attrs,
+		started:   time.Now(),
+	}
 	if appLogger != nil {
 		appLogger.DebugContext(ctx, "database operation started", maps.Clone(attrs))
 	}

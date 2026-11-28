@@ -357,7 +357,7 @@ func writeError(ctx context.Context, w http.ResponseWriter, err error, appLogger
 		return
 	}
 
-	httpresponse.WriteErrorContext(ctx, w, http.StatusInternalServerError, httpresponse.InternalErrorMessage, appLogger)
+	httpresponse.WriteErrorContext(ctx, w, http.StatusInternalServerError, "internal server error", appLogger)
 }
 
 func (h *Handler) GetFilmJSON(ctx context.Context, filmID int64) (json.RawMessage, error) {

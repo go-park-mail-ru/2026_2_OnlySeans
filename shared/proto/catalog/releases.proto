@@ -1,0 +1,54 @@
+syntax = "proto3";
+package catalog.v1;
+option go_package = "github.com/go-park-mail-ru/2026_2_OnlySeans/shared/proto/catalog;catalogv1";
+import "shared/proto/catalog/catalog.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+service ReleaseService {
+  rpc ListReleases(ListReleasesRequest) returns (ReleaseList);
+  rpc UpdateRelease(UpdateReleaseRequest) returns (google.protobuf.Empty);
+  rpc SetReleaseSubscription(SetReleaseSubscriptionRequest) returns (google.protobuf.Empty);
+  rpc ListReleaseSubscriptions(ReleaseUserRequest) returns (ReleaseList);
+  rpc ListNotifications(ReleaseUserRequest) returns (NotificationList);
+  rpc ReadNotification(ReadNotificationRequest) returns (google.protobuf.Empty);
+}
+message Release {
+  reserved 1, 2, 3, 4, 5;
+  Film film = 6;
+  optional string world_premiere_date = 7;
+  optional string russia_premiere_date = 8;
+}
+message ListReleasesRequest {
+  string from = 1;
+  string to = 2;
+  reserved 3, 4;
+  int64 film_id = 5;
+  int64 genre_id = 6;
+  int32 limit = 7;
+  int32 offset = 8;
+  bool featured = 9;
+  string region = 10;
+}
+message ReleaseList { repeated Release items = 1; int64 total = 2; }
+message ReleaseInput {
+  reserved 1, 2, 3, 4;
+  optional string world_premiere_date = 5;
+  optional string russia_premiere_date = 6;
+  bool world_premiere_date_set = 7;
+  bool russia_premiere_date_set = 8;
+}
+message UpdateReleaseRequest { reserved 1; ReleaseInput input = 2; int64 film_id = 3; }
+message SetReleaseSubscriptionRequest { int64 user_id = 1; reserved 2; bool subscribed = 3; int64 film_id = 4; }
+message ReleaseUserRequest { int64 user_id = 1; int32 limit = 2; int32 offset = 3; }
+message Notification {
+  int64 id = 1;
+  string message = 2;
+  bool is_read = 3;
+  google.protobuf.Timestamp created_at = 4;
+  reserved 5;
+  optional int64 film_id = 7;
+  optional string notification_type = 6;
+}
+message NotificationList { repeated Notification items = 1; int64 total = 2; }
+message ReadNotificationRequest { int64 user_id = 1; int64 notification_id = 2; }

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -22,11 +23,14 @@ type AuthUseCase interface {
 	Login(ctx context.Context, email, password string) (*domain.Session, error)
 	Logout(ctx context.Context, sessionID uuid.UUID) error
 	CheckSession(ctx context.Context, sessionID uuid.UUID) (UserInfo, error)
+	RefreshSession(ctx context.Context, sessionID uuid.UUID) (*domain.Session, error)
 }
 
 type UserInfo struct {
-	UserID int64
-	Role   string
+	ExpiresAt       time.Time
+	LastRefreshedAt time.Time
+	UserID          int64
+	Role            string
 }
 
 type authUseCase struct {
@@ -104,7 +108,18 @@ func (u *authUseCase) CheckSession(ctx context.Context, sessionID uuid.UUID) (Us
 	}
 
 	return UserInfo{
-		UserID: int64(session.UserID),
-		Role:   session.Role,
+		UserID:          int64(session.UserID),
+		ExpiresAt:       session.ExpiresAt,
+		LastRefreshedAt: session.LastRefreshedAt,
+		Role:            session.Role,
 	}, nil
+}
+
+func (u *authUseCase) RefreshSession(ctx context.Context, sessionID uuid.UUID) (*domain.Session, error) {
+	session, err := u.sessionUC.Refresh(ctx, sessionID)
+	if err != nil {
+		return nil, fmt.Errorf("refresh session: %w", err)
+	}
+
+	return &session, nil
 }

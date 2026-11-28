@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -27,11 +28,15 @@ type AuthClient interface {
 	Login(ctx context.Context, email, password string) (*pbAuth.Session, error)
 	Logout(ctx context.Context, sessionID string) error
 	CheckSession(ctx context.Context, sessionID string) (SessionInfo, error)
+	RefreshSession(ctx context.Context, sessionID string) (*pbAuth.Session, error)
 }
 
 type SessionInfo struct {
-	UserID int64
-	Role   string
+	RefreshSupported bool
+	ExpiresAt        time.Time
+	LastRefreshedAt  time.Time
+	UserID           int64
+	Role             string
 }
 
 type authClient struct {
@@ -112,7 +117,29 @@ func (c *authClient) CheckSession(ctx context.Context, sessionId string) (Sessio
 	}
 
 	return SessionInfo{
-		UserID: resp.GetUserId(),
-		Role:   resp.GetRole(),
+		RefreshSupported: resp.GetExpiresAt() != nil && resp.GetLastRefreshedAt() != nil,
+		UserID:           resp.GetUserId(),
+		ExpiresAt:        resp.GetExpiresAt().AsTime(),
+		LastRefreshedAt:  resp.GetLastRefreshedAt().AsTime(),
+		Role:             resp.GetRole(),
 	}, nil
+}
+
+func (c *authClient) RefreshSession(ctx context.Context, sessionID string) (*pbAuth.Session, error) {
+	response, err := c.client.RefreshSession(ctx, &pbAuth.RefreshSessionRequest{SessionId: sessionID})
+	if err != nil {
+		switch status.Code(err) {
+		case codes.NotFound, codes.Unauthenticated, codes.InvalidArgument:
+			return nil, ErrSessionNotFound
+		default:
+			return nil, fmt.Errorf("%w: %w", ErrInternal, err)
+		}
+	}
+
+	session := response.GetSession()
+	if session == nil || session.GetId() != sessionID || session.GetExpiresAt() == nil || session.GetExpiresAt().CheckValid() != nil {
+		return nil, ErrInternal
+	}
+
+	return session, nil
 }

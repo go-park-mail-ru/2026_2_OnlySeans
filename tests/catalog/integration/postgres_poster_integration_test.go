@@ -1,17 +1,18 @@
 //go:build integration
 
-package files_test
+package integration_test
 
 import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/tests/testutil"
 	"os"
 	"testing"
 	"time"
 
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/internal/domain"
-	filesservice "github.com/go-park-mail-ru/2026_2_OnlySeans/internal/services/files"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/services/catalog/internal/domain"
+	filesservice "github.com/go-park-mail-ru/2026_2_OnlySeans/services/catalog/internal/repository/postgres"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/stretchr/testify/require"
 )
@@ -55,7 +56,7 @@ func TestPostgresPosterRepoLifecycle(t *testing.T) {
 		_, err := db.ExecContext(ctx, query)
 		require.NoError(t, err)
 	}
-	repo, err := filesservice.NewPostgresPosterRepo(db, testFilesLogger(t))
+	repo, err := filesservice.NewPosterRepo(db, testutil.DiscardLogger())
 	require.NoError(t, err)
 	tests := []struct {
 		name           string
@@ -134,7 +135,12 @@ func TestPostgresPosterRepoLifecycle(t *testing.T) {
 					require.NoError(t, err)
 				})
 			}
-			err := repo.SavePoster(ctx, tt.filmID, tt.userID, domain.PosterFile{Filename: tt.filename, ContentType: "image/png", Size: 123})
+
+			err := repo.SavePoster(ctx, tt.filmID, tt.userID, domain.PosterFile{
+				Filename:    tt.filename,
+				ContentType: "image/png",
+				Size:        123,
+			})
 			switch {
 			case tt.wantErr != nil:
 				require.ErrorIs(t, err, tt.wantErr)

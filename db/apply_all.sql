@@ -16,3 +16,6 @@
 \ir migrations/000015_review_version.up.sql
 \ir ../services/persons/db/migrations/000017_person_catalog_details.up.sql
 \ir ../services/catalog/db/migrations/000018_account_preferences.up.sql
+\ir ../services/catalog/db/migrations/000019_release_calendar.up.sql
+\ir ../services/catalog/db/migrations/000021_preserve_release_history.up.sql
+\ir migrations/000022_file_cleanup.up.sql

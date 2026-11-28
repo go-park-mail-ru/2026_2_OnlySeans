@@ -16,7 +16,10 @@ type CatalogRepo struct {
 }
 
 func NewCatalogRepo(db *sql.DB, appLogger logger.Logger) *CatalogRepo {
-	return &CatalogRepo{appLogger: appLogger, db: db}
+	return &CatalogRepo{
+		appLogger: appLogger,
+		db:        db,
+	}
 }
 
 const (

@@ -21,6 +21,7 @@ tags:
   - name: Персоны
   - name: Файлы
   - name: Библиотека
+  - name: Календарь релизов
   - name: Настройки
 security: []
 x-cors:
@@ -30,6 +31,7 @@ x-cors:
     - GET
     - POST
     - PUT
+    - PATCH
     - DELETE
     - OPTIONS
   allow-headers:
@@ -1493,6 +1495,565 @@ paths:
                 $ref: '#/components/schemas/Error'
         '500':
           $ref: '#/components/responses/InternalError'
+  /api/releases:
+    get:
+      tags:
+      - Календарь релизов
+      operationId: listReleases
+      summary: Календарь релизов
+      description: 'Календарь по дате премьеры выбранного региона (по умолчанию russia). Обязательный диапазон [from, to), максимум 62 дня. Фильмы без
+        даты выбранного региона не включаются. Сортировка по выбранной дате, film_id. Календарь и список используют один
+        ответ. Даты YYYY-MM-DD без пересчёта часового пояса. Пустой результат: items: []. Для заполнения месяца загрузить
+        все страницы до total. Выбор страны и типа выхода не поддерживается. Cache-Control: no-store.'
+      x-implementation-status: implemented
+      security: []
+      parameters:
+      - name: region
+        in: query
+        schema:
+          type: string
+          enum: [world, russia]
+          default: russia
+      - name: from
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date
+      - name: to
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date
+      - name: genre_id
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 500
+          default: 100
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReleaseCalendarPage'
+        '400':
+          description: Неверные параметры или данные
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Объект не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Российская дата премьеры неизвестна или уже прошла
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Внутренняя ошибка
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/releases/featured:
+    get:
+      tags:
+      - Календарь релизов
+      operationId: featuredReleases
+      summary: Ближайшие премьеры для баннера
+      description: 'Ближайшие премьеры выбранного региона (по умолчанию russia): от сегодняшней даты по Europe/Moscow на 62 дня вперёд. По умолчанию
+        3 фильма, максимум 10. offset разрешён только 0. Фильмы без даты выбранного региона не включаются.'
+      x-implementation-status: implemented
+      security: []
+      parameters:
+      - name: region
+        in: query
+        schema:
+          type: string
+          enum: [world, russia]
+          default: russia
+      - name: genre_id
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 3
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReleaseCalendarPage'
+        '400':
+          description: Неверные параметры или данные
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Объект не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Российская дата премьеры неизвестна или уже прошла
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Внутренняя ошибка
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/films/{id}/releases:
+    get:
+      tags:
+      - Календарь релизов
+      operationId: filmReleases
+      summary: Две даты премьер фильма
+      description: 'Возвращает items с одной записью фильма, включая неизвестные даты как null. Несуществующий фильм:
+        404.'
+      x-implementation-status: implemented
+      security: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 500
+          default: 100
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReleaseCalendarPage'
+        '400':
+          description: Неверные параметры или данные
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Объект не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Российская дата премьеры неизвестна или уже прошла
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Внутренняя ошибка
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    patch:
+      tags:
+      - Календарь релизов
+      operationId: updateRelease
+      summary: Изменить даты премьер фильма
+      description: Частичное обновление двух дат. Пропущенное поле сохраняется, null очищает дату. Календарь и напоминание
+        используют russia_premiere_date. Подписка на фильм сохраняется при переносе и очистке даты.
+      x-implementation-status: implemented
+      security:
+      - sessionCookie: []
+      x-required-roles:
+      - admin
+      - editor
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReleaseCalendarPatch'
+      responses:
+        '204':
+          description: Успешный ответ
+        '400':
+          description: Неверные параметры или данные
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Объект не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Российская дата премьеры неизвестна или уже прошла
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Внутренняя ошибка
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Требуется вход
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Требуется редактор каталога или администратор
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/me/release-subscriptions:
+    get:
+      tags:
+      - Календарь релизов
+      operationId: myReleaseSubscriptions
+      summary: Свои подписки на премьеры
+      description: 'Подписки текущего пользователя на фильмы. Сопоставлять film_id с календарём. Включает фильмы с
+        неизвестной или прошедшей российской датой. Cache-Control: no-store.'
+      x-implementation-status: implemented
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 500
+          default: 100
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReleaseCalendarPage'
+        '400':
+          description: Неверные параметры или данные
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Объект не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Российская дата премьеры неизвестна или уже прошла
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Внутренняя ошибка
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Требуется вход
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/me/release-subscriptions/{id}:
+    put:
+      tags:
+      - Календарь релизов
+      operationId: subscribeToRelease
+      summary: Напомнить о премьере
+      description: 'ID фильма. Без тела. Повторная подписка идемпотентна. Неизвестная или прошедшая российская дата:
+        409. Напоминание сохраняется на сайте после 09:00 Europe/Moscow в день российской премьеры. Перенос даты сохраняет
+        подписку, null приостанавливает напоминание. Повторное уведомление по уже доставленному фильму не создаётся.'
+      x-implementation-status: implemented
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+      responses:
+        '204':
+          description: Успешный ответ
+        '400':
+          description: Неверные параметры или данные
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Объект не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Российская дата премьеры неизвестна или уже прошла
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Внутренняя ошибка
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Требуется вход
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+      - Календарь релизов
+      operationId: unsubscribeFromRelease
+      summary: Отменить напоминание
+      description: Идемпотентно, включая отсутствующую подписку. Уже сохранённые уведомления остаются.
+      x-implementation-status: implemented
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+      responses:
+        '204':
+          description: Успешный ответ
+        '400':
+          description: Неверные параметры или данные
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Объект не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Российская дата премьеры неизвестна или уже прошла
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Внутренняя ошибка
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Требуется вход
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/me/notifications:
+    get:
+      tags:
+      - Календарь релизов
+      operationId: myNotifications
+      summary: Свои уведомления
+      description: 'Только уведомления текущего пользователя. film_id у старых уведомлений может быть null. Сортировка
+        created_at DESC, id DESC. Cache-Control: no-store.'
+      x-implementation-status: implemented
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 500
+          default: 100
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReleaseNotificationPage'
+        '400':
+          description: Неверные параметры или данные
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Объект не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Российская дата премьеры неизвестна или уже прошла
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Внутренняя ошибка
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Требуется вход
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/me/notifications/{id}/read:
+    put:
+      tags:
+      - Календарь релизов
+      operationId: readMyNotification
+      summary: Отметить уведомление прочитанным
+      description: 'Без тела. Повторный запрос идемпотентен. Чужое или отсутствующее уведомление: 404.'
+      x-implementation-status: implemented
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+      responses:
+        '204':
+          description: Успешный ответ
+        '400':
+          description: Неверные параметры или данные
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Объект не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Российская дата премьеры неизвестна или уже прошла
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Внутренняя ошибка
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Требуется вход
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 components:
   securitySchemes:
     sessionCookie:
@@ -1500,12 +2061,14 @@ components:
       in: cookie
       name: session_id
       description: |-
-        ID серверной сессии — UUID. Сессия действует 168 часов и не продлевается при активности.
+        ID серверной сессии — UUID. Новые сессии действуют 72 часа.
+        Middleware продлевает действующую сессию на 72 часа при первом авторизованном запросе нового дня
+        по Москве. Отдельного HTTP-запроса для продления не требуется.
         Браузер отправляет cookie с credentials: include. HttpOnly закрывает доступ из JavaScript.
   headers:
     SetSessionCookie:
       description: |-
-        Cookie session_id: Path=/; Expires (через 168 часов); HttpOnly; SameSite=Lax.
+        Cookie session_id: Path=/; Expires (через 72 часа); HttpOnly; SameSite=Lax.
         Secure задаётся полем CookieSecure обработчика, сейчас false. Domain и Max-Age не задаются.
       schema:
         type: string
@@ -1541,6 +2104,110 @@ components:
         minimum: 0
         default: 0
   schemas:
+    ReleaseCalendarItem:
+      description: Карточка календаря без полного описания фильма. Полное описание доступно через GET /api/films/{id}.
+      type: object
+      required:
+      - film_id
+      - world_premiere_date
+      - russia_premiere_date
+      - film
+      properties:
+        film_id:
+          type: integer
+          format: int64
+        world_premiere_date:
+          type: string
+          format: date
+          nullable: true
+        russia_premiere_date:
+          type: string
+          format: date
+          nullable: true
+        film:
+          $ref: '#/components/schemas/Film'
+    ReleaseCalendarPage:
+      type: object
+      required:
+      - items
+      - total
+      - limit
+      - offset
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReleaseCalendarItem'
+        total:
+          type: integer
+          format: int64
+        limit:
+          type: integer
+        offset:
+          type: integer
+    ReleaseCalendarPatch:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        world_premiere_date:
+          x-go-type: json.RawMessage
+          x-go-type-skip-optional-pointer: true
+          type: string
+          format: date
+          nullable: true
+        russia_premiere_date:
+          x-go-type: json.RawMessage
+          x-go-type-skip-optional-pointer: true
+          type: string
+          format: date
+          nullable: true
+    ReleaseNotification:
+      type: object
+      required:
+      - id
+      - message
+      - is_read
+      - created_at
+      - film_id
+      - notification_type
+      properties:
+        id:
+          type: integer
+          format: int64
+        message:
+          type: string
+        is_read:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        notification_type:
+          type: string
+          nullable: true
+        film_id:
+          type: integer
+          format: int64
+          nullable: true
+    ReleaseNotificationPage:
+      type: object
+      required:
+      - items
+      - total
+      - limit
+      - offset
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReleaseNotification'
+        total:
+          type: integer
+          format: int64
+        limit:
+          type: integer
+        offset:
+          type: integer
     FilmInput:
       type: object
       additionalProperties: false

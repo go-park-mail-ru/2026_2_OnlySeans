@@ -18,10 +18,11 @@ import (
 
 func mapDomainToPBSession(s domain.Session) *pb.Session {
 	return &pb.Session{
-		Id:        s.ID.String(),
-		UserId:    int64(s.UserID),
-		Role:      s.Role,
-		ExpiresAt: timestamppb.New(s.ExpiresAt),
+		Id:              s.ID.String(),
+		UserId:          int64(s.UserID),
+		Role:            s.Role,
+		ExpiresAt:       timestamppb.New(s.ExpiresAt),
+		LastRefreshedAt: timestamppb.New(s.LastRefreshedAt),
 	}
 }
 
@@ -54,7 +55,7 @@ func (h *AuthHandler) Login(ctx context.Context, req *pb.LoginRequest) (*pb.Logi
 	}
 
 	if errors.Is(err, domain.ErrInvalidCredentials) {
-		return nil, status.Error(codes.Unauthenticated, "invalid email or password")
+		return nil, status.Error(codes.Unauthenticated, domain.ErrInvalidCredentials.Error())
 	}
 
 	if err != nil {
@@ -88,7 +89,7 @@ func (h *AuthHandler) CheckSession(ctx context.Context, req *pb.CheckSessionRequ
 
 	info, err := h.usecase.CheckSession(ctx, sessionID)
 	if errors.Is(err, domain.ErrSessionNotFound) || errors.Is(err, domain.ErrSessionExpired) {
-		return nil, status.Error(codes.Unauthenticated, "session not found or expired")
+		return nil, status.Error(codes.Unauthenticated, domain.ErrSessionNotFound.Error())
 	}
 
 	if err != nil {
@@ -96,7 +97,31 @@ func (h *AuthHandler) CheckSession(ctx context.Context, req *pb.CheckSessionRequ
 	}
 
 	return &pb.CheckSessionResponse{
-		UserId: info.UserID,
-		Role:   info.Role,
+		UserId:          info.UserID,
+		ExpiresAt:       timestamppb.New(info.ExpiresAt),
+		LastRefreshedAt: timestamppb.New(info.LastRefreshedAt),
+		Role:            info.Role,
 	}, nil
+}
+
+func (h *AuthHandler) RefreshSession(ctx context.Context, req *pb.RefreshSessionRequest) (*pb.RefreshSessionResponse, error) {
+	sessionID, err := uuid.Parse(req.GetSessionId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid session id format")
+	}
+
+	session, err := h.usecase.RefreshSession(ctx, sessionID)
+	if errors.Is(err, domain.ErrSessionNotFound) || errors.Is(err, domain.ErrSessionExpired) {
+		return nil, status.Error(codes.Unauthenticated, domain.ErrSessionNotFound.Error())
+	}
+
+	if err != nil {
+		return nil, grpcutil.ToGRPCError(err)
+	}
+
+	if session == nil {
+		return nil, status.Error(codes.Internal, "internal server error")
+	}
+
+	return &pb.RefreshSessionResponse{Session: mapDomainToPBSession(*session)}, nil
 }

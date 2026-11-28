@@ -170,7 +170,7 @@ func (h *PosterHandler) writePosterError(ctx context.Context, w http.ResponseWri
 		errors.Is(err, catalogclient.ErrPosterDimensionsTooLarge):
 		httpresponse.WriteErrorContext(ctx, w, http.StatusBadRequest, err.Error(), h.appLogger)
 	default:
-		httpresponse.WriteErrorContext(ctx, w, http.StatusInternalServerError, httpresponse.InternalErrorMessage, h.appLogger)
+		httpresponse.WriteErrorContext(ctx, w, http.StatusInternalServerError, "internal server error", h.appLogger)
 	}
 }
 

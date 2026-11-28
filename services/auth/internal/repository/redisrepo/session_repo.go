@@ -8,21 +8,35 @@ import (
 	"math"
 	"time"
 
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/services/auth/internal/domain"
-	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/logger"
 	"github.com/google/uuid"
 	"github.com/redis/rueidis"
+
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/services/auth/internal/domain"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/logger"
+	"github.com/go-park-mail-ru/2026_2_OnlySeans/shared/pkg/sessionpolicy"
 )
 
 const (
-	sessionKeyPrefix = "session:"
+	sessionKeyPrefix     = "session:"
+	refreshMaxAttempts   = 8
+	transactionExecIndex = 2
+)
+
+const (
+	sessionBackendField   = "backend"
+	sessionBackendName    = "redis"
+	sessionOperationField = "operation"
+	sessionDurationField  = "duration_ms"
+	sessionOutcomeField   = "outcome"
+	sessionOutcomeOK      = "ok"
 )
 
 type sessionDTO struct {
-	ID        uuid.UUID     `json:"id"`
-	UserID    domain.UserID `json:"user_id"`
-	Role      string        `json:"role"`
-	ExpiresAt time.Time     `json:"expires_at"`
+	ID              uuid.UUID     `json:"id"`
+	UserID          domain.UserID `json:"user_id"`
+	Role            string        `json:"role"`
+	ExpiresAt       time.Time     `json:"expires_at"`
+	LastRefreshedAt time.Time     `json:"last_refreshed_at"`
 }
 
 type RedisSessionStore struct {
@@ -56,10 +70,11 @@ func (s *RedisSessionStore) Create(ctx context.Context, session domain.Session) 
 	}
 
 	data, err := json.Marshal(sessionDTO{
-		ID:        session.ID,
-		UserID:    session.UserID,
-		Role:      session.Role,
-		ExpiresAt: session.ExpiresAt,
+		ID:              session.ID,
+		UserID:          session.UserID,
+		Role:            session.Role,
+		ExpiresAt:       session.ExpiresAt,
+		LastRefreshedAt: session.LastRefreshedAt,
 	})
 	if err != nil {
 		return fmt.Errorf("encode session: %w", err)
@@ -110,10 +125,11 @@ func (s *RedisSessionStore) Get(ctx context.Context, sessionID uuid.UUID) (_ *do
 	}
 
 	return &domain.Session{
-		ID:        session.ID,
-		UserID:    session.UserID,
-		Role:      session.Role,
-		ExpiresAt: session.ExpiresAt,
+		ID:              session.ID,
+		UserID:          session.UserID,
+		Role:            session.Role,
+		ExpiresAt:       session.ExpiresAt,
+		LastRefreshedAt: session.LastRefreshedAt,
 	}, nil
 }
 
@@ -142,24 +158,113 @@ func (s *RedisSessionStore) logOperation(ctx context.Context, operation string, 
 	}
 
 	fields := map[string]any{
-		"backend":     "redis",
-		"operation":   operation,
-		"duration_ms": time.Since(started).Milliseconds(),
+		sessionBackendField:   sessionBackendName,
+		sessionOperationField: operation,
+		sessionDurationField:  time.Since(started).Milliseconds(),
 	}
 
 	if errors.Is(err, domain.ErrSessionNotFound) {
-		fields["outcome"] = "not_found"
+		fields[sessionOutcomeField] = "not_found"
 		s.appLogger.InfoContext(ctx, "session operation completed", fields)
+
 		return
 	}
 
 	if err != nil {
-		fields["outcome"] = "error"
+		fields[sessionOutcomeField] = "error"
 		fields["error"] = err.Error()
 		s.appLogger.ErrorContext(ctx, "session operation failed", fields)
+
 		return
 	}
 
-	fields["outcome"] = "ok"
+	fields[sessionOutcomeField] = sessionOutcomeOK
 	s.appLogger.InfoContext(ctx, "session operation completed", fields)
+}
+
+func (s *RedisSessionStore) Refresh(ctx context.Context, sessionID uuid.UUID, expiresAt time.Time) (_ *domain.Session, operationErr error) {
+	started := time.Now()
+	defer func() { s.logOperation(ctx, "session.refresh", started, operationErr) }()
+
+	key := sessionKey(sessionID)
+	var result *domain.Session
+
+	err := s.client.Dedicated(func(client rueidis.DedicatedClient) error {
+		defer func() { _ = client.Do(ctx, client.B().Unwatch().Build()).Error() }()
+
+		for range refreshMaxAttempts {
+			if err := client.Do(ctx, client.B().Watch().Key(key).Build()).Error(); err != nil {
+				return err
+			}
+
+			raw, err := client.Do(ctx, client.B().Get().Key(key).Build()).ToString()
+			if rueidis.IsRedisNil(err) {
+				return domain.ErrSessionNotFound
+			}
+
+			if err != nil {
+				return err
+			}
+
+			var current sessionDTO
+			if err = json.Unmarshal([]byte(raw), &current); err != nil {
+				return err
+			}
+
+			now := time.Now()
+			if !current.ExpiresAt.After(now) {
+				return domain.ErrSessionNotFound
+			}
+
+			if sessionpolicy.NeedsRefresh(current.LastRefreshedAt, now) {
+				if !expiresAt.After(now) {
+					return domain.ErrSessionNotFound
+				}
+
+				current.ExpiresAt = expiresAt.UTC().Truncate(time.Millisecond)
+				current.LastRefreshedAt = now.UTC().Truncate(time.Millisecond)
+
+				data, encodeErr := json.Marshal(current)
+				if encodeErr != nil {
+					return encodeErr
+				}
+
+				replies := client.DoMulti(ctx,
+					client.B().Multi().Build(),
+					client.B().Set().Key(key).Value(string(data)).Xx().PxatMillisecondsTimestamp(current.ExpiresAt.UnixMilli()).Build(),
+					client.B().Exec().Build(),
+				)
+				for i, reply := range replies {
+					if err = reply.Error(); err != nil {
+						if i == transactionExecIndex && rueidis.IsRedisNil(err) {
+							break
+						}
+
+						return err
+					}
+				}
+
+				if rueidis.IsRedisNil(err) {
+					continue
+				}
+			}
+
+			result = &domain.Session{
+				ID:              current.ID,
+				UserID:          current.UserID,
+				Role:            current.Role,
+				ExpiresAt:       current.ExpiresAt,
+				LastRefreshedAt: current.LastRefreshedAt,
+			}
+
+			return nil
+		}
+
+		return errors.New("session refresh transaction retry limit exceeded")
+	})
+	if err != nil {
+		return nil, fmt.Errorf("refresh session: %w", err)
+	}
+
+	return result, nil
 }

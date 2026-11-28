@@ -17,8 +17,11 @@ import (
 )
 
 const (
-	SessionCookieName = "session_id"
-	roleUser          = "reader"
+	SessionCookieName          = "session_id"
+	roleUser                   = "reader"
+	expiredSessionCookieMaxAge = -1
+	requestBodyField           = "body"
+	authOperationField         = "operation"
 )
 
 type AuthHandler struct {
@@ -47,8 +50,8 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	var req registerRequest
 	if err := httprequest.DecodeJSON(w, r, &req); err != nil {
-		httprequest.LogRejected(l, r, "body", err)
-		httpresponse.WriteErrorContext(ctx, w, http.StatusBadRequest, "invalid request body", l)
+		httprequest.LogRejected(l, r, requestBodyField, err)
+		httpresponse.WriteErrorContext(ctx, w, http.StatusBadRequest, httprequest.ErrInvalidBody.Error(), l)
 
 		return
 	}
@@ -105,8 +108,8 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	var req loginRequest
 	if err := httprequest.DecodeJSON(w, r, &req); err != nil {
-		httprequest.LogRejected(l, r, "body", err)
-		httpresponse.WriteErrorContext(ctx, w, http.StatusBadRequest, "invalid request body", l)
+		httprequest.LogRejected(l, r, requestBodyField, err)
+		httpresponse.WriteErrorContext(ctx, w, http.StatusBadRequest, httprequest.ErrInvalidBody.Error(), l)
 
 		return
 	}
@@ -156,6 +159,7 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 		if err := h.authClient.Logout(ctx, cookie.Value); err != nil {
 			logAuthFailure(ctx, l, "logout", err)
 			httpresponse.WriteErrorContext(ctx, w, http.StatusInternalServerError, middleware.ErrInternal.Error(), l)
+
 			return
 		}
 	}
@@ -165,6 +169,7 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AuthHandler) setSessionCookie(w http.ResponseWriter, sessionID string, expiresAt time.Time) {
+	w.Header().Set("Cache-Control", "private, no-store")
 	http.SetCookie(w, &http.Cookie{
 		Name:     SessionCookieName,
 		Value:    sessionID,
@@ -177,11 +182,12 @@ func (h *AuthHandler) setSessionCookie(w http.ResponseWriter, sessionID string, 
 }
 
 func (h *AuthHandler) clearSessionCookie(w http.ResponseWriter) {
+	w.Header().Set("Cache-Control", "private, no-store")
 	http.SetCookie(w, &http.Cookie{
 		Name:     SessionCookieName,
 		Value:    "",
 		Path:     "/",
-		MaxAge:   -1,
+		MaxAge:   expiredSessionCookieMaxAge,
 		HttpOnly: true,
 		Secure:   h.CookieSecure,
 		SameSite: http.SameSiteLaxMode,
@@ -202,6 +208,7 @@ func (h *AuthHandler) Authorised(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logAuthFailure(ctx, l, "authorised.get_user", err)
 		httpresponse.WriteErrorContext(ctx, w, http.StatusInternalServerError, middleware.ErrInternal.Error(), l)
+
 		return
 	}
 
@@ -223,7 +230,8 @@ func logAuthFailure(ctx context.Context, appLogger logger.Logger, operation stri
 	if appLogger == nil {
 		return
 	}
+
 	fields := grpcutil.ErrorFields(err)
-	fields["operation"] = operation
+	fields[authOperationField] = operation
 	appLogger.ErrorContext(ctx, "authentication request failed", fields)
 }

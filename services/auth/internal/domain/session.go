@@ -7,18 +7,20 @@ import (
 )
 
 type Session struct {
-	ID        uuid.UUID
-	UserID    UserID
-	Role      string
-	ExpiresAt time.Time
+	ID              uuid.UUID
+	UserID          UserID
+	Role            string
+	ExpiresAt       time.Time
+	LastRefreshedAt time.Time
 }
 
 func NewSession(id uuid.UUID, userID UserID, role string, expiresAt time.Time) *Session {
 	return &Session{
-		ID:        id,
-		UserID:    userID,
-		Role:      role,
-		ExpiresAt: expiresAt,
+		ID:              id,
+		UserID:          userID,
+		Role:            role,
+		ExpiresAt:       expiresAt,
+		LastRefreshedAt: time.Now(),
 	}
 }
 
